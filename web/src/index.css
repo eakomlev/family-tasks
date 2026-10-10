@@ -7,6 +7,7 @@
   --accent: #4f46e5;
   --accent-text: #fff;
   --error: #c62828;
+  --on-error: #fff;
   --warning-bg: #fff4d6;
   color-scheme: light dark;
 }
@@ -20,6 +21,7 @@
     --border: #35344b;
     --accent: #7c75f0;
     --error: #ff8a80;
+    --on-error: #2a0a08;
     --warning-bg: #3d3416;
   }
 }
@@ -62,6 +64,7 @@ code { font-family: ui-monospace, monospace; word-break: break-all; }
 }
 .actions { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding-bottom: env(safe-area-inset-bottom); }
 .actions .btn { width: 100%; }
+.page > .btn, .stack > .btn { width: 100%; }
 
 .btn {
   display: inline-block; padding: 0.85rem 1.25rem;
@@ -70,6 +73,8 @@ code { font-family: ui-monospace, monospace; word-break: break-all; }
   font: inherit; font-weight: 600; text-align: center; text-decoration: none; cursor: pointer;
 }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.btn.danger { background: var(--error); border-color: var(--error); color: var(--on-error); }
+.btn.small { padding: 0.5rem 0.9rem; font-size: 0.9rem; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .link, .back { color: var(--accent); text-decoration: none; }
@@ -103,6 +108,8 @@ code { font-family: ui-monospace, monospace; word-break: break-all; }
 
 .members { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
 .members li {
-  display: flex; justify-content: space-between; gap: 1rem; padding: 0.75rem 1rem;
+  display: flex; flex-direction: column; gap: 0.6rem; padding: 0.75rem 1rem;
   border: 1px solid var(--border); border-radius: 0.8rem; background: var(--surface);
 }
+.members .row { display: flex; justify-content: space-between; gap: 1rem; }
+.members .invite-box { border-style: solid; }

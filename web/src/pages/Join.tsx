@@ -2,7 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError, checkInvite, joinFamily } from '../api'
 import { RoleForm } from '../components/RoleForm'
-import { useIdentity } from '../identity'
+import { ReplaceGuard } from '../components/ReplaceGuard'
+import { useIdentity } from '../identityContext'
 import { JOIN_ROLES, type Role } from '../roles'
 
 // принимает и полную ссылку, и просто код
@@ -40,7 +41,7 @@ function EnterCode() {
 type InviteState = 'checking' | 'ok' | 'not_found' | 'expired' | 'error'
 
 function JoinWithCode({ code }: { code: string }) {
-  const { identity, save } = useIdentity()
+  const { save } = useIdentity()
   const navigate = useNavigate()
   const [invite, setInvite] = useState<InviteState>('checking')
   const [busy, setBusy] = useState(false)
@@ -88,12 +89,9 @@ function JoinWithCode({ code }: { code: string }) {
   return (
     <>
       <p>Вас приглашают в семью.</p>
-      {identity && (
-        <p className="warning">
-          Вы уже состоите в семье на этом устройстве. Если присоединитесь, текущий вход будет заменён.
-        </p>
-      )}
-      <RoleForm roles={JOIN_ROLES} submitLabel="Присоединиться" busy={busy} error={error} onSubmit={handleSubmit} />
+      <ReplaceGuard>
+              <RoleForm roles={JOIN_ROLES} submitLabel="Присоединиться" busy={busy} error={error} onSubmit={handleSubmit} />
+      </ReplaceGuard>
     </>
   )
 }

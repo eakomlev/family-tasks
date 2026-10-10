@@ -1,41 +1,32 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-
-interface State {
-  invite?: { code: string; expiresAt: string }
-}
+import { getInvite, type Link } from '../api'
+import { LinkBox } from '../components/LinkBox'
+import { useIdentity } from '../identityContext'
+import { inviteLink } from '../links'
 
 export default function FamilyCreated() {
-  const { state } = useLocation() as { state: State | null }
+  const { identity } = useIdentity()
+  const { state } = useLocation() as { state: { invite?: Link } | null }
   const navigate = useNavigate()
-  const [copied, setCopied] = useState(false)
+  // после обновления страницы state теряется, поэтому приглашение можно запросить заново
+  const [invite, setInvite] = useState<Link | undefined>(state?.invite)
+  const [failed, setFailed] = useState(false)
 
-  const invite = state?.invite
-  // страницу открыли напрямую или обновили — приглашения у нас уже нет
-  if (!invite) return <Navigate to="/family" replace />
+  useEffect(() => {
+    if (invite || !identity) return
+    getInvite(identity.token).then(setInvite).catch(() => setFailed(true))
+  }, [invite, identity])
 
-  const link = `${window.location.origin}/join?code=${encodeURIComponent(invite.code)}`
-  const expires = new Date(invite.expiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(link)
-      setCopied(true)
-    } catch {
-      /* без clipboard ссылку можно выделить и скопировать вручную */
-    }
-  }
+  if (!identity || failed) return <Navigate to="/family" replace />
 
   return (
     <main className="page">
       <div className="success" aria-hidden>🎉</div>
       <h1>Семья создана!</h1>
-      <p>Отправьте эту ссылку тем, кого хотите пригласить. Она действует до {expires}.</p>
+      <p>Отправьте эту ссылку тем, кого хотите пригласить.</p>
 
-      <div className="invite-box">
-        <code>{link}</code>
-        <button className="btn" type="button" onClick={copy}>{copied ? 'Скопировано' : 'Копировать'}</button>
-      </div>
+      {invite ? <LinkBox link={inviteLink(invite.code)} expiresAt={invite.expiresAt} /> : <p>Загрузка…</p>}
 
       <button className="btn primary" type="button" onClick={() => navigate('/family', { replace: true })}>
         ОК

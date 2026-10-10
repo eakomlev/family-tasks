@@ -1,5 +1,5 @@
 import { Link, Navigate } from 'react-router-dom'
-import { useIdentity } from '../identity'
+import { useIdentity } from '../identityContext'
 
 export default function Welcome() {
   const { identity } = useIdentity()

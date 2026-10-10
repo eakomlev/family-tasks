@@ -59,3 +59,23 @@ export const joinFamily = (inviteCode: string, role: Role, name: string) =>
 
 export const getMe = (token: string) =>
   request<{ member: Member; family: { code: string }; members: Member[] }>('/me', {}, token)
+
+export interface Link {
+  code: string
+  expiresAt: string
+}
+
+export const getInvite = (token: string) => request<Link>('/invite', {}, token)
+
+export const renewInvite = (token: string) => request<Link>('/invite', { method: 'POST' }, token)
+
+export const createRecovery = (token: string, memberId: string) =>
+  request<Link>(`/members/${encodeURIComponent(memberId)}/recovery`, { method: 'POST' }, token)
+
+export const checkRecovery = (code: string) =>
+  request<{ name: string; role: Role }>(`/recoveries/${encodeURIComponent(code)}`)
+
+export const claimRecovery = (code: string) =>
+  request<Omit<CreateFamilyResult, 'invite'>>(`/recoveries/${encodeURIComponent(code)}/claim`, {
+    method: 'POST',
+  })
