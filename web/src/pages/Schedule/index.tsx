@@ -10,6 +10,7 @@ import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
 import { DayTabs } from './components/DayTabs'
 import { LessonList } from './components/LessonList'
+import { LessonViewList } from './components/LessonViewList'
 import { Subtitle } from './styles'
 import type { Days, LessonDraft } from './types'
 import {
@@ -29,12 +30,15 @@ export default function Schedule() {
   const { identity } = useIdentity()
   const { data } = useProfile()
 
-  const [days, setDays] = useState<Days>()
+  // saved — то, что лежит на сервере; draft — правки в режиме редактирования
+  const [saved, setSaved] = useState<Days>()
+  const [draft, setDraft] = useState<Days>()
+  const [mode, setMode] = useState<'view' | 'edit'>('view')
   const [day, setDay] = useState(defaultDay)
   const [loadFailed, setLoadFailed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string>()
-  const [saved, setSaved] = useState(false)
+  const [justSaved, setJustSaved] = useState(false)
 
   const isChild = identity?.role === 'child'
   const memberId = paramId ?? identity?.memberId
@@ -49,7 +53,7 @@ export default function Schedule() {
     if (!token || !memberId || !allowed) return
     let cancelled = false
     getSchedule(token, memberId)
-      .then((res) => !cancelled && setDays(fromLessons(res.lessons)))
+      .then((res) => !cancelled && setSaved(fromLessons(res.lessons)))
       .catch(() => !cancelled && setLoadFailed(true))
     return () => { cancelled = true }
   }, [token, memberId, allowed])
@@ -58,29 +62,51 @@ export default function Schedule() {
     return <Navigate to={isChild ? '/settings' : '/family'} replace />
   }
 
+  const editing = mode === 'edit'
+  const days = editing ? draft : saved
   const dayLessons = days?.[day] ?? []
   const counts = Object.fromEntries(WEEKDAYS.map((d) => [d.value, days?.[d.value]?.length ?? 0]))
+  const hasAnyLessons = Object.values(saved ?? {}).some((list) => list.length > 0)
+
+  // есть ли несохранённые правки: сравниваем то, что реально уйдёт на сервер
+  const isDirty = !!draft && !!saved && JSON.stringify(toLessons(draft)) !== JSON.stringify(toLessons(saved))
+
+  function startEditing() {
+    if (!saved) return
+    setDraft(saved)
+    setError(undefined)
+    setJustSaved(false)
+    setMode('edit')
+  }
+
+  function cancelEditing() {
+    if (isDirty && !window.confirm('Отменить несохранённые изменения?')) return
+    setDraft(undefined)
+    setError(undefined)
+    setMode('view')
+  }
 
   function editDay(update: (list: LessonDraft[]) => LessonDraft[]) {
-    setDays((current) => current && { ...current, [day]: update(current[day] ?? []) })
-    setSaved(false)
+    setDraft((current) => current && { ...current, [day]: update(current[day] ?? []) })
     setError(undefined)
   }
 
   async function handleSave() {
-    if (!days || !token || !memberId) return
-    if (hasInvalidTime(days)) {
+    if (!draft || !token || !memberId) return
+    if (hasInvalidTime(draft)) {
       setError('У некоторых уроков время окончания раньше начала или совпадает с ним.')
       return
     }
     setSaving(true)
     setError(undefined)
     try {
-      const lessons = toLessons(days)
+      const lessons = toLessons(draft)
       await saveSchedule(token, memberId, lessons)
-      // пустые строки при сохранении отбрасываются, поэтому перечитываем состояние из того, что ушло на сервер
-      setDays(fromLessons(lessons))
-      setSaved(true)
+      // пустые строки при сохранении отбрасываются, поэтому показываем ровно то, что ушло на сервер
+      setSaved(fromLessons(lessons))
+      setDraft(undefined)
+      setJustSaved(true)
+      setMode('view')
     } catch (err) {
       setError(
         err instanceof ApiError && err.code === 'invalid_time'
@@ -99,36 +125,54 @@ export default function Schedule() {
       {!isOwn && target && <Subtitle>{target.name}</Subtitle>}
 
       {loadFailed && <Notice $tone="error">Не удалось загрузить расписание. Проверьте соединение.</Notice>}
-      {!days && !loadFailed && <p>Загрузка…</p>}
+      {!saved && !loadFailed && <p>Загрузка…</p>}
 
       {days && (
         <Stack>
           <DayTabs selected={day} counts={counts} onSelect={setDay} />
 
           <h2>{WEEKDAYS.find((d) => d.value === day)?.full}</h2>
-          {dayLessons.length === 0 && <Notice $tone="muted">В этот день уроков нет. Добавьте первый.</Notice>}
-          <LessonList
-            lessons={dayLessons}
-            onChange={(key, patch) =>
-              editDay((list) => list.map((l) => (l.key === key ? { ...l, ...patch } : l)))
-            }
-            onRemove={(key) => editDay((list) => list.filter((l) => l.key !== key))}
-            onReorder={(lessons) => editDay(() => lessons)}
-          />
 
-          <Button
-            type="button"
-            disabled={dayLessons.length >= MAX_LESSONS_PER_DAY}
-            onClick={() => editDay((list) => [...list, newLesson()])}
-          >
-            + Добавить урок
-          </Button>
+          {editing ? (
+            <>
+              {dayLessons.length === 0 && <Notice $tone="muted">В этот день уроков нет. Добавьте первый.</Notice>}
+              <LessonList
+                lessons={dayLessons}
+                onChange={(key, patch) =>
+                  editDay((list) => list.map((l) => (l.key === key ? { ...l, ...patch } : l)))
+                }
+                onRemove={(key) => editDay((list) => list.filter((l) => l.key !== key))}
+                onReorder={(lessons) => editDay(() => lessons)}
+              />
 
-          {error && <Notice $tone="error">{error}</Notice>}
-          {saved && <Notice $tone="muted">Расписание сохранено.</Notice>}
-          <Button $variant="primary" type="button" disabled={saving} onClick={handleSave}>
-            {saving ? 'Сохраняем…' : 'Сохранить расписание'}
-          </Button>
+              <Button
+                type="button"
+                disabled={dayLessons.length >= MAX_LESSONS_PER_DAY}
+                onClick={() => editDay((list) => [...list, newLesson()])}
+              >
+                + Добавить урок
+              </Button>
+
+              {error && <Notice $tone="error">{error}</Notice>}
+              <Button $variant="primary" type="button" disabled={saving} onClick={handleSave}>
+                {saving ? 'Сохраняем…' : 'Сохранить расписание'}
+              </Button>
+              <Button type="button" disabled={saving} onClick={cancelEditing}>Отмена</Button>
+            </>
+          ) : (
+            <>
+              {dayLessons.length === 0 && (
+                <Notice $tone="muted">
+                  {hasAnyLessons ? 'В этот день уроков нет.' : 'Расписание пока не составлено.'}
+                </Notice>
+              )}
+              <LessonViewList lessons={dayLessons} />
+              {justSaved && <Notice $tone="muted">Расписание сохранено.</Notice>}
+              <Button $variant="primary" type="button" onClick={startEditing}>
+                {hasAnyLessons ? 'Изменить' : 'Составить расписание'}
+              </Button>
+            </>
+          )}
         </Stack>
       )}
     </Page>
