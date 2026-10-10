@@ -6,7 +6,7 @@ import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
 import { EditLink, Header } from './styles'
 import type { TodayLessonsProps } from './types'
-import { lessonsForDay, scheduleWeekday } from './utils'
+import { capitalize, lessonsForDay, pickLessonDay } from './utils'
 
 // уроки ребёнка на сегодня; у родителей расписания нет, поэтому им блок не показываем
 export function TodayLessons({ now }: TodayLessonsProps) {
@@ -29,25 +29,24 @@ export function TodayLessons({ now }: TodayLessonsProps) {
 
   if (!isChild) return null
 
-  const today = lessonsForDay(lessons ?? [], scheduleWeekday(now))
+  const day = pickLessonDay(now, lessons ?? [])
+  const dayLessons = lessonsForDay(lessons ?? [], day.weekday)
 
   let empty: string | undefined
-  if (lessons && today.length === 0) {
-    if (lessons.length === 0) empty = 'Расписание ещё не составлено.'
-    else if (scheduleWeekday(now) === null) empty = 'Сегодня воскресенье, уроков нет.'
-    else empty = 'Сегодня уроков нет.'
+  if (lessons && dayLessons.length === 0) {
+    empty = lessons.length === 0 ? 'Расписание ещё не составлено.' : `${capitalize(day.label)} уроков нет.`
   }
 
   return (
     <Stack as="section">
       <Header>
-        <h2>Уроки сегодня</h2>
+        <h2>{lessons ? `Уроки ${day.label}` : 'Уроки'}</h2>
         <EditLink to="/settings/schedule">Расписание</EditLink>
       </Header>
       {failed && <Notice $tone="error">Не удалось загрузить расписание. Проверьте соединение.</Notice>}
       {!lessons && !failed && <p>Загрузка…</p>}
       {empty && <Notice $tone="muted">{empty}</Notice>}
-      {today.length > 0 && <LessonViewList lessons={today} />}
+      {dayLessons.length > 0 && <LessonViewList lessons={dayLessons} />}
     </Stack>
   )
 }
