@@ -5,7 +5,7 @@ import { Actions, Hero, Logo, WelcomePage } from './styles'
 
 export default function Welcome() {
   const { identity } = useIdentity()
-  if (identity) return <Navigate to="/family" replace />
+  if (identity) return <Navigate to="/tasks" replace />
 
   return (
     <WelcomePage>

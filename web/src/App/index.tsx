@@ -1,12 +1,17 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { AppShell } from '@/components/AppShell'
 import { GlobalStyle } from '@/components/GlobalStyle'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { IdentityProvider } from '@/identity'
+import Chat from '@/pages/Chat'
 import CreateFamily from '@/pages/CreateFamily'
 import Family from '@/pages/Family'
 import FamilyCreated from '@/pages/FamilyCreated'
 import Join from '@/pages/Join'
 import Login from '@/pages/Login'
+import MyDay from '@/pages/MyDay'
+import Settings from '@/pages/Settings'
+import Tasks from '@/pages/Tasks'
 import Welcome from '@/pages/Welcome'
 
 export default function App() {
@@ -21,7 +26,13 @@ export default function App() {
           <Route path="/created" element={<FamilyCreated />} />
           <Route path="/join" element={<Join />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/family" element={<Family />} />
+          <Route element={<AppShell />}>
+            <Route path="/tasks" element={<Tasks />} />
+            <Route path="/chat" element={<Chat />} />
+            <Route path="/my-day" element={<MyDay />} />
+            <Route path="/family" element={<Family />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
           <Route path="*" element={<Welcome />} />
         </Routes>
       </BrowserRouter>

@@ -50,7 +50,7 @@ cd server && npm run migrate:create -- имя   # migrate:up / migrate:down — 
 - **Приглашения** (`invites`): многоразовые, 7 дней. Новое приглашение удаляет старые (так можно отозвать утёкшую ссылку). Ссылка вида `/join?code=...`. Владелец видит и перевыпускает его на странице семьи.
 - Сервер за nginx: `trustProxy: true` для `X-Forwarded-For`. Rate limit — общий 120/мин и строгий 10/мин (`strictLimit` в `server/src/routes.ts`) на эндпоинты, где можно подбирать коды; строгий счётчик общий для этих маршрутов по IP. Сервер не должен торчать наружу в обход nginx.
 - Состояние идентичности: `web/src/identity/` (провайдер читает IndexedDB, хук `useIdentity` в `context.ts`, `toIdentity` превращает ответ сервера в `Identity`). Если API отвечает 401, страница семьи очищает идентичность и возвращает на приветствие.
-- Маршруты фронтенда: `/`, `/create`, `/created`, `/join`, `/login`, `/family`. nginx отдаёт `index.html` для любого пути (SPA fallback), `sw.js` и манифест не кэшируются.
+- Маршруты фронтенда: публичные `/`, `/create`, `/created`, `/join`, `/login` и разделы под `AppShell` (общий каркас: проверка входа и нижняя панель табов `TabBar`): `/tasks`, `/chat`, `/my-day`, `/family` («Моя семья»), `/settings`. Задачи, Чат, Мой день и Настройки пока заглушки (`components/Placeholder`). Новый раздел: страница в `pages/`, роут внутри `AppShell` в `App/index.tsx` и запись в `TABS` (`components/TabBar/utils.ts`). Вошедшего пользователя `Welcome` отправляет на `/tasks`. nginx отдаёт `index.html` для любого пути (SPA fallback), `sw.js` и манифест не кэшируются.
 - PWA: в Workbox `navigateFallbackDenylist` исключает `/api/`. Иконки генерируются из `web/public/icon.svg` командой `npm run generate-pwa-assets` (в `web/`).
 
 ## Структура `web/src`
