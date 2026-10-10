@@ -61,7 +61,7 @@ cd server && npm run migrate:create -- имя   # migrate:up / migrate:down — 
 - `pages/<Page>/` — страницы (default export), у них свои `components/`.
 - `components/` — общие компоненты. Базовые примитивы (`Button`, `Input`, `Notice`, `Page`, `Stack`, `BackLink`) объявлены как styled-компоненты прямо в `index.tsx`; варианты задаются transient-пропсами (`$variant`, `$tone`), ссылки получаются через `as={Link}`.
 - `GlobalStyle/` — глобальные стили. Цвета заданы CSS-переменными, тёмная тема через `prefers-color-scheme`, в styled-компонентах используйте `var(--...)`, а не жёсткие цвета.
-- `api/` (`index.ts` + `types.ts`), `identity/` (провайдер, `context.ts` с хуком `useIdentity`, `utils.ts`) — не UI. Хук вынесен из `index.tsx` ради fast refresh.
+- `api/` — клиент API по доменам: `client.ts` (`request`, `ApiError`), `auth/`, `families/`, `invites/` (в каждом `index.ts` с функциями и `types.ts`), наружу всё реэкспортирует `api/index.ts`, поэтому импортируем из `@/api`. Новый эндпоинт кладём в свой домен. `identity/` (провайдер, `context.ts` с хуком `useIdentity`, `utils.ts`) — не UI. Хук вынесен из `index.tsx` ради fast refresh.
 - `lib/` — мелкие общие модули без UI (`roles`, `links`, `errors`, `validation`).
 
 ## Соглашения
