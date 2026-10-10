@@ -10,7 +10,8 @@
     "migrate:create": "node --env-file-if-exists=../.env node_modules/node-pg-migrate/bin/node-pg-migrate.js create -j sql --migrations-dir migrations",
     "migrate:up": "node --env-file-if-exists=../.env node_modules/node-pg-migrate/bin/node-pg-migrate.js up --migrations-dir migrations",
     "migrate:down": "node --env-file-if-exists=../.env node_modules/node-pg-migrate/bin/node-pg-migrate.js down --migrations-dir migrations",
-    "vapid": "web-push generate-vapid-keys"
+    "vapid": "web-push generate-vapid-keys",
+    "notify:tick": "tsx --env-file=../.env scripts/tick.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",
