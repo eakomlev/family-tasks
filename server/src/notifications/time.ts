@@ -17,7 +17,12 @@ export const SLOTS = {
   lessons: { hour: 17, windowMinutes: 120 },
 }
 
-export type Slot = (typeof SLOTS)[keyof typeof SLOTS]
+// За сколько до начала тренировки напоминать и сколько после этого момента ещё можно отправить
+// (запас на случай, если сервер на минуту-другую был недоступен; позже уже не «за 2 часа»).
+export const TRAINING_LEAD_MINUTES = 120
+export const TRAINING_WINDOW_MINUTES = 15
+
+export type Slot = { hour: number; windowMinutes: number }
 
 export function isValidTimeZone(timeZone: string): boolean {
   try {
@@ -60,4 +65,10 @@ export function isDue(local: LocalTime, slot: Slot): boolean {
   const minutes = local.hour * 60 + local.minute
   const start = slot.hour * 60
   return minutes >= start && minutes < start + slot.windowMinutes
+}
+
+// YYYY-MM-DD плюс days дней (календарная арифметика, без часовых поясов)
+export function addDays(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10)
 }

@@ -5,7 +5,9 @@ import {
   lessonsMessage,
   type LessonInfo,
   type MemberInfo,
+  trainingMessages,
   type PlannedMessage,
+  type TrainingInfo,
 } from './messages.js'
 import { isDue, localTime, SLOTS, type LocalTime } from './time.js'
 
@@ -39,6 +41,15 @@ async function loadFamily(familyId: string): Promise<MemberInfo[]> {
   return rows
 }
 
+async function loadTrainings(memberId: string): Promise<TrainingInfo[]> {
+  const { rows } = await pool.query(
+    `select weekday, title, place, to_char(starts_at, 'HH24:MI') as "startsAt"
+     from training_sessions where member_id = $1 and starts_at is not null`,
+    [memberId],
+  )
+  return rows
+}
+
 async function loadLessons(memberId: string): Promise<LessonInfo[]> {
   const { rows } = await pool.query(
     `select weekday, subject, to_char(starts_at, 'HH24:MI') as "startsAt", to_char(ends_at, 'HH24:MI') as "endsAt"
@@ -60,6 +71,7 @@ export async function runTick(now = new Date()): Promise<{ sent: number }> {
 
   const families = new Map<string, MemberInfo[]>()
   const schedules = new Map<string, LessonInfo[]>()
+  const trainings = new Map<string, TrainingInfo[]>()
   let sent = 0
 
   for (const sub of subs) {
@@ -83,8 +95,14 @@ export async function runTick(now = new Date()): Promise<{ sent: number }> {
       if (message) planned.push(message)
     }
 
-    for (const { kind, message } of planned) {
-      if (!(await claim(sub.id, kind, local.date))) continue
+    // напоминания о тренировках не привязаны к окну дня: время зависит от начала самой тренировки
+    if (sub.role === 'child') {
+      if (!trainings.has(sub.member_id)) trainings.set(sub.member_id, await loadTrainings(sub.member_id))
+      planned.push(...trainingMessages(trainings.get(sub.member_id)!, local))
+    }
+
+    for (const { kind, message, day } of planned) {
+      if (!(await claim(sub.id, kind, day ?? local.date))) continue
       if ((await sendPush(sub, message)) === 'sent') sent++
     }
   }

@@ -1,4 +1,4 @@
-import type { LocalTime } from './time.js'
+import { addDays, TRAINING_LEAD_MINUTES, TRAINING_WINDOW_MINUTES, type LocalTime } from './time.js'
 
 export interface PushMessage {
   title: string
@@ -23,10 +23,21 @@ export interface LessonInfo {
   endsAt: string | null
 }
 
+export interface TrainingInfo {
+  // 1 = понедельник ... 7 = воскресенье
+  weekday: number
+  title: string
+  place: string | null
+  startsAt: string | null
+}
+
 export interface PlannedMessage {
   // ключ для журнала отправленного
   kind: string
   message: PushMessage
+  // локальная дата, к которой относится уведомление (по умолчанию сегодняшняя): тренировка рано утром
+  // анонсируется накануне вечером, а в журнале запись должна относиться ко дню самой тренировки
+  day?: string
 }
 
 const isLeapYear = (year: number) => (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
@@ -122,4 +133,39 @@ export function lessonsMessage(lessons: LessonInfo[], local: LocalTime): Planned
       tag: 'lessons',
     },
   }
+}
+
+const minutesOf = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
+
+// Напоминание за два часа до начала тренировки. Тренировки без времени начала не напоминаем.
+// Смотрим сегодняшние тренировки и завтрашние: у тех, что начинаются сразу после полуночи,
+// «за два часа» приходится ещё на сегодняшний вечер.
+export function trainingMessages(trainings: TrainingInfo[], local: LocalTime): PlannedMessage[] {
+  const nowMinutes = local.hour * 60 + local.minute
+  const todayIso = local.weekday || 7
+  const result: PlannedMessage[] = []
+
+  for (const dayOffset of [0, 1]) {
+    const weekday = ((todayIso - 1 + dayOffset) % 7) + 1
+    for (const training of trainings) {
+      if (training.weekday !== weekday || !training.startsAt) continue
+
+      // момент начала в минутах от сегодняшней полуночи
+      const remindAt = dayOffset * 1440 + minutesOf(training.startsAt) - TRAINING_LEAD_MINUTES
+      if (nowMinutes < remindAt || nowMinutes >= remindAt + TRAINING_WINDOW_MINUTES) continue
+
+      const kind = `training:${training.startsAt}:${training.title}`
+      result.push({
+        kind,
+        day: addDays(local.date, dayOffset),
+        message: {
+          title: 'Через 2 часа тренировка',
+          body: `${training.title} в ${training.startsAt}${training.place ? ` · ${training.place}` : ''}`,
+          url: '/my-day',
+          tag: kind,
+        },
+      })
+    }
+  }
+  return result
 }

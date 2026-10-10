@@ -137,6 +137,9 @@ export default function Trainings() {
           {editing ? (
             <>
               {dayTrainings.length === 0 && <Notice $tone="muted">В этот день тренировок нет. Добавьте первую.</Notice>}
+              <Notice $tone="muted">
+                Если указать время начала, ребёнку придёт напоминание за 2 часа (уведомления включаются в «Настройках»).
+              </Notice>
               <SortableList items={dayTrainings} onReorder={(trainings) => editDay(() => trainings)}>
                 {dayTrainings.map((training, index) => (
                   <TrainingRow
