@@ -71,12 +71,25 @@ const avatarSchema = {
   pattern: '^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$',
 } as const
 
+// дата рождения приходит строкой YYYY-MM-DD (без времени и часовых поясов), null очищает
+const birthDateSchema = { type: ['string', 'null'], pattern: '^\\d{4}-\\d{2}-\\d{2}$' } as const
+
+const MIN_BIRTH_DATE = '1900-01-01'
+
+// реальная дата, не раньше 1900 и не из будущего (с запасом в сутки на часовые пояса)
+function isValidBirthDate(value: string): boolean {
+  const parsed = new Date(`${value}T00:00:00Z`)
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) return false
+  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
+  return value >= MIN_BIRTH_DATE && value <= tomorrow
+}
+
 const updateProfileSchema = {
   body: {
     type: 'object',
     additionalProperties: false,
     minProperties: 1,
-    properties: { name: nameSchema, avatar: avatarSchema },
+    properties: { name: nameSchema, avatar: avatarSchema, birthDate: birthDateSchema },
   },
 }
 
@@ -362,8 +375,9 @@ export async function routes(app: FastifyInstance) {
     const me = await authenticate(req)
     if (!me) return reply.code(401).send({ error: 'unauthorized' })
     const { rows: members } = await pool.query(
-      `select id, name, role, is_owner as "isOwner", avatar from members
-       where family_id = $1 order by created_at`,
+      `select id, name, role, is_owner as "isOwner", avatar,
+              to_char(birth_date, 'YYYY-MM-DD') as "birthDate"
+       from members where family_id = $1 order by created_at`,
       [me.family_id],
     )
     return {
@@ -374,6 +388,7 @@ export async function routes(app: FastifyInstance) {
         isOwner: me.is_owner,
         email: me.email,
         avatar: me.avatar,
+        birthDate: me.birth_date,
       },
       family: { code: me.family_code },
       members,
@@ -381,7 +396,7 @@ export async function routes(app: FastifyInstance) {
   })
 
   // изменение своего профиля: имя и/или фото (null удаляет фото). Email менять нельзя
-  app.patch<{ Body: { name?: string; avatar?: string | null } }>(
+  app.patch<{ Body: { name?: string; avatar?: string | null; birthDate?: string | null } }>(
     '/api/me',
     { schema: updateProfileSchema },
     async (req, reply) => {
@@ -398,6 +413,13 @@ export async function routes(app: FastifyInstance) {
         values.push(req.body.avatar)
         sets.push(`avatar = $${values.length}`)
       }
+      if (req.body.birthDate !== undefined) {
+        if (req.body.birthDate !== null && !isValidBirthDate(req.body.birthDate)) {
+          return reply.code(400).send({ error: 'invalid_birth_date' })
+        }
+        values.push(req.body.birthDate)
+        sets.push(`birth_date = $${values.length}`)
+      }
       // Fastify вырезает неизвестные поля уже после проверки minProperties, поэтому проверяем ещё раз
       if (sets.length === 0) return reply.code(400).send({ error: 'nothing_to_update' })
       values.push(me.id)
@@ -405,7 +427,8 @@ export async function routes(app: FastifyInstance) {
       try {
         const { rows } = await pool.query(
           `update members set ${sets.join(', ')} where id = $${values.length}
-           returning id, name, role, is_owner as "isOwner", email, avatar`,
+           returning id, name, role, is_owner as "isOwner", email, avatar,
+                     to_char(birth_date, 'YYYY-MM-DD') as "birthDate"`,
           values,
         )
         return { member: rows[0] }

@@ -4,6 +4,8 @@ import type { Member } from '../families/types'
 export interface ProfilePatch {
   name?: string
   avatar?: string | null
+  // YYYY-MM-DD, null — очистить
+  birthDate?: string | null
 }
 
 export interface UpdateProfileResult {

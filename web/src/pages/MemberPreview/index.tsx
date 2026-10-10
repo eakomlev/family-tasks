@@ -5,6 +5,7 @@ import { MenuLink } from '@/components/MenuLink'
 import { Notice } from '@/components/Notice'
 import { Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
+import { ageFromBirthDate, formatAge, formatBirthDate } from '@/lib/date'
 import { ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
 import { Badge, Hero } from './styles'
@@ -32,6 +33,11 @@ export default function MemberPreview() {
           <Avatar name={member.name} seed={member.id} src={member.avatar} size="7rem" />
           <h1>{member.name}</h1>
           <Badge>{ROLE_LABELS[member.role]}{member.isOwner && ' · создатель семьи'}</Badge>
+          {member.birthDate && (
+            <Notice $tone="muted">
+              {formatBirthDate(member.birthDate)} · {formatAge(ageFromBirthDate(member.birthDate))}
+            </Notice>
+          )}
         </Hero>
       )}
       {/* расписание ребёнка видят и правят родители */}

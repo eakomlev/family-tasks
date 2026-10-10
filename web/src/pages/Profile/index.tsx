@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { updateProfile } from '@/api'
+import { updateProfile, type ProfilePatch } from '@/api'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
 import { Page } from '@/components/Page'
@@ -9,7 +9,7 @@ import { resizeToAvatar } from '@/lib/image'
 import { ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
 import { AvatarEditor } from './components/AvatarEditor'
-import { NameForm } from './components/NameForm'
+import { ProfileForm } from './components/ProfileForm'
 import { describePhotoError } from './utils'
 
 export default function Profile() {
@@ -35,10 +35,10 @@ export default function Profile() {
     }
   }
 
-  async function saveName(name: string) {
-    await updateProfile(token, { name })
+  async function saveProfile(patch: ProfilePatch) {
+    await updateProfile(token, patch)
     // имя хранится и на устройстве (приветствие, шапка), поэтому обновляем и его
-    if (identity) await save({ ...identity, name })
+    if (patch.name && identity) await save({ ...identity, name: patch.name })
     await refresh()
   }
 
@@ -57,7 +57,7 @@ export default function Profile() {
         onRemove={() => changePhoto(null)}
       />
 
-      <NameForm name={data.me.name} onSave={saveName} />
+      <ProfileForm name={data.me.name} birthDate={data.me.birthDate} onSave={saveProfile} />
 
       <Stack>
         <Field label="Email" hint="Email изменить нельзя: по нему вы входите в приложение.">
