@@ -4,7 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/family-tasks/',
+  server: {
+    proxy: { '/api': 'http://localhost:3000' },
+  },
   plugins: [
     react(),
     VitePWA({

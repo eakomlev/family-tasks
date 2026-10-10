@@ -1,32 +1,20 @@
-# React + TypeScript + Vite
+# Family Tasks
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+PWA для семейных задач: React + Vite (`web/`), Node + Fastify (`server/`), PostgreSQL. Всё упаковано в Docker.
 
-Currently, two official plugins are available:
+## Запуск в Docker (как в проде)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cp .env.example .env   # поменяйте пароль
+docker compose up --build
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Приложение: http://localhost:8080. Nginx отдаёт фронтенд и проксирует `/api` на сервер.
+
+## Локальная разработка
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db
+(cd server && npm install && npm run dev)   # http://localhost:3000
+(cd web && npm install && npm run dev)      # http://localhost:5173, /api проксируется на :3000
+```
