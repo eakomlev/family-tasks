@@ -35,3 +35,30 @@ export function todayIso(now = new Date()): string {
   const day = String(now.getDate()).padStart(2, '0')
   return `${now.getFullYear()}-${month}-${day}`
 }
+
+// YYYY-MM-DD плюс days дней (календарная арифметика без часовых поясов)
+export function addDays(iso: string, days: number): string {
+  const [year, month, day] = parts(iso)
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10)
+}
+
+// «12 октября»
+export function formatDayMonth(iso: string): string {
+  const [year, month, day] = parts(iso)
+  return new Date(year, month - 1, day).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+}
+
+// «Сегодня», «Завтра» или «Пн, 12 октября» (для заголовков списка)
+export function formatDayHeading(iso: string, today: string): string {
+  if (iso === today) return 'Сегодня'
+  if (iso === addDays(today, 1)) return 'Завтра'
+  const [year, month, day] = parts(iso)
+  const text = new Date(year, month - 1, day).toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' })
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+// день недели даты YYYY-MM-DD в формате ISO: 1 = понедельник ... 7 = воскресенье
+export function isoWeekdayOf(iso: string): number {
+  const [year, month, day] = parts(iso)
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay() || 7
+}

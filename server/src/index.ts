@@ -6,6 +6,7 @@ import { startScheduler } from './notifications/scheduler.js'
 import { pushEnabled, pushRoutes } from './push.js'
 import { routes } from './routes.js'
 import { scheduleRoutes } from './schedule.js'
+import { taskRoutes } from './tasks/routes.js'
 import { trainingRoutes } from './trainings.js'
 
 const databaseUrl = process.env.DATABASE_URL
@@ -22,6 +23,7 @@ await app.register(rateLimit, { max: 120, timeWindow: '1 minute' })
 await app.register(routes)
 await app.register(scheduleRoutes)
 await app.register(trainingRoutes)
+await app.register(taskRoutes)
 await app.register(pushRoutes)
 
 const port = Number(process.env.PORT ?? 3000)

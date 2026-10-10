@@ -48,6 +48,12 @@ export const Button = styled.button<ButtonStyleProps>`
       }
     `}
 
+  ${({ $inline }) =>
+    $inline &&
+    css`
+      width: auto;
+    `}
+
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;

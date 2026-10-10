@@ -15,12 +15,3 @@ export const Icon = styled.div`
 export const DateLine = styled.p`
   color: var(--muted);
 `
-
-export const Empty = styled.p`
-  margin-top: 1rem;
-  padding: 1.5rem 1rem;
-  border: 1px dashed var(--border);
-  border-radius: 0.8rem;
-  color: var(--muted);
-  text-align: center;
-`

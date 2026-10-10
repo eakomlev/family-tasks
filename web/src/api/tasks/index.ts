@@ -1,0 +1,31 @@
+import { request, send } from '../client'
+import type { Task, TaskInput, TaskList } from './types'
+
+// вхождения с from по to (YYYY-MM-DD), плюс просроченные и задания без срока
+export const listTasks = (token: string, from: string, to: string) =>
+  request<TaskList>(`/tasks?from=${from}&to=${to}`, {}, token)
+
+// недавно выполненное, свежее сверху
+export const listDoneTasks = (token: string, days = 30) =>
+  request<TaskList>(`/tasks/done?days=${days}`, {}, token)
+
+export const getTask = (token: string, id: string) =>
+  request<{ task: Task }>(`/tasks/${encodeURIComponent(id)}`, {}, token)
+
+export const createTask = (token: string, input: TaskInput) =>
+  request<{ task: Task }>('/tasks', send('POST', input), token)
+
+export const updateTask = (token: string, id: string, input: TaskInput) =>
+  request<{ task: Task }>(`/tasks/${encodeURIComponent(id)}`, send('PUT', input), token)
+
+export const deleteTask = (token: string, id: string) =>
+  request<void>(`/tasks/${encodeURIComponent(id)}`, send('DELETE'), token)
+
+// date — день вхождения (null для задания без срока)
+export const completeTask = (token: string, id: string, date: string | null) =>
+  request<void>(`/tasks/${encodeURIComponent(id)}/complete`, send('POST', { date }), token)
+
+export const uncompleteTask = (token: string, id: string, date: string | null) =>
+  request<void>(`/tasks/${encodeURIComponent(id)}/uncomplete`, send('POST', { date }), token)
+
+export type * from './types'

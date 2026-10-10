@@ -17,3 +17,15 @@ export const EditLink = styled(Link)`
     text-decoration: underline;
   }
 `
+
+export const Links = styled.div`
+  display: flex;
+  gap: 1rem;
+`
+
+export const List = styled.ul`
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+`
