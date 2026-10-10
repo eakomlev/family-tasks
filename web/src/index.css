@@ -113,3 +113,8 @@ code { font-family: ui-monospace, monospace; word-break: break-all; }
 }
 .members .row { display: flex; justify-content: space-between; gap: 1rem; }
 .members .invite-box { border-style: solid; }
+
+.hint { font-weight: 400; font-size: 0.85rem; color: var(--muted); }
+.link-button { background: none; border: 0; padding: 0.25rem; color: var(--accent); font: inherit; cursor: pointer; text-align: center; }
+.link-button:hover { text-decoration: underline; }
+.btn.choice { display: flex; flex-direction: column; gap: 0.2rem; text-align: left; font-weight: 400; }

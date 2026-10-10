@@ -20,9 +20,24 @@ services:
     environment:
       PORT: 3000
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # по умолчанию письма уходят в Mailpit (профиль dev-mail); в проде задайте SMTP_* в .env
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-Семейные задачи <noreply@family-tasks.local>}
     depends_on:
       db:
         condition: service_healthy
+
+  # локальный SMTP-приёмник, письма смотрим на http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    profiles: [dev-mail]
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
 
   web:
     build: ./web

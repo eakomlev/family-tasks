@@ -1,10 +1,21 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import type { PoolClient } from 'pg'
-import { familyCode, hashToken, inviteCode, memberToken } from './codes.js'
+import {
+  authenticate,
+  bearerToken,
+  checkEmailCode,
+  CODE_TTL,
+  createSession,
+  discardEmailCode,
+  issueEmailCode,
+  normalizeEmail,
+  type Purpose,
+} from './auth.js'
+import { familyCode, hashToken, inviteCode } from './codes.js'
 import { pool } from './db.js'
+import { sendCode } from './mail.js'
 
 const INVITE_TTL_DAYS = 7
-const RECOVERY_TTL_HOURS = 24
 const UNIQUE_VIOLATION = '23505'
 
 type Role = 'mama' | 'papa' | 'child'
@@ -13,39 +24,82 @@ type Role = 'mama' | 'papa' | 'child'
 const strictLimit = { rateLimit: { max: 10, timeWindow: '1 minute' } }
 
 const nameSchema = { type: 'string', minLength: 1, maxLength: 40, pattern: '\\S' } as const
+const emailSchema = { type: 'string', format: 'email', maxLength: 254 } as const
+const codeSchema = { type: 'string', pattern: '^\\d{6}$' } as const
+
+const emailCodeSchema = {
+  body: {
+    type: 'object',
+    required: ['email', 'purpose'],
+    additionalProperties: false,
+    properties: { email: emailSchema, purpose: { enum: ['signup', 'login'] } },
+  },
+}
 
 const createFamilySchema = {
   body: {
     type: 'object',
-    required: ['role', 'name'],
+    required: ['role', 'name', 'email', 'code'],
     additionalProperties: false,
-    properties: { role: { enum: ['mama', 'papa'] }, name: nameSchema },
+    properties: {
+      role: { enum: ['mama', 'papa'] },
+      name: nameSchema,
+      email: emailSchema,
+      code: codeSchema,
+    },
   },
 }
 
 const joinSchema = {
   body: {
     type: 'object',
-    required: ['role', 'name'],
+    required: ['role', 'name', 'email', 'code'],
     additionalProperties: false,
-    properties: { role: { enum: ['mama', 'papa', 'child'] }, name: nameSchema },
+    properties: {
+      role: { enum: ['mama', 'papa', 'child'] },
+      name: nameSchema,
+      email: emailSchema,
+      code: codeSchema,
+    },
   },
+}
+
+const loginSchema = {
+  body: {
+    type: 'object',
+    required: ['email', 'code'],
+    additionalProperties: false,
+    properties: {
+      email: emailSchema,
+      code: codeSchema,
+      memberId: { type: 'string', format: 'uuid' },
+    },
+  },
+}
+
+interface SignupBody {
+  role: Role
+  name: string
+  email: string
+  code: string
 }
 
 async function insertMember(
   db: PoolClient,
   familyId: string,
-  name: string,
-  role: Role,
+  body: SignupBody,
+  email: string,
   isOwner: boolean,
 ) {
-  const token = memberToken()
+  const name = body.name.trim()
   const { rows } = await db.query(
-    `insert into members (family_id, name, role, is_owner, token_hash)
+    `insert into members (family_id, name, email, role, is_owner)
      values ($1, $2, $3, $4, $5) returning id`,
-    [familyId, name.trim(), role, isOwner, hashToken(token)],
+    [familyId, name, email, body.role, isOwner],
   )
-  return { id: rows[0].id as string, name: name.trim(), role, isOwner, token }
+  const id = rows[0].id as string
+  const token = await createSession(db, id)
+  return { id, name, role: body.role, isOwner, token }
 }
 
 async function issueInvite(db: Pick<PoolClient, 'query'>, familyId: string) {
@@ -59,16 +113,9 @@ async function issueInvite(db: Pick<PoolClient, 'query'>, familyId: string) {
   return { code: rows[0].code as string, expiresAt: rows[0].expires_at as string }
 }
 
-async function authenticate(req: FastifyRequest) {
-  const match = /^Bearer (.+)$/.exec(req.headers.authorization ?? '')
-  if (!match) return null
-  const { rows } = await pool.query(
-    `select m.id, m.name, m.role, m.is_owner, m.family_id, f.code as family_code
-     from members m join families f on f.id = m.family_id
-     where m.token_hash = $1`,
-    [hashToken(match[1])],
-  )
-  return rows[0] ?? null
+function constraintOf(err: unknown): string | undefined {
+  const e = err as { code?: string; constraint?: string }
+  return e.code === UNIQUE_VIOLATION ? e.constraint : undefined
 }
 
 export async function routes(app: FastifyInstance) {
@@ -82,11 +129,46 @@ export async function routes(app: FastifyInstance) {
     }
   })
 
+  // отправка кода на почту. Ответ не зависит от того, известен ли email, чтобы адреса нельзя было перебирать
+  app.post<{ Body: { email: string; purpose: Purpose } }>(
+    '/api/email-codes',
+    { schema: emailCodeSchema, config: strictLimit },
+    async (req, reply) => {
+      const email = normalizeEmail(req.body.email)
+      const { purpose } = req.body
+
+      const code = await issueEmailCode(email, purpose)
+      if (!code) return reply.code(429).send({ error: 'too_soon' })
+
+      if (purpose === 'login') {
+        const known = await pool.query('select 1 from members where email = $1 limit 1', [email])
+        if (!known.rows[0]) return reply.code(204).send()
+      }
+
+      try {
+        await sendCode(email, code, CODE_TTL)
+      } catch (err) {
+        app.log.error(err, 'failed to send email code')
+        // при входе тоже молчим, иначе ошибка выдала бы, что email известен
+        if (purpose === 'signup') {
+          await discardEmailCode(pool, email, purpose)
+          return reply.code(502).send({ error: 'mail_failed' })
+        }
+      }
+      return reply.code(204).send()
+    },
+  )
+
   // создание семьи: семья + владелец + первое приглашение
-  app.post<{ Body: { role: Role; name: string } }>(
+  app.post<{ Body: SignupBody }>(
     '/api/families',
     { schema: createFamilySchema, config: strictLimit },
     async (req, reply) => {
+      const email = normalizeEmail(req.body.email)
+      if (!(await checkEmailCode(email, 'signup', req.body.code))) {
+        return reply.code(400).send({ error: 'invalid_code' })
+      }
+
       const db = await pool.connect()
       try {
         await db.query('begin')
@@ -102,20 +184,17 @@ export async function routes(app: FastifyInstance) {
             )
             family = { id: rows[0].id, code }
           } catch (err) {
-            if ((err as { code?: string }).code !== UNIQUE_VIOLATION) throw err
+            if (!constraintOf(err)) throw err
             await db.query('rollback to savepoint code_try')
           }
         }
 
-        const member = await insertMember(db, family.id, req.body.name, req.body.role, true)
+        const member = await insertMember(db, family.id, req.body, email, true)
         const invite = await issueInvite(db, family.id)
+        await discardEmailCode(db, email, 'signup')
         await db.query('commit')
 
-        return reply.code(201).send({
-          family: { code: family.code },
-          member,
-          invite,
-        })
+        return reply.code(201).send({ family: { code: family.code }, member, invite })
       } catch (err) {
         await db.query('rollback').catch(() => {})
         throw err
@@ -137,7 +216,7 @@ export async function routes(app: FastifyInstance) {
     return { expiresAt: rows[0].expires_at }
   })
 
-  app.post<{ Params: { code: string }; Body: { role: Role; name: string } }>(
+  app.post<{ Params: { code: string }; Body: SignupBody }>(
     '/api/invites/:code/join',
     { schema: joinSchema, config: strictLimit },
     async (req, reply) => {
@@ -152,20 +231,94 @@ export async function routes(app: FastifyInstance) {
         return reply.code(410).send({ error: 'invite_expired' })
       }
 
+      const email = normalizeEmail(req.body.email)
+      if (!(await checkEmailCode(email, 'signup', req.body.code))) {
+        return reply.code(400).send({ error: 'invalid_code' })
+      }
+
       const db = await pool.connect()
       try {
-        const member = await insertMember(db, invite.family_id, req.body.name, req.body.role, false)
+        await db.query('begin')
+        const member = await insertMember(db, invite.family_id, req.body, email, false)
+        await discardEmailCode(db, email, 'signup')
+        await db.query('commit')
         return reply.code(201).send({ family: { code: invite.family_code }, member })
       } catch (err) {
-        if ((err as { code?: string }).code === UNIQUE_VIOLATION) {
-          return reply.code(409).send({ error: 'name_taken' })
-        }
+        await db.query('rollback').catch(() => {})
+        const constraint = constraintOf(err)
+        if (constraint === 'members_family_name_idx') return reply.code(409).send({ error: 'name_taken' })
+        if (constraint === 'members_family_email_idx') return reply.code(409).send({ error: 'email_taken' })
         throw err
       } finally {
         db.release()
       }
     },
   )
+
+  // вход по email и коду; если email есть в нескольких семьях, клиент должен выбрать участника
+  app.post<{ Body: { email: string; code: string; memberId?: string } }>(
+    '/api/auth/login',
+    { schema: loginSchema, config: strictLimit },
+    async (req, reply) => {
+      const email = normalizeEmail(req.body.email)
+      if (!(await checkEmailCode(email, 'login', req.body.code))) {
+        return reply.code(401).send({ error: 'invalid_code' })
+      }
+
+      const { rows: candidates } = await pool.query(
+        `select m.id, m.name, m.role, m.is_owner as "isOwner", f.code as "familyCode",
+                (select array_agg(o.name order by o.created_at) from members o
+                 where o.family_id = m.family_id) as "familyMembers"
+         from members m join families f on f.id = m.family_id
+         where m.email = $1 order by m.created_at`,
+        [email],
+      )
+      if (candidates.length === 0) return reply.code(401).send({ error: 'invalid_code' })
+
+      let chosen = candidates[0]
+      if (req.body.memberId) {
+        chosen = candidates.find((c) => c.id === req.body.memberId)
+        if (!chosen) return reply.code(400).send({ error: 'member_not_found' })
+      } else if (candidates.length > 1) {
+        // код пока не сжигаем: он понадобится для второго запроса с выбранным участником
+        return reply.code(409).send({
+          error: 'choose_member',
+          options: candidates.map(({ id, name, role, familyCode, familyMembers }) => ({
+            id,
+            name,
+            role,
+            familyCode,
+            familyMembers,
+          })),
+        })
+      }
+
+      const db = await pool.connect()
+      try {
+        await db.query('begin')
+        const token = await createSession(db, chosen.id)
+        await discardEmailCode(db, email, 'login')
+        await db.query('commit')
+        return reply.code(201).send({
+          family: { code: chosen.familyCode },
+          member: { id: chosen.id, name: chosen.name, role: chosen.role, isOwner: chosen.isOwner, token },
+        })
+      } catch (err) {
+        await db.query('rollback').catch(() => {})
+        throw err
+      } finally {
+        db.release()
+      }
+    },
+  )
+
+  // выход: отзываем сессию этого устройства
+  app.delete('/api/session', async (req, reply) => {
+    const token = bearerToken(req)
+    if (!token) return reply.code(401).send({ error: 'unauthorized' })
+    await pool.query('delete from sessions where token_hash = $1', [hashToken(token)])
+    return reply.code(204).send()
+  })
 
   // действующее приглашение семьи (для владельца)
   app.get('/api/invite', async (req, reply) => {
@@ -188,81 +341,6 @@ export async function routes(app: FastifyInstance) {
     return reply.code(201).send(await issueInvite(pool, me.family_id))
   })
 
-  // ссылка для входа участника на другом устройстве: себе или (владельцем) другому
-  app.post<{ Params: { id: string } }>(
-    '/api/members/:id/recovery',
-    { schema: { params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } } } },
-    async (req, reply) => {
-      const me = await authenticate(req)
-      if (!me) return reply.code(401).send({ error: 'unauthorized' })
-      if (req.params.id !== me.id && !me.is_owner) return reply.code(403).send({ error: 'forbidden' })
-
-      const target = await pool.query('select id from members where id = $1 and family_id = $2', [
-        req.params.id,
-        me.family_id,
-      ])
-      if (!target.rows[0]) return reply.code(404).send({ error: 'member_not_found' })
-
-      const { rows } = await pool.query(
-        `insert into recoveries (member_id, code, expires_at)
-         values ($1, $2, now() + make_interval(hours => $3))
-         on conflict (member_id) do update
-           set code = excluded.code, expires_at = excluded.expires_at, created_at = now()
-         returning code, expires_at as "expiresAt"`,
-        [req.params.id, inviteCode(), RECOVERY_TTL_HOURS],
-      )
-      return reply.code(201).send(rows[0])
-    },
-  )
-
-  app.get<{ Params: { code: string } }>('/api/recoveries/:code', { config: strictLimit }, async (req, reply) => {
-    const { rows } = await pool.query(
-      `select m.name, m.role, r.expires_at from recoveries r
-       join members m on m.id = r.member_id where r.code = $1`,
-      [req.params.code],
-    )
-    if (!rows[0]) return reply.code(404).send({ error: 'recovery_not_found' })
-    if (new Date(rows[0].expires_at) < new Date()) return reply.code(410).send({ error: 'recovery_expired' })
-    return { name: rows[0].name, role: rows[0].role }
-  })
-
-  // вход на новом устройстве: выдаём новый токен, старый перестаёт работать
-  app.post<{ Params: { code: string } }>('/api/recoveries/:code/claim', { config: strictLimit }, async (req, reply) => {
-    const db = await pool.connect()
-    try {
-      await db.query('begin')
-      const { rows } = await db.query(
-        'delete from recoveries where code = $1 returning member_id, expires_at',
-        [req.params.code],
-      )
-      if (!rows[0]) {
-        await db.query('rollback')
-        return reply.code(404).send({ error: 'recovery_not_found' })
-      }
-      if (new Date(rows[0].expires_at) < new Date()) {
-        await db.query('commit')
-        return reply.code(410).send({ error: 'recovery_expired' })
-      }
-
-      const token = memberToken()
-      const member = await db.query(
-        `update members m set token_hash = $2 from families f
-         where m.id = $1 and f.id = m.family_id
-         returning m.id, m.name, m.role, m.is_owner as "isOwner", f.code as family_code`,
-        [rows[0].member_id, hashToken(token)],
-      )
-      await db.query('commit')
-
-      const { family_code, ...rest } = member.rows[0]
-      return reply.code(201).send({ family: { code: family_code }, member: { ...rest, token } })
-    } catch (err) {
-      await db.query('rollback').catch(() => {})
-      throw err
-    } finally {
-      db.release()
-    }
-  })
-
   // текущий участник и состав семьи
   app.get('/api/me', async (req, reply) => {
     const me = await authenticate(req)
@@ -273,7 +351,7 @@ export async function routes(app: FastifyInstance) {
       [me.family_id],
     )
     return {
-      member: { id: me.id, name: me.name, role: me.role, isOwner: me.is_owner },
+      member: { id: me.id, name: me.name, role: me.role, isOwner: me.is_owner, email: me.email },
       family: { code: me.family_code },
       members,
     }

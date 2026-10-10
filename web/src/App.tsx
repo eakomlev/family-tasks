@@ -4,7 +4,7 @@ import CreateFamily from './pages/CreateFamily'
 import Family from './pages/Family'
 import FamilyCreated from './pages/FamilyCreated'
 import Join from './pages/Join'
-import Recover from './pages/Recover'
+import Login from './pages/Login'
 import Welcome from './pages/Welcome'
 
 export default function App() {
@@ -16,7 +16,7 @@ export default function App() {
           <Route path="/create" element={<CreateFamily />} />
           <Route path="/created" element={<FamilyCreated />} />
           <Route path="/join" element={<Join />} />
-          <Route path="/recover" element={<Recover />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/family" element={<Family />} />
           <Route path="*" element={<Welcome />} />
         </Routes>

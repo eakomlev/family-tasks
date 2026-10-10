@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { ApiError, createRecovery, getInvite, getMe, renewInvite, type Link, type Member } from '../api'
+import { ApiError, getInvite, getMe, logout, renewInvite, type Link, type Member } from '../api'
 import { LinkBox } from '../components/LinkBox'
-import { useIdentity, type Identity } from '../identityContext'
-import { inviteLink, recoveryLink } from '../links'
+import { useIdentity } from '../identityContext'
+import { inviteLink } from '../links'
 import { ROLE_LABELS } from '../roles'
 
 function InviteSection({ token }: { token: string }) {
@@ -51,42 +51,13 @@ function InviteSection({ token }: { token: string }) {
   )
 }
 
-function MemberRow({ member, identity, canIssue }: { member: Member; identity: Identity; canIssue: boolean }) {
-  const [link, setLink] = useState<Link>()
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(false)
-  const isMe = member.id === identity.memberId
-
-  async function issue() {
-    setBusy(true)
-    setError(false)
-    try {
-      setLink(await createRecovery(identity.token, member.id))
-    } catch {
-      setError(true)
-    } finally {
-      setBusy(false)
-    }
-  }
-
+function MemberRow({ member, isMe }: { member: Member; isMe: boolean }) {
   return (
     <li>
       <div className="row">
         <span>{member.name}{isMe && ' (вы)'}</span>
         <span className="muted">{ROLE_LABELS[member.role]}{member.isOwner && ' · создатель'}</span>
       </div>
-      {canIssue && !link && (
-        <button className="btn small" type="button" disabled={busy} onClick={issue}>
-          {isMe ? 'Войти на другом устройстве' : 'Ссылка для входа'}
-        </button>
-      )}
-      {error && <p className="error">Не удалось создать ссылку.</p>}
-      {link && (
-        <>
-          <LinkBox link={recoveryLink(link.code)} expiresAt={link.expiresAt} />
-          <p className="muted">Ссылка одноразовая. После входа по ней старое устройство {isMe ? 'потеряет' : `${member.name} потеряет`} доступ.</p>
-        </>
-      )}
     </li>
   )
 }
@@ -110,6 +81,13 @@ export default function Family() {
     return () => { cancelled = true }
   }, [identity, clear])
 
+  async function handleLogout() {
+    if (!identity) return
+    // даже если сервер недоступен, на этом устройстве всё равно выходим
+    await logout(identity.token).catch(() => {})
+    await clear()
+  }
+
   if (!identity) return <Navigate to="/" replace />
 
   return (
@@ -124,9 +102,11 @@ export default function Family() {
       {!data && !error && <p>Загрузка…</p>}
       <ul className="members">
         {data?.members.map((m) => (
-          <MemberRow key={m.id} member={m} identity={identity} canIssue={m.id === identity.memberId || data.me.isOwner} />
+          <MemberRow key={m.id} member={m} isMe={m.id === identity.memberId} />
         ))}
       </ul>
+
+      <button className="btn" type="button" onClick={handleLogout}>Выйти</button>
     </main>
   )
 }

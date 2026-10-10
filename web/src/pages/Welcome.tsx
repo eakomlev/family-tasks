@@ -15,6 +15,7 @@ export default function Welcome() {
       <div className="actions">
         <Link className="btn primary" to="/create">Создать семью</Link>
         <Link className="link" to="/join">У меня есть приглашение</Link>
+        <Link className="link" to="/login">Уже есть семья? Войти</Link>
       </div>
     </main>
   )

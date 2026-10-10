@@ -10,11 +10,13 @@ export interface Member {
 export class ApiError extends Error {
   status: number
   code: string
+  body: unknown
 
-  constructor(status: number, code: string) {
+  constructor(status: number, code: string, body: unknown = {}) {
     super(code)
     this.status = status
     this.code = code
+    this.body = body
   }
 }
 
@@ -32,50 +34,67 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string):
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new ApiError(res.status, body.error ?? 'unknown')
+    throw new ApiError(res.status, body.error ?? 'unknown', body)
   }
-  return res.json()
+  return res.status === 204 ? (undefined as T) : res.json()
 }
 
-const post = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) })
-
-export interface CreateFamilyResult {
-  family: { code: string }
-  member: Member & { token: string }
-  invite: { code: string; expiresAt: string }
-}
-
-export const createFamily = (role: Role, name: string) =>
-  request<CreateFamilyResult>('/families', post({ role, name }))
-
-export const checkInvite = (code: string) =>
-  request<{ expiresAt: string }>(`/invites/${encodeURIComponent(code)}`)
-
-export const joinFamily = (inviteCode: string, role: Role, name: string) =>
-  request<Omit<CreateFamilyResult, 'invite'>>(
-    `/invites/${encodeURIComponent(inviteCode)}/join`,
-    post({ role, name }),
-  )
-
-export const getMe = (token: string) =>
-  request<{ member: Member; family: { code: string }; members: Member[] }>('/me', {}, token)
+const send = (method: string, body?: unknown): RequestInit => ({
+  method,
+  body: body === undefined ? undefined : JSON.stringify(body),
+})
 
 export interface Link {
   code: string
   expiresAt: string
 }
 
+export interface SessionResult {
+  family: { code: string }
+  member: Member & { token: string }
+}
+
+export interface SignupData {
+  role: Role
+  name: string
+  email: string
+  code: string
+}
+
+export type CodePurpose = 'signup' | 'login'
+
+export const requestEmailCode = (email: string, purpose: CodePurpose) =>
+  request<void>('/email-codes', send('POST', { email, purpose }))
+
+export const createFamily = (data: SignupData) =>
+  request<SessionResult & { invite: Link }>('/families', send('POST', data))
+
+export const checkInvite = (code: string) =>
+  request<{ expiresAt: string }>(`/invites/${encodeURIComponent(code)}`)
+
+export const joinFamily = (inviteCode: string, data: SignupData) =>
+  request<SessionResult>(`/invites/${encodeURIComponent(inviteCode)}/join`, send('POST', data))
+
+export interface LoginOption {
+  id: string
+  name: string
+  role: Role
+  familyCode: string
+  familyMembers: string[]
+}
+
+export const login = (email: string, code: string, memberId?: string) =>
+  request<SessionResult>('/auth/login', send('POST', { email, code, memberId }))
+
+export const logout = (token: string) => request<void>('/session', send('DELETE'), token)
+
+export const getMe = (token: string) =>
+  request<{ member: Member & { email: string }; family: { code: string }; members: Member[] }>(
+    '/me',
+    {},
+    token,
+  )
+
 export const getInvite = (token: string) => request<Link>('/invite', {}, token)
 
-export const renewInvite = (token: string) => request<Link>('/invite', { method: 'POST' }, token)
-
-export const createRecovery = (token: string, memberId: string) =>
-  request<Link>(`/members/${encodeURIComponent(memberId)}/recovery`, { method: 'POST' }, token)
-
-export const checkRecovery = (code: string) =>
-  request<{ name: string; role: Role }>(`/recoveries/${encodeURIComponent(code)}`)
-
-export const claimRecovery = (code: string) =>
-  request<Omit<CreateFamilyResult, 'invite'>>(`/recoveries/${encodeURIComponent(code)}/claim`, {
-    method: 'POST',
-  })
+export const renewInvite = (token: string) => request<Link>('/invite', send('POST'), token)

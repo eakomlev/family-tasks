@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ApiError, checkInvite, joinFamily } from '../api'
+import { ApiError, checkInvite, joinFamily, type SignupData } from '../api'
 import { RoleForm } from '../components/RoleForm'
 import { ReplaceGuard } from '../components/ReplaceGuard'
 import { useIdentity } from '../identityContext'
-import { JOIN_ROLES, type Role } from '../roles'
+import { JOIN_ROLES } from '../roles'
 
 // принимает и полную ссылку, и просто код
 function extractCode(input: string): string {
@@ -44,8 +44,6 @@ function JoinWithCode({ code }: { code: string }) {
   const { save } = useIdentity()
   const navigate = useNavigate()
   const [invite, setInvite] = useState<InviteState>('checking')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string>()
 
   useEffect(() => {
     let cancelled = false
@@ -60,25 +58,16 @@ function JoinWithCode({ code }: { code: string }) {
     return () => { cancelled = true }
   }, [code])
 
-  async function handleSubmit(role: Role, name: string) {
-    setBusy(true)
-    setError(undefined)
-    try {
-      const res = await joinFamily(code, role, name)
-      await save({
-        familyCode: res.family.code,
-        memberId: res.member.id,
-        name: res.member.name,
-        role: res.member.role,
-        token: res.member.token,
-      })
-      navigate('/family', { replace: true })
-    } catch (err) {
-      if (err instanceof ApiError && err.code === 'name_taken') setError('В семье уже есть участник с таким именем. Выберите другое.')
-      else if (err instanceof ApiError && err.code === 'invite_expired') setInvite('expired')
-      else setError('Не удалось присоединиться. Попробуйте ещё раз.')
-      setBusy(false)
-    }
+  async function handleSubmit(data: SignupData) {
+    const res = await joinFamily(code, data)
+    await save({
+      familyCode: res.family.code,
+      memberId: res.member.id,
+      name: res.member.name,
+      role: res.member.role,
+      token: res.member.token,
+    })
+    navigate('/family', { replace: true })
   }
 
   if (invite === 'checking') return <p>Проверяем приглашение…</p>
@@ -90,7 +79,7 @@ function JoinWithCode({ code }: { code: string }) {
     <>
       <p>Вас приглашают в семью.</p>
       <ReplaceGuard>
-              <RoleForm roles={JOIN_ROLES} submitLabel="Присоединиться" busy={busy} error={error} onSubmit={handleSubmit} />
+              <RoleForm roles={JOIN_ROLES} submitLabel="Присоединиться" onSubmit={handleSubmit} />
       </ReplaceGuard>
     </>
   )
