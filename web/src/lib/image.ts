@@ -1,4 +1,4 @@
-const MAX_SOURCE_BYTES = 15 * 1024 * 1024
+const MAX_SOURCE_BYTES = 30 * 1024 * 1024
 
 export class ImageError extends Error {
   reason: 'not_image' | 'too_large' | 'decode_failed'
