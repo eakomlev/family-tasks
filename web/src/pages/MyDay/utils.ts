@@ -1,6 +1,8 @@
-import type { Lesson } from '@/api'
+import type { Lesson, Training } from '@/api'
 import type { ViewLesson } from '@/components/LessonViewList/types'
-import type { Greeting, LessonDay } from './types'
+import type { ViewTraining } from '@/components/TrainingViewList/types'
+import { isoWeekday, WEEK_DAYS } from '@/lib/weekdays'
+import type { Greeting, LessonDay, TrainingDay } from './types'
 
 export function getGreeting(date: Date): Greeting {
   const hour = date.getHours()
@@ -47,4 +49,38 @@ export function lessonsForDay(lessons: Lesson[], weekday: number): ViewLesson[] 
   return lessons
     .filter((l) => l.weekday === weekday)
     .map((l, index) => ({ key: `${weekday}-${index}`, subject: l.subject, startsAt: l.startsAt, endsAt: l.endsAt }))
+}
+
+// Какие тренировки показывать: до вечера сегодняшние, вечером (как с уроками) завтрашние.
+// Тренировки бывают не каждый день, поэтому берём ближайший день, в который они есть, и подписываем его:
+// «сегодня», «завтра», «в среду». null, если тренировок нет вообще.
+export function pickTrainingDay(now: Date, trainings: Training[]): TrainingDay | null {
+  const start = now.getHours() >= EVENING_HOUR ? 1 : 0
+  for (let offset = start; offset < start + 7; offset++) {
+    const weekday = ((isoWeekday(now) - 1 + offset) % 7) + 1
+    const dayTrainings = trainings.filter((t) => t.weekday === weekday)
+    if (dayTrainings.length === 0) continue
+
+    const label =
+      offset === 0 ? 'сегодня' : offset === 1 ? 'завтра' : offset === 7 ? 'через неделю' : WEEK_DAYS[weekday - 1].inDay
+    return {
+      weekday,
+      label,
+      trainings: dayTrainings.map(
+        (t, index): ViewTraining => ({
+          key: `${weekday}-${index}`,
+          title: t.title,
+          place: t.place,
+          startsAt: t.startsAt,
+          endsAt: t.endsAt,
+        }),
+      ),
+    }
+  }
+  return null
+}
+
+// «Плавание 18:00 · Растяжка»: коротко для карточки ребёнка
+export function trainingSummary(day: TrainingDay): string {
+  return day.trainings.map((t) => (t.startsAt ? `${t.title} ${t.startsAt}` : t.title)).join(' · ')
 }

@@ -13,12 +13,12 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { LessonRow } from '../LessonRow'
 import { List } from './styles'
-import type { LessonListProps } from './types'
+import type { SortableListProps } from './types'
 import { announcements, instructions } from './utils'
 
-export function LessonList({ lessons, onChange, onRemove, onReorder }: LessonListProps) {
+// Список, строки которого переставляются перетаскиванием (мышь, касание, клавиатура).
+export function SortableList<T extends { key: string }>({ items, onReorder, children }: SortableListProps<T>) {
   const sensors = useSensors(
     // небольшой порог, чтобы простой тап по ручке не считался началом переноса
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -27,9 +27,9 @@ export function LessonList({ lessons, onChange, onRemove, onReorder }: LessonLis
 
   function handleDragEnd({ active, over }: DragEndEvent) {
     if (!over || active.id === over.id) return
-    const from = lessons.findIndex((l) => l.key === active.id)
-    const to = lessons.findIndex((l) => l.key === over.id)
-    if (from >= 0 && to >= 0) onReorder(arrayMove(lessons, from, to))
+    const from = items.findIndex((item) => item.key === active.id)
+    const to = items.findIndex((item) => item.key === over.id)
+    if (from >= 0 && to >= 0) onReorder(arrayMove(items, from, to))
   }
 
   return (
@@ -39,18 +39,8 @@ export function LessonList({ lessons, onChange, onRemove, onReorder }: LessonLis
       onDragEnd={handleDragEnd}
       accessibility={{ announcements, screenReaderInstructions: instructions }}
     >
-      <SortableContext items={lessons.map((l) => l.key)} strategy={verticalListSortingStrategy}>
-        <List>
-          {lessons.map((lesson, index) => (
-            <LessonRow
-              key={lesson.key}
-              index={index}
-              lesson={lesson}
-              onChange={(patch) => onChange(lesson.key, patch)}
-              onRemove={() => onRemove(lesson.key)}
-            />
-          ))}
-        </List>
+      <SortableContext items={items.map((item) => item.key)} strategy={verticalListSortingStrategy}>
+        <List>{children}</List>
       </SortableContext>
     </DndContext>
   )

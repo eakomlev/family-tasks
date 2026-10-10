@@ -14,6 +14,7 @@ export default function Settings() {
       {identity?.role === 'child' && (
         <Menu aria-label="Разделы настроек">
           <MenuLink to="/settings/schedule">Расписание уроков</MenuLink>
+          <MenuLink to="/settings/trainings">Расписание тренировок</MenuLink>
         </Menu>
       )}
       {identity && <NotificationsSetting token={identity.token} />}

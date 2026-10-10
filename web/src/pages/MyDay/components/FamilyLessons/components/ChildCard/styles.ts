@@ -52,3 +52,13 @@ export const Meta = styled.p`
   color: var(--muted);
   font-size: 0.8rem;
 `
+
+export const Training = styled.p`
+  grid-column: 2;
+  margin-top: 0.15rem;
+  padding-top: 0.35rem;
+  border-top: 1px dashed var(--border);
+  color: var(--muted);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+`

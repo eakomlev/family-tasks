@@ -1,8 +1,8 @@
 import styled from 'styled-components'
 
-export const Tabs = styled.div`
+export const Tabs = styled.div<{ $columns: number }>`
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(${({ $columns }) => $columns}, 1fr);
   gap: 0.35rem;
 `
 

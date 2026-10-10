@@ -1,14 +1,15 @@
 import { Avatar } from '@/components/Avatar'
-import { capitalize, lessonsForDay, pickLessonDay } from '../../../../utils'
-import { Card, Meta, Name, Subjects, Top, When } from './styles'
+import { capitalize, lessonsForDay, pickLessonDay, pickTrainingDay, trainingSummary } from '../../../../utils'
+import { Card, Meta, Name, Subjects, Top, Training, When } from './styles'
 import type { ChildCardProps } from './types'
 import { dayRange, pluralLessons } from './utils'
 
 // компактная сводка по одному ребёнку: кто, на какой день, какие предметы
-export function ChildCard({ child, lessons, now }: ChildCardProps) {
+export function ChildCard({ child, lessons, trainings, now }: ChildCardProps) {
   const day = lessons ? pickLessonDay(now, lessons) : undefined
   const dayLessons = lessons && day ? lessonsForDay(lessons, day.weekday) : []
   const range = dayRange(dayLessons)
+  const training = trainings ? pickTrainingDay(now, trainings) : null
 
   let subjects: string | undefined
   let meta: string | undefined
@@ -30,6 +31,11 @@ export function ChildCard({ child, lessons, now }: ChildCardProps) {
       </Top>
       <Subjects>{subjects}</Subjects>
       {meta && <Meta>{meta}</Meta>}
+      {training && (
+        <Training>
+          {training.trainings.length > 1 ? 'Тренировки' : 'Тренировка'} {training.label}: {trainingSummary(training)}
+        </Training>
+      )}
     </Card>
   )
 }

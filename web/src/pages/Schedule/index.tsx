@@ -3,14 +3,15 @@ import { Navigate, useParams } from 'react-router-dom'
 import { ApiError, getSchedule, saveSchedule } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
+import { DayTabs } from '@/components/DayTabs'
 import { LessonViewList } from '@/components/LessonViewList'
 import { Notice } from '@/components/Notice'
 import { Page } from '@/components/Page'
+import { SortableList } from '@/components/SortableList'
 import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
-import { DayTabs } from './components/DayTabs'
-import { LessonList } from './components/LessonList'
+import { LessonRow } from './components/LessonRow'
 import { Subtitle } from './styles'
 import type { Days, LessonDraft } from './types'
 import {
@@ -129,21 +130,26 @@ export default function Schedule() {
 
       {days && (
         <Stack>
-          <DayTabs selected={day} counts={counts} onSelect={setDay} />
+          <DayTabs days={WEEKDAYS} selected={day} counts={counts} unit="уроков" onSelect={setDay} />
 
           <h2>{WEEKDAYS.find((d) => d.value === day)?.full}</h2>
 
           {editing ? (
             <>
               {dayLessons.length === 0 && <Notice $tone="muted">В этот день уроков нет. Добавьте первый.</Notice>}
-              <LessonList
-                lessons={dayLessons}
-                onChange={(key, patch) =>
-                  editDay((list) => list.map((l) => (l.key === key ? { ...l, ...patch } : l)))
-                }
-                onRemove={(key) => editDay((list) => list.filter((l) => l.key !== key))}
-                onReorder={(lessons) => editDay(() => lessons)}
-              />
+              <SortableList items={dayLessons} onReorder={(lessons) => editDay(() => lessons)}>
+                {dayLessons.map((lesson, index) => (
+                  <LessonRow
+                    key={lesson.key}
+                    index={index}
+                    lesson={lesson}
+                    onChange={(patch) =>
+                      editDay((list) => list.map((l) => (l.key === lesson.key ? { ...l, ...patch } : l)))
+                    }
+                    onRemove={() => editDay((list) => list.filter((l) => l.key !== lesson.key))}
+                  />
+                ))}
+              </SortableList>
 
               <Button
                 type="button"

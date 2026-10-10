@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react'
-import { getSchedule } from '@/api'
+import { getSchedule, getTrainings } from '@/api'
 import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
 import { ChildCard } from './components/ChildCard'
 import { List } from './styles'
-import type { FamilyLessonsProps, LessonsByChild } from './types'
+import type { FamilyLessonsProps, SchedulesByChild } from './types'
 
 // сводка уроков всех детей для родителей; у детей вместо неё свой блок TodayLessons
 export function FamilyLessons({ now }: FamilyLessonsProps) {
   const { identity } = useIdentity()
   const { data } = useProfile()
-  const [byChild, setByChild] = useState<LessonsByChild>({})
+  const [byChild, setByChild] = useState<SchedulesByChild>({})
 
   const token = identity?.token
   const isParent = !!identity && identity.role !== 'child'
@@ -23,12 +23,14 @@ export function FamilyLessons({ now }: FamilyLessonsProps) {
     if (!token || !isParent || !childIds) return
     let cancelled = false
     Promise.all(
-      childIds.split(',').map((id) =>
-        getSchedule(token, id).then(
-          (res) => [id, res.lessons] as const,
-          () => [id, null] as const,
-        ),
-      ),
+      childIds.split(',').map(async (id) => {
+        // уроки и тренировки грузятся независимо: сбой одного не прячет другое
+        const [lessons, trainings] = await Promise.all([
+          getSchedule(token, id).then((res) => res.lessons, () => null),
+          getTrainings(token, id).then((res) => res.trainings, () => null),
+        ])
+        return [id, { lessons, trainings }] as const
+      }),
     ).then((entries) => !cancelled && setByChild(Object.fromEntries(entries)))
     return () => { cancelled = true }
   }, [token, isParent, childIds])
@@ -37,10 +39,16 @@ export function FamilyLessons({ now }: FamilyLessonsProps) {
 
   return (
     <Stack as="section">
-      <h2>Уроки детей</h2>
+      <h2>Уроки и тренировки детей</h2>
       <List>
         {children.map((child) => (
-          <ChildCard key={child.id} child={child} lessons={byChild[child.id]} now={now} />
+          <ChildCard
+            key={child.id}
+            child={child}
+            lessons={byChild[child.id]?.lessons}
+            trainings={byChild[child.id]?.trainings}
+            now={now}
+          />
         ))}
       </List>
     </Stack>

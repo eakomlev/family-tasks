@@ -40,9 +40,12 @@ export default function MemberPreview() {
           )}
         </Hero>
       )}
-      {/* расписание ребёнка видят и правят родители */}
+      {/* расписания ребёнка видят и правят родители */}
       {member?.role === 'child' && identity?.role !== 'child' && (
-        <MenuLink to={`/family/${member.id}/schedule`}>Расписание уроков</MenuLink>
+        <>
+          <MenuLink to={`/family/${member.id}/schedule`}>Расписание уроков</MenuLink>
+          <MenuLink to={`/family/${member.id}/trainings`}>Расписание тренировок</MenuLink>
+        </>
       )}
     </Page>
   )

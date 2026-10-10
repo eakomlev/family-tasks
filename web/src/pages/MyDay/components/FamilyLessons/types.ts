@@ -1,8 +1,14 @@
-import type { Lesson } from '@/api'
+import type { Lesson, Training } from '@/api'
 
 export interface FamilyLessonsProps {
   now: Date
 }
 
-// id ребёнка -> уроки; null — загрузка не удалась
-export type LessonsByChild = Record<string, Lesson[] | null>
+// null — загрузка не удалась
+export interface ChildSchedules {
+  lessons: Lesson[] | null
+  trainings: Training[] | null
+}
+
+// id ребёнка -> его расписания
+export type SchedulesByChild = Record<string, ChildSchedules>

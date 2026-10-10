@@ -15,6 +15,7 @@ import Profile from '@/pages/Profile'
 import Schedule from '@/pages/Schedule'
 import Settings from '@/pages/Settings'
 import Tasks from '@/pages/Tasks'
+import Trainings from '@/pages/Trainings'
 import Welcome from '@/pages/Welcome'
 
 export default function App() {
@@ -38,7 +39,9 @@ export default function App() {
             <Route path="/family/:memberId" element={<MemberPreview />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/schedule" element={<Schedule />} />
+            <Route path="/settings/trainings" element={<Trainings />} />
             <Route path="/family/:memberId/schedule" element={<Schedule />} />
+            <Route path="/family/:memberId/trainings" element={<Trainings />} />
             <Route path="/profile" element={<Profile />} />
           </Route>
           <Route path="*" element={<Welcome />} />

@@ -1,5 +1,5 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import { authenticate } from './auth.js'
+import type { FastifyInstance } from 'fastify'
+import { authorizeChild, type MemberParams } from './access.js'
 import { pool } from './db.js'
 
 const MAX_LESSONS_PER_DAY = 12
@@ -43,39 +43,9 @@ interface LessonInput {
   endsAt?: string | null
 }
 
-type Params = { Params: { id: string } }
-
-// расписание есть только у детей; видеть и менять его могут сам ребёнок и родители (мама/папа) его семьи
-async function authorize(req: FastifyRequest<Params>, reply: FastifyReply) {
-  const me = await authenticate(req)
-  if (!me) {
-    reply.code(401).send({ error: 'unauthorized' })
-    return null
-  }
-
-  const { rows } = await pool.query('select id, role from members where id = $1 and family_id = $2', [
-    req.params.id,
-    me.family_id,
-  ])
-  const target = rows[0]
-  if (!target) {
-    reply.code(404).send({ error: 'member_not_found' })
-    return null
-  }
-  if (target.role !== 'child') {
-    reply.code(400).send({ error: 'not_a_child' })
-    return null
-  }
-  if (me.id !== target.id && me.role === 'child') {
-    reply.code(403).send({ error: 'forbidden' })
-    return null
-  }
-  return target.id as string
-}
-
 export async function scheduleRoutes(app: FastifyInstance) {
-  app.get<Params>('/api/members/:id/schedule', { schema: getScheduleSchema }, async (req, reply) => {
-    const memberId = await authorize(req, reply)
+  app.get<MemberParams>('/api/members/:id/schedule', { schema: getScheduleSchema }, async (req, reply) => {
+    const memberId = await authorizeChild(req, reply)
     if (!memberId) return
 
     const { rows } = await pool.query(
@@ -89,11 +59,11 @@ export async function scheduleRoutes(app: FastifyInstance) {
   })
 
   // расписание сохраняется целиком: порядок уроков в дне равен порядку в массиве
-  app.put<Params & { Body: { lessons: LessonInput[] } }>(
+  app.put<MemberParams & { Body: { lessons: LessonInput[] } }>(
     '/api/members/:id/schedule',
     { schema: saveScheduleSchema },
     async (req, reply) => {
-      const memberId = await authorize(req, reply)
+      const memberId = await authorizeChild(req, reply)
       if (!memberId) return
 
       const perDay = new Map<number, number>()
