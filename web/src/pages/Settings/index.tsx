@@ -1,5 +1,11 @@
-import { Placeholder } from '@/components/Placeholder'
+import { Page } from '@/components/Page'
+import { ThemeSetting } from './components/ThemeSetting'
 
 export default function Settings() {
-  return <Placeholder title="Настройки" icon="⚙️" text="Здесь появятся настройки приложения." />
+  return (
+    <Page>
+      <h1>Настройки</h1>
+      <ThemeSetting />
+    </Page>
+  )
 }

@@ -1,8 +1,8 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/AppShell'
 import { GlobalStyle } from '@/components/GlobalStyle'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import { IdentityProvider } from '@/identity'
+import { useThemeSync } from '@/lib/useThemeSync'
 import Chat from '@/pages/Chat'
 import CreateFamily from '@/pages/CreateFamily'
 import Family from '@/pages/Family'
@@ -15,10 +15,11 @@ import Tasks from '@/pages/Tasks'
 import Welcome from '@/pages/Welcome'
 
 export default function App() {
+  useThemeSync()
+
   return (
     <IdentityProvider>
       <GlobalStyle />
-      <ThemeToggle />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Welcome />} />

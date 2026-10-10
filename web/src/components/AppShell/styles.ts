@@ -1,8 +1,10 @@
+import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 // переменная нужна и панели табов, и содержимому, чтобы оно не пряталось под панелью
 export const Root = styled.div`
   --tabbar-height: calc(3.75rem + env(safe-area-inset-bottom));
+  position: relative;
 `
 
 export const Content = styled.div`
@@ -11,5 +13,18 @@ export const Content = styled.div`
   /* страница занимает экран минус панель табов, а не весь экран */
   > main {
     min-height: calc(100dvh - var(--tabbar-height));
+  }
+`
+
+export const ProfileLink = styled(Link)`
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 5;
+  border-radius: 50%;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 `
