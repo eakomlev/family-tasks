@@ -82,4 +82,4 @@ cd server && npm run migrate:create -- имя   # migrate:up / migrate:down — 
 
 ## Деплой
 
-Пока не определён: решено сначала сделать Docker-конфигурацию, а площадку выбрать позже. HTTPS в конфигурации нет, а он нужен для установки PWA вне localhost.
+Прод: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` (подробно в README, раздел про сервер). Добавляет Caddy (`Caddyfile`, сертификат Let's Encrypt для `DOMAIN`, том `caddy_data` не удалять), веб-контейнер снаружи не публикуется (`ports: !reset []`). Цепочка: Caddy → nginx (`web`) → Fastify. Реальный IP клиента: Caddy ставит `X-Forwarded-For`, nginx принимает его через `real_ip` только от внутренних сетей Docker и передаёт серверу `X-Forwarded-For $remote_addr`, поэтому rate limit работает на каждого посетителя и заголовок подделать нельзя. Если поменять эту цепочку (например, добавить ещё прокси), проверьте, что IP клиента по-прежнему доходит до API (в логах сервера `remoteAddress`), иначе лимиты станут общими на всех. В проде нужны настоящие SMTP (иначе не войти) и ключи VAPID, Mailpit (`COMPOSE_PROFILES=dev-mail`) не включать.

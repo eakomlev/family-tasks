@@ -1,0 +1,29 @@
+# Продакшен: поверх docker-compose.yml добавляет Caddy с автоматическим HTTPS.
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Нужен Docker Compose 2.24 или новее (тег !reset).
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Укажите DOMAIN в .env, например family.example.com}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # здесь лежат полученные сертификаты: не удаляйте этот том, иначе при перезапусках
+      # сертификаты будут запрашиваться заново, а у Let's Encrypt есть лимиты
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+  # снаружи приложение доступно только через Caddy (HTTPS), прямой порт веб-сервера закрываем
+  web:
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:
