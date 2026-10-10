@@ -9,19 +9,22 @@
     "start": "node dist/index.js",
     "migrate:create": "node --env-file-if-exists=../.env node_modules/node-pg-migrate/bin/node-pg-migrate.js create -j sql --migrations-dir migrations",
     "migrate:up": "node --env-file-if-exists=../.env node_modules/node-pg-migrate/bin/node-pg-migrate.js up --migrations-dir migrations",
-    "migrate:down": "node --env-file-if-exists=../.env node_modules/node-pg-migrate/bin/node-pg-migrate.js down --migrations-dir migrations"
+    "migrate:down": "node --env-file-if-exists=../.env node_modules/node-pg-migrate/bin/node-pg-migrate.js down --migrations-dir migrations",
+    "vapid": "web-push generate-vapid-keys"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",
     "fastify": "^5.12.5",
     "node-pg-migrate": "^9.0.0",
     "nodemailer": "^10.1.0",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
+    "@types/web-push": "^3.6.4",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }

@@ -1,6 +1,7 @@
 import { MenuLink } from '@/components/MenuLink'
 import { Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
+import { NotificationsSetting } from './components/NotificationsSetting'
 import { ThemeSetting } from './components/ThemeSetting'
 import { Bottom, Menu } from './styles'
 
@@ -15,6 +16,7 @@ export default function Settings() {
           <MenuLink to="/settings/schedule">Расписание уроков</MenuLink>
         </Menu>
       )}
+      {identity && <NotificationsSetting token={identity.token} />}
       <Bottom>
         <ThemeSetting />
       </Bottom>

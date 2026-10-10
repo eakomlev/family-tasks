@@ -14,6 +14,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // свой service worker (src/sw.ts): кроме кэша приложения он принимает push-уведомления
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
@@ -31,7 +35,6 @@ export default defineConfig({
           { src: 'maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: { navigateFallbackDenylist: [/^\/api\//] },
     }),
   ],
 })

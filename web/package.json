@@ -18,7 +18,10 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4",
-    "styled-components": "^6.5.3"
+    "styled-components": "^6.5.3",
+    "workbox-core": "^7.4.1",
+    "workbox-precaching": "^7.4.1",
+    "workbox-routing": "^7.4.1"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
