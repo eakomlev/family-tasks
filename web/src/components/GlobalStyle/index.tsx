@@ -1,32 +1,47 @@
-import { createGlobalStyle } from 'styled-components'
+import { createGlobalStyle, css } from 'styled-components'
 
-// цвета заданы переменными, чтобы тёмная тема переключалась одним media-запросом
+const lightColors = css`
+  --bg: #f7f7fb;
+  --surface: #fff;
+  --text: #1c1b29;
+  --muted: #6b6a80;
+  --border: #dcdbe8;
+  --accent: #4f46e5;
+  --accent-text: #fff;
+  --error: #c62828;
+  --on-error: #fff;
+  --warning-bg: #fff4d6;
+  color-scheme: light;
+`
+
+const darkColors = css`
+  --bg: #14131f;
+  --surface: #1e1d2e;
+  --text: #ececf6;
+  --muted: #9998b0;
+  --border: #35344b;
+  --accent: #7c75f0;
+  --accent-text: #fff;
+  --error: #ff8a80;
+  --on-error: #2a0a08;
+  --warning-bg: #3d3416;
+  color-scheme: dark;
+`
+
+// Тема задаётся CSS-переменными. Явный выбор пользователя — атрибут data-theme на <html>,
+// без него тема следует за системной (prefers-color-scheme).
 export const GlobalStyle = createGlobalStyle`
   :root {
-    --bg: #f7f7fb;
-    --surface: #fff;
-    --text: #1c1b29;
-    --muted: #6b6a80;
-    --border: #dcdbe8;
-    --accent: #4f46e5;
-    --accent-text: #fff;
-    --error: #c62828;
-    --on-error: #fff;
-    --warning-bg: #fff4d6;
-    color-scheme: light dark;
+    ${lightColors}
+  }
+
+  :root[data-theme='dark'] {
+    ${darkColors}
   }
 
   @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #14131f;
-      --surface: #1e1d2e;
-      --text: #ececf6;
-      --muted: #9998b0;
-      --border: #35344b;
-      --accent: #7c75f0;
-      --error: #ff8a80;
-      --on-error: #2a0a08;
-      --warning-bg: #3d3416;
+    :root:not([data-theme='light']) {
+      ${darkColors}
     }
   }
 

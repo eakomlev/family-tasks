@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { GlobalStyle } from '@/components/GlobalStyle'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { IdentityProvider } from '@/identity'
 import CreateFamily from '@/pages/CreateFamily'
 import Family from '@/pages/Family'
@@ -12,6 +13,7 @@ export default function App() {
   return (
     <IdentityProvider>
       <GlobalStyle />
+      <ThemeToggle />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Welcome />} />
