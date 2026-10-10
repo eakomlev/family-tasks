@@ -2,7 +2,27 @@ import { Navigate, Outlet } from 'react-router-dom'
 import { Avatar } from '@/components/Avatar'
 import { TabBar } from '@/components/TabBar'
 import { useIdentity } from '@/identity/context'
+import { ProfileProvider } from '@/profile'
+import { useProfile } from '@/profile/context'
 import { Content, ProfileLink, Root } from './styles'
+
+function Shell() {
+  const { identity } = useIdentity()
+  const { data } = useProfile()
+  if (!identity) return null
+
+  return (
+    <Root>
+      <ProfileLink to="/profile" aria-label={`Профиль: ${identity.name}`}>
+        <Avatar name={data?.me.name ?? identity.name} seed={identity.memberId} src={data?.me.avatar} />
+      </ProfileLink>
+      <Content>
+        <Outlet />
+      </Content>
+      <TabBar />
+    </Root>
+  )
+}
 
 // общий каркас разделов: значок профиля сверху, страница, панель табов снизу
 export function AppShell() {
@@ -10,14 +30,8 @@ export function AppShell() {
   if (!identity) return <Navigate to="/" replace />
 
   return (
-    <Root>
-      <ProfileLink to="/settings" aria-label={`Профиль: ${identity.name}. Настройки`}>
-        <Avatar name={identity.name} seed={identity.memberId} />
-      </ProfileLink>
-      <Content>
-        <Outlet />
-      </Content>
-      <TabBar />
-    </Root>
+    <ProfileProvider token={identity.token}>
+      <Shell />
+    </ProfileProvider>
   )
 }

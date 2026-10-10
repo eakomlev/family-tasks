@@ -6,6 +6,8 @@ export interface Member {
   name: string
   role: Role
   isOwner: boolean
+  // data URL небольшого фото; приходит из /me, в ответах входа его нет
+  avatar?: string | null
 }
 
 // ответ любого запроса, после которого устройство получает новую сессию

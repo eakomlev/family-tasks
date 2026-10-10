@@ -9,6 +9,11 @@ export const Input = styled.input`
   font: inherit;
   font-weight: 400;
 
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
   &:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;

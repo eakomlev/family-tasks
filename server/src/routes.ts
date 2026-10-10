@@ -64,6 +64,22 @@ const joinSchema = {
   },
 }
 
+// фото приходит как data URL уже сжатым клиентом; сервер лишь ограничивает тип и размер
+const avatarSchema = {
+  type: ['string', 'null'],
+  maxLength: 70000,
+  pattern: '^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$',
+} as const
+
+const updateProfileSchema = {
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    minProperties: 1,
+    properties: { name: nameSchema, avatar: avatarSchema },
+  },
+}
+
 const loginSchema = {
   body: {
     type: 'object',
@@ -346,14 +362,59 @@ export async function routes(app: FastifyInstance) {
     const me = await authenticate(req)
     if (!me) return reply.code(401).send({ error: 'unauthorized' })
     const { rows: members } = await pool.query(
-      `select id, name, role, is_owner as "isOwner" from members
+      `select id, name, role, is_owner as "isOwner", avatar from members
        where family_id = $1 order by created_at`,
       [me.family_id],
     )
     return {
-      member: { id: me.id, name: me.name, role: me.role, isOwner: me.is_owner, email: me.email },
+      member: {
+        id: me.id,
+        name: me.name,
+        role: me.role,
+        isOwner: me.is_owner,
+        email: me.email,
+        avatar: me.avatar,
+      },
       family: { code: me.family_code },
       members,
     }
   })
+
+  // изменение своего профиля: имя и/или фото (null удаляет фото). Email менять нельзя
+  app.patch<{ Body: { name?: string; avatar?: string | null } }>(
+    '/api/me',
+    { schema: updateProfileSchema },
+    async (req, reply) => {
+      const me = await authenticate(req)
+      if (!me) return reply.code(401).send({ error: 'unauthorized' })
+
+      const sets: string[] = []
+      const values: unknown[] = []
+      if (req.body.name !== undefined) {
+        values.push(req.body.name.trim())
+        sets.push(`name = $${values.length}`)
+      }
+      if (req.body.avatar !== undefined) {
+        values.push(req.body.avatar)
+        sets.push(`avatar = $${values.length}`)
+      }
+      // Fastify вырезает неизвестные поля уже после проверки minProperties, поэтому проверяем ещё раз
+      if (sets.length === 0) return reply.code(400).send({ error: 'nothing_to_update' })
+      values.push(me.id)
+
+      try {
+        const { rows } = await pool.query(
+          `update members set ${sets.join(', ')} where id = $${values.length}
+           returning id, name, role, is_owner as "isOwner", email, avatar`,
+          values,
+        )
+        return { member: rows[0] }
+      } catch (err) {
+        if (constraintOf(err) === 'members_family_name_idx') {
+          return reply.code(409).send({ error: 'name_taken' })
+        }
+        throw err
+      }
+    },
+  )
 }

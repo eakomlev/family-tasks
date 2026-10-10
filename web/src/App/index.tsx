@@ -10,6 +10,7 @@ import FamilyCreated from '@/pages/FamilyCreated'
 import Join from '@/pages/Join'
 import Login from '@/pages/Login'
 import MyDay from '@/pages/MyDay'
+import Profile from '@/pages/Profile'
 import Settings from '@/pages/Settings'
 import Tasks from '@/pages/Tasks'
 import Welcome from '@/pages/Welcome'
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/my-day" element={<MyDay />} />
             <Route path="/family" element={<Family />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/profile" element={<Profile />} />
           </Route>
           <Route path="*" element={<Welcome />} />
         </Routes>
