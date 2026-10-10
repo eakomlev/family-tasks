@@ -9,6 +9,7 @@ import Family from '@/pages/Family'
 import FamilyCreated from '@/pages/FamilyCreated'
 import Join from '@/pages/Join'
 import Login from '@/pages/Login'
+import MemberPreview from '@/pages/MemberPreview'
 import MyDay from '@/pages/MyDay'
 import Profile from '@/pages/Profile'
 import Settings from '@/pages/Settings'
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/chat" element={<Chat />} />
             <Route path="/my-day" element={<MyDay />} />
             <Route path="/family" element={<Family />} />
+            <Route path="/family/:memberId" element={<MemberPreview />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/profile" element={<Profile />} />
           </Route>
