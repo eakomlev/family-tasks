@@ -15,11 +15,16 @@ docker compose up --build
 
 ## Локальная разработка
 
+Одна команда поднимает всё, фронтенд обновляется в браузере при каждом сохранении файла (HMR), сервер перезапускается сам:
+
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db mailpit
-(cd server && npm install && npm run dev)   # http://localhost:3000
-(cd web && npm install && npm run dev)      # http://localhost:5173, /api проксируется на :3000
+npm run setup   # один раз: зависимости корня, server/ и web/
+npm run dev
 ```
+
+Команда запускает в Docker только БД и Mailpit, затем сервер (http://localhost:3000) и Vite. Адрес приложения напечатает Vite (обычно http://localhost:5173), `/api` проксируется на сервер, письма с кодами видны на http://localhost:8025. Если `.env` нет, он создаётся из `.env.example`. Остановка: Ctrl+C, а БД и Mailpit выключает `npm run dev:stop`.
+
+Service worker в dev выключен, PWA проверяйте на сборке (`docker compose up --build` или `npm run build && npm run preview` в `web/`). Если в браузере остался service worker от старых запусков, удалите его в DevTools → Application → Service Workers.
 
 ## Миграции БД
 

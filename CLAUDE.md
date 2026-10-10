@@ -16,13 +16,14 @@ docker compose up --build -d
 docker compose down
 ```
 
-Локальная разработка: БД в Docker, остальное через npm.
+Локальная разработка одной командой (БД и Mailpit в Docker, сервер через tsx watch, Vite с HMR; скрипты в корневом `package.json`, зависимость только `concurrently`):
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db mailpit
-cd server && npm run dev        # :3000, перезапуск через tsx watch, читает ../.env
-cd web && npm run dev           # Vite, /api проксируется на :3000
+npm run setup   # один раз
+npm run dev     # npm run dev:stop выключает БД и Mailpit
 ```
+
+Service worker в dev выключен (в `vite.config.ts` нет `devOptions`), PWA проверяйте на сборке.
 
 Проверки (тестов пока нет):
 
@@ -31,7 +32,7 @@ cd web && npx tsc -b && npm run lint && npm run build
 cd server && npx tsc --noEmit
 ```
 
-Если порт 5173 занят, Vite молча берёт следующий, смотрите адрес в выводе.
+Если порт 5173 занят, Vite молча берёт следующий, смотрите адрес в выводе. Порт 8025 (Mailpit) занят и в полном Docker-стеке, поэтому одновременно запускать оба режима нельзя.
 
 ## Миграции БД
 
