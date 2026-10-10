@@ -1,6 +1,7 @@
 import { Navigate, useParams } from 'react-router-dom'
 import { Avatar } from '@/components/Avatar'
 import { BackLink } from '@/components/BackLink'
+import { MenuLink } from '@/components/MenuLink'
 import { Notice } from '@/components/Notice'
 import { Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
@@ -32,6 +33,10 @@ export default function MemberPreview() {
           <h1>{member.name}</h1>
           <Badge>{ROLE_LABELS[member.role]}{member.isOwner && ' · создатель семьи'}</Badge>
         </Hero>
+      )}
+      {/* расписание ребёнка видят и правят родители */}
+      {member?.role === 'child' && identity?.role !== 'child' && (
+        <MenuLink to={`/family/${member.id}/schedule`}>Расписание уроков</MenuLink>
       )}
     </Page>
   )

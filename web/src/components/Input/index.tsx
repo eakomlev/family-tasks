@@ -1,6 +1,8 @@
 import styled from 'styled-components'
 
 export const Input = styled.input`
+  /* без этого поле не сжимается в гибких и сеточных контейнерах и раздувает страницу */
+  min-width: 0;
   padding: 0.8rem 1rem;
   border: 1px solid var(--border);
   border-radius: 0.8rem;

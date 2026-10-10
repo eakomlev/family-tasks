@@ -3,6 +3,7 @@ import Fastify from 'fastify'
 import { pool } from './db.js'
 import { migrate } from './migrate.js'
 import { routes } from './routes.js'
+import { scheduleRoutes } from './schedule.js'
 
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is not set')
@@ -16,6 +17,7 @@ const app = Fastify({
 await migrate(databaseUrl)
 await app.register(rateLimit, { max: 120, timeWindow: '1 minute' })
 await app.register(routes)
+await app.register(scheduleRoutes)
 
 const port = Number(process.env.PORT ?? 3000)
 await app.listen({ port, host: '0.0.0.0' })
