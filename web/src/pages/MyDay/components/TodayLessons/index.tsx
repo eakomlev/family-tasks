@@ -6,9 +6,9 @@ import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
 import { EditLink, Header } from './styles'
 import type { TodayLessonsProps } from './types'
-import { capitalize, lessonsForDay, pickLessonDay } from './utils'
+import { capitalize, lessonsForDay, pickLessonDay } from '../../utils'
 
-// уроки ребёнка на сегодня; у родителей расписания нет, поэтому им блок не показываем
+// уроки самого ребёнка; у родителей расписания нет, для них есть FamilyLessons
 export function TodayLessons({ now }: TodayLessonsProps) {
   const { identity } = useIdentity()
   const [lessons, setLessons] = useState<Lesson[]>()
