@@ -1,17 +1,15 @@
 import Fastify from 'fastify'
 import { pool } from './db.js'
+import { migrate } from './migrate.js'
+import { routes } from './routes.js'
+
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is not set')
 
 const app = Fastify({ logger: true })
 
-app.get('/api/health', async (_req, reply) => {
-  try {
-    await pool.query('select 1')
-    return { status: 'ok' }
-  } catch (err) {
-    app.log.error(err)
-    return reply.code(503).send({ status: 'db_unavailable' })
-  }
-})
+await migrate(databaseUrl)
+await app.register(routes)
 
 const port = Number(process.env.PORT ?? 3000)
 await app.listen({ port, host: '0.0.0.0' })
