@@ -108,6 +108,28 @@ async function createDemo(): Promise<{ family: { id: string; code: string }; mem
   }
   const id = (name: string) => members[name].id
 
+  // Монеты детей: длинная история начислений и списаний (чтобы проверять прокрутку), авторы родители, часть записей от системы.
+  const coinReasons: [string, number][] = [
+    ['Помыл посуду', 10], ['Убрал в комнате', 15], ['Сходил в магазин', 20], ['Хорошая оценка по математике', 30],
+    ['Помог с ужином', 10], ['Вынес мусор', 5], ['Купил мороженое', -10], ['Билеты в кино', -15], ['Новая игрушка', -20],
+  ]
+  const coinHistory: Record<string, number> = { Миша: 42, Аня: 14 }
+  for (const [name, count] of Object.entries(coinHistory)) {
+    await pool.query(
+      `insert into coin_transactions (member_id, amount, reason, created_at, created_by) values ($1, 100, 'Стартовый баланс', now() - interval '90 days', null)`,
+      [id(name)],
+    )
+    for (let i = 0; i < count; i++) {
+      const [reason, amount] = coinReasons[(i * 5 + name.length) % coinReasons.length]
+      const author = i % 9 === 8 ? null : id(i % 2 === 0 ? 'Лена' : 'Игорь')
+      await pool.query(
+        `insert into coin_transactions (member_id, amount, reason, created_at, created_by)
+         values ($1, $2, $3, now() - make_interval(mins => $4), $5)`,
+        [id(name), amount, reason, i * 2160 + (i % 5) * 120, author],
+      )
+    }
+  }
+
   // приглашение владельца, как после создания семьи
   await pool.query(`insert into invites (family_id, code, expires_at) values ($1, $2, now() + interval '7 days')`, [family.id, inviteCode()])
 

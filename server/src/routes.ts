@@ -13,6 +13,7 @@ import {
 } from './auth.js'
 import { familyCode, hashToken, inviteCode } from './codes.js'
 import { pool } from './db.js'
+import { coinBalance } from './coins.js'
 import { sendCode } from './mail.js'
 import { closeSession, publish } from './realtime.js'
 
@@ -392,6 +393,8 @@ export async function routes(app: FastifyInstance) {
         email: me.email,
         avatar: me.avatar,
         birthDate: me.birth_date,
+        // монеты есть только у детей и только свои: у остальных поля нет
+        ...(me.role === 'child' ? { coins: await coinBalance(pool, me.id) } : {}),
       },
       family: { code: me.family_code },
       members,

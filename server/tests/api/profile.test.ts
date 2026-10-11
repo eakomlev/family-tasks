@@ -28,6 +28,34 @@ describe('GET /api/me', () => {
   })
 })
 
+describe('монеты в /api/me', () => {
+  it('у ребёнка баланс есть и по умолчанию 0, у родителей поля нет', async () => {
+    expect((await api(app, fam.kid.token, 'GET', '/api/me')).body.member.coins).toBe(0)
+    expect((await api(app, fam.mom.token, 'GET', '/api/me')).body.member).not.toHaveProperty('coins')
+    expect((await api(app, fam.dad.token, 'GET', '/api/me')).body.member).not.toHaveProperty('coins')
+  })
+
+  it('баланс это сумма начислений и списаний, у каждого ребёнка свой', async () => {
+    await pool.query(
+      `insert into coin_transactions (member_id, amount, reason) values ($1, 50, 'за уборку'), ($1, 30, 'бонус'), ($1, -20, 'мороженое'), ($2, 7, 'другому ребёнку')`,
+      [fam.kid.id, fam.sis.id],
+    )
+    expect((await api(app, fam.kid.token, 'GET', '/api/me')).body.member.coins).toBe(60)
+    expect((await api(app, fam.sis.token, 'GET', '/api/me')).body.member.coins).toBe(7)
+  })
+
+  it('баланс может уйти в минус, а журнал не принимает нулевую запись', async () => {
+    await pool.query(`insert into coin_transactions (member_id, amount) values ($1, -100)`, [fam.sis.id])
+    expect((await api(app, fam.sis.token, 'GET', '/api/me')).body.member.coins).toBe(-93)
+    await expect(pool.query(`insert into coin_transactions (member_id, amount) values ($1, 0)`, [fam.kid.id])).rejects.toThrow()
+  })
+
+  it('чужие монеты в списке семьи не раскрываются', async () => {
+    const { body } = await api(app, fam.mom.token, 'GET', '/api/me')
+    expect(JSON.stringify(body.members)).not.toContain('coins')
+  })
+})
+
 describe('смена имени', () => {
   it('убирает пробелы по краям и сохраняет', async () => {
     const { status, body } = await patch(fam.sis.token, { name: '  Анна  ' })

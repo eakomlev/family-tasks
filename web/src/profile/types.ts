@@ -1,7 +1,7 @@
 import type { Member } from '@/api'
 
 export interface ProfileData {
-  me: Member & { email: string }
+  me: Member & { email: string; coins?: number }
   members: Member[]
 }
 

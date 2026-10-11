@@ -21,7 +21,7 @@ export const Header = styled.header`
   align-items: center;
   gap: 0.75rem;
   /* справа вверху лежит значок профиля */
-  padding-right: 3rem;
+  padding-right: var(--topbar-reserve, 3rem);
 
   h1 {
     margin: 0;

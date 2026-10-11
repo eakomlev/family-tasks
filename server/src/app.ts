@@ -2,6 +2,7 @@ import rateLimit from '@fastify/rate-limit'
 import websocket from '@fastify/websocket'
 import Fastify from 'fastify'
 import { chatRoutes } from './chat.js'
+import { coinRoutes } from './coins.js'
 import { pushRoutes } from './push.js'
 import { MAX_PAYLOAD, realtimeRoutes } from './realtime.js'
 import { routes } from './routes.js'
@@ -32,5 +33,6 @@ export async function buildApp({ logger = true, rateLimit: limit = true }: Optio
   await app.register(taskRoutes)
   await app.register(pushRoutes)
   await app.register(chatRoutes)
+  await app.register(coinRoutes)
   return app
 }

@@ -6,6 +6,7 @@ import { UpdateBanner } from '@/components/UpdateBanner'
 import { IdentityProvider } from '@/identity'
 import { useThemeSync } from '@/lib/useThemeSync'
 import Chat from '@/pages/Chat'
+import Coins from '@/pages/Coins'
 import ChatRoom from '@/pages/ChatRoom'
 import CreateFamily from '@/pages/CreateFamily'
 import Family from '@/pages/Family'
@@ -44,6 +45,7 @@ export default function App() {
               <Route path="/tasks/new" element={<TaskForm />} />
               <Route path="/tasks/:taskId" element={<TaskView />} />
               <Route path="/tasks/:taskId/edit" element={<TaskForm />} />
+              <Route path="/coins" element={<Coins />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/chat/:chat" element={<ChatRoom />} />
               <Route path="/my-day" element={<MyDay />} />

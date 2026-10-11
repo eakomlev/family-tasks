@@ -1,0 +1,57 @@
+import type { FastifyInstance } from 'fastify'
+import type { Pool, PoolClient } from 'pg'
+import { authenticate } from './auth.js'
+import { pool } from './db.js'
+
+type Db = Pick<Pool | PoolClient, 'query'>
+
+// Текущий баланс монет участника: сумма журнала начислений и списаний.
+export async function coinBalance(db: Db, memberId: string): Promise<number> {
+  const { rows } = await db.query('select coalesce(sum(amount), 0)::int as balance from coin_transactions where member_id = $1', [memberId])
+  return rows[0].balance as number
+}
+
+const PAGE_SIZE = 30
+
+const historySchema = {
+  querystring: {
+    type: 'object',
+    properties: {
+      before: { type: 'string', format: 'uuid' },
+      limit: { type: 'integer', minimum: 1, maximum: 100, default: PAGE_SIZE },
+    },
+  },
+}
+
+interface HistoryRow {
+  id: string
+  amount: number
+  reason: string
+  createdAt: string
+  createdBy: string | null
+}
+
+export async function coinRoutes(app: FastifyInstance) {
+  // История монет ребёнка, свежее сверху, постранично: before = id самой старой из уже загруженных записей.
+  // Пока доступна только самому ребёнку (родителям баланс детей не открываем).
+  app.get<{ Querystring: { before?: string; limit?: number } }>('/api/coins', { schema: historySchema }, async (req, reply) => {
+    const me = await authenticate(req)
+    if (!me) return reply.code(401).send({ error: 'unauthorized' })
+    if (me.role !== 'child') return reply.code(403).send({ error: 'not_a_child' })
+
+    const limit = req.query.limit ?? PAGE_SIZE
+    const { rows } = await pool.query<HistoryRow>(
+      `select id, amount, reason, created_at as "createdAt", created_by as "createdBy"
+       from coin_transactions
+       where member_id = $1
+         and ($2::uuid is null or (created_at, id) < (select created_at, id from coin_transactions where id = $2 and member_id = $1))
+       order by created_at desc, id desc limit $3`,
+      [me.id, req.query.before ?? null, limit + 1],
+    )
+    return {
+      balance: await coinBalance(pool, me.id),
+      items: rows.slice(0, limit),
+      hasMore: rows.length > limit,
+    }
+  })
+}

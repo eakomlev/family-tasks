@@ -6,8 +6,10 @@ export const Header = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  /* справа вверху лежит значок профиля */
-  padding-right: 3rem;
+  /* справа вверху лежат значок профиля и баланс монет; если выпадающий список не помещается, он уходит на строку ниже */
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+  padding-right: var(--topbar-reserve, 3rem);
 
   select {
     /* высота как у заголовка страницы, чтобы строка заголовка и значок профиля были на одном уровне */

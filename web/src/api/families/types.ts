@@ -30,7 +30,8 @@ export interface CreateFamilyResult extends SessionResult {
 }
 
 export interface FamilyOverview {
-  member: Member & { email: string }
+  // coins: баланс виртуальных монет, есть только у детей
+  member: Member & { email: string; coins?: number }
   family: { code: string }
   members: Member[]
 }

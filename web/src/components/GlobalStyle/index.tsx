@@ -9,6 +9,7 @@ const lightColors = css`
   --accent: #4f46e5;
   --accent-text: #fff;
   --error: #c62828;
+  --success: #2e7d32;
   --on-error: #fff;
   --warning-bg: #fff4d6;
   /* «жидкое стекло» панели табов */
@@ -29,6 +30,7 @@ const darkColors = css`
   --accent: #7c75f0;
   --accent-text: #fff;
   --error: #ff8a80;
+  --success: #7bd88f;
   --on-error: #2a0a08;
   --warning-bg: #3d3416;
   --glass-bar: rgb(30 29 46 / 0.72);
