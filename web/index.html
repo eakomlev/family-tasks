@@ -27,6 +27,28 @@
       // Написан без современного синтаксиса, чтобы работать и на старых телефонах.
       ;(function () {
         var shown = false
+        // что известно о запуске: по этим строкам видно, где остановилось (сеть, кэш, скрипт)
+        function details() {
+          var lines = []
+          lines.push('онлайн: ' + (navigator.onLine ? 'да' : 'нет'))
+          lines.push('этап: ' + (window.__bootStage || 'главный скрипт не выполнился'))
+          lines.push('service worker: ' + (navigator.serviceWorker && navigator.serviceWorker.controller ? 'управляет страницей' : 'нет'))
+          try {
+            var res = performance.getEntriesByType('resource')
+            var found = false
+            for (var i = 0; i < res.length; i++) {
+              if (/\/assets\/|registerSW/.test(res[i].name)) {
+                found = true
+                lines.push(res[i].name.split('/').pop() + ': ' + Math.round(res[i].duration) + ' мс, ' + (res[i].transferSize || 0) + ' байт')
+              }
+            }
+            if (!found) lines.push('файлы приложения: загрузка не завершилась')
+          } catch (e) {}
+          var c = navigator.connection
+          if (c) lines.push('сеть: ' + (c.effectiveType || '?') + (c.downlink ? ', ' + c.downlink + ' Мбит/с' : ''))
+          lines.push(navigator.userAgent)
+          return lines.join('\n')
+        }
         function fail(reason) {
           if (shown) return
           var boot = document.getElementById('boot')
@@ -35,8 +57,10 @@
           boot.innerHTML =
             '<p style="font-size:1.1rem;color:inherit">Приложение не запустилось</p>' +
             '<p style="font-size:.85rem;overflow-wrap:anywhere"></p>' +
-            '<button type="button" style="padding:.8rem 1.2rem;border:0;border-radius:.8rem;background:#4f46e5;color:#fff;font-size:1rem">Сбросить и перезагрузить</button>'
+            '<button type="button" style="padding:.8rem 1.2rem;border:0;border-radius:.8rem;background:#4f46e5;color:#fff;font-size:1rem">Сбросить и перезагрузить</button>' +
+            '<pre style="margin:1.2rem 0 0;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.7rem"></pre>'
           boot.getElementsByTagName('p')[1].textContent = reason
+          boot.getElementsByTagName('pre')[0].textContent = details()
           boot.getElementsByTagName('button')[0].onclick = function () {
             var done = function () { location.reload() }
             try {

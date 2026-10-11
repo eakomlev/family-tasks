@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { del, get, set } from 'idb-keyval'
+import { Splash } from '@/components/Splash'
 import { IdentityContext } from './context'
 import type { Identity } from './types'
 
@@ -25,7 +26,8 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
     setIdentity(null)
   }, [])
 
-  if (identity === undefined) return null
+  // пока читаем данные входа, показываем загрузку, а не пустой экран
+  if (identity === undefined) return <Splash />
 
   return <IdentityContext value={{ identity, save, clear }}>{children}</IdentityContext>
 }
