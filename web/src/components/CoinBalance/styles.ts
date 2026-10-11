@@ -30,3 +30,46 @@ export const Coin = styled.svg`
   height: 1.4rem;
   flex: none;
 `
+
+export const Card = styled(Link)`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+
+  svg {
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+  }
+
+  &:hover {
+    border-color: var(--accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+`
+
+export const CardLabel = styled.span`
+  flex: 1;
+  font-weight: 600;
+`
+
+export const CardValue = styled.strong`
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+`
+
+export const Chevron = styled.span`
+  color: var(--muted);
+  font-size: 1.4rem;
+  line-height: 1;
+`

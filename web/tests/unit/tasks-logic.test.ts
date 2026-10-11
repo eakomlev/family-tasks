@@ -99,14 +99,29 @@ describe('buildSections', () => {
 
   it('просроченное, затем по дням по порядку, затем «без срока»', () => {
     const sections = buildSections(list, TODAY, null)
-    expect(sections.map((s) => s.key)).toEqual(['overdue', '2026-10-01', TODAY, '2026-10-12', '2026-10-15', 'undated'])
+    expect(sections.map((s) => s.key)).toEqual(['overdue', TODAY, '2026-10-12', '2026-10-15', 'undated'])
     expect(sections[0].title).toBe('Просрочено')
     expect(sections[0].items.map((i) => i.task.id)).toEqual(['old'])
   })
 
-  it('выполненное просроченное остаётся в своём дне, а не в «Просрочено»', () => {
-    const sections = buildSections(list, TODAY, null)
-    expect(sections.find((s) => s.key === '2026-10-01')!.items.map((i) => i.task.id)).toEqual(['oldDone'])
+  it('выполненное в «Предстоящие» не попадает: ни сегодняшнее, ни просроченное, ни без срока', () => {
+    const l = {
+      tasks: [task({ id: 'a', title: 'А' }), task({ id: 'b', title: 'Б' }), task({ id: 'c', title: 'В' }), task({ id: 'd', title: 'Г' })],
+      occurrences: [occ('a', TODAY, true), occ('b', '2026-10-01', true), occ('c', null, true), occ('d', TODAY)],
+    }
+    const sections = buildSections(l, TODAY, null)
+    expect(sections.map((s) => s.key)).toEqual([TODAY])
+    expect(sections[0].items.map((i) => i.task.id)).toEqual(['d'])
+  })
+
+  it('если всё выполнено, секций нет', () => {
+    const l = { tasks: [task({ id: 'a' })], occurrences: [occ('a', TODAY, true)] }
+    expect(buildSections(l, TODAY, null)).toEqual([])
+  })
+
+  it('ожидающее проверки родителем ещё не выполнено и остаётся в списке (у ребёнка)', () => {
+    const l = { tasks: [task({ id: 'a' })], occurrences: [occ('a', TODAY, false, true)] }
+    expect(buildSections(l, TODAY, null)[0].items.map((i) => i.task.id)).toEqual(['a'])
   })
 
   it('заголовки дней: Сегодня и Завтра', () => {

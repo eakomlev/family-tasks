@@ -33,6 +33,64 @@ export const Card = styled(Link)`
 `
 
 // значок состояния: что сделано, что ещё нет, что просрочено
+// Карточка с кнопками проверки: та же рамка, но ссылкой остаётся только верхняя часть, а кнопки лежат под ней
+// (кнопка внутри ссылки недопустима).
+export const Shell = styled.div`
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  background: var(--surface);
+  overflow: hidden;
+`
+
+export const Inner = styled(Link)`
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  color: inherit;
+  text-decoration: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+`
+
+export const Actions = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 0.9rem 0.7rem;
+
+  button {
+    flex: 1;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 0.7rem;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  button[data-primary] {
+    flex: 1.6;
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-text);
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+`
+
 export const Badge = styled.span<{ $state: TaskState }>`
   flex: none;
   width: 2.25rem;
@@ -57,6 +115,11 @@ export const Badge = styled.span<{ $state: TaskState }>`
           background: var(--accent);
           color: var(--accent-text);
         `
+      : $state === 'pending'
+        ? css`
+            background: color-mix(in srgb, #f59e0b 20%, transparent);
+            color: #d97706;
+          `
       : $state === 'late'
         ? css`
             background: color-mix(in srgb, var(--error) 16%, transparent);

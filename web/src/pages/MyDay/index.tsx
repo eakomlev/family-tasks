@@ -1,4 +1,5 @@
 import { Page } from '@/components/Page'
+import { PendingReview } from '@/components/PendingReview'
 import { useIdentity } from '@/identity/context'
 import { useNow } from '@/lib/useNow'
 import { DateLine, Hero, Icon } from './styles'
@@ -22,6 +23,7 @@ export default function MyDay() {
         <DateLine>{formatToday(now)}</DateLine>
       </Hero>
       <EarnedToday now={now} />
+      <PendingReview />
       <TodayTasks now={now} />
       <TodayLessons now={now} />
       <TodayTrainings now={now} />

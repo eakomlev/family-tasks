@@ -61,15 +61,15 @@ export const Time = styled.span`
 `
 
 // маленький значок состояния: галочка у выполненного, кружок у остальных
-export const Mark = styled.span<{ $done: boolean }>`
+export const Mark = styled.span<{ $done: boolean; $pending?: boolean }>`
   flex: none;
   width: 1.1rem;
   height: 1.1rem;
   display: grid;
   place-items: center;
-  border: 1.5px solid ${({ $done }) => ($done ? 'var(--accent)' : 'var(--border)')};
+  border: 1.5px solid ${({ $done, $pending }) => ($done ? 'var(--accent)' : $pending ? '#d97706' : 'var(--border)')};
   border-radius: 50%;
-  background: ${({ $done }) => ($done ? 'var(--accent)' : 'transparent')};
+  background: ${({ $done, $pending }) => ($done ? 'var(--accent)' : $pending ? 'color-mix(in srgb, #d97706 25%, transparent)' : 'transparent')};
   color: var(--accent-text);
   font-size: 0.65rem;
   line-height: 1;

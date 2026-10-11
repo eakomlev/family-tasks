@@ -51,16 +51,18 @@ const scrollToEnd = () => {
   act(() => live.forEach((o) => o.callback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver)))
 }
 
-function renderPage(role: 'child' | 'mama' = 'child', listeners = new Set<Listener>()) {
+function renderPage(role: 'child' | 'mama' = 'child', listeners = new Set<Listener>(), path = '/coins') {
   const me = role === 'child' ? members[1] : members[0]
   const identity: Identity = { familyCode: 'c', memberId: me.id, name: me.name, role, token: 'tok' }
   render(
     <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)) }}>
       <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
         <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z', coins: 70 }, members }, failed: false, refresh: async () => {} }}>
-          <MemoryRouter initialEntries={['/coins']}>
+          <MemoryRouter initialEntries={[path]}>
             <Routes>
               <Route path="/coins" element={<Coins />} />
+              <Route path="/coins/:memberId" element={<Coins />} />
+              <Route path="/family/:memberId" element={<p>Страница ребёнка</p>} />
               <Route path="/my-day" element={<p>Мой день</p>} />
             </Routes>
           </MemoryRouter>
@@ -99,7 +101,7 @@ describe('страница истории монет', () => {
     expect(within(rows[1]).getByText(/Система/)).toBeInTheDocument()
     expect(within(rows[2]).getByText('Без описания')).toBeInTheDocument()
     expect(screen.getByText('70')).toBeInTheDocument()
-    expect(api.listCoinHistory).toHaveBeenCalledWith('tok')
+    expect(api.listCoinHistory).toHaveBeenCalledWith('tok', undefined, undefined)
   })
 
   it('пустая история: подсказка', async () => {
@@ -120,11 +122,11 @@ describe('страница истории монет', () => {
     scrollToEnd()
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(4))
     // следующий запрос просит записи старше самой старой из загруженных
-    expect(api.listCoinHistory).toHaveBeenLastCalledWith('tok', 'e2')
+    expect(api.listCoinHistory).toHaveBeenLastCalledWith('tok', 'e2', undefined)
 
     scrollToEnd()
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(5))
-    expect(api.listCoinHistory).toHaveBeenLastCalledWith('tok', 'e4')
+    expect(api.listCoinHistory).toHaveBeenLastCalledWith('tok', 'e4', undefined)
     expect(screen.queryByRole('button', { name: /Показать ещё/ })).not.toBeInTheDocument()
     expect(screen.getAllByRole('listitem').map((li) => li.textContent).join()).not.toMatch(/за дело 2.*за дело 2/)
   })
@@ -191,5 +193,22 @@ describe('страница истории монет', () => {
     renderPage('mama')
     expect(screen.getByText('Мой день')).toBeInTheDocument()
     expect(api.listCoinHistory).not.toHaveBeenCalled()
+  })
+
+  describe('родитель смотрит монеты ребёнка', () => {
+    it('грузит историю этого ребёнка, заголовок с именем, назад на его страницу', async () => {
+      vi.mocked(api.listCoinHistory).mockResolvedValue({ items: [entry(1)], hasMore: false, balance: 30 })
+      renderPage('mama', new Set(), '/coins/kid')
+      expect(await screen.findByRole('heading', { name: 'Монеты: Миша' })).toBeInTheDocument()
+      expect(api.listCoinHistory).toHaveBeenCalledWith('tok', undefined, 'kid')
+      expect(await screen.findByText('30')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /Миша/ })).toHaveAttribute('href', '/family/kid')
+    })
+
+    it('без выбранного ребёнка родителя уводит на стартовую страницу', () => {
+      renderPage('mama')
+      expect(screen.getByText('Мой день')).toBeInTheDocument()
+      expect(api.listCoinHistory).not.toHaveBeenCalled()
+    })
   })
 })

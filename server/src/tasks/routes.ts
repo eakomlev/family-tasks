@@ -3,8 +3,8 @@ import { authenticate } from '../auth.js'
 import { pool } from '../db.js'
 import { notifyMember } from '../push.js'
 import { publish } from '../realtime.js'
-import { addDays, isRealDate, NO_DATE, occursOn, occurrencesBetween, type RepeatType, type Schedule } from './recurrence.js'
-import { completedMessage, createdMessage, rewardMessage, updatedMessage, type TaskDto } from './text.js'
+import { addDays, isRealDate, NO_DATE, occursOn, occurrencesBetween, previousOccurrence, type RepeatType, type Schedule } from './recurrence.js'
+import { completedMessage, createdMessage, reviewMessage, rewardMessage, updatedMessage, type TaskDto } from './text.js'
 
 const MAX_RANGE_DAYS = 62
 const MIN_DATE = '1900-01-01'
@@ -50,7 +50,12 @@ const listSchema = {
   querystring: {
     type: 'object',
     required: ['from', 'to'],
-    properties: { from: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' }, to: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' } },
+    properties: {
+      from: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+      to: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+      // повторяющиеся задания показывать одним вхождением на серию (см. ниже)
+      collapse: { type: 'boolean', default: false },
+    },
   },
 }
 const doneSchema = {
@@ -100,6 +105,25 @@ const toDto = (row: TaskRow): TaskDto => ({
   date: row.date,
   time: row.time,
   repeat: { type: row.repeatType, days: row.repeatDays, until: row.repeatUntil },
+})
+
+// Вхождение для клиента: done заполнено у подтверждённого, pending у ожидающего проверки родителем (оба null у невыполненного).
+interface OccurrenceDto {
+  taskId: string
+  date: string | null
+  done: { memberId: string; at: string } | null
+  pending: { memberId: string; at: string } | null
+}
+
+const occurrenceDto = (
+  taskId: string,
+  date: string | null,
+  completion?: { doneBy: string; doneAt: string; pending: boolean },
+): OccurrenceDto => ({
+  taskId,
+  date,
+  done: completion && !completion.pending ? { memberId: completion.doneBy, at: completion.doneAt } : null,
+  pending: completion?.pending ? { memberId: completion.doneBy, at: completion.doneAt } : null,
 })
 
 const scheduleOf = (row: TaskRow): Schedule => ({
@@ -183,10 +207,14 @@ export async function taskRoutes(app: FastifyInstance) {
   }
 
   // Задания на период: вхождения с from по to, а также невыполненные просроченные и задания без срока.
-  app.get<{ Querystring: { from: string; to: string } }>('/api/tasks', { schema: listSchema }, async (req, reply) => {
+  // collapse: у повторяющегося задания остаётся одно текущее вхождение (from считается сегодняшним днём):
+  //  - есть вхождение на from: оно, выполненное или нет;
+  //  - иначе ближайшее будущее, но только если предыдущее вхождение серии не выполнено или его не было:
+  //    выполненное предыдущее значит, что следующее появится только в свой день.
+  app.get<{ Querystring: { from: string; to: string; collapse?: boolean } }>('/api/tasks', { schema: listSchema }, async (req, reply) => {
     const member = await me(req, reply)
     if (!member) return
-    const { from, to } = req.query
+    const { from, to, collapse } = req.query
     if (!isRealDate(from) || !isRealDate(to) || to < from || addDays(from, MAX_RANGE_DAYS) < to) {
       return reply.code(400).send({ error: 'invalid_range' })
     }
@@ -194,27 +222,50 @@ export async function taskRoutes(app: FastifyInstance) {
     const vis = visibility(member, 2)
     const { rows } = await pool.query<TaskRow>(`${SELECT_TASK} where t.family_id = $1${vis.sql} order by t.created_at`, [member.family_id, ...vis.values])
     const { rows: done } = await pool.query(
-      `select c.task_id as "taskId", to_char(c.occurrence_date, 'YYYY-MM-DD') as date, c.done_by as "doneBy", c.done_at as "doneAt"
+      `select c.task_id as "taskId", to_char(c.occurrence_date, 'YYYY-MM-DD') as date, c.done_by as "doneBy", c.done_at as "doneAt", c.pending
        from task_completions c join tasks t on t.id = c.task_id
        where t.family_id = $1 and (c.occurrence_date between $2 and $3 or t.repeat_type = 'none')`,
       [member.family_id, from, to],
     )
     const doneMap = new Map(done.map((d) => [`${d.taskId}|${d.date}`, d]))
 
+    // для схлопывания: какие серии без вхождения на from имеют выполненное предыдущее вхождение
+    const prevDone = new Set<string>()
+    if (collapse) {
+      const pairs = rows
+        .filter((r) => r.date !== null && r.repeatType !== 'none')
+        .map((r) => [r.id, previousOccurrence(scheduleOf(r), from)] as const)
+        .filter((p): p is readonly [string, string] => p[1] !== null)
+      if (pairs.length > 0) {
+        const { rows: prev } = await pool.query<{ taskId: string }>(
+          `select c.task_id as "taskId" from task_completions c
+           join unnest($1::uuid[], $2::date[]) as p(task_id, day) on p.task_id = c.task_id and p.day = c.occurrence_date
+           where not c.pending`,
+          [pairs.map((p) => p[0]), pairs.map((p) => p[1])],
+        )
+        for (const r of prev) prevDone.add(r.taskId)
+      }
+    }
+
     const tasks: TaskDto[] = []
-    const occurrences: { taskId: string; date: string | null; done: { memberId: string; at: string } | null }[] = []
+    const occurrences: OccurrenceDto[] = []
     for (const row of rows) {
       const dates: (string | null)[] =
         row.date === null ? [null] : occurrencesBetween(scheduleOf(row), from, to)
+      if (collapse && row.date !== null && row.repeatType !== 'none' && dates.length > 0) {
+        if (dates[0] === from) dates.splice(1)
+        else if (prevDone.has(row.id)) dates.length = 0
+        else dates.splice(1)
+      }
       // просроченное разовое задание остаётся в списке, пока его не выполнят
       if (row.date !== null && row.repeatType === 'none' && row.date < from) dates.push(row.date)
 
       let included = false
       for (const date of dates) {
         const completion = doneMap.get(`${row.id}|${date ?? NO_DATE}`)
-        // выполненное просроченное и выполненное без срока уже не показываем
-        if (completion && (date === null || date < from)) continue
-        occurrences.push({ taskId: row.id, date, done: completion ? { memberId: completion.doneBy, at: completion.doneAt } : null })
+        // подтверждённое просроченное и подтверждённое без срока уже не показываем; ожидающее проверки показываем всегда
+        if (completion && !completion.pending && (date === null || date < from)) continue
+        occurrences.push(occurrenceDto(row.id, date, completion))
         included = true
       }
       if (included) tasks.push(toDto(row))
@@ -233,7 +284,7 @@ export async function taskRoutes(app: FastifyInstance) {
               t.repeat_type as "repeatType", t.repeat_days as "repeatDays", to_char(t.repeat_until, 'YYYY-MM-DD') as "repeatUntil",
               to_char(c.occurrence_date, 'YYYY-MM-DD') as "occurrenceDate", c.done_by as "doneBy", c.done_at as "doneAt"
        from task_completions c join tasks t on t.id = c.task_id
-       where t.family_id = $1 and c.done_at > now() - make_interval(days => $2)${visibility(member, 3).sql}
+       where t.family_id = $1 and not c.pending and c.done_at > now() - make_interval(days => $2)${visibility(member, 3).sql}
        order by c.done_at desc limit 200`,
       [member.family_id, req.query.days ?? 30, ...visibility(member, 3).values],
     )
@@ -245,6 +296,35 @@ export async function taskRoutes(app: FastifyInstance) {
         taskId: row.id,
         date: row.occurrenceDate === NO_DATE ? null : (row.occurrenceDate as string),
         done: { memberId: row.doneBy as string, at: row.doneAt as string },
+        pending: null,
+      }
+    })
+    return { tasks: [...tasks.values()], occurrences }
+  })
+
+  // Задания, ожидающие подтверждения родителем: любой день, свежие отправки сверху. Родитель видит все по семье, ребёнок свои.
+  app.get('/api/tasks/pending', async (req, reply) => {
+    const member = await me(req, reply)
+    if (!member) return
+    const vis = visibility(member, 2)
+    const { rows } = await pool.query(
+      `select t.id, t.title, t.description, t.reward, t.created_at as "createdAt", t.author_id as "authorId", t.assignee_id as "assigneeId",
+              to_char(t.due_date, 'YYYY-MM-DD') as date, to_char(t.due_time, 'HH24:MI') as time,
+              t.repeat_type as "repeatType", t.repeat_days as "repeatDays", to_char(t.repeat_until, 'YYYY-MM-DD') as "repeatUntil",
+              to_char(c.occurrence_date, 'YYYY-MM-DD') as "occurrenceDate", c.done_by as "doneBy", c.done_at as "doneAt"
+       from task_completions c join tasks t on t.id = c.task_id
+       where t.family_id = $1 and c.pending${vis.sql}
+       order by c.done_at desc limit 200`,
+      [member.family_id, ...vis.values],
+    )
+    const tasks = new Map<string, TaskDto>()
+    const occurrences = rows.map((row) => {
+      if (!tasks.has(row.id)) tasks.set(row.id, toDto(row))
+      return {
+        taskId: row.id,
+        date: row.occurrenceDate === NO_DATE ? null : (row.occurrenceDate as string),
+        done: null,
+        pending: { memberId: row.doneBy as string, at: row.doneAt as string },
       }
     })
     return { tasks: [...tasks.values()], occurrences }
@@ -263,10 +343,10 @@ export async function taskRoutes(app: FastifyInstance) {
     let occurrence = null
     if (valid) {
       const { rows } = await pool.query(
-        'select done_by as "memberId", done_at as "at" from task_completions where task_id = $1 and occurrence_date = $2',
+        'select done_by as "doneBy", done_at as "doneAt", pending from task_completions where task_id = $1 and occurrence_date = $2',
         [row.id, date ?? NO_DATE],
       )
-      occurrence = { taskId: row.id, date, done: rows[0] ? { memberId: rows[0].memberId as string, at: rows[0].at as string } : null }
+      occurrence = occurrenceDto(row.id, date, rows[0])
     }
     return { task: toDto(row), occurrence }
   })
@@ -352,7 +432,96 @@ export async function taskRoutes(app: FastifyInstance) {
     return reply.code(204).send()
   })
 
+  // Родителям семьи (мама, папа): например, что ребёнок отправил задание на проверку.
+  async function notifyParents(familyId: string, message: ReturnType<typeof reviewMessage>) {
+    const { rows } = await pool.query<{ id: string }>(`select id from members where family_id = $1 and role in ('mama', 'papa')`, [familyId])
+    await Promise.all(rows.map((p) => notifyMember(p.id, message)))
+  }
+
+  // Общая часть отметки и подтверждения. Что происходит:
+  //  - вхождения ещё не отмечали, отмечает ребёнок задание с наградой: отправка на проверку (pending), монет пока нет;
+  //  - вхождения ещё не отмечали, иначе: выполнено сразу, награда (если есть) выдаётся исполнителю;
+  //  - вхождение ждёт проверки, а отмечает родитель: подтверждение, награда выдаётся исполнителю;
+  //  - остальное (повторная отметка, ребёнок повторно отправляет): ничего не меняется.
+  // Награда и отметка одной транзакцией, награда не выдаётся дважды.
+  async function completeOccurrence(
+    member: { id: string; name: string; role: string; family_id: string },
+    row: TaskRow,
+    date: string | null,
+    // confirmOnly: только подтвердить то, что ждёт проверки; ничего не создавать
+    confirmOnly = false,
+  ): Promise<'submitted' | 'done' | 'confirmed' | 'unchanged'> {
+    const occurrence = date ?? NO_DATE
+    const isChild = member.role === 'child'
+    let outcome: 'submitted' | 'done' | 'confirmed' | 'unchanged' = 'unchanged'
+    const db = await pool.connect()
+    try {
+      await db.query('begin')
+      const { rows: existing } = await db.query<{ pending: boolean }>(
+        'select pending from task_completions where task_id = $1 and occurrence_date = $2 for update',
+        [row.id, occurrence],
+      )
+      const pay = () =>
+        db.query(
+          `insert into coin_transactions (member_id, amount, reason, created_by, task_id, occurrence_date) values ($1, $2, $3, $4, $5, $6)`,
+          [row.assigneeId, row.reward, `Задание: ${row.title}`, row.authorId, row.id, occurrence],
+        )
+      if (existing.length === 0) {
+        if (confirmOnly) {
+          await db.query('rollback')
+          return 'unchanged'
+        }
+        const needsReview = row.reward > 0 && isChild
+        await db.query(
+          `insert into task_completions (task_id, occurrence_date, done_by, pending, confirmed_by, confirmed_at)
+           values ($1, $2, $3, $4, $5, case when $4 then null else now() end)`,
+          [row.id, occurrence, member.id, needsReview, needsReview ? null : member.id],
+        )
+        if (needsReview) outcome = 'submitted'
+        else {
+          outcome = 'done'
+          if (row.reward > 0) await pay()
+        }
+      } else if (existing[0].pending && !isChild) {
+        await db.query(
+          `update task_completions set pending = false, confirmed_by = $3, confirmed_at = now() where task_id = $1 and occurrence_date = $2`,
+          [row.id, occurrence, member.id],
+        )
+        outcome = 'confirmed'
+        if (row.reward > 0) await pay()
+      }
+      await db.query('commit')
+    } catch (err) {
+      await db.query('rollback').catch(() => {})
+      throw err
+    } finally {
+      db.release()
+    }
+
+    publish(member.family_id, { type: 'tasks' })
+    const dto = toDto(row)
+    if (outcome === 'submitted') {
+      // родителям: ребёнок ждёт подтверждения
+      void notifyParents(member.family_id, reviewMessage(dto, member.name))
+    }
+    if ((outcome === 'done' || outcome === 'confirmed') && row.reward > 0) {
+      // баланс исполнителя изменился; сообщаем ему, если подтвердил или отметил не он сам
+      publish(member.family_id, { type: 'members' })
+      if (row.assigneeId !== member.id) void notifyMember(row.assigneeId, rewardMessage(dto))
+    }
+    // автору сообщаем один раз, когда задание выполнено (подтверждено), и если это сделал не он сам
+    if ((outcome === 'done' || outcome === 'confirmed') && row.authorId !== member.id) {
+      void notifyMember(row.authorId, completedMessage(dto, member.name))
+    }
+    return outcome
+  }
+
+  // Проверка вхождения из запроса: должно быть настоящим вхождением задания.
+  const validOccurrence = (row: TaskRow, date: string | null) =>
+    date === null ? row.date === null : row.date !== null && isRealDate(date) && occursOn(scheduleOf(row), date)
+
   // Отметить выполненным (любой член семьи). date: день вхождения или null для задания без срока.
+  // Задание с наградой ребёнок только отправляет на проверку, подтверждает родитель (этим же запросом или /confirm).
   app.post<{ Params: { id: string }; Body: { date: string | null } }>(
     '/api/tasks/:id/complete',
     { schema: completionSchema },
@@ -361,52 +530,31 @@ export async function taskRoutes(app: FastifyInstance) {
       if (!member) return
       const row = await findTask(req.params.id, member)
       if (!row) return reply.code(404).send({ error: 'task_not_found' })
-
-      const date = req.body.date
-      // отметить можно только реальное вхождение задания
-      const valid = date === null ? row.date === null : row.date !== null && isRealDate(date) && occursOn(scheduleOf(row), date)
-      if (!valid) return reply.code(400).send({ error: 'invalid_occurrence' })
-
-      // Отметка и награда одной транзакцией: награда выдаётся только при первой отметке этого вхождения.
-      let first = false
-      let rewarded = false
-      const db = await pool.connect()
-      try {
-        await db.query('begin')
-        const inserted = await db.query(
-          `insert into task_completions (task_id, occurrence_date, done_by) values ($1, $2, $3) on conflict do nothing`,
-          [row.id, date ?? NO_DATE, member.id],
-        )
-        first = inserted.rowCount === 1
-        if (first && row.reward > 0) {
-          // награду получает исполнитель, кто бы ни отметил выполнение (например, родитель подтвердил); от имени автора задания
-          await db.query(
-            `insert into coin_transactions (member_id, amount, reason, created_by, task_id, occurrence_date) values ($1, $2, $3, $4, $5, $6)`,
-            [row.assigneeId, row.reward, `Задание: ${row.title}`, row.authorId, row.id, date ?? NO_DATE],
-          )
-          rewarded = true
-        }
-        await db.query('commit')
-      } catch (err) {
-        await db.query('rollback').catch(() => {})
-        throw err
-      } finally {
-        db.release()
-      }
-      publish(member.family_id, { type: 'tasks' })
-      if (rewarded) {
-        // баланс исполнителя изменился; сообщаем ему, если выполнил не он сам
-        publish(member.family_id, { type: 'members' })
-        if (row.assigneeId !== member.id) void notifyMember(row.assigneeId, rewardMessage(toDto(row)))
-      }
-      // автору сообщаем один раз, при первой отметке и если выполнил не он сам
-      if (first && row.authorId !== member.id) {
-        void notifyMember(row.authorId, completedMessage(toDto(row), member.name))
-      }
+      if (!validOccurrence(row, req.body.date)) return reply.code(400).send({ error: 'invalid_occurrence' })
+      await completeOccurrence(member, row, req.body.date)
       return reply.code(204).send()
     },
   )
 
+  // Подтвердить отправленное на проверку (только родитель): выдаёт награду. Если проверять нечего, 400 `not_pending`.
+  app.post<{ Params: { id: string }; Body: { date: string | null } }>(
+    '/api/tasks/:id/confirm',
+    { schema: completionSchema },
+    async (req, reply) => {
+      const member = await me(req, reply)
+      if (!member) return
+      if (member.role === 'child') return reply.code(403).send({ error: 'parents_only' })
+      const row = await findTask(req.params.id, member)
+      if (!row) return reply.code(404).send({ error: 'task_not_found' })
+      if (!validOccurrence(row, req.body.date)) return reply.code(400).send({ error: 'invalid_occurrence' })
+      const outcome = await completeOccurrence(member, row, req.body.date, true)
+      if (outcome !== 'confirmed') return reply.code(400).send({ error: 'not_pending' })
+      return reply.code(204).send()
+    },
+  )
+
+  // Снять отметку (или вернуть отправленное на проверку). Забирает выданную награду, если она была.
+  // Ребёнок может снять только то, что ещё не подтверждено: подтверждённое задание с наградой отменяет только родитель.
   app.post<{ Params: { id: string }; Body: { date: string | null } }>(
     '/api/tasks/:id/uncomplete',
     { schema: completionSchema },
@@ -415,14 +563,23 @@ export async function taskRoutes(app: FastifyInstance) {
       if (!member) return
       const row = await findTask(req.params.id, member)
       if (!row) return reply.code(404).send({ error: 'task_not_found' })
-      // Снятие отметки забирает выданную за неё награду (если она была).
       const occurrence = req.body.date ?? NO_DATE
       let revoked = false
       const db = await pool.connect()
       try {
         await db.query('begin')
-        const removed = await db.query('delete from task_completions where task_id = $1 and occurrence_date = $2', [row.id, occurrence])
-        if (removed.rowCount === 1) revoked = (await revokeRewards(db, row.id, occurrence, `Отмена: ${row.title}`, member.id)) > 0
+        const { rows: existing } = await db.query<{ pending: boolean }>(
+          'select pending from task_completions where task_id = $1 and occurrence_date = $2 for update',
+          [row.id, occurrence],
+        )
+        if (existing.length > 0) {
+          if (member.role === 'child' && row.reward > 0 && !existing[0].pending) {
+            await db.query('rollback')
+            return reply.code(403).send({ error: 'confirmed' })
+          }
+          await db.query('delete from task_completions where task_id = $1 and occurrence_date = $2', [row.id, occurrence])
+          if (!existing[0].pending) revoked = (await revokeRewards(db, row.id, occurrence, `Отмена: ${row.title}`, member.id)) > 0
+        }
         await db.query('commit')
       } catch (err) {
         await db.query('rollback').catch(() => {})

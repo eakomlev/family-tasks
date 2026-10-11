@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, isoWeekday, isRealDate, NO_DATE, occursOn, occurrencesBetween, type Schedule } from '../../src/tasks/recurrence.js'
+import { addDays, isoWeekday, isRealDate, NO_DATE, occursOn, occurrencesBetween, previousOccurrence, type Schedule } from '../../src/tasks/recurrence.js'
 
 const S = (date: string | null, repeatType: Schedule['repeatType'] = 'none', repeatDays: number[] = [], repeatUntil: string | null = null): Schedule => ({
   date,
@@ -108,5 +108,37 @@ describe('occursOn и occurrencesBetween', () => {
   it('пустой или перевёрнутый диапазон даёт пустой список', () => {
     expect(occurrencesBetween(S('2026-10-05', 'daily'), '2026-10-10', '2026-10-09')).toEqual([])
     expect(occurrencesBetween(S('2026-10-05', 'daily', [], '2026-10-01'), '2026-10-01', '2026-10-31')).toEqual([])
+  })
+})
+
+describe('previousOccurrence', () => {
+  it('ежедневное: вчера, а в первый день серии ничего', () => {
+    expect(previousOccurrence(S('2026-10-01', 'daily'), '2026-10-12')).toBe('2026-10-11')
+    expect(previousOccurrence(S('2026-10-12', 'daily'), '2026-10-12')).toBeNull()
+  })
+
+  it('недельное: ближайший подходящий день недели раньше', () => {
+    // пн и ср: перед средой 14 октября это понедельник 12-го, перед понедельником 12-го это среда 7-го
+    const s = S('2026-09-01', 'weekly', [1, 3])
+    expect(previousOccurrence(s, '2026-10-14')).toBe('2026-10-12')
+    expect(previousOccurrence(s, '2026-10-12')).toBe('2026-10-07')
+    expect(previousOccurrence(s, '2026-10-15')).toBe('2026-10-14')
+  })
+
+  it('ежемесячное: на то же число прошлого месяца, в коротком месяце на последний день', () => {
+    const s = S('2026-01-31', 'monthly')
+    expect(previousOccurrence(s, '2026-03-31')).toBe('2026-02-28')
+    expect(previousOccurrence(s, '2026-03-05')).toBe('2026-02-28')
+    expect(previousOccurrence(S('2026-01-15', 'monthly'), '2026-03-20')).toBe('2026-03-15')
+  })
+
+  it('учитывает конец повтора и отсутствие даты', () => {
+    expect(previousOccurrence(S('2026-10-01', 'daily', [], '2026-10-05'), '2026-10-12')).toBe('2026-10-05')
+    expect(previousOccurrence(S(null), '2026-10-12')).toBeNull()
+  })
+
+  it('разовое задание: только если оно в прошлом', () => {
+    expect(previousOccurrence(S('2026-10-10'), '2026-10-12')).toBe('2026-10-10')
+    expect(previousOccurrence(S('2026-10-20'), '2026-10-12')).toBeNull()
   })
 })

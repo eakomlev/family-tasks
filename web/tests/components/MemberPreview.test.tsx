@@ -1,10 +1,18 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import * as api from '@/api'
 import type { Member } from '@/api'
 import { IdentityContext } from '@/identity/context'
 import MemberPreview from '@/pages/MemberPreview'
 import { ProfileContext } from '@/profile/context'
+
+vi.mock('@/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/api')>()), getCoinBalance: vi.fn() }))
+
+beforeEach(() => {
+  vi.mocked(api.getCoinBalance).mockReset()
+  vi.mocked(api.getCoinBalance).mockResolvedValue(45)
+})
 
 const members: Member[] = [
   { id: 'me', name: 'Лена', role: 'mama', avatar: null, isOwner: true },
@@ -32,6 +40,13 @@ describe('страница другого участника', () => {
     renderAt('/family/kid')
     const link = screen.getByRole('link', { name: 'Написать: Миша' })
     expect(link).toHaveAttribute('href', '/chat/kid')
+  })
+
+  it('родителю у ребёнка показан баланс со ссылкой на историю', async () => {
+    renderAt('/family/kid')
+    const link = await screen.findByRole('link', { name: /45/ })
+    expect(link).toHaveAttribute('href', '/coins/kid')
+    expect(api.getCoinBalance).toHaveBeenCalledWith('tok', 'kid')
   })
 
   it('свою страницу открывает как профиль: там чата с самим собой нет', () => {

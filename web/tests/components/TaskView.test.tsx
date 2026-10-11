@@ -6,6 +6,8 @@ import * as api from '@/api'
 import type { Member, Occurrence, Task } from '@/api'
 import { IdentityContext } from '@/identity/context'
 import { ProfileContext } from '@/profile/context'
+import { RealtimeContext } from '@/realtime/context'
+import type { Listener } from '@/realtime/types'
 import TaskView from '@/pages/TaskView'
 import { occ, task } from '../helpers'
 
@@ -14,6 +16,7 @@ vi.mock('@/api', async (importOriginal) => ({
   getTask: vi.fn(),
   completeTask: vi.fn(),
   uncompleteTask: vi.fn(),
+  confirmTask: vi.fn(),
 }))
 
 const members: Member[] = [
@@ -21,10 +24,11 @@ const members: Member[] = [
   { id: 'm2', name: 'Миша', role: 'child', avatar: null, isOwner: false },
 ]
 
-function renderView(me: Member, loaded: { task: Task; occurrence: Occurrence | null }, url = '/tasks/a?date=2026-10-12') {
+function renderView(me: Member, loaded: { task: Task; occurrence: Occurrence | null }, url = '/tasks/a?date=2026-10-12', listeners = new Set<Listener>()) {
   vi.mocked(api.getTask).mockResolvedValue(loaded)
   const identity = { familyCode: 'c', memberId: me.id, name: me.name, role: me.role, token: 'tok' }
   render(
+    <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)) }}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
       <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
         <MemoryRouter initialEntries={[url]}>
@@ -35,7 +39,8 @@ function renderView(me: Member, loaded: { task: Task; occurrence: Occurrence | n
           </Routes>
         </MemoryRouter>
       </ProfileContext.Provider>
-    </IdentityContext.Provider>,
+    </IdentityContext.Provider>
+    </RealtimeContext.Provider>,
   )
 }
 
@@ -45,6 +50,7 @@ beforeEach(() => {
   vi.mocked(api.getTask).mockReset()
   vi.mocked(api.completeTask).mockReset().mockResolvedValue(undefined)
   vi.mocked(api.uncompleteTask).mockReset().mockResolvedValue(undefined)
+  vi.mocked(api.confirmTask).mockReset().mockResolvedValue(undefined)
 })
 
 describe('страница задания', () => {
@@ -60,24 +66,86 @@ describe('страница задания', () => {
     expect(screen.getByText('11 октября, 13:00')).toBeInTheDocument()
   })
 
-  it('награда в деталях и в поздравлении только у самого исполнителя', async () => {
-    const user = userEvent.setup()
-    const rewarded = task({ ...base, reward: 20 })
+  describe('задание с наградой: проверка родителем', () => {
+    const rewarded = () => task({ ...base, reward: 20 })
 
-    // исполнитель (Миша) выполняет: в поздравлении видно, сколько получил
-    renderView(members[1], { task: rewarded, occurrence: occ('a', '2026-10-12') })
-    expect(await screen.findByText('20 монет')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Отметить выполненным' }))
-    expect(await screen.findByText('+20 монет')).toBeInTheDocument()
-  })
+    it('награда видна в деталях', async () => {
+      renderView(members[1], { task: rewarded(), occurrence: occ('a', '2026-10-12') })
+      expect(await screen.findByText('20 монет')).toBeInTheDocument()
+    })
 
-  it('когда отмечает не исполнитель, в поздравлении монет нет, а в деталях награда есть', async () => {
-    const user = userEvent.setup()
-    renderView(members[0], { task: task({ ...base, reward: 20 }), occurrence: occ('a', '2026-10-12') })
-    expect(await screen.findByText('20 монет')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Отметить выполненным' }))
-    await screen.findByText('Задание «Вынести мусор» выполнено.')
-    expect(screen.queryByText('+20 монет')).not.toBeInTheDocument()
+    it('ребёнок только отправляет на проверку: ни поздравления, ни кнопки «Отметить выполненным»', async () => {
+      const user = userEvent.setup()
+      renderView(members[1], { task: rewarded(), occurrence: occ('a', '2026-10-12') })
+      expect(screen.queryByRole('button', { name: 'Отметить выполненным' })).not.toBeInTheDocument()
+      await user.click(await screen.findByRole('button', { name: 'Отправить на проверку' }))
+
+      expect(api.completeTask).toHaveBeenCalledWith('tok', 'a', '2026-10-12')
+      expect(await screen.findByText(/Родители проверят, и вы получите 20 монет/)).toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Отменить отправку' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Отправить на проверку' })).not.toBeInTheDocument()
+    })
+
+    it('отправку можно отменить', async () => {
+      const user = userEvent.setup()
+      renderView(members[1], { task: rewarded(), occurrence: occ('a', '2026-10-12', false, true) })
+      await user.click(await screen.findByRole('button', { name: 'Отменить отправку' }))
+      expect(api.uncompleteTask).toHaveBeenCalledWith('tok', 'a', '2026-10-12')
+      expect(await screen.findByRole('button', { name: 'Отправить на проверку' })).toBeInTheDocument()
+    })
+
+    it('родитель видит ожидающее проверки: подтверждает, ребёнок получает награду, поздравления родителю нет', async () => {
+      const user = userEvent.setup()
+      renderView(members[0], { task: rewarded(), occurrence: occ('a', '2026-10-12', false, true) })
+      expect(await screen.findByText(/Подтвердите, и Миша получит 20 монет/)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /Подтвердить/ }))
+      expect(api.confirmTask).toHaveBeenCalledWith('tok', 'a', '2026-10-12')
+      expect(await screen.findByText(/Выполнено:/)).toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Подтвердить/ })).not.toBeInTheDocument()
+    })
+
+    it('родитель возвращает на доработку', async () => {
+      const user = userEvent.setup()
+      renderView(members[0], { task: rewarded(), occurrence: occ('a', '2026-10-12', false, true) })
+      await user.click(await screen.findByRole('button', { name: 'Вернуть на доработку' }))
+      expect(api.uncompleteTask).toHaveBeenCalledWith('tok', 'a', '2026-10-12')
+      expect(api.confirmTask).not.toHaveBeenCalled()
+      await waitFor(() => expect(screen.queryByText(/Подтвердите/)).not.toBeInTheDocument())
+    })
+
+    it('родитель отмечает задание с наградой выполненным сразу: подтверждение не нужно', async () => {
+      const user = userEvent.setup()
+      renderView(members[0], { task: rewarded(), occurrence: occ('a', '2026-10-12') })
+      await user.click(await screen.findByRole('button', { name: 'Отметить выполненным' }))
+      expect(api.completeTask).toHaveBeenCalled()
+      await screen.findByText('Задание «Вынести мусор» выполнено.')
+      expect(screen.queryByText('+20 монет')).not.toBeInTheDocument()
+    })
+
+    it('ребёнок смотрит на страницу, родитель подтверждает: праздник с наградой появляется сам', async () => {
+      const listeners = new Set<Listener>()
+      renderView(members[1], { task: rewarded(), occurrence: occ('a', '2026-10-12', false, true) }, '/tasks/a?date=2026-10-12', listeners)
+      await screen.findByText(/Родители проверят/)
+      vi.mocked(api.getTask).mockResolvedValue({ task: rewarded(), occurrence: occ('a', '2026-10-12', true) })
+      listeners.forEach((l) => l({ type: 'tasks' }))
+      expect(await screen.findByText('+20 монет')).toBeInTheDocument()
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('подтверждённое задание с наградой ребёнок снять не может', async () => {
+      renderView(members[1], { task: rewarded(), occurrence: occ('a', '2026-10-12', true) })
+      await screen.findByText(/Выполнено:/)
+      expect(screen.queryByRole('button', { name: /Снять отметку/ })).not.toBeInTheDocument()
+    })
+
+    it('а без награды ребёнок завершает сам, с поздравлением, и может снять отметку', async () => {
+      const user = userEvent.setup()
+      renderView(members[1], { task: base, occurrence: occ('a', '2026-10-12') })
+      await user.click(await screen.findByRole('button', { name: 'Отметить выполненным' }))
+      await screen.findByText('Задание «Вынести мусор» выполнено.')
+    })
   })
 
   it('без описания блока описания нет, повтор подписан', async () => {
@@ -118,7 +186,7 @@ describe('страница задания', () => {
     const user = userEvent.setup()
     renderView(members[1], { task: base, occurrence: occ('a', '2026-10-12') })
     await user.click(await screen.findByRole('button', { name: 'Отметить выполненным' }))
-    expect(await screen.findByText(/Не удалось изменить отметку/)).toBeInTheDocument()
+    expect(await screen.findByText(/Не удалось выполнить/)).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Отметить выполненным' })).toBeEnabled()
   })

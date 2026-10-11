@@ -47,6 +47,7 @@ export default function App() {
               <Route path="/tasks/:taskId" element={<TaskView />} />
               <Route path="/tasks/:taskId/edit" element={<TaskForm />} />
               <Route path="/coins" element={<Coins />} />
+              <Route path="/coins/:memberId" element={<Coins />} />
               <Route path="/lesson-report" element={<LessonReport />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/chat/:chat" element={<ChatRoom />} />

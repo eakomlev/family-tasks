@@ -1,4 +1,4 @@
-import { Chip, Coin } from './styles'
+import { Card, CardLabel, CardValue, Chevron, Chip, Coin } from './styles'
 
 // Монета: золотой кружок с ободком и звездой. Рисунок цветной (монета остаётся монетой в любой теме).
 export function CoinIcon() {
@@ -19,5 +19,17 @@ export function CoinBalance({ coins }: { coins: number }) {
       <CoinIcon />
       <span>{coins}</span>
     </Chip>
+  )
+}
+
+// Строка с балансом для профиля ребёнка: монета, подпись, число и стрелка; ведёт на страницу истории начислений.
+export function CoinBalanceCard({ coins, to }: { coins: number; to: string }) {
+  return (
+    <Card to={to} aria-label={`Монеты: ${coins}. Открыть историю`}>
+      <CoinIcon />
+      <CardLabel>Монеты</CardLabel>
+      <CardValue>{coins}</CardValue>
+      <Chevron aria-hidden>›</Chevron>
+    </Card>
   )
 }

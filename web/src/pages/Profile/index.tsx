@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { logout, updateProfile, type ProfilePatch } from '@/api'
 import { Button } from '@/components/Button'
+import { CoinBalanceCard } from '@/components/CoinBalance'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
@@ -73,6 +74,9 @@ export default function Profile() {
         onPick={(file) => changePhoto(file)}
         onRemove={() => changePhoto(null)}
       />
+
+      {/* у ребёнка: монеты и переход к истории начислений */}
+      {data.me.coins !== undefined && <CoinBalanceCard coins={data.me.coins} to="/coins" />}
 
       <ProfileForm name={data.me.name} birthDate={data.me.birthDate} onSave={saveProfile} />
 

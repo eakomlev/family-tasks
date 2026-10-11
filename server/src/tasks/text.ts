@@ -88,3 +88,11 @@ export const rewardMessage = (task: TaskDto): PushMessage => ({
   url: '/coins',
   tag: `reward-${task.id}`,
 })
+
+// Родителям: ребёнок отправил задание с наградой на проверку.
+export const reviewMessage = (task: TaskDto, childName: string): PushMessage => ({
+  title: 'Задание на проверку',
+  body: `${childName}: ${task.title}`,
+  url: `/tasks/${task.id}`,
+  tag: `review-${task.id}`,
+})

@@ -12,7 +12,8 @@ export function taskMeta(
 ): { parts: string[]; late: boolean } {
   const parts: string[] = []
   const done = occurrence.done !== null
-  const late = !done && occurrence.date !== null && occurrence.date < today
+  // ожидающее проверки не просрочено: ребёнок своё сделал, дело за родителем
+  const late = !done && occurrence.pending === null && occurrence.date !== null && occurrence.date < today
 
   if (late) parts.push(`Просрочено, ${formatDayMonth(occurrence.date!)}`)
   else if (showDate && occurrence.date) parts.push(formatDayMonth(occurrence.date))

@@ -4,13 +4,15 @@ import type { ChildTasksProps } from './types'
 
 function TaskRow({ task, occurrence }: TaskEntry) {
   const isDone = occurrence.done !== null
+  // отправлено ребёнком и ждёт подтверждения родителя: не выполнено, но и не «просто открыто»
+  const isPending = occurrence.pending !== null
   return (
     <li>
       {/* у задания без срока в ссылке нет даты */}
       <Row to={`/tasks/${task.id}${occurrence.date ? `?date=${occurrence.date}` : ''}`} $done={isDone}>
-        <Mark $done={isDone} aria-hidden>{isDone && '✓'}</Mark>
+        <Mark $done={isDone} $pending={isPending} aria-hidden>{isDone ? '✓' : isPending ? '…' : ''}</Mark>
         <Title $done={isDone}>
-          <Hidden>{isDone ? 'Выполнено: ' : ''}</Hidden>
+          <Hidden>{isDone ? 'Выполнено: ' : isPending ? 'На проверке: ' : ''}</Hidden>
           {task.title}
         </Title>
         {task.time && <Time>{task.time}</Time>}

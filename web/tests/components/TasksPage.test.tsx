@@ -52,3 +52,15 @@ describe('страница «Задания»: фильтр по людям', ()
     expect(screen.queryByRole('button', { name: 'Лена' })).not.toBeInTheDocument()
   })
 })
+
+describe('повторяющиеся задания в «Предстоящих»', () => {
+  it('список просят со сжатием серий: одно текущее вхождение на повторяющееся задание', async () => {
+    renderTasks('mama')
+    await screen.findByText('Вынести мусор')
+    expect(api.listTasks).toHaveBeenCalledTimes(1)
+    const [token, from, to, options] = vi.mocked(api.listTasks).mock.calls[0]
+    expect(token).toBe('tok')
+    expect(to > from).toBe(true)
+    expect(options).toEqual({ collapse: true })
+  })
+})

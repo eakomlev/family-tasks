@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ApiError, completeTask, getTask, uncompleteTask, type Occurrence, type Task } from '@/api'
+import { ApiError, completeTask, confirmTask, getTask, uncompleteTask, type Occurrence, type Task } from '@/api'
 import { Avatar } from '@/components/Avatar'
 import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
@@ -38,6 +38,8 @@ export default function TaskView() {
 
   const token = identity?.token
   const me = identity?.memberId
+  // прежнее состояние вхождения: по нему видно, что задание, ожидавшее проверки, только что подтвердили
+  const previous = useRef<Occurrence | null>(null)
 
   useEffect(() => {
     if (!token || !taskId) return
@@ -45,6 +47,9 @@ export default function TaskView() {
     getTask(token, taskId, date)
       .then((res) => {
         if (cancelled) return
+        // родитель подтвердил то, что ждало проверки, пока ребёнок смотрит на страницу: поздравляем его с наградой
+        if (previous.current?.pending && res.occurrence?.done && res.task.reward > 0 && res.task.assigneeId === me) setCelebrating(true)
+        previous.current = res.occurrence
         setTask(res.task)
         setOccurrence(res.occurrence)
         setState('ready')
@@ -54,7 +59,7 @@ export default function TaskView() {
         setState(err instanceof ApiError && err.status === 404 ? 'missing' : 'failed')
       })
     return () => { cancelled = true }
-  }, [token, taskId, date, version])
+  }, [token, taskId, date, version, me])
 
   if (!token || !me) return null
   if (state === 'missing') return <Navigate to="/tasks" replace />
@@ -62,23 +67,37 @@ export default function TaskView() {
   const members = data?.members ?? []
   const byId = (id: string) => members.find((m) => m.id === id)
   const done = occurrence?.done ?? null
-  const late = !done && occurrence?.date != null && occurrence.date < today
+  const pending = occurrence?.pending ?? null
+  const late = !done && !pending && occurrence?.date != null && occurrence.date < today
+  const isChild = identity?.role === 'child'
+  // ребёнок задание с наградой только отправляет на проверку, подтверждает родитель
+  const needsReview = !!task && task.reward > 0 && isChild
 
-  async function toggle() {
+  // Действие над вхождением; результат применяется сразу, а подтверждённый запрос обновит и остальных по сокету.
+  async function act(kind: 'complete' | 'confirm' | 'undo') {
     if (!task || !occurrence) return
     setBusy(true)
     setError(undefined)
+    const now = new Date().toISOString()
     try {
-      if (done) {
+      if (kind === 'undo') {
         await uncompleteTask(token!, task.id, occurrence.date)
-        setOccurrence({ ...occurrence, done: null })
+        setOccurrence({ ...occurrence, done: null, pending: null })
+      } else if (kind === 'confirm') {
+        await confirmTask(token!, task.id, occurrence.date)
+        setOccurrence({ ...occurrence, done: { memberId: pending?.memberId ?? me!, at: now }, pending: null })
       } else {
         await completeTask(token!, task.id, occurrence.date)
-        setOccurrence({ ...occurrence, done: { memberId: me!, at: new Date().toISOString() } })
-        setCelebrating(true)
+        if (needsReview) {
+          // отправлено на проверку: праздника пока нет, он будет после подтверждения
+          setOccurrence({ ...occurrence, pending: { memberId: me!, at: now } })
+        } else {
+          setOccurrence({ ...occurrence, done: { memberId: me!, at: now } })
+          setCelebrating(true)
+        }
       }
-    } catch {
-      setError('Не удалось изменить отметку. Попробуйте ещё раз.')
+    } catch (err) {
+      setError(err instanceof ApiError && err.code === 'confirmed' ? 'Подтверждённое задание может отменить только родитель.' : 'Не удалось выполнить. Попробуйте ещё раз.')
     } finally {
       setBusy(false)
     }
@@ -107,6 +126,14 @@ export default function TaskView() {
           {done && (
             <Notice $tone="muted">
               ✓ Выполнено: {byId(done.memberId)?.name ?? 'участник семьи'}, {formatDateTime(done.at)}
+            </Notice>
+          )}
+          {pending && (
+            <Notice $tone="warning">
+              На проверке: {byId(pending.memberId)?.name ?? 'участник семьи'} отправил(а) {formatDateTime(pending.at)}.{' '}
+              {isChild
+                ? `Родители проверят, и вы получите ${coinsWord(task.reward)}.`
+                : `Подтвердите, и ${byId(task.assigneeId)?.name ?? 'исполнитель'} получит ${coinsWord(task.reward)}.`}
             </Notice>
           )}
           {late && <Notice $tone="error">Просрочено</Notice>}
@@ -139,10 +166,25 @@ export default function TaskView() {
           {error && <Notice $tone="error">{error}</Notice>}
           <Actions>
             {task.authorId === me && <Button as={Link} to={`/tasks/${task.id}/edit`}>Изменить</Button>}
-            {occurrence && (
-              <Button $variant={done ? undefined : 'primary'} type="button" disabled={busy} onClick={toggle}>
-                {done ? 'Снять отметку о выполнении' : 'Отметить выполненным'}
+            {occurrence && !done && !pending && (
+              <Button $variant="primary" type="button" disabled={busy} onClick={() => void act('complete')}>
+                {needsReview ? 'Отправить на проверку' : 'Отметить выполненным'}
               </Button>
+            )}
+            {occurrence && pending && !isChild && (
+              <>
+                <Button $variant="primary" type="button" disabled={busy} onClick={() => void act('confirm')}>
+                  Подтвердить{task.reward > 0 ? `: +${coinsWord(task.reward)}` : ''}
+                </Button>
+                <Button type="button" disabled={busy} onClick={() => void act('undo')}>Вернуть на доработку</Button>
+              </>
+            )}
+            {occurrence && pending && isChild && (
+              <Button type="button" disabled={busy} onClick={() => void act('undo')}>Отменить отправку</Button>
+            )}
+            {/* подтверждённое задание с наградой ребёнок снять не может */}
+            {occurrence && done && !needsReview && (
+              <Button type="button" disabled={busy} onClick={() => void act('undo')}>Снять отметку о выполнении</Button>
             )}
           </Actions>
 

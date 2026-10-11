@@ -31,7 +31,10 @@ export interface Occurrence {
   taskId: string
   // день вхождения, null — задание без срока
   date: string | null
+  // подтверждённое выполнение
   done: { memberId: string; at: string } | null
+  // ребёнок отправил задание с наградой на проверку, родитель ещё не подтвердил (монеты ещё не выданы)
+  pending: { memberId: string; at: string } | null
 }
 
 export interface TaskList {

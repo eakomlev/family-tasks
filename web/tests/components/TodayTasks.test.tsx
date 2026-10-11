@@ -16,8 +16,8 @@ const members: Member[] = [
 ]
 const NOW = new Date(2026, 9, 11, 10)
 
-function renderBlock() {
-  const identity = { familyCode: 'c', memberId: 'me', name: 'Миша', role: 'child' as const, token: 'tok' }
+function renderBlock(role: 'child' | 'mama' = 'child') {
+  const identity = { familyCode: 'c', memberId: 'me', name: 'Миша', role, token: 'tok' }
   return render(
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
       <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
@@ -80,5 +80,40 @@ describe('TodayTasks: мои задания', () => {
     renderBlock()
     expect(await screen.findByText('Заданий на сегодня и без срока нет.')).toBeInTheDocument()
     expect(screen.queryByText('Без срока')).not.toBeInTheDocument()
+  })
+})
+
+describe('TodayTasks: выполненные задания', () => {
+  const list = () => ({
+    tasks: [t('open', 'Открытое'), t('done', 'Сделанное'), t('wait', 'На проверке'), t('late', 'Вчерашнее сделанное')],
+    occurrences: [occ('open', '2026-10-11'), occ('done', '2026-10-11', true), occ('wait', '2026-10-11', false, true), occ('late', '2026-10-09', true)],
+  })
+
+  it('у ребёнка выполненные не показываются, а открытые и ожидающие проверки остаются', async () => {
+    vi.mocked(api.listTasks).mockResolvedValue(list())
+    renderBlock('child')
+    await screen.findByText('Открытое')
+    expect(screen.getByText('На проверке')).toBeInTheDocument()
+    expect(screen.queryByText('Сделанное')).not.toBeInTheDocument()
+    expect(screen.queryByText('Вчерашнее сделанное')).not.toBeInTheDocument()
+  })
+
+  it('ребёнок сделал всё: вместо списка «Все задания на сегодня выполнены»', async () => {
+    vi.mocked(api.listTasks).mockResolvedValue({ tasks: [t('done', 'Сделанное')], occurrences: [occ('done', '2026-10-11', true)] })
+    renderBlock('child')
+    expect(await screen.findByText('Все задания на сегодня выполнены.')).toBeInTheDocument()
+    expect(screen.queryByText('Сделанное')).not.toBeInTheDocument()
+  })
+
+  it('заданий не было вовсе: прежняя подсказка', async () => {
+    vi.mocked(api.listTasks).mockResolvedValue({ tasks: [], occurrences: [] })
+    renderBlock('child')
+    expect(await screen.findByText('Заданий на сегодня и без срока нет.')).toBeInTheDocument()
+  })
+
+  it('у родителя свои выполненные остаются в списке', async () => {
+    vi.mocked(api.listTasks).mockResolvedValue(list())
+    renderBlock('mama')
+    expect(await screen.findByText('Сделанное')).toBeInTheDocument()
   })
 })

@@ -72,3 +72,17 @@ export function occurrencesBetween(schedule: Schedule, from: string, to: string)
   }
   return result
 }
+
+// Ближайшее вхождение строго раньше before (для серий, у которых оно было совсем недавно); null, если такого нет.
+// Ищем не дальше чем на LOOKBACK_DAYS назад: самый редкий повтор (ежемесячный) укладывается в 31 день.
+const LOOKBACK_DAYS = 70
+
+export function previousOccurrence(schedule: Schedule, before: string): string | null {
+  if (schedule.date === null) return null
+  for (let i = 1; i <= LOOKBACK_DAYS; i++) {
+    const day = addDays(before, -i)
+    if (day < schedule.date) return null
+    if (occursOn(schedule, day)) return day
+  }
+  return null
+}

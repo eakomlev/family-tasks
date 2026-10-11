@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { listDoneTasks, listTasks, type TaskList } from '@/api'
 import { Chip } from '@/components/Chip'
+import { PendingReview } from '@/components/PendingReview'
 import { Notice } from '@/components/Notice'
 import { Page } from '@/components/Page'
 import { Select } from '@/components/Select'
@@ -41,7 +42,7 @@ export default function Tasks() {
   useEffect(() => {
     if (!token) return
     let cancelled = false
-    const request = tab === 'upcoming' ? listTasks(token, today, addDays(today, DAYS_AHEAD)) : listDoneTasks(token, 30)
+    const request = tab === 'upcoming' ? listTasks(token, today, addDays(today, DAYS_AHEAD), { collapse: true }) : listDoneTasks(token, 30)
     request
       .then((res) => !cancelled && setList(res))
       .catch(() => !cancelled && setLoadFailed(true))
@@ -55,9 +56,12 @@ export default function Tasks() {
     setTab(next)
   }
 
-  const sections = list && tab === 'upcoming' ? buildSections(list, today, filter) : []
+  const isParent = identity?.role !== 'child'
+  const [pendingCount, setPendingCount] = useState(0)
+  // у родителей ожидающие проверки собраны в своём блоке сверху, в списках по дням их нет
+  const sections = list && tab === 'upcoming' ? buildSections(list, today, filter, { hidePending: isParent }) : []
   const doneEntries = list && tab === 'done' ? buildDone(list, filter) : []
-  const isEmpty = !!list && (tab === 'upcoming' ? sections.length === 0 : doneEntries.length === 0)
+  const isEmpty = !!list && (tab === 'upcoming' ? sections.length === 0 && pendingCount === 0 : doneEntries.length === 0)
 
   const renderItem = (entry: TaskEntry) => (
     <TaskItem
@@ -98,9 +102,11 @@ export default function Tasks() {
       {!list && !loadFailed && <p>Загрузка…</p>}
       {isEmpty && (
         <Notice $tone="muted">
-          {tab === 'done' ? 'Выполненных заданий за последний месяц нет.' : filter === null ? 'Заданий пока нет. Добавьте первое.' : 'У этого человека нет заданий.'}
+          {tab === 'done' ? 'Выполненных заданий за последний месяц нет.' : filter === null ? 'Предстоящих заданий нет. Добавьте новое.' : 'У этого человека нет предстоящих заданий.'}
         </Notice>
       )}
+
+      {tab === 'upcoming' && <PendingReview assigneeId={filter} onCount={setPendingCount} />}
 
       <Stack>
         {sections.map((section) => (

@@ -3,9 +3,10 @@ import { formatDayHeading } from '@/lib/date'
 import { byTimeThenTitle, toEntries, type TaskEntry } from '@/lib/occurrences'
 import type { Section } from './types'
 
-// Предстоящие: просроченное, затем по дням, затем «без срока».
-export function buildSections(list: TaskList, today: string, assigneeId: string | null): Section[] {
-  const entries = toEntries(list, assigneeId)
+// Предстоящие: просроченное, затем по дням, затем «без срока». Выполненное (подтверждённое) сюда не входит:
+// оно во вкладке «Выполненные», а ожидающее проверки родителем ещё не выполнено и остаётся.
+export function buildSections(list: TaskList, today: string, assigneeId: string | null, { hidePending = false } = {}): Section[] {
+  const entries = toEntries(list, assigneeId).filter((e) => e.occurrence.done === null && !(hidePending && e.occurrence.pending))
   const overdue: TaskEntry[] = []
   const undated: TaskEntry[] = []
   const byDate = new Map<string, TaskEntry[]>()

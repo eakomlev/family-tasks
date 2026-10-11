@@ -79,9 +79,13 @@ describe('GET /api/coins/earned', () => {
     try {
       const task = (await api(app, f.mom.token, 'POST', '/api/tasks', { title: 'Убрать', assigneeId: f.kid.id, reward: 12, date: '2026-10-12', time: null, repeat: { type: 'none' } })).body.task
       await api(app, f.kid.token, 'POST', `/api/tasks/${task.id}/complete`, { date: '2026-10-12' })
+      // ребёнок только отправил на проверку: монет ещё нет
+      const since0 = new Date(Date.now() - 60_000).toISOString()
+      expect((await earned(f.kid.token, since0)).body.earned).toBe(0)
+      await api(app, f.mom.token, 'POST', `/api/tasks/${task.id}/confirm`, { date: '2026-10-12' })
       const since = new Date(Date.now() - 60_000).toISOString()
       expect((await earned(f.kid.token, since)).body.earned).toBe(12)
-      await api(app, f.kid.token, 'POST', `/api/tasks/${task.id}/uncomplete`, { date: '2026-10-12' })
+      await api(app, f.mom.token, 'POST', `/api/tasks/${task.id}/uncomplete`, { date: '2026-10-12' })
       expect((await earned(f.kid.token, since)).body.earned).toBe(0)
     } finally {
       await removeFamilies(f.id)

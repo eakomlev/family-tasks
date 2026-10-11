@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useParams } from 'react-router-dom'
 import { listCoinHistory, type CoinEntry } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
@@ -18,6 +18,8 @@ import { entryMeta, mergeNewest } from './utils'
 export default function Coins() {
   const { identity } = useIdentity()
   const { data } = useProfile()
+  // /coins у ребёнка свои монеты; /coins/:memberId у родителя монеты этого ребёнка
+  const { memberId } = useParams()
 
   // загруженная история: свежие сверху; hasMore — есть ли ещё более старые записи
   const [history, setHistory] = useState<{ items: CoinEntry[]; hasMore: boolean; balance: number }>()
@@ -33,14 +35,18 @@ export default function Coins() {
 
   const token = identity?.token
   const isChild = identity?.role === 'child'
+  const isParent = !!identity && !isChild
+  // чьи монеты смотрим: свои (ребёнок) или выбранного ребёнка (родитель)
+  const ownerId = isChild ? undefined : memberId
+  const canView = isChild || (isParent && !!memberId)
 
   // начисления делают родители или система: запись появляется сама
   useLive(['members'], () => setVersion((v) => v + 1))
 
   useEffect(() => {
-    if (!token || !isChild) return
+    if (!token || !canView) return
     let cancelled = false
-    listCoinHistory(token)
+    listCoinHistory(token, undefined, ownerId)
       .then((page) => {
         if (cancelled) return
         setHistory((current) => ({
@@ -51,14 +57,14 @@ export default function Coins() {
       })
       .catch(() => !cancelled && setFailed(true))
     return () => { cancelled = true }
-  }, [token, isChild, version])
+  }, [token, canView, ownerId, version])
 
   const loadMore = useCallback(async () => {
     if (!token || !items?.length || busy.current) return
     busy.current = true
     setLoadingMore(true)
     try {
-      const page = await listCoinHistory(token, items[items.length - 1].id)
+      const page = await listCoinHistory(token, items[items.length - 1].id, ownerId)
       setHistory((current) => {
         const known = current?.items ?? []
         return { items: [...known, ...page.items.filter((e) => !known.some((k) => k.id === e.id))], hasMore: page.hasMore, balance: page.balance }
@@ -70,7 +76,7 @@ export default function Coins() {
       busy.current = false
       setLoadingMore(false)
     }
-  }, [token, items])
+  }, [token, items, ownerId])
 
   // подгрузка при прокрутке: следим за сторожем в конце списка
   useEffect(() => {
@@ -83,15 +89,20 @@ export default function Coins() {
     return () => observer.disconnect()
   }, [hasMore, failed, loadMore, items])
 
-  // монеты есть только у детей
-  if (identity && !isChild) return <Navigate to={START_PATH} replace />
+  // монеты есть только у детей; родителю нужен выбранный ребёнок
+  if (identity && !canView) return <Navigate to={START_PATH} replace />
   if (!identity) return null
   const members = data?.members ?? []
+  const owner = members.find((m) => m.id === memberId)
 
   return (
     <Page>
-      <BackLink to={START_PATH}>← Мой день</BackLink>
-      <h1>Монеты</h1>
+      {isChild ? (
+        <BackLink to={START_PATH}>← Мой день</BackLink>
+      ) : (
+        <BackLink to={`/family/${memberId}`}>← {owner?.name ?? 'Назад'}</BackLink>
+      )}
+      <h1>{isChild || !owner ? 'Монеты' : `Монеты: ${owner.name}`}</h1>
 
       <Total aria-live="polite">
         <CoinIcon />

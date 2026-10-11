@@ -15,7 +15,16 @@ export interface TaskItemProps {
   showDate?: boolean
   // сегодняшняя дата YYYY-MM-DD: по ней определяется просрочка
   today: string
+  // родителю у карточки «на проверке» показываем кнопки «Подтвердить» и «Вернуть»
+  review?: ReviewActions
 }
 
-// сделано, ещё нет, просрочено
-export type TaskState = 'todo' | 'done' | 'late'
+// сделано, ещё нет, просрочено, ждёт проверки родителем
+export type TaskState = 'todo' | 'done' | 'late' | 'pending'
+
+export interface ReviewActions {
+  onConfirm: () => void
+  onReject: () => void
+  // идёт запрос: кнопки заблокированы
+  busy?: boolean
+}

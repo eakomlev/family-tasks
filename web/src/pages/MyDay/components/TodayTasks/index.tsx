@@ -33,7 +33,12 @@ export function TodayTasks({ now }: TodayTasksProps) {
     return () => { cancelled = true }
   }, [token, today, version])
 
-  const mine = list && me ? toEntries(list, me) : []
+  const all = list && me ? toEntries(list, me) : []
+  // у ребёнка выполненные (подтверждённые) задания на этой странице не показываем: остаётся то, что ещё надо сделать
+  // (ждущие проверки родителем остаются, они ещё не засчитаны)
+  const hideDone = identity?.role === 'child'
+  const mine = hideDone ? all.filter(({ occurrence }) => occurrence.done === null) : all
+  const allDone = hideDone && all.length > 0 && mine.length === 0
   // сначала просроченные, потом сегодняшние по времени; будущие дни здесь не показываем
   const dated = mine
     .filter(({ occurrence }) => occurrence.date !== null && occurrence.date <= today)
@@ -68,7 +73,9 @@ export function TodayTasks({ now }: TodayTasksProps) {
       </Header>
       {failed && <Notice $tone="error">Не удалось загрузить задания. Проверьте соединение.</Notice>}
       {!list && !failed && <p>Загрузка…</p>}
-      {list && empty && <Notice $tone="muted">Заданий на сегодня и без срока нет.</Notice>}
+      {list && empty && (
+        <Notice $tone="muted">{allDone ? 'Все задания на сегодня выполнены.' : 'Заданий на сегодня и без срока нет.'}</Notice>
+      )}
       {dated.length > 0 && <List>{dated.map(renderItem)}</List>}
       {undated.length > 0 && (
         <>

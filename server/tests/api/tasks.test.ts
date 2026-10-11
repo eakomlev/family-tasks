@@ -189,7 +189,7 @@ describe('одно задание и его вхождение', () => {
     const id = (await create(fam.mom.token, { description: 'Подробности' })).body.task.id
     const before = await get(fam.dad.token, id)
     expect(before.body.task.description).toBe('Подробности')
-    expect(before.body.occurrence).toEqual({ taskId: id, date: '2026-10-12', done: null })
+    expect(before.body.occurrence).toEqual({ taskId: id, date: '2026-10-12', done: null, pending: null })
 
     await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })
     const after = await get(fam.dad.token, id)
@@ -198,7 +198,7 @@ describe('одно задание и его вхождение', () => {
 
   it('задание без срока: вхождение с датой null', async () => {
     const id = (await create(fam.mom.token, { date: null, time: null })).body.task.id
-    expect((await get(fam.kid.token, id)).body.occurrence).toEqual({ taskId: id, date: null, done: null })
+    expect((await get(fam.kid.token, id)).body.occurrence).toEqual({ taskId: id, date: null, done: null, pending: null })
   })
 
   it('повторяющееся: вхождение выбирается по ?date, лишнего дня нет', async () => {
@@ -343,6 +343,80 @@ describe('список за период', () => {
     expect((await api(app, fam.mom.token, 'GET', '/api/tasks')).status).toBe(400)
     const mine = await api(app, outsider.mom.token, 'GET', '/api/tasks?from=2026-10-12&to=2026-10-14')
     expect(mine.body.tasks).toEqual([])
+  })
+})
+
+describe('повторяющиеся задания в списке с collapse', () => {
+  const list = async (token: string, from: string, to: string, collapse = true) =>
+    (await api(app, token, 'GET', `/api/tasks?from=${from}&to=${to}${collapse ? '&collapse=true' : ''}`)).body as {
+      tasks: { id: string }[]
+      occurrences: { taskId: string; date: string | null; done: unknown }[]
+    }
+  const datesOf = (data: Awaited<ReturnType<typeof list>>, id: string) => data.occurrences.filter((o) => o.taskId === id).map((o) => o.date)
+
+  it('ежедневное: без collapse по вхождению на каждый день, с collapse одно, сегодняшнее', async () => {
+    const id = (await create(fam.mom.token, { date: '2026-10-01', time: null, repeat: { type: 'daily' } })).body.task.id
+    expect(datesOf(await list(fam.kid.token, '2026-10-12', '2026-10-18', false), id)).toHaveLength(7)
+    expect(datesOf(await list(fam.kid.token, '2026-10-12', '2026-10-18'), id)).toEqual(['2026-10-12'])
+  })
+
+  it('выполнено сегодня: остаётся одно, сегодняшнее выполненное, а завтрашнее появится только завтра', async () => {
+    const id = (await create(fam.mom.token, { date: '2026-10-01', time: null, repeat: { type: 'daily' } })).body.task.id
+    await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })
+
+    const today = await list(fam.kid.token, '2026-10-12', '2026-10-18')
+    expect(today.occurrences.filter((o) => o.taskId === id)).toEqual([{ taskId: id, date: '2026-10-12', done: expect.anything(), pending: null }])
+
+    // наступил следующий день: теперь текущее это 13-е, невыполненное
+    const tomorrow = await list(fam.kid.token, '2026-10-13', '2026-10-19')
+    expect(tomorrow.occurrences.filter((o) => o.taskId === id)).toEqual([{ taskId: id, date: '2026-10-13', done: null, pending: null }])
+  })
+
+  it('недельное, вхождения на сегодня нет: ближайшее будущее показывается, если предыдущее не выполнено', async () => {
+    // понедельник и четверг; 2026-10-14 среда, предыдущее вхождение понедельник 12-е
+    const id = (await create(fam.mom.token, { date: '2026-10-01', time: null, repeat: { type: 'weekly', days: [1, 4] } })).body.task.id
+    expect(datesOf(await list(fam.kid.token, '2026-10-14', '2026-10-21'), id)).toEqual(['2026-10-15'])
+  })
+
+  it('недельное: предыдущее выполнено, поэтому следующее не показывается до своего дня', async () => {
+    const id = (await create(fam.mom.token, { date: '2026-10-01', time: null, repeat: { type: 'weekly', days: [1, 4] } })).body.task.id
+    await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })
+    expect(datesOf(await list(fam.kid.token, '2026-10-14', '2026-10-21'), id)).toEqual([])
+    // в свой день (четверг 15-го) появляется
+    expect(datesOf(await list(fam.kid.token, '2026-10-15', '2026-10-22'), id)).toEqual(['2026-10-15'])
+    // без collapse полный список как раньше
+    expect(datesOf(await list(fam.kid.token, '2026-10-14', '2026-10-21', false), id)).toEqual(['2026-10-15', '2026-10-19'])
+  })
+
+  it('серия, которая ещё не началась: показывается её первое вхождение', async () => {
+    const id = (await create(fam.mom.token, { date: '2026-10-16', time: null, repeat: { type: 'daily' } })).body.task.id
+    expect(datesOf(await list(fam.kid.token, '2026-10-12', '2026-10-18'), id)).toEqual(['2026-10-16'])
+  })
+
+  it('ежемесячное: в день задания оно одно, а в остальные дни месяца, если прошлое выполнено, его нет', async () => {
+    const id = (await create(fam.mom.token, { date: '2026-09-15', time: null, repeat: { type: 'monthly' } })).body.task.id
+    await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-09-15' })
+    expect(datesOf(await list(fam.kid.token, '2026-10-10', '2026-10-17'), id)).toEqual([])
+    expect(datesOf(await list(fam.kid.token, '2026-10-15', '2026-10-22'), id)).toEqual(['2026-10-15'])
+  })
+
+  it('разовые задания и задания без срока collapse не трогает', async () => {
+    const dated = (await create(fam.mom.token, { date: '2026-10-14', time: null })).body.task.id
+    const undated = (await create(fam.mom.token, { date: null, time: null })).body.task.id
+    const data = await list(fam.kid.token, '2026-10-12', '2026-10-18')
+    expect(datesOf(data, dated)).toEqual(['2026-10-14'])
+    expect(datesOf(data, undated)).toEqual([null])
+  })
+
+  it('конец повтора: после последнего вхождения серия исчезает, collapse не продлевает её', async () => {
+    const id = (await create(fam.mom.token, { date: '2026-10-01', time: null, repeat: { type: 'daily', until: '2026-10-10' } })).body.task.id
+    expect(datesOf(await list(fam.kid.token, '2026-10-12', '2026-10-18'), id)).toEqual([])
+  })
+
+  it('видимость сохраняется: ребёнок видит только свои серии', async () => {
+    const id = (await create(fam.mom.token, { assigneeId: fam.dad.id, date: '2026-10-01', time: null, repeat: { type: 'daily' } })).body.task.id
+    expect(datesOf(await list(fam.kid.token, '2026-10-12', '2026-10-18'), id)).toEqual([])
+    expect(datesOf(await list(fam.mom.token, '2026-10-12', '2026-10-18'), id)).toEqual(['2026-10-12'])
   })
 })
 

@@ -141,3 +141,72 @@ describe('автор записи', () => {
     }
   })
 })
+
+describe('история ребёнка для родителей (memberId)', () => {
+  const asParent = (token: string, memberId: string, query = '') => api(app, token, 'GET', `/api/coins?memberId=${memberId}${query}`)
+
+  it('родитель видит баланс и историю ребёнка своей семьи', async () => {
+    const f = await createFamily()
+    try {
+      await addEntries(f.kid.id, 3, f.mom.id)
+      const { status, body } = await asParent(f.dad.token, f.kid.id)
+      expect(status).toBe(200)
+      expect(body.balance).toBe(6)
+      expect(body.items.map((i: { reason: string }) => i.reason)).toEqual(['запись 1', 'запись 2', 'запись 3'])
+      expect(body.items[0].createdBy).toBe(f.mom.id)
+      // постранично, как и у самого ребёнка
+      const page2 = await asParent(f.mom.token, f.kid.id, `&limit=2&before=${body.items[1].id}`)
+      expect(page2.body.items.map((i: { reason: string }) => i.reason)).toEqual(['запись 3'])
+    } finally {
+      await removeFamilies(f.id)
+    }
+  })
+
+  it('данные те же, что видит сам ребёнок', async () => {
+    const f = await createFamily()
+    try {
+      await addEntries(f.sis.id, 2)
+      const own = (await history(f.sis.token)).body
+      const viaParent = (await asParent(f.mom.token, f.sis.id)).body
+      expect(viaParent).toEqual(own)
+    } finally {
+      await removeFamilies(f.id)
+    }
+  })
+
+  it('ребёнок чужие монеты не видит (в том числе брата или сестры), свои по своему id видит', async () => {
+    const f = await createFamily()
+    try {
+      await addEntries(f.kid.id, 1)
+      const res = await asParent(f.sis.token, f.kid.id)
+      expect(res.status).toBe(403)
+      expect(res.body.error).toBe('forbidden')
+      expect((await asParent(f.kid.token, f.kid.id)).status).toBe(200)
+    } finally {
+      await removeFamilies(f.id)
+    }
+  })
+
+  it('нужен ребёнок своей семьи: взрослый, чужой и неизвестный id отклоняются', async () => {
+    expect((await asParent(fam.mom.token, fam.dad.id)).body.error).toBe('not_a_child')
+    expect((await asParent(fam.mom.token, fam.mom.id)).status).toBe(403) // сам родитель без монет
+    const stranger = await createFamily()
+    try {
+      expect((await asParent(fam.mom.token, stranger.kid.id)).status).toBe(404)
+      expect((await asParent(fam.mom.token, '00000000-0000-4000-8000-000000000000')).status).toBe(404)
+      expect((await asParent(fam.mom.token, 'не-id')).status).toBe(400)
+      expect((await api(app, null, 'GET', `/api/coins?memberId=${fam.kid.id}`)).status).toBe(401)
+    } finally {
+      await removeFamilies(stranger.id)
+    }
+  })
+
+  it('чужая семья не видит монеты', async () => {
+    const stranger = await createFamily()
+    try {
+      expect((await asParent(stranger.mom.token, fam.kid.id)).status).toBe(404)
+    } finally {
+      await removeFamilies(stranger.id)
+    }
+  })
+})

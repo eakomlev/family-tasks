@@ -8,6 +8,7 @@ import { useIdentity } from '@/identity/context'
 import { ageFromBirthDate, formatAge, formatBirthDate } from '@/lib/date'
 import { ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
+import { ChildCoins } from './components/ChildCoins'
 import { Badge, ChatLink, Hero } from './styles'
 
 // краткая карточка другого участника семьи (только просмотр)
@@ -50,6 +51,7 @@ export default function MemberPreview() {
       {/* расписания ребёнка видят и правят родители */}
       {member?.role === 'child' && identity?.role !== 'child' && (
         <>
+          <ChildCoins memberId={member.id} />
           <MenuLink to={`/family/${member.id}/schedule`}>Расписание уроков</MenuLink>
           <MenuLink to={`/family/${member.id}/trainings`}>Расписание тренировок</MenuLink>
         </>

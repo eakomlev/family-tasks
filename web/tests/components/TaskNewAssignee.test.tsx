@@ -46,7 +46,7 @@ describe('кнопка «Новая задача» учитывает фильт
 
   it('без фильтра ссылка без исполнителя', async () => {
     renderApp('/tasks')
-    await screen.findByText(/Заданий пока нет/)
+    await screen.findByText(/Предстоящих заданий нет/)
     expect(addLink()).toHaveAttribute('href', '/tasks/new')
   })
 
