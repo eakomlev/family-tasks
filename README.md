@@ -1,5 +1,7 @@
 # Family Tasks
 
+[![CI](https://github.com/eakomlev/family-tasks/actions/workflows/ci.yml/badge.svg)](https://github.com/eakomlev/family-tasks/actions/workflows/ci.yml)
+
 PWA для семейных задач: React + Vite (`web/`), Node + Fastify (`server/`), PostgreSQL. Всё упаковано в Docker.
 
 ## Запуск в Docker на своём компьютере
@@ -38,6 +40,8 @@ Service worker в dev выключен, PWA проверяйте на сборк
 npm run dev:infra   # если ещё не запущена
 npm test            # около 3 секунд
 ```
+
+На GitHub те же проверки запускаются сами при каждом пуше в `main` и в каждом pull request (`.github/workflows/ci.yml`): тесты и типы сервера на настоящем Postgres, типы, линтер и сборка фронтенда, проверка конфигурации Docker Compose, `Caddyfile` и `update.sh`. Результат виден на вкладке Actions репозитория и в бейдже выше.
 
 Состав: проверки чистой логики (`server/tests/unit`) и проверки API без сети (`server/tests/api`: вход, профиль, приглашения, расписания, задания, push, планировщик уведомлений). Почта и отправка push подменяются. Типы тестов: `cd server && npm run typecheck`.
 

@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# новый пуш в ту же ветку отменяет ещё идущую проверку предыдущего
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    name: "Сервер: типы и тесты"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      # настоящий Postgres: тесты работают с БД, а не с подменой
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: family
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: family_tasks
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U family"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # тесты сами создают в этом Postgres отдельную базу family_tasks_test
+      DATABASE_URL: postgres://family:ci@localhost:5432/family_tasks
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  web:
+    name: "Фронтенд: типы, линтер, сборка"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npx tsc -b
+      - run: npm run lint
+      - run: npm run build
+
+  repo:
+    name: "Конфигурация: Docker Compose и скрипт обновления"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Синтаксис update.sh
+        run: bash -n update.sh
+      - name: Compose для разработки и локального запуска
+        run: docker compose -f docker-compose.yml config --quiet
+        env:
+          POSTGRES_USER: family
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: family_tasks
+      - name: Compose для продакшена (с Caddy)
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
+        env:
+          POSTGRES_USER: family
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: family_tasks
+          DOMAIN: example.com
+      - name: Caddyfile
+        run: docker run --rm -e DOMAIN=example.com -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
