@@ -1,11 +1,17 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import type { Pool } from 'pg'
 import { authenticate } from './auth.js'
 import { pool } from './db.js'
 import type { PushMessage } from './notifications/messages.js'
+import { coinsWord } from './tasks/text.js'
 import { notifyMember } from './push.js'
-import { publishTo } from './realtime.js'
+import { publish, publishTo } from './realtime.js'
 
 const MAX_TEXT = 2000
+
+// Реакции, которые родитель может поставить на сообщение ребёнка (тот же список на клиенте, lib/reactions.ts).
+export const REACTIONS = ['👍', '❤️', '🔥', '👏', '🎉', '💪', '🤩', '😍']
+const MAX_AWARD = 1000
 const PAGE_SIZE = 50
 const PREVIEW_LENGTH = 140
 
@@ -63,7 +69,42 @@ interface MessageRow {
   createdAt: string
 }
 
-const toMessage = (row: MessageRow) => ({ id: row.id, senderId: row.senderId, text: row.text, createdAt: row.createdAt })
+// Реакция и начисление монет родителем под сообщением ребёнка.
+export interface Reaction { memberId: string; emoji: string }
+export interface Award { amount: number; by: string | null }
+
+export interface MessageDto extends MessageRow {
+  reactions: Reaction[]
+  awards: Award[]
+}
+
+const toMessage = (row: MessageRow): MessageDto => ({
+  id: row.id,
+  senderId: row.senderId,
+  text: row.text,
+  createdAt: row.createdAt,
+  reactions: [],
+  awards: [],
+})
+
+// Добавляет к сообщениям реакции и начисленные монеты (двумя запросами на всю страницу).
+async function decorate(db: Pick<Pool, 'query'>, messages: MessageDto[]): Promise<MessageDto[]> {
+  if (messages.length === 0) return messages
+  const ids = messages.map((m) => m.id)
+  const { rows: reactions } = await db.query<{ messageId: string; memberId: string; emoji: string }>(
+    `select message_id as "messageId", member_id as "memberId", emoji from message_reactions where message_id = any($1) order by created_at`,
+    [ids],
+  )
+  const { rows: awards } = await db.query<{ messageId: string; amount: number; by: string | null }>(
+    `select message_id as "messageId", amount, created_by as "by" from coin_transactions where message_id = any($1) order by created_at`,
+    [ids],
+  )
+  return messages.map((m) => ({
+    ...m,
+    reactions: reactions.filter((x) => x.messageId === m.id).map(({ memberId, emoji }) => ({ memberId, emoji })),
+    awards: awards.filter((x) => x.messageId === m.id).map(({ amount, by }) => ({ amount, by })),
+  }))
+}
 
 const PARENT_LABELS: Record<string, string> = { mama: 'Мама', papa: 'Папа' }
 
@@ -81,6 +122,38 @@ export function chatPushMessage(senderName: string, chatId: string, text: string
     body,
     url: `/chat/${chatId}`,
     tag: `chat-${chatId}`,
+  }
+}
+
+const feedbackSchema = {
+  params: {
+    type: 'object',
+    required: ['chat', 'messageId'],
+    properties: { chat: chatParams.properties.chat, messageId: { type: 'string', format: 'uuid' } },
+  },
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      emoji: { anyOf: [{ enum: REACTIONS }, { type: 'null' }] },
+      coins: { type: 'integer', minimum: 1, maximum: MAX_AWARD },
+    },
+  },
+}
+
+// Начало сообщения одной строкой для причины в истории монет.
+function snippet(text: string, max = 40): string {
+  const oneLine = text.replace(/\s+/g, ' ').trim()
+  return oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine
+}
+
+// Ребёнку: родитель начислил монеты за его сообщение (и, возможно, поставил реакцию).
+export function awardPushMessage(parentLabel: string, chatId: string, messageId: string, coins: number, emoji?: string): PushMessage {
+  return {
+    title: parentLabel,
+    body: `+${coinsWord(coins)} за ваше сообщение${emoji ? ` и реакция ${emoji}` : ''}`,
+    url: `/chat/${chatId}`,
+    tag: `award-${messageId}`,
   }
 }
 
@@ -190,7 +263,8 @@ export async function chatRoutes(app: FastifyInstance) {
          where m.id = any($2)`,
         [chat.key, peers],
       )
-      return { messages: rows.slice(0, limit).reverse().map(toMessage), hasMore, readUpTo: (read[0]?.readUpTo as string | null) ?? null }
+      const page = await decorate(pool, rows.slice(0, limit).reverse().map(toMessage))
+      return { messages: page, hasMore, readUpTo: (read[0]?.readUpTo as string | null) ?? null }
     },
   )
 
@@ -259,4 +333,70 @@ export async function chatRoutes(app: FastifyInstance) {
     }
     return reply.code(204).send()
   })
+  // Реакция и/или монеты родителя на сообщение ребёнка (в любом доступном родителю чате).
+  // emoji: поставить реакцию (null снимает свою), coins: начислить монеты автору сообщения. Нужно хотя бы одно.
+  app.post<{ Params: { chat: string; messageId: string }; Body: { emoji?: string | null; coins?: number } }>(
+    '/api/chats/:chat/messages/:messageId/feedback',
+    { schema: feedbackSchema },
+    async (req, reply) => {
+      const member = await me(req, reply)
+      if (!member) return
+      if (member.role === 'child') return reply.code(403).send({ error: 'parents_only' })
+      const { emoji, coins } = req.body
+      if (emoji === undefined && coins === undefined) return reply.code(400).send({ error: 'nothing_to_do' })
+
+      const chat = await resolveChat(member, req.params.chat, reply)
+      if (!chat) return
+      const { rows: found } = await pool.query<MessageRow & { senderRole: string }>(
+        `select m.id, m.sender_id as "senderId", m.text, m.created_at as "createdAt", s.role as "senderRole"
+         from messages m join members s on s.id = m.sender_id
+         where m.id = $1 and m.family_id = $2 and m.chat_key = $3`,
+        [req.params.messageId, member.family_id, chat.key],
+      )
+      const row = found[0]
+      if (!row) return reply.code(404).send({ error: 'message_not_found' })
+      // реакции и монеты только на сообщения детей
+      if (row.senderRole !== 'child') return reply.code(400).send({ error: 'not_a_child_message' })
+
+      const db = await pool.connect()
+      try {
+        await db.query('begin')
+        if (emoji === null) await db.query('delete from message_reactions where message_id = $1 and member_id = $2', [row.id, member.id])
+        else if (emoji !== undefined) {
+          await db.query(
+            `insert into message_reactions (message_id, member_id, emoji) values ($1, $2, $3)
+             on conflict (message_id, member_id) do update set emoji = excluded.emoji, created_at = now()`,
+            [row.id, member.id, emoji],
+          )
+        }
+        if (coins !== undefined) {
+          await db.query(
+            `insert into coin_transactions (member_id, amount, reason, created_by, message_id) values ($1, $2, $3, $4, $5)`,
+            [row.senderId, coins, `За сообщение: ${snippet(row.text)}`, member.id, row.id],
+          )
+        }
+        await db.query('commit')
+      } catch (err) {
+        await db.query('rollback').catch(() => {})
+        throw err
+      } finally {
+        db.release()
+      }
+
+      // всем участникам чата: под сообщением появились реакции и монеты
+      for (const id of chat.participants) {
+        const view = chat.otherId === null ? FAMILY_CHAT : id === member.id ? chat.otherId : member.id
+        publishTo(id, { type: 'chat', chat: view })
+      }
+      if (coins !== undefined) {
+        // баланс ребёнка изменился; ему приходит уведомление о начислении
+        publish(member.family_id, { type: 'members' })
+        const view = chat.otherId === null ? FAMILY_CHAT : member.id
+        void notifyMember(row.senderId, awardPushMessage(senderLabel(member, 'child'), view, row.id, coins, emoji ?? undefined))
+      }
+
+      const [message] = await decorate(pool, [toMessage(row)])
+      return { message }
+    },
+  )
 }

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 export const List = styled.ol`
@@ -8,14 +9,36 @@ export const List = styled.ol`
   list-style: none;
 `
 
-export const Item = styled.li`
+export const Item = styled.li<{ $link?: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: ${({ $link }) => ($link ? '0' : '0.75rem 1rem')};
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  background: var(--surface);
+
+  &:hover {
+    border-color: ${({ $link }) => ($link ? 'var(--accent)' : 'var(--border)')};
+  }
+`
+
+// строка урока целиком ссылка
+export const RowLink = styled(Link)`
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--border);
   border-radius: 0.8rem;
-  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 `
 
 export const Number = styled.span`

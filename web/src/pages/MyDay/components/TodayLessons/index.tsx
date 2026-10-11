@@ -52,7 +52,7 @@ export function TodayLessons({ now }: TodayLessonsProps) {
       {failed && <Notice $tone="error">Не удалось загрузить расписание. Проверьте соединение.</Notice>}
       {!lessons && !failed && <p>Загрузка…</p>}
       {empty && <Notice $tone="muted">{empty}</Notice>}
-      {dayLessons.length > 0 && <LessonViewList lessons={dayLessons} />}
+      {dayLessons.length > 0 && <LessonViewList lessons={dayLessons} getLink={(lesson) => `/lesson-report?subject=${encodeURIComponent(lesson.subject)}`} />}
     </Stack>
   )
 }

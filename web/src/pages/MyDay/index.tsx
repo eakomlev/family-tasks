@@ -2,6 +2,7 @@ import { Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { useNow } from '@/lib/useNow'
 import { DateLine, Hero, Icon } from './styles'
+import { EarnedToday } from './components/EarnedToday'
 import { FamilyLessons } from './components/FamilyLessons'
 import { TodayLessons } from './components/TodayLessons'
 import { TodayTasks } from './components/TodayTasks'
@@ -20,6 +21,7 @@ export default function MyDay() {
         <h1>{greeting.text}, {identity?.name}!</h1>
         <DateLine>{formatToday(now)}</DateLine>
       </Hero>
+      <EarnedToday now={now} />
       <TodayTasks now={now} />
       <TodayLessons now={now} />
       <TodayTrainings now={now} />

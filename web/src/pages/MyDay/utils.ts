@@ -26,6 +26,9 @@ const WEEKDAYS_ACCUSATIVE = ['в воскресенье', 'в понедельн
 
 const addDays = (date: Date, days: number) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days)
 
+// Начало местного дня (полночь) как ISO-время: с него считаются монеты, заработанные сегодня.
+export const startOfDayIso = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString()
+
 export const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
 
 // Выбирает, чьи уроки показывать:

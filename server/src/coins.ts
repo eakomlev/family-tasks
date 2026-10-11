@@ -31,7 +31,31 @@ interface HistoryRow {
   createdBy: string | null
 }
 
+const earnedSchema = {
+  querystring: {
+    type: 'object',
+    required: ['since'],
+    properties: { since: { type: 'string', format: 'date-time' } },
+  },
+}
+
 export async function coinRoutes(app: FastifyInstance) {
+  // Сколько монет ребёнок заработал с момента since (клиент присылает начало своего дня: часовой пояс знает только он).
+  // Считаются начисления и отмена наград за задания (если награду забрали, она не считается заработанной);
+  // траты и прочие списания не уменьшают «заработано». Результат не бывает отрицательным.
+  app.get<{ Querystring: { since: string } }>('/api/coins/earned', { schema: earnedSchema }, async (req, reply) => {
+    const me = await authenticate(req)
+    if (!me) return reply.code(401).send({ error: 'unauthorized' })
+    if (me.role !== 'child') return reply.code(403).send({ error: 'not_a_child' })
+    const { rows } = await pool.query(
+      `select greatest(0, coalesce(sum(amount), 0))::int as earned
+       from coin_transactions
+       where member_id = $1 and created_at >= $2 and (amount > 0 or task_id is not null)`,
+      [me.id, req.query.since],
+    )
+    return { earned: rows[0].earned as number }
+  })
+
   // История монет ребёнка, свежее сверху, постранично: before = id самой старой из уже загруженных записей.
   // Пока доступна только самому ребёнку (родителям баланс детей не открываем).
   app.get<{ Querystring: { before?: string; limit?: number } }>('/api/coins', { schema: historySchema }, async (req, reply) => {

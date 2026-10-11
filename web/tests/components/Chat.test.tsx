@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,6 +16,7 @@ import type { Listener } from '@/realtime/types'
 
 vi.mock('@/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api')>()),
+  giveFeedback: vi.fn(),
   listMessages: vi.fn(),
   sendMessage: vi.fn(),
   markChatRead: vi.fn(),
@@ -25,7 +26,7 @@ const members: Member[] = [
   { id: 'me', name: 'Лена', role: 'mama', avatar: null, isOwner: true },
   { id: 'm2', name: 'Миша', role: 'child', avatar: null, isOwner: false },
 ]
-const m = (id: string, senderId: string, text: string, createdAt = '2026-10-11T10:00:00Z'): ChatMessage => ({ id, senderId, text, createdAt })
+const m = (id: string, senderId: string, text: string, createdAt = '2026-10-11T10:00:00Z'): ChatMessage => ({ id, senderId, text, createdAt, reactions: [], awards: [] })
 
 function providers(children: React.ReactNode, opts: { chats?: ChatSummary[]; refresh?: () => Promise<void>; as?: 'me' | 'm2' } = {}) {
   // по умолчанию смотрит мама (me), опционально ребёнок (m2)
@@ -109,6 +110,97 @@ describe('ребёнок видит родителей как «Мама» и «
 
     view('me')
     expect(await screen.findByRole('heading', { name: 'Мама' })).toBeInTheDocument()
+  })
+})
+
+describe('реакции и монеты под сообщениями', () => {
+  const kidMessage = { ...m('1', 'm2', 'Получил пятёрку!'), reactions: [{ memberId: 'me', emoji: '👏' }], awards: [{ amount: 20, by: 'me' }, { amount: 5, by: 'me' }] }
+
+  function renderRoom(as: 'me' | 'm2', messages: ChatMessage[], chat = 'family') {
+    vi.mocked(api.listMessages).mockResolvedValue({ messages, hasMore: false, readUpTo: null })
+    window.scrollTo = vi.fn() as unknown as typeof window.scrollTo
+    render(
+      providers(
+        <MemoryRouter initialEntries={[`/chat/${chat}`]}>
+          <Routes><Route path="/chat/:chat" element={<ChatRoom />} /></Routes>
+        </MemoryRouter>,
+        { as },
+      ),
+    )
+  }
+
+  it('реакции и сумма монет видны под сообщением всем', async () => {
+    renderRoom('m2', [kidMessage])
+    await screen.findByText('Получил пятёрку!')
+    const extras = screen.getByLabelText('Реакции и монеты')
+    expect(within(extras).getByLabelText('Реакция 👏')).toBeInTheDocument()
+    expect(within(extras).getByLabelText('Начислено монет: 25')).toHaveTextContent('+25')
+  })
+
+  it('одинаковые реакции склеиваются с числом', async () => {
+    renderRoom('m2', [{ ...m('1', 'm2', 'Привет'), reactions: [{ memberId: 'me', emoji: '👍' }, { memberId: 'papa', emoji: '👍' }] }])
+    await screen.findByText('Привет')
+    expect(screen.getByLabelText('Реакция 👍, 2')).toHaveTextContent('2')
+  })
+
+  it('без реакций и монет блока под сообщением нет', async () => {
+    renderRoom('m2', [m('1', 'm2', 'Просто текст')])
+    await screen.findByText('Просто текст')
+    expect(screen.queryByLabelText('Реакции и монеты')).not.toBeInTheDocument()
+  })
+
+  it('родитель нажимает на сообщение ребёнка: открывается окно, выбор уходит на сервер, под сообщением обновляется', async () => {
+    renderRoom('me', [m('1', 'm2', 'Сдал контрольную')])
+    const updated = { ...m('1', 'm2', 'Сдал контрольную'), reactions: [{ memberId: 'me', emoji: '🔥' }], awards: [{ amount: 30, by: 'me' }] }
+    vi.mocked(api.giveFeedback).mockResolvedValue({ message: updated })
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /Сдал контрольную/ }))
+    const dialog = screen.getByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Реакция 🔥' }))
+    await user.click(within(dialog).getByRole('button', { name: '20' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Другая' }))
+    await user.type(within(dialog).getByLabelText('Своя награда, монет'), '30')
+    await user.click(within(dialog).getByRole('button', { name: 'Отправить' }))
+
+    expect(api.giveFeedback).toHaveBeenCalledWith('tok', 'family', '1', { emoji: '🔥', coins: 30 })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(await screen.findByLabelText('Начислено монет: 30')).toBeInTheDocument()
+    expect(screen.getByLabelText('Реакция 🔥')).toBeInTheDocument()
+  })
+
+  it('моя прежняя реакция в окне уже выбрана', async () => {
+    renderRoom('me', [kidMessage])
+    await userEvent.click(await screen.findByRole('button', { name: /Получил пятёрку/ }))
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Реакция 👏' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('работает и в личном чате с ребёнком', async () => {
+    renderRoom('me', [m('1', 'm2', 'Мам, смотри')], 'm2')
+    await userEvent.click(await screen.findByRole('button', { name: /Мам, смотри/ }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('сообщения взрослых и свои у родителя не нажимаются', async () => {
+    renderRoom('me', [m('1', 'me', 'Моё сообщение'), m('2', 'papa', 'Сообщение папы')])
+    await screen.findByText('Моё сообщение')
+    expect(screen.queryByRole('button', { name: /Моё сообщение/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Сообщение папы/ })).not.toBeInTheDocument()
+  })
+
+  it('у ребёнка сообщения не нажимаются (ни свои, ни чужие)', async () => {
+    renderRoom('m2', [m('1', 'm2', 'Своё'), m('2', 'me', 'От мамы')])
+    await screen.findByText('Своё')
+    expect(screen.queryByRole('button', { name: /Своё/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /От мамы/ })).not.toBeInTheDocument()
+  })
+
+  it('нажатие с клавиатуры (Enter) тоже открывает окно', async () => {
+    renderRoom('me', [m('1', 'm2', 'С клавиатуры')])
+    const bubble = await screen.findByRole('button', { name: /С клавиатуры/ })
+    bubble.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 })
 
@@ -308,5 +400,19 @@ describe('переписка', () => {
     vi.mocked(api.listMessages).mockRejectedValue(new api.ApiError(500, 'x'))
     renderRoom('family')
     expect(await screen.findByText(/Не удалось загрузить сообщения/)).toBeInTheDocument()
+  })
+})
+
+describe('длинное последнее сообщение в списке чатов', () => {
+  it('превью одной строкой с многоточием; колонка списка не растёт под текст', () => {
+    const long = 'Очень-длинное-сообщение-без-пробелов-' + 'я'.repeat(300)
+    const chats: ChatSummary[] = [{ id: 'm2', last: m('1', 'm2', long), unread: 0 }]
+    render(providers(<MemoryRouter><Chat /></MemoryRouter>, { chats }))
+    const list = screen.getByRole('list')
+    // jsdom не считает вёрстку, поэтому проверяем сами правила: одна колонка minmax(0, 1fr) и обрезка превью
+    expect(getComputedStyle(list).gridTemplateColumns).toBe('minmax(0, 1fr)')
+    const preview = screen.getByText(/Очень-длинное/)
+    expect(getComputedStyle(preview).whiteSpace).toBe('nowrap')
+    expect(getComputedStyle(preview).textOverflow).toBe('ellipsis')
   })
 })

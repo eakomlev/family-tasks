@@ -2,19 +2,30 @@ import { Chip } from '@/components/Chip'
 import { Input } from '@/components/Input'
 import { REWARD_CHOICES } from '@/lib/coins'
 import { Chips, Group, Hint, Title } from './styles'
-import type { RewardPickerProps } from './types'
+import type { CoinPickerProps } from './types'
 
-// Выбор награды монетами: готовые плашки и «Другая» с полем для своего числа от 1 до 1000.
-export function RewardPicker({ value, custom, onChange }: RewardPickerProps) {
+const DEFAULT_HINT = 'Ребёнок получит монеты, когда задание будет выполнено. У повторяющегося задания за каждое выполнение.'
+
+// Выбор числа монет: готовые плашки и «Другая» с полем для своего числа от 1 до 1000.
+// Используется для награды за задание и для начисления монет за сообщение.
+export function CoinPicker({
+  value,
+  custom,
+  onChange,
+  label = 'Награда',
+  title = 'Награда, монет',
+  zeroLabel = 'Без награды',
+  hint = DEFAULT_HINT,
+}: CoinPickerProps) {
   return (
-    <Group role="group" aria-label="Награда">
-      <Title>Награда, монет</Title>
+    <Group role="group" aria-label={label}>
+      <Title>{title}</Title>
       <Chips>
         {REWARD_CHOICES.map((n) => {
           const active = !custom && Number(value) === n
           return (
             <Chip key={n} type="button" aria-pressed={active} $active={active} onClick={() => onChange(String(n), false)}>
-              {n === 0 ? 'Без награды' : n}
+              {n === 0 ? zeroLabel : n}
             </Chip>
           )
         })}
@@ -36,7 +47,7 @@ export function RewardPicker({ value, custom, onChange }: RewardPickerProps) {
           onChange={(e) => onChange(e.target.value, true)}
         />
       )}
-      <Hint>Ребёнок получит монеты, когда задание будет выполнено. У повторяющегося задания за каждое выполнение.</Hint>
+      <Hint>{hint}</Hint>
     </Group>
   )
 }

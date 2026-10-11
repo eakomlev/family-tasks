@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
-import { ApiError, FAMILY_CHAT, listMessages, markChatRead, sendMessage, type ChatMessage } from '@/api'
+import { ApiError, FAMILY_CHAT, giveFeedback, listMessages, markChatRead, sendMessage, type ChatMessage, type MessageFeedback } from '@/api'
 import { Avatar } from '@/components/Avatar'
 import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
@@ -14,9 +14,10 @@ import { useLive } from '@/realtime/context'
 import { memberLabel } from '@/lib/roles'
 import { chatTitle } from '../Chat/utils'
 import { Composer } from './components/Composer'
+import { FeedbackDialog } from './components/FeedbackDialog'
 import { MessageBubble } from './components/MessageBubble'
 import { DayLabel, Empty, Feed, FamilyIcon, Header, Room } from './styles'
-import { appendMessage, groupByDay, mergeLatest, messageStatus } from './utils'
+import { appendMessage, groupByDay, mergeLatest, messageStatus, replaceMessage } from './utils'
 
 // «рядом с низом»: тогда новое сообщение прокручивает переписку само, а не сбивает чтение старых
 const NEAR_BOTTOM_PX = 160
@@ -39,6 +40,8 @@ export default function ChatRoom() {
   const [failed, setFailed] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [missing, setMissing] = useState(false)
+  // сообщение ребёнка, над которым родитель открыл окно реакции и монет
+  const [feedbackFor, setFeedbackFor] = useState<ChatMessage>()
   // растёт при сигнале сокета: свежие сообщения запрашиваются заново
   const [version, setVersion] = useState(0)
   const stick = useRef(true)
@@ -139,6 +142,19 @@ export default function ChatRoom() {
     void refreshChats()
   }
 
+  // Реакции и монеты ставят родители, и только на сообщения детей.
+  const canGiveFeedback = (message: ChatMessage) =>
+    identity!.role !== 'child' && members.find((m) => m.id === message.senderId)?.role === 'child'
+
+  async function handleFeedback(feedback: MessageFeedback) {
+    const target = feedbackFor
+    if (!target) return
+    const { message } = await giveFeedback(token!, chat!, target.id, feedback)
+    setThread((current) => current && { ...current, messages: replaceMessage(current.messages, message) })
+    setFeedbackFor(undefined)
+    // монеты изменили баланс, а список чатов не меняется; профиль обновит сигнал сервера
+  }
+
   const groups = messages ? groupByDay(messages, now) : []
 
   return (
@@ -171,6 +187,7 @@ export default function ChatRoom() {
                   senderName={sender(message.senderId)}
                   showSender={chat === FAMILY_CHAT}
                   status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
+                  onFeedback={canGiveFeedback(message) ? () => setFeedbackFor(message) : undefined}
                 />
               ))}
             </section>
@@ -179,6 +196,16 @@ export default function ChatRoom() {
       )}
 
       <Composer onSend={handleSend} />
+
+      {feedbackFor && (
+        <FeedbackDialog
+          message={feedbackFor}
+          authorName={sender(feedbackFor.senderId) ?? 'Участник'}
+          myEmoji={feedbackFor.reactions.find((r) => r.memberId === me)?.emoji}
+          onSubmit={handleFeedback}
+          onClose={() => setFeedbackFor(undefined)}
+        />
+      )}
     </Room>
   )
 }

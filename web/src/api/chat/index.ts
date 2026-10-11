@@ -1,5 +1,5 @@
 import { request, send } from '../client'
-import type { ChatMessage, ChatSummary, MessagePage } from './types'
+import type { ChatMessage, ChatSummary, MessageFeedback, MessagePage } from './types'
 
 export const FAMILY_CHAT = 'family'
 
@@ -12,6 +12,10 @@ export const listMessages = (token: string, chat: string, before?: string) =>
 
 export const sendMessage = (token: string, chat: string, text: string) =>
   request<{ message: ChatMessage }>(`/chats/${chat}/messages`, send('POST', { text }), token)
+
+// Реакция и/или монеты родителя на сообщение ребёнка; возвращает сообщение с обновлёнными реакциями и начислениями
+export const giveFeedback = (token: string, chat: string, messageId: string, feedback: MessageFeedback) =>
+  request<{ message: ChatMessage }>(`/chats/${chat}/messages/${messageId}/feedback`, send('POST', feedback), token)
 
 export const markChatRead = (token: string, chat: string) => request<void>(`/chats/${chat}/read`, send('POST'), token)
 

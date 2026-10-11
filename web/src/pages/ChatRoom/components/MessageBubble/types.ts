@@ -9,4 +9,6 @@ export interface MessageBubbleProps {
   showSender: boolean
   // статус своего сообщения: отправлено или прочитано; у чужих не показывается
   status?: MessageStatus
+  // родитель может нажать на сообщение ребёнка, чтобы поставить реакцию или начислить монеты
+  onFeedback?: () => void
 }

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { ApiError, type RepeatType } from '@/api'
 import { Button } from '@/components/Button'
 import { Checkbox } from '@/components/Checkbox'
+import { CoinPicker } from '@/components/CoinPicker'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
@@ -13,7 +14,6 @@ import { isoWeekdayOf, todayIso } from '@/lib/date'
 import type { FormState } from '../../types'
 import { toInput, validate } from '../../utils'
 import { RepeatFields } from '../RepeatFields'
-import { RewardPicker } from '../RewardPicker'
 import type { TaskEditorProps } from './types'
 
 function describeError(err: unknown): string {
@@ -119,7 +119,7 @@ export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDele
 
       {/* монеты только за задания детей */}
       {canReward && (
-        <RewardPicker value={form.reward} custom={form.rewardCustom} onChange={(reward, rewardCustom) => patch({ reward, rewardCustom })} />
+        <CoinPicker value={form.reward} custom={form.rewardCustom} onChange={(reward, rewardCustom) => patch({ reward, rewardCustom })} />
       )}
 
       <Checkbox checked={form.scheduled} onChange={(e) => toggleScheduled(e.target.checked)}>Указать время</Checkbox>

@@ -13,6 +13,7 @@ import Family from '@/pages/Family'
 import FamilyCreated from '@/pages/FamilyCreated'
 import Invite from '@/pages/Invite'
 import Join from '@/pages/Join'
+import LessonReport from '@/pages/LessonReport'
 import Login from '@/pages/Login'
 import MemberPreview from '@/pages/MemberPreview'
 import MyDay from '@/pages/MyDay'
@@ -46,6 +47,7 @@ export default function App() {
               <Route path="/tasks/:taskId" element={<TaskView />} />
               <Route path="/tasks/:taskId/edit" element={<TaskForm />} />
               <Route path="/coins" element={<Coins />} />
+              <Route path="/lesson-report" element={<LessonReport />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/chat/:chat" element={<ChatRoom />} />
               <Route path="/my-day" element={<MyDay />} />

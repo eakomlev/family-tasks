@@ -3,6 +3,8 @@ import styled from 'styled-components'
 
 export const List = styled.ul`
   display: grid;
+  /* одна колонка ровно по ширине экрана: без этого длинное сообщение в строке без переносов раздувает колонку за экран */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
   margin: 0;
   padding: 0;
@@ -11,6 +13,7 @@ export const List = styled.ul`
 
 export const Row = styled(Link)`
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 0.75rem;
   padding: 0.7rem 0.9rem;
@@ -52,6 +55,7 @@ export const Body = styled.div`
 
 export const Top = styled.div`
   display: flex;
+  min-width: 0;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
@@ -73,6 +77,7 @@ export const Time = styled.span<{ $unread: boolean }>`
 
 export const Bottom = styled.div`
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;

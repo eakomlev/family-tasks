@@ -253,6 +253,29 @@ describe('события', () => {
     expect(await kid.next()).toEqual({ type: 'members' })
   })
 
+  it('реакция и монеты родителя: сигнал чата участникам (с их точки зрения), монеты ещё и сигнал members', async () => {
+    const mom = await connectAuthed(fam.mom.token)
+    const kid = await connectAuthed(fam.kid.token)
+    const dad = await connectAuthed(fam.dad.token)
+    const sent = await api(app, fam.kid.token, 'POST', `/api/chats/${fam.mom.id}/messages`, { text: 'мам' })
+    expect(await mom.next()).toEqual({ type: 'chat', chat: fam.kid.id })
+    expect(await kid.next()).toEqual({ type: 'chat', chat: fam.mom.id })
+
+    // только реакция: чат обновляется у двоих, баланс не трогаем, папа ничего не узнаёт
+    await api(app, fam.mom.token, 'POST', `/api/chats/${fam.kid.id}/messages/${sent.body.message.id}/feedback`, { emoji: '👍' })
+    expect(await mom.next()).toEqual({ type: 'chat', chat: fam.kid.id })
+    expect(await kid.next()).toEqual({ type: 'chat', chat: fam.mom.id })
+    expect(await kid.quiet()).toBe(true)
+
+    // монеты: ещё и members (баланс)
+    await api(app, fam.mom.token, 'POST', `/api/chats/${fam.kid.id}/messages/${sent.body.message.id}/feedback`, { coins: 5 })
+    expect(await mom.next()).toEqual({ type: 'chat', chat: fam.kid.id })
+    expect(await kid.next()).toEqual({ type: 'chat', chat: fam.mom.id })
+    expect(await kid.next()).toEqual({ type: 'members' })
+    expect(await dad.next()).toEqual({ type: 'members' })
+    expect(JSON.stringify(dad.messages)).not.toContain('chat')
+  })
+
   it('отказ в доступе к расписанию событий не порождает', async () => {
     const dad = await connectAuthed(fam.dad.token)
     expect((await api(app, fam.kid.token, 'PUT', `/api/members/${fam.sis.id}/schedule`, { lessons: [] })).status).toBe(403)

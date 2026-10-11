@@ -1,11 +1,32 @@
-import { formatMessageTime } from '../../utils'
-import { Bubble, Footer, Sender, Text, Tick, Time, Wrap } from './styles'
+import { CoinIcon } from '@/components/CoinBalance'
+import { formatMessageTime, groupReactions, totalCoins } from '../../utils'
+import { Bubble, CoinPill, Extras, Footer, ReactionChip, Sender, Text, Tick, Time, Wrap } from './styles'
 import type { MessageBubbleProps } from './types'
 
-export function MessageBubble({ message, mine, senderName, showSender, status }: MessageBubbleProps) {
+export function MessageBubble({ message, mine, senderName, showSender, status, onFeedback }: MessageBubbleProps) {
+  const reactions = groupReactions(message.reactions)
+  const coins = totalCoins(message.awards)
+
+  // родителю сообщение ребёнка можно нажать (мышью или с клавиатуры): откроется окно реакции и монет
+  const interactive = onFeedback
+    ? {
+        role: 'button',
+        tabIndex: 0,
+        'aria-haspopup': 'dialog' as const,
+        title: 'Реакция или монеты',
+        onClick: onFeedback,
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onFeedback()
+          }
+        },
+      }
+    : {}
+
   return (
     <Wrap $mine={mine}>
-      <Bubble $mine={mine}>
+      <Bubble $mine={mine} $clickable={!!onFeedback} {...interactive}>
         {showSender && !mine && <Sender>{senderName ?? 'Участник'}</Sender>}
         <Text>{message.text}</Text>
         <Footer>
@@ -21,6 +42,22 @@ export function MessageBubble({ message, mine, senderName, showSender, status }:
           )}
         </Footer>
       </Bubble>
+      {(reactions.length > 0 || coins > 0) && (
+        <Extras $mine={mine} aria-label="Реакции и монеты">
+          {reactions.map((r) => (
+            <ReactionChip key={r.emoji} aria-label={`Реакция ${r.emoji}${r.count > 1 ? `, ${r.count}` : ''}`}>
+              <span aria-hidden>{r.emoji}</span>
+              {r.count > 1 && <small>{r.count}</small>}
+            </ReactionChip>
+          ))}
+          {coins > 0 && (
+            <CoinPill aria-label={`Начислено монет: ${coins}`}>
+              <CoinIcon />
+              <span>+{coins}</span>
+            </CoinPill>
+          )}
+        </Extras>
+      )}
     </Wrap>
   )
 }

@@ -8,4 +8,6 @@ export interface ViewLesson {
 
 export interface LessonViewListProps {
   lessons: ViewLesson[]
+  // если задан, каждый урок это ссылка (например, на страницу «Что ты хочешь сообщить!»)
+  getLink?: (lesson: ViewLesson) => string
 }

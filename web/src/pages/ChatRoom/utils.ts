@@ -58,3 +58,26 @@ export const formatMessageTime = (iso: string) =>
 
 // Текст можно отправить: не пустой после обрезки и не длиннее предела.
 export const canSend = (text: string) => text.trim().length > 0 && text.trim().length <= MAX_LENGTH
+
+export interface ReactionGroup {
+  emoji: string
+  count: number
+}
+
+// Реакции под сообщением: одинаковые склеиваются в одну с числом, порядок по первому появлению.
+export function groupReactions(reactions: { emoji: string }[]): ReactionGroup[] {
+  const groups: ReactionGroup[] = []
+  for (const { emoji } of reactions) {
+    const group = groups.find((g) => g.emoji === emoji)
+    if (group) group.count++
+    else groups.push({ emoji, count: 1 })
+  }
+  return groups
+}
+
+// Сколько монет всего начислено за сообщение.
+export const totalCoins = (awards: { amount: number }[]) => awards.reduce((sum, a) => sum + a.amount, 0)
+
+// Подменяет сообщение в списке его обновлённой версией (после реакции или начисления).
+export const replaceMessage = (list: ChatMessage[], message: ChatMessage): ChatMessage[] =>
+  list.map((m) => (m.id === message.id ? message : m))
