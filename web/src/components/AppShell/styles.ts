@@ -23,7 +23,8 @@ export const Content = styled.div`
 
 export const ProfileLink = styled(Link)`
   position: absolute;
-  top: calc(0.75rem + env(safe-area-inset-top));
+  /* по центру строки с заголовком страницы: заголовок начинается на 1.5rem, его высота около 31px, значок 40px */
+  top: calc(1.2rem + env(safe-area-inset-top));
   right: 0.75rem;
   z-index: 5;
   border-radius: 50%;

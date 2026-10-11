@@ -87,10 +87,19 @@ export const TabLink = styled(NavLink)`
   }
 `
 
+// значок рисуется цветом текста таба (серый у обычного, акцентный у выбранного); у выбранного линия чуть толще
 export const Icon = styled.span<{ $active: boolean }>`
-  font-size: 1.4rem;
-  line-height: 1;
-  opacity: ${({ $active }) => ($active ? 1 : 0.55)};
+  display: inline-flex;
+
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: ${({ $active }) => ($active ? 2 : 1.7)};
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
 `
 
 export const IconWrap = styled.span`

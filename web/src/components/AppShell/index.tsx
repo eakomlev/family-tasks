@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { ChatsProvider } from '@/chat'
 import { Avatar } from '@/components/Avatar'
 import { TabBar } from '@/components/TabBar'
@@ -11,13 +11,17 @@ import { Content, ProfileLink, Root } from './styles'
 function Shell() {
   const { identity } = useIdentity()
   const { data } = useProfile()
+  const { pathname } = useLocation()
   if (!identity) return null
 
   return (
     <Root>
-      <ProfileLink to="/profile" aria-label={`Профиль: ${identity.name}`}>
-        <Avatar name={data?.me.name ?? identity.name} seed={identity.memberId} src={data?.me.avatar} />
-      </ProfileLink>
+      {/* на самой странице профиля значок не нужен */}
+      {pathname !== '/profile' && (
+        <ProfileLink to="/profile" aria-label={`Профиль: ${identity.name}`}>
+          <Avatar name={data?.me.name ?? identity.name} seed={identity.memberId} src={data?.me.avatar} />
+        </ProfileLink>
+      )}
       <Content>
         <Outlet />
       </Content>

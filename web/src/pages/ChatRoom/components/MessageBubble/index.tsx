@@ -2,11 +2,11 @@ import { formatMessageTime } from '../../utils'
 import { Bubble, Footer, Sender, Text, Tick, Time, Wrap } from './styles'
 import type { MessageBubbleProps } from './types'
 
-export function MessageBubble({ message, mine, sender, showSender, status }: MessageBubbleProps) {
+export function MessageBubble({ message, mine, senderName, showSender, status }: MessageBubbleProps) {
   return (
     <Wrap $mine={mine}>
       <Bubble $mine={mine}>
-        {showSender && !mine && <Sender>{sender?.name ?? 'Участник'}</Sender>}
+        {showSender && !mine && <Sender>{senderName ?? 'Участник'}</Sender>}
         <Text>{message.text}</Text>
         <Footer>
           <Time>{formatMessageTime(message.createdAt)}</Time>

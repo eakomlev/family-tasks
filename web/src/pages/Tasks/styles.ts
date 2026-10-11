@@ -10,7 +10,8 @@ export const Header = styled.div`
   padding-right: 3rem;
 
   select {
-    padding: 0.5rem 0.75rem;
+    /* высота как у заголовка страницы, чтобы строка заголовка и значок профиля были на одном уровне */
+    padding: 0.3rem 0.75rem;
   }
 `
 

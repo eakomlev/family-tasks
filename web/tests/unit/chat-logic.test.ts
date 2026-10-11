@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage, ChatSummary, Member } from '@/api'
+import { memberLabel } from '@/lib/roles'
 import { chatPreview, chatTitle, formatChatTime } from '@/pages/Chat/utils'
 import { appendMessage, canSend, dayLabel, groupByDay, mergeLatest, messageStatus } from '@/pages/ChatRoom/utils'
 
@@ -102,22 +103,43 @@ describe('canSend', () => {
 describe('список чатов', () => {
   const members: Member[] = [
     { id: 'me', name: 'Лена', role: 'mama', avatar: null, isOwner: true },
+    { id: 'papa', name: 'Игорь', role: 'papa', avatar: null, isOwner: false },
     { id: 'm2', name: 'Миша', role: 'child', avatar: null, isOwner: false },
+    { id: 'm3', name: 'Аня', role: 'child', avatar: null, isOwner: false },
   ]
   const chat = (id: string, last: ChatMessage | null): ChatSummary => ({ id, last, unread: 0 })
 
+  it('memberLabel: ребёнок видит родителей как «Мама» и «Папа», остальных и родители по именам', () => {
+    expect(memberLabel(members[0], 'child')).toBe('Мама')
+    expect(memberLabel(members[1], 'child')).toBe('Папа')
+    expect(memberLabel(members[2], 'child')).toBe('Миша')
+    expect(memberLabel(members[0], 'papa')).toBe('Лена')
+    expect(memberLabel(members[2], 'mama')).toBe('Миша')
+  })
+
   it('chatTitle', () => {
-    expect(chatTitle('family', members)).toBe('Общий чат')
-    expect(chatTitle('m2', members)).toBe('Миша')
-    expect(chatTitle('неизвестно', members)).toBe('Чат')
+    expect(chatTitle('family', members, 'mama')).toBe('Общий чат')
+    expect(chatTitle('m2', members, 'mama')).toBe('Миша')
+    expect(chatTitle('неизвестно', members, 'mama')).toBe('Чат')
+  })
+
+  it('chatTitle для ребёнка: родители «Мама» и «Папа»', () => {
+    expect(chatTitle('me', members, 'child')).toBe('Мама')
+    expect(chatTitle('papa', members, 'child')).toBe('Папа')
+    expect(chatTitle('m3', members, 'child')).toBe('Аня')
   })
 
   it('chatPreview: без сообщений, своё, чужое в личном и в общем чате; переносы строк сжимаются', () => {
-    expect(chatPreview(chat('m2', null), 'me', members)).toBe('Сообщений пока нет')
-    expect(chatPreview(chat('m2', msg('x', undefined, 'me', 'привет')), 'me', members)).toBe('Вы: привет')
-    expect(chatPreview(chat('m2', msg('x', undefined, 'm2', 'как\nдела')), 'me', members)).toBe('как дела')
-    expect(chatPreview(chat('family', msg('x', undefined, 'm2', 'ужин')), 'me', members)).toBe('Миша: ужин')
-    expect(chatPreview(chat('family', msg('x', undefined, 'me', 'ужин')), 'me', members)).toBe('Вы: ужин')
+    expect(chatPreview(chat('m2', null), 'me', members, 'mama')).toBe('Сообщений пока нет')
+    expect(chatPreview(chat('m2', msg('x', undefined, 'me', 'привет')), 'me', members, 'mama')).toBe('Вы: привет')
+    expect(chatPreview(chat('m2', msg('x', undefined, 'm2', 'как\nдела')), 'me', members, 'mama')).toBe('как дела')
+    expect(chatPreview(chat('family', msg('x', undefined, 'm2', 'ужин')), 'me', members, 'mama')).toBe('Миша: ужин')
+    expect(chatPreview(chat('family', msg('x', undefined, 'me', 'ужин')), 'me', members, 'mama')).toBe('Вы: ужин')
+  })
+
+  it('chatPreview для ребёнка: в общем чате родитель подписан как «Мама»', () => {
+    expect(chatPreview(chat('family', msg('x', undefined, 'me', 'ужин')), 'm2', members, 'child')).toBe('Мама: ужин')
+    expect(chatPreview(chat('family', msg('x', undefined, 'm3', 'ужин')), 'm2', members, 'child')).toBe('Аня: ужин')
   })
 
   it('formatChatTime: сегодня время, вчера «Вчера», раньше дата', () => {

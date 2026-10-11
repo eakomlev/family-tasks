@@ -27,12 +27,14 @@ const members: Member[] = [
 ]
 const m = (id: string, senderId: string, text: string, createdAt = '2026-10-11T10:00:00Z'): ChatMessage => ({ id, senderId, text, createdAt })
 
-function providers(children: React.ReactNode, opts: { chats?: ChatSummary[]; refresh?: () => Promise<void> } = {}) {
-  const identity = { familyCode: 'c', memberId: 'me', name: 'Лена', role: 'mama' as const, token: 'tok' }
+function providers(children: React.ReactNode, opts: { chats?: ChatSummary[]; refresh?: () => Promise<void>; as?: 'me' | 'm2' } = {}) {
+  // по умолчанию смотрит мама (me), опционально ребёнок (m2)
+  const viewer = members.find((m) => m.id === (opts.as ?? 'me'))!
+  const identity = { familyCode: 'c', memberId: viewer.id, name: viewer.name, role: viewer.role, token: 'tok' }
   const chats = opts.chats ?? []
   return (
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-      <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'l@x.y' }, members }, failed: false, refresh: async () => {} }}>
+      <ProfileContext.Provider value={{ data: { me: { ...viewer, email: 'l@x.y' }, members }, failed: false, refresh: async () => {} }}>
         <ChatsContext.Provider value={{ chats, unread: chats.reduce((s, c) => s + c.unread, 0), refresh: opts.refresh ?? (async () => {}) }}>
           {children}
         </ChatsContext.Provider>
@@ -64,6 +66,49 @@ describe('список чатов', () => {
     expect(links[1]).toHaveTextContent('Общий чат')
     expect(links[1]).toHaveTextContent('Вы: всем ужин')
     expect(links[2]).toHaveTextContent('Сообщений пока нет')
+  })
+})
+
+describe('ребёнок видит родителей как «Мама» и «Папа»', () => {
+  it('в списке чатов: название, превью в общем чате и аватар по роли', () => {
+    const chats: ChatSummary[] = [
+      { id: 'me', last: m('1', 'me', 'ты где?'), unread: 1 },
+      { id: 'family', last: m('2', 'me', 'ужин готов'), unread: 0 },
+    ]
+    render(providers(<MemoryRouter><Chat /></MemoryRouter>, { chats, as: 'm2' }))
+    const links = screen.getAllByRole('link')
+    expect(links[0]).toHaveTextContent('Мама')
+    expect(links[0]).not.toHaveTextContent('Лена')
+    expect(links[1]).toHaveTextContent('Мама: ужин готов')
+    expect(screen.queryByText(/Лена/)).not.toBeInTheDocument()
+  })
+
+  it('у родителя те же чаты называются по имени', () => {
+    const chats: ChatSummary[] = [{ id: 'm2', last: m('1', 'm2', 'я дома'), unread: 0 }]
+    render(providers(<MemoryRouter><Chat /></MemoryRouter>, { chats, as: 'me' }))
+    expect(screen.getByRole('link')).toHaveTextContent('Миша')
+  })
+
+  it('в переписке: заголовок личного чата и подпись автора в общем', async () => {
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'me', 'привет всем')], hasMore: false, readUpTo: null })
+    window.scrollTo = vi.fn() as unknown as typeof window.scrollTo
+    const view = (chat: string) =>
+      render(
+        providers(
+          <MemoryRouter initialEntries={[`/chat/${chat}`]}>
+            <Routes><Route path="/chat/:chat" element={<ChatRoom />} /></Routes>
+          </MemoryRouter>,
+          { as: 'm2' },
+        ),
+      )
+    const family = view('family')
+    await screen.findByText('привет всем')
+    expect(screen.getByText('Мама')).toBeInTheDocument()
+    expect(screen.queryByText('Лена')).not.toBeInTheDocument()
+    family.unmount()
+
+    view('me')
+    expect(await screen.findByRole('heading', { name: 'Мама' })).toBeInTheDocument()
   })
 })
 

@@ -29,6 +29,7 @@ export default function Chat() {
                 member={members.find((m) => m.id === chat.id)}
                 members={members}
                 me={identity.memberId}
+                viewerRole={identity.role}
                 now={now}
               />
             </li>

@@ -42,6 +42,7 @@ const sendSchema = {
 interface Member {
   id: string
   name: string
+  role: string
   family_id: string
   created_at: Date
 }
@@ -63,6 +64,13 @@ interface MessageRow {
 }
 
 const toMessage = (row: MessageRow) => ({ id: row.id, senderId: row.senderId, text: row.text, createdAt: row.createdAt })
+
+const PARENT_LABELS: Record<string, string> = { mama: 'Мама', papa: 'Папа' }
+
+// Как получатель видит отправителя: ребёнок видит родителей как «Мама» и «Папа» (как и в самом чате), остальные по имени.
+export function senderLabel(sender: { name: string; role: string }, recipientRole: string): string {
+  return recipientRole === 'child' ? (PARENT_LABELS[sender.role] ?? sender.name) : sender.name
+}
 
 // «Имя · Общий чат» для общего чата, просто имя для личного. Текст сжат до одной строки.
 export function chatPushMessage(senderName: string, chatId: string, text: string): PushMessage {
@@ -212,10 +220,12 @@ export async function chatRoutes(app: FastifyInstance) {
       )
 
       // каждому участнику (и другим устройствам автора) сигнал с чатом, каким он виден ему: общий или собеседник
+      const { rows: roles } = await pool.query<{ id: string; role: string }>('select id, role from members where id = any($1)', [chat.participants])
+      const roleOf = new Map(roles.map((r) => [r.id, r.role]))
       for (const id of chat.participants) {
         const view = chat.otherId === null ? FAMILY_CHAT : id === member.id ? chat.otherId : member.id
         publishTo(id, { type: 'chat', chat: view })
-        if (id !== member.id) void notifyMember(id, chatPushMessage(member.name, view, text))
+        if (id !== member.id) void notifyMember(id, chatPushMessage(senderLabel(member, roleOf.get(id) ?? ''), view, text))
       }
       return reply.code(201).send({ message })
     },

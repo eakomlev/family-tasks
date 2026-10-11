@@ -372,6 +372,38 @@ describe('уведомления', () => {
     })
   })
 
+  it('ребёнку родители приходят как «Мама» и «Папа», остальным по имени', async () => {
+    const f = await createFamily()
+    try {
+      await pool.query(`update members set name = 'Лена' where id = $1`, [f.mom.id])
+      await pool.query(`update members set name = 'Игорь' where id = $1`, [f.dad.id])
+      const ep = { dad: await subscribe(f.dad.id), kid: await subscribe(f.kid.id), mom: await subscribe(f.mom.id) }
+      const titles = async (...who: (keyof typeof ep)[]) => {
+        await new Promise((r) => setTimeout(r, 150))
+        return Object.fromEntries(who.map((w) => [w, sentTo([ep[w]]).map((s) => s.payload.title)]))
+      }
+
+      // мама пишет в общий чат: ребёнок видит «Мама · Общий чат», папа «Лена · Общий чат»
+      await send(f.mom.token, 'family', 'ужин')
+      expect(await titles('dad', 'kid')).toEqual({ dad: ['Лена · Общий чат'], kid: ['Мама · Общий чат'] })
+
+      // папа пишет ребёнку лично: «Папа»; ребёнок пишет папе: «Ребёнок» (дети друг для друга и для родителей по именам)
+      sendNotification.mockClear()
+      await send(f.dad.token, f.kid.id, 'привет')
+      expect(await titles('kid')).toEqual({ kid: ['Папа'] })
+      sendNotification.mockClear()
+      await send(f.kid.token, f.dad.id, 'привет!')
+      expect(await titles('dad')).toEqual({ dad: ['Ребёнок'] })
+
+      // родитель родителю: по имени
+      sendNotification.mockClear()
+      await send(f.mom.token, f.dad.id, 'купи хлеб')
+      expect(await titles('dad')).toEqual({ dad: ['Лена'] })
+    } finally {
+      await removeFamilies(f.id)
+    }
+  })
+
   it('длинный текст сокращается до одной строки', async () => {
     await send(fam.mom.token, fam.dad.id, `${'слово '.repeat(60)}\nконец`)
     const [got] = await pushes('dad')

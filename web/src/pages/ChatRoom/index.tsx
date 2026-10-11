@@ -11,6 +11,7 @@ import { useKeyboardViewport } from '@/lib/useKeyboardViewport'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
 import { useLive } from '@/realtime/context'
+import { memberLabel } from '@/lib/roles'
 import { chatTitle } from '../Chat/utils'
 import { Composer } from './components/Composer'
 import { MessageBubble } from './components/MessageBubble'
@@ -111,7 +112,11 @@ export default function ChatRoom() {
   if (missing) return <Navigate to="/chat" replace />
 
   const other = chat === FAMILY_CHAT ? undefined : members.find((m) => m.id === chat)
-  const byId = (id: string) => members.find((m) => m.id === id)
+  // подпись автора в общем чате: ребёнок видит родителей как «Мама» и «Папа»
+  const sender = (id: string) => {
+    const member = members.find((m) => m.id === id)
+    return member && memberLabel(member, identity.role)
+  }
 
   async function loadOlder() {
     if (!token || !chat || !messages?.length) return
@@ -140,8 +145,8 @@ export default function ChatRoom() {
     <Room>
       <BackLink to="/chat">← Чаты</BackLink>
       <Header>
-        {other ? <Avatar name={other.name} seed={other.id} src={other.avatar} size="2.25rem" /> : <FamilyIcon aria-hidden>👨‍👩‍👧</FamilyIcon>}
-        <h1>{chatTitle(chat, members)}</h1>
+        {other ? <Avatar name={memberLabel(other, identity.role)} seed={other.id} src={other.avatar} size="2.25rem" /> : <FamilyIcon aria-hidden>👨‍👩‍👧</FamilyIcon>}
+        <h1>{chatTitle(chat, members, identity.role)}</h1>
       </Header>
 
       {failed && <Notice $tone="error">Не удалось загрузить сообщения. Проверьте соединение.</Notice>}
@@ -163,7 +168,7 @@ export default function ChatRoom() {
                   key={message.id}
                   message={message}
                   mine={message.senderId === me}
-                  sender={byId(message.senderId)}
+                  senderName={sender(message.senderId)}
                   showSender={chat === FAMILY_CHAT}
                   status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
                 />

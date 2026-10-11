@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { updateProfile, type ProfilePatch } from '@/api'
+import { logout, updateProfile, type ProfilePatch } from '@/api'
+import { Button } from '@/components/Button'
+import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
 import { Page } from '@/components/Page'
@@ -10,10 +12,12 @@ import { ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
 import { AvatarEditor } from './components/AvatarEditor'
 import { ProfileForm } from './components/ProfileForm'
+import { LogoutBox } from './styles'
 import { describePhotoError } from './utils'
 
 export default function Profile() {
-  const { identity, save } = useIdentity()
+  const { identity, save, clear } = useIdentity()
+  const confirm = useConfirm()
   const { data, refresh } = useProfile()
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState<string>()
@@ -42,6 +46,19 @@ export default function Profile() {
     await refresh()
   }
 
+  async function handleLogout() {
+    const ok = await confirm({
+      title: 'Выйти из аккаунта?',
+      message: 'На этом устройстве вы выйдете из семьи. Вернуться можно, войдя по email.',
+      confirmLabel: 'Выйти',
+      danger: true,
+    })
+    if (!ok) return
+    // даже если сервер недоступен, на этом устройстве всё равно выходим
+    await logout(token).catch(() => {})
+    await clear()
+  }
+
   if (!data) return <Page><h1>Профиль</h1><p>Загрузка…</p></Page>
 
   return (
@@ -67,6 +84,10 @@ export default function Profile() {
           <Input value={ROLE_LABELS[data.me.role]} disabled readOnly />
         </Field>
       </Stack>
+
+      <LogoutBox>
+        <Button type="button" onClick={handleLogout}>Выйти</Button>
+      </LogoutBox>
     </Page>
   )
 }

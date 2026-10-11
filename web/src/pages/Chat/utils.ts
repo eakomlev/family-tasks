@@ -1,5 +1,6 @@
 import type { ChatSummary, Member } from '@/api'
 import { addDays, todayIso } from '@/lib/date'
+import { memberLabel, type Role } from '@/lib/roles'
 
 export const FAMILY_TITLE = 'Общий чат'
 
@@ -14,17 +15,21 @@ export function formatChatTime(iso: string, now: Date): string {
 }
 
 // Строка под названием чата: «Вы: …» для своих сообщений, в общем чате «Имя: …» для чужих, в личном просто текст.
-export function chatPreview(chat: ChatSummary, me: string, members: Member[]): string {
+export function chatPreview(chat: ChatSummary, me: string, members: Member[], viewerRole: Role): string {
   if (!chat.last) return 'Сообщений пока нет'
   const text = chat.last.text.replace(/\s+/g, ' ').trim()
   if (chat.last.senderId === me) return `Вы: ${text}`
   if (chat.id === 'family') {
-    const name = members.find((m) => m.id === chat.last!.senderId)?.name
+    const sender = members.find((m) => m.id === chat.last!.senderId)
+    const name = sender && memberLabel(sender, viewerRole)
     return name ? `${name}: ${text}` : text
   }
   return text
 }
 
 // Названия чатов: общий и по имени собеседника.
-export const chatTitle = (id: string, members: Member[]) =>
-  id === 'family' ? FAMILY_TITLE : (members.find((m) => m.id === id)?.name ?? 'Чат')
+export function chatTitle(id: string, members: Member[], viewerRole: Role): string {
+  if (id === 'family') return FAMILY_TITLE
+  const member = members.find((m) => m.id === id)
+  return member ? memberLabel(member, viewerRole) : 'Чат'
+}

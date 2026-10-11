@@ -1,7 +1,4 @@
 import { Navigate } from 'react-router-dom'
-import { logout } from '@/api'
-import { Button } from '@/components/Button'
-import { useConfirm } from '@/components/ConfirmDialog/context'
 import { MenuLink } from '@/components/MenuLink'
 import { Notice } from '@/components/Notice'
 import { Page } from '@/components/Page'
@@ -12,18 +9,8 @@ import { MemberRow } from './components/MemberRow'
 import { Members } from './styles'
 
 export default function Family() {
-  const { identity, clear } = useIdentity()
-  const confirm = useConfirm()
+  const { identity } = useIdentity()
   const { data, failed } = useProfile()
-
-  async function handleLogout() {
-    if (!identity) return
-    const ok = await confirm({ title: 'Выйти из аккаунта?', message: 'На этом устройстве вы выйдете из семьи. Вернуться можно, войдя по email.', confirmLabel: 'Выйти', danger: true })
-    if (!ok) return
-    // даже если сервер недоступен, на этом устройстве всё равно выходим
-    await logout(identity.token).catch(() => {})
-    await clear()
-  }
 
   if (!identity) return <Navigate to="/" replace />
 
@@ -42,8 +29,6 @@ export default function Family() {
       </Members>
 
       {data?.me.isOwner && <MenuLink to="/family/invite">Пригласить</MenuLink>}
-
-      <Button type="button" onClick={handleLogout}>Выйти</Button>
     </Page>
   )
 }
