@@ -27,6 +27,7 @@ describe('parseMessage', () => {
     expect(parseMessage('{"type":"members"}')).toEqual({ type: 'members' })
     expect(parseMessage('{"type":"schedule","memberId":"m1"}')).toEqual({ type: 'schedule', memberId: 'm1' })
     expect(parseMessage('{"type":"trainings","memberId":"m2"}')).toEqual({ type: 'trainings', memberId: 'm2' })
+    expect(parseMessage('{"type":"chat","chat":"family"}')).toEqual({ type: 'chat', chat: 'family' })
   })
 
   it('мусор отбрасывается', () => {
@@ -34,6 +35,8 @@ describe('parseMessage', () => {
     expect(parseMessage('{"type":"неизвестно"}')).toBeNull()
     expect(parseMessage('{"type":"schedule"}')).toBeNull()
     expect(parseMessage('{"type":"schedule","memberId":5}')).toBeNull()
+    expect(parseMessage('{"type":"chat"}')).toBeNull()
+    expect(parseMessage('{"type":"chat","chat":7}')).toBeNull()
     expect(parseMessage('null')).toBeNull()
     expect(parseMessage(new ArrayBuffer(2))).toBeNull()
   })

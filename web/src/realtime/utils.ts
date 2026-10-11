@@ -31,6 +31,8 @@ export function parseMessage(data: unknown): ServerEvent | { type: 'ready' } | n
     case 'tasks':
     case 'members':
       return { type: message.type }
+    case 'chat':
+      return typeof message.chat === 'string' ? { type: 'chat', chat: message.chat } : null
     case 'schedule':
     case 'trainings':
       return typeof message.memberId === 'string' ? { type: message.type, memberId: message.memberId } : null

@@ -1,11 +1,12 @@
 import { Avatar } from '@/components/Avatar'
 import { capitalize, lessonsForDay, pickLessonDay, pickTrainingDay, trainingSummary } from '../../../../utils'
-import { Card, Meta, Name, Subjects, Top, Training, When } from './styles'
+import { ChildTasks } from './components/ChildTasks'
+import { Card, Meta, Schedule, Name, Subjects, Top, Training, When } from './styles'
 import type { ChildCardProps } from './types'
 import { dayRange, pluralLessons } from './utils'
 
 // компактная сводка по одному ребёнку: кто, на какой день, какие предметы
-export function ChildCard({ child, lessons, trainings, now }: ChildCardProps) {
+export function ChildCard({ child, lessons, trainings, tasks, now }: ChildCardProps) {
   const day = lessons ? pickLessonDay(now, lessons) : undefined
   const dayLessons = lessons && day ? lessonsForDay(lessons, day.weekday) : []
   const range = dayRange(dayLessons)
@@ -23,7 +24,8 @@ export function ChildCard({ child, lessons, trainings, now }: ChildCardProps) {
   }
 
   return (
-    <Card to={`/family/${child.id}/schedule`}>
+    <Card>
+      <Schedule to={`/family/${child.id}/schedule`}>
       <Avatar name={child.name} seed={child.id} src={child.avatar} size="2rem" />
       <Top>
         <Name>{child.name}</Name>
@@ -36,6 +38,8 @@ export function ChildCard({ child, lessons, trainings, now }: ChildCardProps) {
           {training.trainings.length > 1 ? 'Тренировки' : 'Тренировка'} {training.label}: {trainingSummary(training)}
         </Training>
       )}
+      </Schedule>
+      <ChildTasks entries={tasks} />
     </Card>
   )
 }

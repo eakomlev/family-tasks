@@ -1,5 +1,6 @@
 export { ApiError } from './client'
 export * from './auth'
+export * from './chat'
 export * from './families'
 export * from './invites'
 export * from './profile'

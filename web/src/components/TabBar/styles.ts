@@ -87,3 +87,25 @@ export const Icon = styled.span<{ $active: boolean }>`
   line-height: 1;
   opacity: ${({ $active }) => ($active ? 1 : 0.55)};
 `
+
+export const IconWrap = styled.span`
+  position: relative;
+  display: inline-flex;
+`
+
+// число непрочитанных у значка «Чат»
+export const Badge = styled.span`
+  position: absolute;
+  top: -0.3rem;
+  right: -0.7rem;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--error);
+  color: var(--on-error);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.1rem;
+  text-align: center;
+`

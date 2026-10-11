@@ -186,6 +186,59 @@ describe('события', () => {
     expect(await dad.next()).toEqual({ type: 'trainings', memberId: fam.sis.id })
   })
 
+  it('чат: общий сигнал всем, с чатом глазами получателя; личный только двоим и без текста', async () => {
+    const mom = await connectAuthed(fam.mom.token)
+    const dad = await connectAuthed(fam.dad.token)
+    const kid = await connectAuthed(fam.kid.token)
+
+    await api(app, fam.mom.token, 'POST', '/api/chats/family/messages', { text: 'секретный текст' })
+    expect(await dad.next()).toEqual({ type: 'chat', chat: 'family' })
+    expect(await kid.next()).toEqual({ type: 'chat', chat: 'family' })
+    expect(await mom.next()).toEqual({ type: 'chat', chat: 'family' })
+
+    await api(app, fam.mom.token, 'POST', `/api/chats/${fam.dad.id}/messages`, { text: 'личное' })
+    // папе чат называется по собеседнику (маме), маме по папе
+    expect(await dad.next()).toEqual({ type: 'chat', chat: fam.mom.id })
+    expect(await mom.next()).toEqual({ type: 'chat', chat: fam.dad.id })
+    // ребёнок о личной переписке родителей не узнаёт вообще
+    expect(await kid.quiet()).toBe(true)
+    expect(JSON.stringify([...dad.messages, ...kid.messages])).not.toContain('секретный')
+  })
+
+  it('прочтение сообщает другим устройствам этого же участника', async () => {
+    const dad1 = await connectAuthed(fam.dad.token)
+    const dad2 = await connectAuthed(fam.dad.token)
+    const mom = await connectAuthed(fam.mom.token)
+    await api(app, fam.mom.token, 'POST', '/api/chats/family/messages', { text: 'для папы' })
+    expect(await dad1.next()).toEqual({ type: 'chat', chat: 'family' })
+    expect(await dad2.next()).toEqual({ type: 'chat', chat: 'family' })
+    expect(await mom.next()).toEqual({ type: 'chat', chat: 'family' })
+
+    await api(app, fam.dad.token, 'POST', '/api/chats/family/read')
+    expect(await dad1.next()).toEqual({ type: 'chat', chat: 'family' })
+    expect(await dad2.next()).toEqual({ type: 'chat', chat: 'family' })
+    // автор сообщения узнаёт, что его прочитали (галочки)
+    expect(await mom.next()).toEqual({ type: 'chat', chat: 'family' })
+
+    // повторная отметка без новых сообщений тишины не нарушает (иначе открытая переписка зациклится)
+    await api(app, fam.dad.token, 'POST', '/api/chats/family/read')
+    expect(await dad1.quiet()).toBe(true)
+    expect(await dad2.quiet()).toBe(true)
+    expect(await mom.quiet()).toBe(true)
+  })
+
+  it('личный чат: прочтение собеседником сообщает автору сообщения, чат глазами автора', async () => {
+    const mom = await connectAuthed(fam.mom.token)
+    const kid = await connectAuthed(fam.kid.token)
+    await api(app, fam.mom.token, 'POST', `/api/chats/${fam.kid.id}/messages`, { text: 'прочитай' })
+    expect(await mom.next()).toEqual({ type: 'chat', chat: fam.kid.id })
+    expect(await kid.next()).toEqual({ type: 'chat', chat: fam.mom.id })
+
+    await api(app, fam.kid.token, 'POST', `/api/chats/${fam.mom.id}/read`)
+    expect(await kid.next()).toEqual({ type: 'chat', chat: fam.mom.id })
+    expect(await mom.next()).toEqual({ type: 'chat', chat: fam.kid.id })
+  })
+
   it('отказ в доступе к расписанию событий не порождает', async () => {
     const dad = await connectAuthed(fam.dad.token)
     expect((await api(app, fam.kid.token, 'PUT', `/api/members/${fam.sis.id}/schedule`, { lessons: [] })).status).toBe(403)

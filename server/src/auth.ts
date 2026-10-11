@@ -87,7 +87,7 @@ export async function authenticate(req: FastifyRequest) {
 // участник по токену сессии или null (для HTTP по заголовку, для WebSocket по первому сообщению)
 export async function authenticateToken(token: string) {
   const { rows } = await pool.query(
-    `select m.id, m.name, m.role, m.is_owner, m.email, m.avatar, to_char(m.birth_date, 'YYYY-MM-DD') as birth_date, m.family_id, f.code as family_code
+    `select m.id, m.name, m.role, m.is_owner, m.email, m.avatar, to_char(m.birth_date, 'YYYY-MM-DD') as birth_date, m.created_at, m.family_id, f.code as family_code
      from sessions s
      join members m on m.id = s.member_id
      join families f on f.id = m.family_id

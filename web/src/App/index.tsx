@@ -5,6 +5,7 @@ import { GlobalStyle } from '@/components/GlobalStyle'
 import { IdentityProvider } from '@/identity'
 import { useThemeSync } from '@/lib/useThemeSync'
 import Chat from '@/pages/Chat'
+import ChatRoom from '@/pages/ChatRoom'
 import CreateFamily from '@/pages/CreateFamily'
 import Family from '@/pages/Family'
 import FamilyCreated from '@/pages/FamilyCreated'
@@ -42,6 +43,7 @@ export default function App() {
               <Route path="/tasks/:taskId" element={<TaskView />} />
               <Route path="/tasks/:taskId/edit" element={<TaskForm />} />
               <Route path="/chat" element={<Chat />} />
+              <Route path="/chat/:chat" element={<ChatRoom />} />
               <Route path="/my-day" element={<MyDay />} />
               <Route path="/family" element={<Family />} />
               <Route path="/family/invite" element={<Invite />} />

@@ -4,6 +4,8 @@ export type ServerEvent =
   | { type: 'members' }
   | { type: 'schedule'; memberId: string }
   | { type: 'trainings'; memberId: string }
+  // изменение в чате; chat — «family» или собеседник
+  | { type: 'chat'; chat: string }
 
 // resync: соединение восстановилось или вкладка снова открыта, события могли быть пропущены, обновите всё
 export type RealtimeEvent = ServerEvent | { type: 'resync' }

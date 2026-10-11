@@ -1,4 +1,5 @@
 import { Navigate, Outlet } from 'react-router-dom'
+import { ChatsProvider } from '@/chat'
 import { Avatar } from '@/components/Avatar'
 import { TabBar } from '@/components/TabBar'
 import { useIdentity } from '@/identity/context'
@@ -33,7 +34,9 @@ export function AppShell() {
   return (
     <RealtimeProvider token={identity.token}>
       <ProfileProvider token={identity.token}>
-        <Shell />
+        <ChatsProvider token={identity.token}>
+          <Shell />
+        </ChatsProvider>
       </ProfileProvider>
     </RealtimeProvider>
   )

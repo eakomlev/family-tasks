@@ -11,10 +11,13 @@ export type RealtimeEvent =
   | { type: 'members' }
   | { type: 'schedule'; memberId: string }
   | { type: 'trainings'; memberId: string }
+  // в чате изменение: chat — собеседник («family» для общего чата) с точки зрения получателя
+  | { type: 'chat'; chat: string }
 
 interface Client {
   socket: WebSocket
   familyId: string
+  memberId: string
   tokenHash: string
   alive: boolean
 }
@@ -37,6 +40,13 @@ function send(client: Client, message: object) {
 export function publish(familyId: string, event: RealtimeEvent) {
   for (const client of clients) {
     if (client.familyId === familyId) send(client, event)
+  }
+}
+
+// Событие конкретному участнику (на все его устройства): личные чаты не должны светить сигналами остальным.
+export function publishTo(memberId: string, event: RealtimeEvent) {
+  for (const client of clients) {
+    if (client.memberId === memberId) send(client, event)
   }
 }
 
@@ -78,7 +88,7 @@ export async function realtimeRoutes(app: FastifyInstance) {
       if (!member || socket.readyState !== socket.OPEN) return socket.close(CLOSE_UNAUTHORIZED, 'unauthorized')
 
       clearTimeout(authTimer)
-      client = { socket, familyId: member.family_id, tokenHash: hashToken(token as string), alive: true }
+      client = { socket, familyId: member.family_id, memberId: member.id, tokenHash: hashToken(token as string), alive: true }
       clients.add(client)
       send(client, { type: 'ready' })
     })

@@ -1,25 +1,32 @@
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
-export const Card = styled(Link)`
+// карточка ребёнка: сверху ссылка на расписание (уроки, тренировка), ниже задания на сегодня со своими ссылками
+export const Card = styled.div`
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.15rem 0.7rem;
-  align-items: center;
+  gap: 0.35rem;
   padding: 0.6rem 0.8rem;
   border: 1px solid var(--border);
   border-radius: 0.8rem;
   background: var(--surface);
-  color: inherit;
-  text-decoration: none;
 
   &:hover {
     border-color: var(--accent);
   }
+`
+
+export const Schedule = styled(Link)`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.15rem 0.7rem;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
 
   &:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+    border-radius: 0.5rem;
   }
 `
 

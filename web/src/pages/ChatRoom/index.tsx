@@ -1,0 +1,172 @@
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Navigate, useParams } from 'react-router-dom'
+import { ApiError, FAMILY_CHAT, listMessages, markChatRead, sendMessage, type ChatMessage } from '@/api'
+import { Avatar } from '@/components/Avatar'
+import { BackLink } from '@/components/BackLink'
+import { Button } from '@/components/Button'
+import { Notice } from '@/components/Notice'
+import { useChats } from '@/chat/context'
+import { useIdentity } from '@/identity/context'
+import { useNow } from '@/lib/useNow'
+import { useProfile } from '@/profile/context'
+import { useLive } from '@/realtime/context'
+import { chatTitle } from '../Chat/utils'
+import { Composer } from './components/Composer'
+import { MessageBubble } from './components/MessageBubble'
+import { DayLabel, Empty, Feed, FamilyIcon, Header, Room } from './styles'
+import { appendMessage, groupByDay, mergeLatest, messageStatus } from './utils'
+
+// «рядом с низом»: тогда новое сообщение прокручивает переписку само, а не сбивает чтение старых
+const NEAR_BOTTOM_PX = 160
+
+const scrollToBottom = () => window.scrollTo({ top: document.documentElement.scrollHeight })
+const isNearBottom = () => document.documentElement.scrollHeight - window.scrollY - window.innerHeight < NEAR_BOTTOM_PX
+
+// Переписка: /chat/family или /chat/<id собеседника>.
+export default function ChatRoom() {
+  const { chat } = useParams()
+  const { identity } = useIdentity()
+  const { data } = useProfile()
+  const { refresh: refreshChats } = useChats()
+  const now = useNow()
+
+  // загруженная переписка: старые сверху; hasMore — есть ли ещё более старые
+  const [thread, setThread] = useState<{ messages: ChatMessage[]; hasMore: boolean; readUpTo: string | null }>()
+  const messages = thread?.messages
+  const hasMore = thread?.hasMore ?? false
+  const [failed, setFailed] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [missing, setMissing] = useState(false)
+  // растёт при сигнале сокета: свежие сообщения запрашиваются заново
+  const [version, setVersion] = useState(0)
+  const stick = useRef(true)
+  // чужое сообщение, до которого уже отметили прочитанное: без этого отметка вызывает событие, событие новый запрос, и так по кругу
+  const markedRef = useRef<string | undefined>(undefined)
+
+  const token = identity?.token
+  const me = identity?.memberId
+  const members = data?.members ?? []
+
+  useLive(['chat'], (e) => {
+    if (e.type === 'resync' || (e.type === 'chat' && e.chat === chat)) setVersion((v) => v + 1)
+  })
+
+  // Прочитано: список чатов и значок на табе обновятся сами.
+  const markRead = useCallback(async () => {
+    if (!token || !chat) return
+    try {
+      await markChatRead(token, chat)
+      await refreshChats()
+    } catch {
+      /* не критично: отметка повторится при следующем сообщении */
+    }
+  }, [token, chat, refreshChats])
+
+  useEffect(() => {
+    if (!token || !chat) return
+    let cancelled = false
+    listMessages(token, chat)
+      .then((page) => {
+        if (cancelled) return
+        stick.current = isNearBottom() || version === 0
+        setThread((current) => ({
+          ...mergeLatest(current?.messages ?? [], page.messages, page.hasMore, current?.hasMore ?? false),
+          readUpTo: page.readUpTo,
+        }))
+        setFailed(false)
+        const newest = page.messages.findLast((m) => m.senderId !== me)
+        if (newest && markedRef.current !== `${chat}:${newest.id}`) {
+          markedRef.current = `${chat}:${newest.id}`
+          void markRead()
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return
+        if (err instanceof ApiError && (err.status === 404 || err.status === 400)) setMissing(true)
+        else setFailed(true)
+      })
+    return () => { cancelled = true }
+  }, [token, chat, me, version, markRead])
+
+  // вернулись на вкладку: пока читали что-то другое, могли прийти сообщения
+  useEffect(() => {
+    const onVisible = () => document.visibilityState === 'visible' && void markRead()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [markRead])
+
+  // новые сообщения: к низу, если читатель и так был внизу (или только что открыл чат)
+  useLayoutEffect(() => {
+    if (messages && stick.current) scrollToBottom()
+  }, [messages])
+
+  if (!chat || !identity || !me) return null
+  if (missing) return <Navigate to="/chat" replace />
+
+  const other = chat === FAMILY_CHAT ? undefined : members.find((m) => m.id === chat)
+  const byId = (id: string) => members.find((m) => m.id === id)
+
+  async function loadOlder() {
+    if (!token || !chat || !messages?.length) return
+    setLoadingOlder(true)
+    try {
+      const page = await listMessages(token, chat, messages[0].id)
+      stick.current = false
+      setThread((current) => ({ messages: [...page.messages, ...(current?.messages ?? [])], hasMore: page.hasMore, readUpTo: current?.readUpTo ?? null }))
+    } catch {
+      setFailed(true)
+    } finally {
+      setLoadingOlder(false)
+    }
+  }
+
+  async function handleSend(text: string) {
+    const { message } = await sendMessage(token!, chat!, text)
+    stick.current = true
+    setThread((current) => ({ messages: appendMessage(current?.messages ?? [], message), hasMore: current?.hasMore ?? false, readUpTo: current?.readUpTo ?? null }))
+    void refreshChats()
+  }
+
+  const groups = messages ? groupByDay(messages, now) : []
+
+  return (
+    <Room>
+      <BackLink to="/chat">← Чаты</BackLink>
+      <Header>
+        {other ? <Avatar name={other.name} seed={other.id} src={other.avatar} size="2.25rem" /> : <FamilyIcon aria-hidden>👨‍👩‍👧</FamilyIcon>}
+        <h1>{chatTitle(chat, members)}</h1>
+      </Header>
+
+      {failed && <Notice $tone="error">Не удалось загрузить сообщения. Проверьте соединение.</Notice>}
+      {!messages && !failed && <p>Загрузка…</p>}
+
+      {messages && (
+        <Feed>
+          {hasMore && (
+            <Button $variant="text" type="button" disabled={loadingOlder} onClick={loadOlder}>
+              {loadingOlder ? 'Загрузка…' : 'Показать более ранние'}
+            </Button>
+          )}
+          {messages.length === 0 && <Empty>Сообщений пока нет. Напишите первым.</Empty>}
+          {groups.map((group) => (
+            <section key={group.key} aria-label={group.label}>
+              <DayLabel>{group.label}</DayLabel>
+              {group.messages.map((message) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  mine={message.senderId === me}
+                  sender={byId(message.senderId)}
+                  showSender={chat === FAMILY_CHAT}
+                  status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
+                />
+              ))}
+            </section>
+          ))}
+        </Feed>
+      )}
+
+      <Composer onSend={handleSend} />
+    </Room>
+  )
+}
