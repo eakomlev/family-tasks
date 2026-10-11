@@ -8,7 +8,8 @@ export const Bar = styled.nav`
   left: 0;
   z-index: 10;
   height: var(--tabbar-height);
-  padding-bottom: env(safe-area-inset-bottom);
+  /* безопасные зоны iPhone: индикатор «Домой» снизу, скруглённые углы и вырез по бокам в горизонтальном положении */
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   border-top: 1px solid var(--border);
   /* полупрозрачная панель: содержимое страницы размыто просвечивает под ней */
   background: var(--glass-bar);

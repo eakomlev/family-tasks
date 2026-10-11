@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/AppShell'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
 import { GlobalStyle } from '@/components/GlobalStyle'
+import { UpdateBanner } from '@/components/UpdateBanner'
 import { IdentityProvider } from '@/identity'
 import { useThemeSync } from '@/lib/useThemeSync'
 import Chat from '@/pages/Chat'
@@ -29,6 +30,7 @@ export default function App() {
   return (
     <IdentityProvider>
       <GlobalStyle />
+      <UpdateBanner />
       <ConfirmProvider>
         <BrowserRouter>
           <Routes>

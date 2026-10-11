@@ -39,7 +39,7 @@ export function ChildCard({ child, lessons, trainings, tasks, now }: ChildCardPr
         </Training>
       )}
       </Schedule>
-      <ChildTasks entries={tasks} />
+      <ChildTasks tasks={tasks} />
     </Card>
   )
 }

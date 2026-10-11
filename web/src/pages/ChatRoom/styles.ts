@@ -5,7 +5,7 @@ export const Room = styled.main`
   max-width: 28rem;
   min-height: calc(100dvh - var(--tabbar-height));
   margin: 0 auto;
-  padding: 1rem 1rem 0;
+  padding: calc(1rem + env(safe-area-inset-top)) 1rem 0;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;

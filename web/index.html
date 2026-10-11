@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: без него iOS не сообщает безопасные отступы (env(safe-area-inset-*)), и панель табов уходит под индикатор «Домой» и скруглённые углы -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#f7f7fb" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <!-- подпись под значком на «Домой» в iOS -->

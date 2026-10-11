@@ -56,13 +56,15 @@ export function FamilyLessons({ now }: FamilyLessonsProps) {
 
   if (!isParent || children.length === 0) return null
 
-  // сегодняшние вхождения ребёнка, в том числе выполненные (просроченные и без срока сюда не входят)
-  const todayTasks = (childId: string) =>
-    tasks
-      ? toEntries(tasks, childId)
-          .filter(({ occurrence }) => occurrence.date === today)
-          .sort(byTimeThenTitle)
-      : undefined
+  // Задания ребёнка: сегодняшние вхождения, в том числе выполненные, и отдельно задания без срока (просроченные сюда не входят)
+  const childTasks = (childId: string) => {
+    if (!tasks) return undefined
+    const entries = toEntries(tasks, childId)
+    return {
+      today: entries.filter(({ occurrence }) => occurrence.date === today).sort(byTimeThenTitle),
+      undated: entries.filter(({ occurrence }) => occurrence.date === null).sort(byTimeThenTitle),
+    }
+  }
 
   return (
     <Stack as="section">
@@ -74,7 +76,7 @@ export function FamilyLessons({ now }: FamilyLessonsProps) {
             child={child}
             lessons={byChild[child.id]?.lessons}
             trainings={byChild[child.id]?.trainings}
-            tasks={todayTasks(child.id)}
+            tasks={childTasks(child.id)}
             now={now}
           />
         ))}

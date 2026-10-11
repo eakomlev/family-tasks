@@ -23,6 +23,14 @@ export const Links = styled.div`
   gap: 1rem;
 `
 
+// подзаголовок группы внутри блока («Без срока»)
+export const SubTitle = styled.h3`
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+`
+
 export const List = styled.ul`
   display: grid;
   gap: 0.5rem;

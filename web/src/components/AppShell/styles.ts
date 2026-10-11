@@ -18,7 +18,7 @@ export const Content = styled.div`
 
 export const ProfileLink = styled(Link)`
   position: absolute;
-  top: 0.75rem;
+  top: calc(0.75rem + env(safe-area-inset-top));
   right: 0.75rem;
   z-index: 5;
   border-radius: 50%;

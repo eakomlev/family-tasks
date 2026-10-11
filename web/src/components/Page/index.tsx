@@ -4,7 +4,7 @@ export const Page = styled.main`
   max-width: 28rem;
   min-height: 100dvh;
   margin: 0 auto;
-  padding: 1.5rem 1rem 2rem;
+  padding: calc(1.5rem + env(safe-area-inset-top)) 1rem 2rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;

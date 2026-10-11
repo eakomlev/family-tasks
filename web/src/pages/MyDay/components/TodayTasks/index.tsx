@@ -8,7 +8,7 @@ import { useLive } from '@/realtime/context'
 import { todayIso } from '@/lib/date'
 import { byTimeThenTitle, occurrenceKey, toEntries } from '@/lib/occurrences'
 import { useProfile } from '@/profile/context'
-import { EditLink, Header, List, Links } from '../TodayLessons/styles'
+import { EditLink, Header, List, Links, SubTitle } from '../TodayLessons/styles'
 import type { TodayTasksProps } from './types'
 
 // Мои задания на сегодня и невыполненные просроченные; задания без срока здесь не показываем (они на странице «Задания»).
@@ -33,15 +33,29 @@ export function TodayTasks({ now }: TodayTasksProps) {
     return () => { cancelled = true }
   }, [token, today, version])
 
-  const entries = list && me
-    ? toEntries(list, me).filter(({ occurrence }) => occurrence.date !== null && occurrence.date <= today)
-    : []
-  // сначала просроченные, потом сегодняшние по времени
-  const sorted = [...entries].sort((a, b) => {
-    const lateA = a.occurrence.date! < today
-    const lateB = b.occurrence.date! < today
-    return lateA === lateB ? byTimeThenTitle(a, b) : lateA ? -1 : 1
-  })
+  const mine = list && me ? toEntries(list, me) : []
+  // сначала просроченные, потом сегодняшние по времени; будущие дни здесь не показываем
+  const dated = mine
+    .filter(({ occurrence }) => occurrence.date !== null && occurrence.date <= today)
+    .sort((a, b) => {
+      const lateA = a.occurrence.date! < today
+      const lateB = b.occurrence.date! < today
+      return lateA === lateB ? byTimeThenTitle(a, b) : lateA ? -1 : 1
+    })
+  // задания без срока: невыполненные, отдельной группой в конце
+  const undated = mine.filter(({ occurrence }) => occurrence.date === null).sort(byTimeThenTitle)
+  const empty = dated.length === 0 && undated.length === 0
+
+  const renderItem = (entry: (typeof mine)[number]) => (
+    <TaskItem
+      key={occurrenceKey(entry.task.id, entry.occurrence.date)}
+      task={entry.task}
+      occurrence={entry.occurrence}
+      assignee={data?.members.find((m) => m.id === entry.task.assigneeId)}
+      author={data?.members.find((m) => m.id === entry.task.authorId)}
+      today={today}
+    />
+  )
 
   return (
     <Stack as="section">
@@ -54,20 +68,13 @@ export function TodayTasks({ now }: TodayTasksProps) {
       </Header>
       {failed && <Notice $tone="error">Не удалось загрузить задания. Проверьте соединение.</Notice>}
       {!list && !failed && <p>Загрузка…</p>}
-      {list && sorted.length === 0 && <Notice $tone="muted">На сегодня заданий нет.</Notice>}
-      {sorted.length > 0 && (
-        <List>
-          {sorted.map((entry) => (
-            <TaskItem
-              key={occurrenceKey(entry.task.id, entry.occurrence.date)}
-              task={entry.task}
-              occurrence={entry.occurrence}
-              assignee={data?.members.find((m) => m.id === entry.task.assigneeId)}
-              author={data?.members.find((m) => m.id === entry.task.authorId)}
-              today={today}
-            />
-          ))}
-        </List>
+      {list && empty && <Notice $tone="muted">Заданий на сегодня и без срока нет.</Notice>}
+      {dated.length > 0 && <List>{dated.map(renderItem)}</List>}
+      {undated.length > 0 && (
+        <>
+          <SubTitle>Без срока</SubTitle>
+          <List>{undated.map(renderItem)}</List>
+        </>
       )}
     </Stack>
   )
