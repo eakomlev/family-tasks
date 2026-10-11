@@ -5,6 +5,8 @@ export interface TaskDto {
   id: string
   title: string
   description: string
+  // награда монетами за выполнение (0 — без награды)
+  reward: number
   // когда создано, ISO-время
   createdAt: string
   authorId: string
@@ -67,4 +69,22 @@ export const completedMessage = (task: TaskDto, doneByName: string): PushMessage
   body: `${doneByName}: ${task.title}`,
   url: `/tasks/${task.id}`,
   tag: `task-done:${task.id}`,
+})
+
+// «1 монета», «2 монеты», «5 монет»
+export function coinsWord(n: number): string {
+  const lastTwo = n % 100
+  const last = n % 10
+  if (lastTwo >= 11 && lastTwo <= 14) return `${n} монет`
+  if (last === 1) return `${n} монета`
+  if (last >= 2 && last <= 4) return `${n} монеты`
+  return `${n} монет`
+}
+
+// Ребёнку: награда за выполненное задание (когда отметил его кто-то другой, например родитель).
+export const rewardMessage = (task: TaskDto): PushMessage => ({
+  title: 'Награда',
+  body: `+${coinsWord(task.reward)} за «${task.title}»`,
+  url: '/coins',
+  tag: `reward-${task.id}`,
 })

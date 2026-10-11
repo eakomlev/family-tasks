@@ -4,7 +4,7 @@ import { pool } from '../db.js'
 import { notifyMember } from '../push.js'
 import { publish } from '../realtime.js'
 import { addDays, isRealDate, NO_DATE, occursOn, occurrencesBetween, type RepeatType, type Schedule } from './recurrence.js'
-import { completedMessage, createdMessage, updatedMessage, type TaskDto } from './text.js'
+import { completedMessage, createdMessage, rewardMessage, updatedMessage, type TaskDto } from './text.js'
 
 const MAX_RANGE_DAYS = 62
 const MIN_DATE = '1900-01-01'
@@ -21,6 +21,7 @@ const taskBodySchema = {
   properties: {
     title: { type: 'string', minLength: 1, maxLength: 100, pattern: '\\S' },
     description: { type: 'string', maxLength: 1000 },
+    reward: { type: 'integer', minimum: 0, maximum: 1000 },
     assigneeId: { type: 'string', format: 'uuid' },
     date: dateSchema,
     time: timeSchema,
@@ -59,6 +60,7 @@ const doneSchema = {
 interface TaskBody {
   title: string
   description?: string
+  reward?: number
   assigneeId: string
   date?: string | null
   time?: string | null
@@ -66,7 +68,7 @@ interface TaskBody {
 }
 
 const SELECT_TASK = `
-  select t.id, t.title, t.description, t.created_at as "createdAt", t.author_id as "authorId", t.assignee_id as "assigneeId",
+  select t.id, t.title, t.description, t.reward, t.created_at as "createdAt", t.author_id as "authorId", t.assignee_id as "assigneeId",
          to_char(t.due_date, 'YYYY-MM-DD') as date, to_char(t.due_time, 'HH24:MI') as time,
          t.repeat_type as "repeatType", t.repeat_days as "repeatDays",
          to_char(t.repeat_until, 'YYYY-MM-DD') as "repeatUntil"
@@ -76,6 +78,7 @@ interface TaskRow {
   id: string
   title: string
   description: string
+  reward: number
   createdAt: string
   authorId: string
   assigneeId: string
@@ -90,6 +93,7 @@ const toDto = (row: TaskRow): TaskDto => ({
   id: row.id,
   title: row.title,
   description: row.description,
+  reward: row.reward,
   createdAt: row.createdAt,
   authorId: row.authorId,
   assigneeId: row.assigneeId,
@@ -151,9 +155,31 @@ export async function taskRoutes(app: FastifyInstance) {
     return rows[0]
   }
 
-  async function assigneeInFamily(assigneeId: string, familyId: string): Promise<boolean> {
-    const { rows } = await pool.query('select 1 from members where id = $1 and family_id = $2', [assigneeId, familyId])
-    return rows.length > 0
+  // Роль исполнителя, если он есть в семье, иначе undefined.
+  async function assigneeRole(assigneeId: string, familyId: string): Promise<string | undefined> {
+    const { rows } = await pool.query('select role from members where id = $1 and family_id = $2', [assigneeId, familyId])
+    return rows[0]?.role
+  }
+
+  // Награда монетами только за задания детей (у родителей монет нет) и только от родителей: ребёнок не может
+  // выдать монеты ни себе, ни другим. Возвращает код ошибки или undefined, если всё в порядке.
+  const rewardError = (reward: number | undefined, assigneeRole: string, authorRole: string) =>
+    !reward ? undefined : authorRole === 'child' ? 'reward_requires_parent' : assigneeRole !== 'child' ? 'reward_requires_child' : undefined
+
+  // Забрать ранее выданные монеты по заданию (отмена отметки, смена графика): по каждому ребёнку и вхождению отменяется
+  // всё, что ещё не отменено, поэтому повторные отметки и отмены никогда не дают больше одной награды за выполнение.
+  // occurrenceDate null — по всем вхождениям задания. Возвращает число созданных записей.
+  async function revokeRewards(db: { query: typeof pool.query }, taskId: string, occurrenceDate: string | null, reason: string, by: string | null): Promise<number> {
+    const result = await db.query(
+      `insert into coin_transactions (member_id, amount, reason, created_by, task_id, occurrence_date)
+       select member_id, -sum(amount), $3, $4, task_id, occurrence_date
+       from coin_transactions
+       where task_id = $1 and ($2::date is null or occurrence_date = $2)
+       group by member_id, task_id, occurrence_date
+       having sum(amount) > 0`,
+      [taskId, occurrenceDate, reason, by],
+    )
+    return result.rowCount ?? 0
   }
 
   // Задания на период: вхождения с from по to, а также невыполненные просроченные и задания без срока.
@@ -202,7 +228,7 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!member) return
 
     const { rows } = await pool.query(
-      `select t.id, t.title, t.description, t.created_at as "createdAt", t.author_id as "authorId", t.assignee_id as "assigneeId",
+      `select t.id, t.title, t.description, t.reward, t.created_at as "createdAt", t.author_id as "authorId", t.assignee_id as "assigneeId",
               to_char(t.due_date, 'YYYY-MM-DD') as date, to_char(t.due_time, 'HH24:MI') as time,
               t.repeat_type as "repeatType", t.repeat_days as "repeatDays", to_char(t.repeat_until, 'YYYY-MM-DD') as "repeatUntil",
               to_char(c.occurrence_date, 'YYYY-MM-DD') as "occurrenceDate", c.done_by as "doneBy", c.done_at as "doneAt"
@@ -248,17 +274,18 @@ export async function taskRoutes(app: FastifyInstance) {
   app.post<{ Body: TaskBody }>('/api/tasks', { schema: writeSchema }, async (req, reply) => {
     const member = await me(req, reply)
     if (!member) return
-    if (!(await assigneeInFamily(req.body.assigneeId, member.family_id))) {
-      return reply.code(400).send({ error: 'assignee_not_found' })
-    }
+    const role = await assigneeRole(req.body.assigneeId, member.family_id)
+    if (!role) return reply.code(400).send({ error: 'assignee_not_found' })
+    const rewardProblem = rewardError(req.body.reward, role, member.role)
+    if (rewardProblem) return reply.code(400).send({ error: rewardProblem })
     const parsed = parseSchedule(req.body)
     if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
     const { schedule, time } = parsed.value
 
     const { rows } = await pool.query(
-      `insert into tasks (family_id, author_id, assignee_id, title, description, due_date, due_time, repeat_type, repeat_days, repeat_until)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
-      [member.family_id, member.id, req.body.assigneeId, req.body.title.trim(), (req.body.description ?? '').trim(), schedule.date, time, schedule.repeatType, schedule.repeatDays, schedule.repeatUntil],
+      `insert into tasks (family_id, author_id, assignee_id, title, description, reward, due_date, due_time, repeat_type, repeat_days, repeat_until)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`,
+      [member.family_id, member.id, req.body.assigneeId, req.body.title.trim(), (req.body.description ?? '').trim(), req.body.reward ?? 0, schedule.date, time, schedule.repeatType, schedule.repeatDays, schedule.repeatUntil],
     )
     const task = toDto((await findTask(rows[0].id, member))!)
 
@@ -275,23 +302,29 @@ export async function taskRoutes(app: FastifyInstance) {
     const existing = await findTask(req.params.id, member)
     if (!existing) return reply.code(404).send({ error: 'task_not_found' })
     if (existing.authorId !== member.id) return reply.code(403).send({ error: 'forbidden' })
-    if (!(await assigneeInFamily(req.body.assigneeId, member.family_id))) {
-      return reply.code(400).send({ error: 'assignee_not_found' })
-    }
+    const role = await assigneeRole(req.body.assigneeId, member.family_id)
+    if (!role) return reply.code(400).send({ error: 'assignee_not_found' })
+    const rewardProblem = rewardError(req.body.reward, role, member.role)
+    if (rewardProblem) return reply.code(400).send({ error: rewardProblem })
     const parsed = parseSchedule(req.body)
     if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
     const { schedule, time } = parsed.value
 
     const scheduleChanged = JSON.stringify(scheduleOf(existing)) !== JSON.stringify(schedule)
+    let revoked = false
     const db = await pool.connect()
     try {
       await db.query('begin')
       await db.query(
-        `update tasks set assignee_id = $2, title = $3, description = $4, due_date = $5, due_time = $6, repeat_type = $7,
-                repeat_days = $8, repeat_until = $9, updated_at = now() where id = $1`,
-        [existing.id, req.body.assigneeId, req.body.title.trim(), (req.body.description ?? '').trim(), schedule.date, time, schedule.repeatType, schedule.repeatDays, schedule.repeatUntil],
+        `update tasks set assignee_id = $2, title = $3, description = $4, reward = $5, due_date = $6, due_time = $7, repeat_type = $8,
+                repeat_days = $9, repeat_until = $10, updated_at = now() where id = $1`,
+        [existing.id, req.body.assigneeId, req.body.title.trim(), (req.body.description ?? '').trim(), req.body.reward ?? 0, schedule.date, time, schedule.repeatType, schedule.repeatDays, schedule.repeatUntil],
       )
-      if (scheduleChanged) await db.query('delete from task_completions where task_id = $1', [existing.id])
+      if (scheduleChanged) {
+        // отметки теряют смысл, а вместе с ними и награды за них
+        revoked = (await revokeRewards(db, existing.id, null, `Отмена: задание изменено («${existing.title}»)`, null)) > 0
+        await db.query('delete from task_completions where task_id = $1', [existing.id])
+      }
       await db.query('commit')
     } catch (err) {
       await db.query('rollback').catch(() => {})
@@ -302,6 +335,8 @@ export async function taskRoutes(app: FastifyInstance) {
 
     const task = toDto((await findTask(existing.id, member))!)
     publish(member.family_id, { type: 'tasks' })
+    // баланс детей изменился
+    if (revoked) publish(member.family_id, { type: 'members' })
     if (task.assigneeId !== member.id) void notifyMember(task.assigneeId, updatedMessage(task, member.name))
     return { task }
   })
@@ -332,13 +367,40 @@ export async function taskRoutes(app: FastifyInstance) {
       const valid = date === null ? row.date === null : row.date !== null && isRealDate(date) && occursOn(scheduleOf(row), date)
       if (!valid) return reply.code(400).send({ error: 'invalid_occurrence' })
 
-      const { rowCount } = await pool.query(
-        `insert into task_completions (task_id, occurrence_date, done_by) values ($1, $2, $3) on conflict do nothing`,
-        [row.id, date ?? NO_DATE, member.id],
-      )
+      // Отметка и награда одной транзакцией: награда выдаётся только при первой отметке этого вхождения.
+      let first = false
+      let rewarded = false
+      const db = await pool.connect()
+      try {
+        await db.query('begin')
+        const inserted = await db.query(
+          `insert into task_completions (task_id, occurrence_date, done_by) values ($1, $2, $3) on conflict do nothing`,
+          [row.id, date ?? NO_DATE, member.id],
+        )
+        first = inserted.rowCount === 1
+        if (first && row.reward > 0) {
+          // награду получает исполнитель, кто бы ни отметил выполнение (например, родитель подтвердил); от имени автора задания
+          await db.query(
+            `insert into coin_transactions (member_id, amount, reason, created_by, task_id, occurrence_date) values ($1, $2, $3, $4, $5, $6)`,
+            [row.assigneeId, row.reward, `Задание: ${row.title}`, row.authorId, row.id, date ?? NO_DATE],
+          )
+          rewarded = true
+        }
+        await db.query('commit')
+      } catch (err) {
+        await db.query('rollback').catch(() => {})
+        throw err
+      } finally {
+        db.release()
+      }
       publish(member.family_id, { type: 'tasks' })
+      if (rewarded) {
+        // баланс исполнителя изменился; сообщаем ему, если выполнил не он сам
+        publish(member.family_id, { type: 'members' })
+        if (row.assigneeId !== member.id) void notifyMember(row.assigneeId, rewardMessage(toDto(row)))
+      }
       // автору сообщаем один раз, при первой отметке и если выполнил не он сам
-      if (rowCount === 1 && row.authorId !== member.id) {
+      if (first && row.authorId !== member.id) {
         void notifyMember(row.authorId, completedMessage(toDto(row), member.name))
       }
       return reply.code(204).send()
@@ -353,8 +415,23 @@ export async function taskRoutes(app: FastifyInstance) {
       if (!member) return
       const row = await findTask(req.params.id, member)
       if (!row) return reply.code(404).send({ error: 'task_not_found' })
-      await pool.query('delete from task_completions where task_id = $1 and occurrence_date = $2', [row.id, req.body.date ?? NO_DATE])
+      // Снятие отметки забирает выданную за неё награду (если она была).
+      const occurrence = req.body.date ?? NO_DATE
+      let revoked = false
+      const db = await pool.connect()
+      try {
+        await db.query('begin')
+        const removed = await db.query('delete from task_completions where task_id = $1 and occurrence_date = $2', [row.id, occurrence])
+        if (removed.rowCount === 1) revoked = (await revokeRewards(db, row.id, occurrence, `Отмена: ${row.title}`, member.id)) > 0
+        await db.query('commit')
+      } catch (err) {
+        await db.query('rollback').catch(() => {})
+        throw err
+      } finally {
+        db.release()
+      }
       publish(member.family_id, { type: 'tasks' })
+      if (revoked) publish(member.family_id, { type: 'members' })
       return reply.code(204).send()
     },
   )

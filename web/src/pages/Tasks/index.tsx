@@ -113,7 +113,8 @@ export default function Tasks() {
       </Stack>
 
       <ListEnd />
-      <AddButton to="/tasks/new">＋ Новая задача</AddButton>
+      {/* выбран человек в фильтре: в новом задании он уже стоит исполнителем */}
+      <AddButton to={filter ? `/tasks/new?assignee=${encodeURIComponent(filter)}` : '/tasks/new'}>＋ Новая задача</AddButton>
     </Page>
   )
 }

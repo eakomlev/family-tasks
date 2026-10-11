@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError, createTask, deleteTask, getTask, updateTask, type Task, type TaskInput } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { Notice } from '@/components/Notice'
@@ -12,6 +12,9 @@ import { emptyForm, fromTask } from './utils'
 // /tasks/new — создание; /tasks/:taskId/edit — изменение своего задания (чужое только смотрят, на /tasks/:taskId)
 export default function TaskForm() {
   const { taskId } = useParams()
+  // ?assignee=<id>: исполнитель, выбранный заранее (например, в фильтре списка заданий)
+  const [params] = useSearchParams()
+  const preselected = params.get('assignee')
   const navigate = useNavigate()
   const { identity } = useIdentity()
   const { data } = useProfile()
@@ -65,7 +68,7 @@ export default function TaskForm() {
       <h1>{taskId ? 'Изменить задание' : 'Новое задание'}</h1>
 
       {!taskId && members.length > 0 && (
-        <TaskEditor initial={emptyForm(me)} members={members} me={me} submitLabel="Создать" onSubmit={create} />
+        <TaskEditor initial={emptyForm(members.some((m) => m.id === preselected) ? preselected! : me)} members={members} me={me} submitLabel="Создать" onSubmit={create} />
       )}
 
       {taskId && state === 'loading' && <p>Загрузка…</p>}

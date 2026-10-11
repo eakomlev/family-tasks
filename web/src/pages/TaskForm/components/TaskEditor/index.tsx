@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, type RepeatType } from '@/api'
 import { Button } from '@/components/Button'
+import { Checkbox } from '@/components/Checkbox'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
@@ -12,6 +13,7 @@ import { isoWeekdayOf, todayIso } from '@/lib/date'
 import type { FormState } from '../../types'
 import { toInput, validate } from '../../utils'
 import { RepeatFields } from '../RepeatFields'
+import { RewardPicker } from '../RewardPicker'
 import type { TaskEditorProps } from './types'
 
 function describeError(err: unknown): string {
@@ -29,9 +31,26 @@ export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDele
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
+  const assigneeIsChild = members.find((m) => m.id === form.assigneeId)?.role === 'child'
+  // награду назначают только родители: ребёнок не может выдать монеты ни себе, ни другим
+  const meIsChild = members.find((m) => m.id === me)?.role === 'child'
+  const canReward = assigneeIsChild && !meIsChild
+
   const patch = (changes: Partial<FormState>) => {
     setForm((current) => ({ ...current, ...changes }))
     setError(undefined)
+  }
+
+  // у взрослого монет нет: при смене исполнителя награда сбрасывается
+  function changeAssignee(assigneeId: string) {
+    const child = members.find((m) => m.id === assigneeId)?.role === 'child'
+    patch(child ? { assigneeId } : { assigneeId, reward: '0', rewardCustom: false })
+  }
+
+  // «Указать время»: включение ставит сегодняшнюю дату, выключение убирает дату, время и повтор (задание «без срока»)
+  function toggleScheduled(on: boolean) {
+    if (on) patch({ scheduled: true, date: form.date || todayIso() })
+    else patch({ scheduled: false, date: '', time: '', repeatType: 'none', days: [], until: '' })
   }
 
   // без даты нет ни времени, ни повтора
@@ -83,7 +102,7 @@ export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDele
   }
 
   return (
-    <Stack as="form" onSubmit={handleSubmit}>
+    <Stack as="form" noValidate onSubmit={handleSubmit}>
       <Field label="Название">
         <Input value={form.title} onChange={(e) => patch({ title: e.target.value })} maxLength={100} placeholder="Например, вынести мусор" autoFocus={!onDelete} />
       </Field>
@@ -93,32 +112,40 @@ export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDele
       </Field>
 
       <Field label="Кому">
-        <Select value={form.assigneeId} onChange={(e) => patch({ assigneeId: e.target.value })}>
+        <Select value={form.assigneeId} onChange={(e) => changeAssignee(e.target.value)}>
           {members.map((m) => <option key={m.id} value={m.id}>{m.id === me ? `${m.name} (я)` : m.name}</option>)}
         </Select>
       </Field>
 
-      <Field label="Дата" hint="Без даты задание будет «без срока».">
-        <Input type="date" value={form.date} onChange={(e) => changeDate(e.target.value)} />
-      </Field>
-      {form.date && (
-        <Button $variant="text" type="button" onClick={() => changeDate('')}>Убрать дату</Button>
+      {/* монеты только за задания детей */}
+      {canReward && (
+        <RewardPicker value={form.reward} custom={form.rewardCustom} onChange={(reward, rewardCustom) => patch({ reward, rewardCustom })} />
       )}
 
-      <Field label="Время">
-        <Input type="time" value={form.time} disabled={!form.date} onChange={(e) => patch({ time: e.target.value })} />
-      </Field>
+      <Checkbox checked={form.scheduled} onChange={(e) => toggleScheduled(e.target.checked)}>Указать время</Checkbox>
 
-      <RepeatFields
-        disabled={false}
-        repeatType={form.repeatType}
-        days={form.days}
-        until={form.until}
-        min={form.date}
-        onTypeChange={changeRepeat}
-        onToggleDay={toggleDay}
-        onUntilChange={(until) => patch({ until })}
-      />
+      {form.scheduled && (
+        <>
+          <Field label="Дата">
+            <Input type="date" value={form.date} onChange={(e) => changeDate(e.target.value)} />
+          </Field>
+
+          <Field label="Время" hint="Необязательно: без времени задание на весь день.">
+            <Input type="time" value={form.time} onChange={(e) => patch({ time: e.target.value })} />
+          </Field>
+
+          <RepeatFields
+            disabled={false}
+            repeatType={form.repeatType}
+            days={form.days}
+            until={form.until}
+            min={form.date}
+            onTypeChange={changeRepeat}
+            onToggleDay={toggleDay}
+            onUntilChange={(until) => patch({ until })}
+          />
+        </>
+      )}
 
       {error && <Notice $tone="error">{error}</Notice>}
       <Button $variant="primary" type="submit" disabled={busy}>{busy ? 'Сохраняем…' : submitLabel}</Button>

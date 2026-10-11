@@ -60,6 +60,26 @@ describe('страница задания', () => {
     expect(screen.getByText('11 октября, 13:00')).toBeInTheDocument()
   })
 
+  it('награда в деталях и в поздравлении только у самого исполнителя', async () => {
+    const user = userEvent.setup()
+    const rewarded = task({ ...base, reward: 20 })
+
+    // исполнитель (Миша) выполняет: в поздравлении видно, сколько получил
+    renderView(members[1], { task: rewarded, occurrence: occ('a', '2026-10-12') })
+    expect(await screen.findByText('20 монет')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Отметить выполненным' }))
+    expect(await screen.findByText('+20 монет')).toBeInTheDocument()
+  })
+
+  it('когда отмечает не исполнитель, в поздравлении монет нет, а в деталях награда есть', async () => {
+    const user = userEvent.setup()
+    renderView(members[0], { task: task({ ...base, reward: 20 }), occurrence: occ('a', '2026-10-12') })
+    expect(await screen.findByText('20 монет')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Отметить выполненным' }))
+    await screen.findByText('Задание «Вынести мусор» выполнено.')
+    expect(screen.queryByText('+20 монет')).not.toBeInTheDocument()
+  })
+
   it('без описания блока описания нет, повтор подписан', async () => {
     const t = task({ ...base, description: '', repeat: { type: 'daily', days: [], until: '2026-12-01' } })
     renderView(members[1], { task: t, occurrence: occ('a', '2026-10-12') })

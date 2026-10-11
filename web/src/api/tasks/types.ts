@@ -13,6 +13,8 @@ export interface Task {
   title: string
   // свободный текст, может быть пустым
   description: string
+  // награда монетами за выполнение (только у заданий детей), 0 — без награды
+  reward: number
   // когда создано, ISO-время
   createdAt: string
   authorId: string
@@ -41,6 +43,7 @@ export interface TaskList {
 export interface TaskInput {
   title: string
   description: string
+  reward: number
   assigneeId: string
   date: string | null
   time: string | null

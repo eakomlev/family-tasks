@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Button } from '@/components/Button'
+import { CoinIcon } from '@/components/CoinBalance'
 import { Confetti } from '@/components/Confetti'
-import { Content, Emoji, Overlay } from './styles'
+import { coinsWord } from '@/lib/coins'
+import { Content, Emoji, Overlay, Reward } from './styles'
 import type { CelebrationProps } from './types'
 import { EMOJIS, PRAISES, pick } from './utils'
 
 // Экран поздравления на всю страницу после выполнения задания, с конфетти.
-export function Celebration({ title, onClose }: CelebrationProps) {
+export function Celebration({ title, reward, onClose }: CelebrationProps) {
   const [praise] = useState(() => pick(PRAISES))
   const [emoji] = useState(() => pick(EMOJIS))
   const button = useRef<HTMLButtonElement>(null)
@@ -31,6 +33,12 @@ export function Celebration({ title, onClose }: CelebrationProps) {
         <Emoji aria-hidden>{emoji}</Emoji>
         <h1 id="celebration-title">{praise}</h1>
         <p>Задание «{title}» выполнено.</p>
+        {reward !== undefined && reward > 0 && (
+          <Reward>
+            <CoinIcon />
+            <span>+{coinsWord(reward)}</span>
+          </Reward>
+        )}
         <Button ref={button} $variant="primary" type="button" onClick={onClose}>
           Отлично
         </Button>

@@ -31,6 +31,14 @@ describe('TaskItem', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
+  it('награда видна в подписи карточки; без награды её нет', () => {
+    const { unmount } = renderItem({ task: task({ id: 'a', title: 'Вынести мусор', reward: 20 }) })
+    expect(screen.getByRole('link')).toHaveTextContent('+20 монет')
+    unmount()
+    renderItem()
+    expect(screen.getByRole('link')).not.toHaveTextContent('монет')
+  })
+
   it('у задания без срока в ссылке нет даты', () => {
     renderItem({ occurrence: occ('a', null) })
     expect(screen.getByRole('link')).toHaveAttribute('href', '/tasks/a')

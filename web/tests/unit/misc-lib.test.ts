@@ -132,3 +132,14 @@ describe('Avatar', () => {
     expect(getAvatarColor('x')).toMatch(/^hsl\(\d+ 55% 42%\)$/)
   })
 })
+
+describe('монеты', () => {
+  it('coinsWord склоняет «монета»', async () => {
+    const { coinsWord, REWARD_CHOICES, MAX_REWARD } = await import('@/lib/coins')
+    expect([1, 2, 4, 5, 11, 12, 14, 21, 22, 25, 101, 111].map(coinsWord)).toEqual([
+      '1 монета', '2 монеты', '4 монеты', '5 монет', '11 монет', '12 монет', '14 монет', '21 монета', '22 монеты', '25 монет', '101 монета', '111 монет',
+    ])
+    expect(REWARD_CHOICES[0]).toBe(0)
+    expect(MAX_REWARD).toBe(1000)
+  })
+})

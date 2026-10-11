@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { completedMessage, createdMessage, dueText, updatedMessage, type TaskDto } from '../../src/tasks/text.js'
+import { coinsWord, completedMessage, createdMessage, dueText, rewardMessage, updatedMessage, type TaskDto } from '../../src/tasks/text.js'
 
 const task = (over: Partial<TaskDto> = {}): TaskDto => ({
   id: 't1',
   title: 'Вынести мусор',
   description: '',
+  reward: 0,
   createdAt: '2026-10-11T10:00:00.000Z',
   authorId: 'a',
   assigneeId: 'b',
@@ -40,5 +41,22 @@ describe('тексты уведомлений', () => {
 
   it('выполненное задание называет того, кто выполнил', () => {
     expect(completedMessage(task(), 'Миша')).toMatchObject({ title: 'Задание выполнено', body: 'Миша: Вынести мусор' })
+  })
+})
+
+describe('награда монетами', () => {
+  it('coinsWord склоняет «монета»', () => {
+    expect([1, 2, 4, 5, 11, 12, 14, 21, 22, 25, 101, 111].map(coinsWord)).toEqual([
+      '1 монета', '2 монеты', '4 монеты', '5 монет', '11 монет', '12 монет', '14 монет', '21 монета', '22 монеты', '25 монет', '101 монета', '111 монет',
+    ])
+  })
+
+  it('rewardMessage: сколько и за что, нажатие ведёт к истории монет', () => {
+    expect(rewardMessage(task({ title: 'Вынести мусор', reward: 20 }))).toEqual({
+      title: 'Награда',
+      body: '+20 монет за «Вынести мусор»',
+      url: '/coins',
+      tag: 'reward-t1',
+    })
   })
 })

@@ -49,3 +49,21 @@ export const Emoji = styled.div`
     animation: none;
   }
 `
+
+// «+20 монет» под текстом поздравления
+export const Reward = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 1.2rem;
+  font-weight: 700;
+
+  svg {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
+`

@@ -139,17 +139,36 @@ describe('форма задания', () => {
     const input = toInput({ ...emptyForm('m1'), title: '  Купить хлеб ', time: '10:00' })
     expect(input.title).toBe('Купить хлеб')
     expect(input.description).toBe('')
+    expect(input.reward).toBe(0)
     expect(input.date).toBeNull()
     expect(input.time).toBeNull()
   })
 
   it('с датой время сохраняется', () => {
-    const input = toInput({ ...emptyForm('m1'), title: 'x', date: '2026-10-12', time: '10:00' })
+    const input = toInput({ ...emptyForm('m1'), title: 'x', scheduled: true, date: '2026-10-12', time: '10:00' })
     expect(input).toMatchObject({ date: '2026-10-12', time: '10:00' })
   })
 
+  it('без галочки «Указать время» дата, время и повтор не уходят, даже если остались в форме', () => {
+    const input = toInput({ ...emptyForm('m1'), title: 'x', scheduled: false, date: '2026-10-12', time: '10:00', repeatType: 'daily', until: '2026-12-01' })
+    expect(input).toMatchObject({ date: null, time: null, repeat: { type: 'none', days: [], until: null } })
+  })
+
+  it('награда: число из строки, пусто и мусор это 0', () => {
+    const base = { ...emptyForm('m1'), title: 'x' }
+    expect(toInput({ ...base, reward: '20' }).reward).toBe(20)
+    expect(toInput({ ...base, reward: '' }).reward).toBe(0)
+    expect(toInput({ ...base, reward: 'abc' }).reward).toBe(0)
+  })
+
+  it('fromTask: награда вне готовых плашек помечается как «Другая», у задания с датой стоит галочка «Указать время»', () => {
+    expect(fromTask(task({ reward: 20, date: null }))).toMatchObject({ reward: '20', rewardCustom: false, scheduled: false })
+    expect(fromTask(task({ reward: 37, date: '2026-10-12' }))).toMatchObject({ reward: '37', rewardCustom: true, scheduled: true })
+    expect(fromTask(task({ reward: 0 }))).toMatchObject({ reward: '0', rewardCustom: false })
+  })
+
   it('дни недели уходят только у weekly, until только у повторяющихся', () => {
-    const base = { ...emptyForm('m1'), title: 'x', date: '2026-10-12', days: [1, 3], until: '2026-12-01' }
+    const base = { ...emptyForm('m1'), title: 'x', scheduled: true, date: '2026-10-12', days: [1, 3], until: '2026-12-01' }
     expect(toInput({ ...base, repeatType: 'daily' }).repeat).toEqual({ type: 'daily', days: [], until: '2026-12-01' })
     expect(toInput({ ...base, repeatType: 'weekly' }).repeat).toEqual({ type: 'weekly', days: [1, 3], until: '2026-12-01' })
     expect(toInput({ ...base, repeatType: 'none' }).repeat).toEqual({ type: 'none', days: [], until: null })
@@ -159,6 +178,7 @@ describe('форма задания', () => {
     const t = task({
       title: 'Поливать',
       description: 'Не заливать',
+      reward: 15,
       assigneeId: 'm2',
       date: '2026-10-12',
       time: '08:00',
@@ -176,12 +196,23 @@ describe('форма задания', () => {
       expect(validate({ ...emptyForm('m1'), title: 'x', repeatType: 'weekly' })).toMatch(/день недели/)
     })
     it('конец повтора раньше начала', () => {
-      const form = { ...emptyForm('m1'), title: 'x', date: '2026-10-12', repeatType: 'daily' as const, until: '2026-10-01' }
+      const form = { ...emptyForm('m1'), title: 'x', scheduled: true, date: '2026-10-12', repeatType: 'daily' as const, until: '2026-10-01' }
       expect(validate(form)).toMatch(/раньше/)
     })
     it('конец повтора в тот же день допустим', () => {
-      const form = { ...emptyForm('m1'), title: 'x', date: '2026-10-12', repeatType: 'daily' as const, until: '2026-10-12' }
+      const form = { ...emptyForm('m1'), title: 'x', scheduled: true, date: '2026-10-12', repeatType: 'daily' as const, until: '2026-10-12' }
       expect(validate(form)).toBeUndefined()
+    })
+    it('галочка «Указать время» без даты', () => {
+      expect(validate({ ...emptyForm('m1'), title: 'x', scheduled: true, date: '' })).toMatch(/Укажите дату/)
+    })
+    it('своя награда: целое число от 1 до 1000', () => {
+      const own = (reward: string) => validate({ ...emptyForm('m1'), title: 'x', rewardCustom: true, reward })
+      for (const bad of ['', '0', '1001', '2.5', '-5', 'abc']) expect(own(bad)).toMatch(/от 1 до 1000/)
+      for (const good of ['1', '37', '1000']) expect(own(good)).toBeUndefined()
+    })
+    it('готовая награда не проверяется как своя', () => {
+      expect(validate({ ...emptyForm('m1'), title: 'x', rewardCustom: false, reward: '0' })).toBeUndefined()
     })
     it('корректная форма', () => {
       expect(validate({ ...emptyForm('m1'), title: 'x' })).toBeUndefined()

@@ -239,6 +239,20 @@ describe('события', () => {
     expect(await mom.next()).toEqual({ type: 'chat', chat: fam.kid.id })
   })
 
+  it('награда за задание: сигнал members, чтобы баланс обновился у всех открытых экранов', async () => {
+    const kid = await connectAuthed(fam.kid.token)
+    const created = await api(app, fam.mom.token, 'POST', '/api/tasks', {
+      title: 'С наградой', assigneeId: fam.kid.id, reward: 10, date: '2026-10-12', time: null, repeat: { type: 'none' },
+    })
+    expect(await kid.next()).toEqual({ type: 'tasks' })
+    await api(app, fam.kid.token, 'POST', `/api/tasks/${created.body.task.id}/complete`, { date: '2026-10-12' })
+    expect(await kid.next()).toEqual({ type: 'tasks' })
+    expect(await kid.next()).toEqual({ type: 'members' })
+    await api(app, fam.kid.token, 'POST', `/api/tasks/${created.body.task.id}/uncomplete`, { date: '2026-10-12' })
+    expect(await kid.next()).toEqual({ type: 'tasks' })
+    expect(await kid.next()).toEqual({ type: 'members' })
+  })
+
   it('отказ в доступе к расписанию событий не порождает', async () => {
     const dad = await connectAuthed(fam.dad.token)
     expect((await api(app, fam.kid.token, 'PUT', `/api/members/${fam.sis.id}/schedule`, { lessons: [] })).status).toBe(403)

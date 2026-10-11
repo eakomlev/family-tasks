@@ -8,6 +8,7 @@ import { Celebration } from '@/components/Celebration'
 import { Notice } from '@/components/Notice'
 import { Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
+import { coinsWord } from '@/lib/coins'
 import { formatDateTime, todayIso } from '@/lib/date'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
@@ -125,6 +126,12 @@ export default function TaskView() {
                 <dd>{repeat}</dd>
               </>
             )}
+            {task.reward > 0 && (
+              <>
+                <dt>Награда</dt>
+                <dd>{coinsWord(task.reward)}</dd>
+              </>
+            )}
             <dt>Создано</dt>
             <dd>{formatDateTime(task.createdAt)}</dd>
           </Details>
@@ -139,7 +146,7 @@ export default function TaskView() {
             )}
           </Actions>
 
-          {celebrating && <Celebration title={task.title} onClose={() => navigate('/tasks', { replace: true })} />}
+          {celebrating && <Celebration title={task.title} reward={task.assigneeId === me ? task.reward : undefined} onClose={() => navigate('/tasks', { replace: true })} />}
         </>
       )}
     </Page>

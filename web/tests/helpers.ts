@@ -4,6 +4,7 @@ export const task = (over: Partial<Task> = {}): Task => ({
   id: 't1',
   title: 'Задание',
   description: '',
+  reward: 0,
   createdAt: '2026-10-11T10:00:00.000Z',
   authorId: 'm1',
   assigneeId: 'm1',

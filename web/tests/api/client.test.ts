@@ -73,7 +73,7 @@ describe('запросы заданий', () => {
     const fetchMock = mockFetch(() => json({}))
     await listTasks('t', '2026-10-01', '2026-10-07')
     await getTask('t', 'a/b')
-    await createTask('t', { title: 'x', description: '', assigneeId: 'm', date: null, time: null, repeat: { type: 'none', days: [], until: null } })
+    await createTask('t', { title: 'x', description: '', reward: 0, assigneeId: 'm', date: null, time: null, repeat: { type: 'none', days: [], until: null } })
     await completeTask('t', 'id1', '2026-10-11')
     await completeTask('t', 'id1', null)
     await deleteTask('t', 'id1')
