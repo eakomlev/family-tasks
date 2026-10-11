@@ -52,12 +52,12 @@ Service worker в dev выключен, PWA проверяйте на сборк
 | `npm run dev` | БД и Mailpit в Docker, сервер и фронтенд с автообновлением |
 | `npm run dev:infra` / `npm run dev:stop` | только БД и Mailpit: запустить / остановить |
 | `npm run seed` | демо-семья (подробнее выше), режимы `-- --snippet Миша`, `-- --json` |
-| `npm test` | тесты сервера (нужна БД) |
+| `npm test` | все тесты: сервер (нужна БД) и фронтенд; по отдельности `npm run test:server`, `npm run test:web` |
 | `cd server && npm run typecheck` | типы приложения и тестов |
 | `cd server && npm run notify:tick -- 10:05 --reset` | принудительный проход планировщика уведомлений (см. раздел про push) |
 | `cd server && npm run vapid` | создать ключи VAPID для push |
 | `cd server && npm run migrate:create -- имя` | новая миграция БД |
-| `cd web && npx tsc -b && npm run lint && npm run build` | проверки и сборка фронтенда |
+| `cd web && npx tsc -b && npm run lint && npm test && npm run build` | проверки, тесты и сборка фронтенда |
 | `./update.sh` | обновление на сервере (раздел про деплой) |
 
 ## Тесты
@@ -66,12 +66,14 @@ Service worker в dev выключен, PWA проверяйте на сборк
 
 ```bash
 npm run dev:infra   # если ещё не запущена
-npm test            # около 3 секунд
+npm test            # сервер и фронтенд, около 5 секунд
 ```
 
-На GitHub те же проверки запускаются сами при каждом пуше в `main` и в каждом pull request (`.github/workflows/ci.yml`): тесты и типы сервера на настоящем Postgres, типы, линтер и сборка фронтенда, проверка конфигурации Docker Compose, `Caddyfile` и `update.sh`. Результат виден на вкладке Actions репозитория и в бейдже выше.
+Тесты фронтенда (`web/tests`, Vitest + Testing Library) БД не требуют: `npm run test:web`.
 
-Состав: проверки чистой логики (`server/tests/unit`) и проверки API без сети (`server/tests/api`: вход, профиль, приглашения, расписания, задания, push, планировщик уведомлений). Почта и отправка push подменяются. Типы тестов: `cd server && npm run typecheck`.
+На GitHub те же проверки запускаются сами при каждом пуше в `main` и в каждом pull request (`.github/workflows/ci.yml`): тесты и типы сервера на настоящем Postgres, типы, линтер, тесты и сборка фронтенда, проверка конфигурации Docker Compose, `Caddyfile` и `update.sh`. Результат виден на вкладке Actions репозитория и в бейдже выше.
+
+Состав: проверки чистой логики (`server/tests/unit`) и проверки API без сети (`server/tests/api`: вход, профиль, приглашения, расписания, задания, push, планировщик уведомлений). Почта и отправка push подменяются. Типы тестов: `cd server && npm run typecheck`. Тесты фронтенда проверяют логику (даты, повторы заданий, выбор дня на «Моём дне», расписания, тема), клиент API, отметку выполнения с откатом и ключевые компоненты (`TaskItem`, `CodeStep`, форма задания).
 
 ## Миграции БД
 

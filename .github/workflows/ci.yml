@@ -51,7 +51,7 @@ jobs:
       - run: npm test
 
   web:
-    name: "Фронтенд: типы, линтер, сборка"
+    name: "Фронтенд: типы, линтер, тесты, сборка"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -67,6 +67,7 @@ jobs:
       - run: npm ci
       - run: npx tsc -b
       - run: npm run lint
+      - run: npm test
       - run: npm run build
 
   repo:
