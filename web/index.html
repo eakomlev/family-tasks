@@ -49,6 +49,41 @@
           lines.push(navigator.userAgent)
           return lines.join('\n')
         }
+        // Проверка скачивания главного скрипта: сколько байт из скольких пришло за 8 секунд.
+        // Если получено сильно меньше заявленного, соединение обрывается или зависает по дороге (сеть, MTU, фильтрация).
+        function probe(pre) {
+          try {
+            var el = document.querySelector('script[type=module][src]')
+            if (!el || !window.fetch || !window.AbortController) return
+            var ctrl = new AbortController()
+            var got = 0
+            var total = 0
+            var timer = setTimeout(function () { ctrl.abort() }, 8000)
+            var report = function (note) {
+              pre.textContent += '\nпроверка скрипта: получено ' + got + ' из ' + (total || '?') + ' байт, ' + note
+            }
+            fetch(el.src, { cache: 'no-store', signal: ctrl.signal }).then(function (res) {
+              total = Number(res.headers.get('content-length')) || 0
+              var type = res.headers.get('content-type') || '?'
+              if (!res.body || !res.body.getReader) {
+                clearTimeout(timer)
+                return res.text().then(function (t) { got = t.length; report('HTTP ' + res.status + ', ' + type) })
+              }
+              var reader = res.body.getReader()
+              var pump = function () {
+                return reader.read().then(function (r) {
+                  if (r.done) { clearTimeout(timer); report('HTTP ' + res.status + ', ' + type + ', скачан полностью') ; return }
+                  got += r.value.length
+                  return pump()
+                })
+              }
+              return pump()
+            }).catch(function (e) {
+              clearTimeout(timer)
+              report(e && e.name === 'AbortError' ? 'зависло, прервано через 8 с' : 'ошибка: ' + (e && e.message))
+            })
+          } catch (e) {}
+        }
         function fail(reason) {
           if (shown) return
           var boot = document.getElementById('boot')
@@ -60,7 +95,9 @@
             '<button type="button" style="padding:.8rem 1.2rem;border:0;border-radius:.8rem;background:#4f46e5;color:#fff;font-size:1rem">Сбросить и перезагрузить</button>' +
             '<pre style="margin:1.2rem 0 0;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.7rem"></pre>'
           boot.getElementsByTagName('p')[1].textContent = reason
-          boot.getElementsByTagName('pre')[0].textContent = details()
+          var pre = boot.getElementsByTagName('pre')[0]
+          pre.textContent = details()
+          probe(pre)
           boot.getElementsByTagName('button')[0].onclick = function () {
             var done = function () { location.reload() }
             try {
