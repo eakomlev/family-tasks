@@ -26,6 +26,8 @@ npm run dev
 
 Команда запускает в Docker только БД и Mailpit, затем сервер (http://localhost:3000) и Vite. Адрес приложения напечатает Vite (обычно http://localhost:5173), `/api` проксируется на сервер, письма с кодами видны на http://localhost:8025. Если `.env` нет, он создаётся из `.env.example`. Остановка: Ctrl+C, а БД и Mailpit выключает `npm run dev:stop`.
 
+Демо-данные: `npm run seed` создаёт семью (мама Лена, папа Игорь, дети Миша и Аня) с расписанием уроков, тренировками и заданиями; войти можно по почте (`lena@demo.test`, `misha@demo.test`, `igor@demo.test`, `anya@demo.test`, код приходит в Mailpit) или, без почты, кодом из `npm run seed -- --snippet Миша` в консоли браузера. Скрипт работает только на локальной БД.
+
 Service worker в dev выключен, PWA проверяйте на сборке (`docker compose up --build` или `npm run build && npm run preview` в `web/`). Если в браузере остался service worker от старых запусков, удалите его в DevTools → Application → Service Workers.
 
 ## Миграции БД

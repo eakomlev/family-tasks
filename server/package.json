@@ -11,7 +11,8 @@
     "migrate:up": "node --env-file-if-exists=../.env node_modules/node-pg-migrate/bin/node-pg-migrate.js up --migrations-dir migrations",
     "migrate:down": "node --env-file-if-exists=../.env node_modules/node-pg-migrate/bin/node-pg-migrate.js down --migrations-dir migrations",
     "vapid": "web-push generate-vapid-keys",
-    "notify:tick": "tsx --env-file=../.env scripts/tick.ts"
+    "notify:tick": "tsx --env-file=../.env scripts/tick.ts",
+    "seed": "tsx --env-file=../.env scripts/seed.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",
