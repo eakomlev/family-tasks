@@ -74,7 +74,8 @@ export default function ChatRoom() {
           readUpTo: page.readUpTo,
         }))
         setFailed(false)
-        const newest = page.messages.findLast((m) => m.senderId !== me)
+        // без findLast: он есть не во всех версиях Safari
+        const newest = [...page.messages].reverse().find((m) => m.senderId !== me)
         if (newest && markedRef.current !== `${chat}:${newest.id}`) {
           markedRef.current = `${chat}:${newest.id}`
           void markRead()
