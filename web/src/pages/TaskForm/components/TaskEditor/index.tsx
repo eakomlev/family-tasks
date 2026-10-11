@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, type RepeatType } from '@/api'
 import { Button } from '@/components/Button'
+import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
@@ -22,6 +23,7 @@ function describeError(err: unknown): string {
 }
 
 export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDelete }: TaskEditorProps) {
+  const confirm = useConfirm()
   const [form, setForm] = useState<FormState>(initial)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
@@ -66,7 +68,9 @@ export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDele
   }
 
   async function handleDelete() {
-    if (!onDelete || !window.confirm('Удалить задание? Это действие нельзя отменить.')) return
+    if (!onDelete) return
+    const ok = await confirm({ title: 'Удалить задание?', message: 'Это действие нельзя отменить.', confirmLabel: 'Удалить', danger: true })
+    if (!ok) return
     setBusy(true)
     setError(undefined)
     try {

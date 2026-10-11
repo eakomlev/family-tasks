@@ -99,10 +99,10 @@ cd server && npm run migrate:create -- имя   # migrate:up / migrate:down — 
 
 ## Клиент: экраны и данные
 
-**Маршруты.** Публичные: `/`, `/create`, `/created`, `/join`, `/login`. Остальные лежат под `AppShell` (проверка входа, значок профиля справа сверху и нижняя панель табов `TabBar`): `/tasks`, `/tasks/new`, `/tasks/:taskId`, `/chat`, `/my-day`, `/family`, `/family/:memberId`, `/profile`, `/settings`, `/settings/schedule`, `/settings/trainings`, `/family/:memberId/schedule`, `/family/:memberId/trainings`. Вошедшего `Welcome` отправляет на `/tasks`. Новый раздел: страница в `pages/`, роут внутри `AppShell` в `App/index.tsx` и запись в `TABS` (`components/TabBar/utils.ts`). В таб-баре раздел назван «Задачи», заголовок страницы «Задания». «Чат» — заглушка (`components/Placeholder`).
+**Маршруты.** Публичные: `/`, `/create`, `/created`, `/join`, `/login`. Остальные лежат под `AppShell` (проверка входа, значок профиля справа сверху и нижняя панель табов `TabBar`): `/tasks`, `/tasks/new`, `/tasks/:taskId`, `/chat`, `/my-day`, `/family`, `/family/invite`, `/family/:memberId`, `/profile`, `/settings`, `/settings/schedule`, `/settings/trainings`, `/family/:memberId/schedule`, `/family/:memberId/trainings`. Вошедшего `Welcome` отправляет на `/tasks`. Новый раздел: страница в `pages/`, роут внутри `AppShell` в `App/index.tsx` и запись в `TABS` (`components/TabBar/utils.ts`). В таб-баре раздел назван «Задачи», заголовок страницы «Задания». «Чат» — заглушка (`components/Placeholder`).
 
 **Семья и профиль.**
-- «Моя семья» (`/family`): приглашение для владельца, список участников. Карточка ведёт на `/profile`, если это вы, иначе на превью `/family/:memberId` (фото, имя, роль, дата рождения и возраст; email не показываем; у ребёнка для родителя пункты расписаний).
+- «Моя семья» (`/family`): список участников, для владельца пункт «Пригласить» (страница `/family/invite`: ссылка, срок, копирование, перевыпуск; не-владельца оттуда перекидывает на `/family`), «Выйти» с подтверждением. Карточка ведёт на `/profile`, если это вы, иначе на превью `/family/:memberId` (фото, имя, роль, дата рождения и возраст; email не показываем; у ребёнка для родителя пункты расписаний).
 - `/profile`: имя, дата рождения, фото; email и роль только для чтения.
 - Значок профиля (`Avatar`: фото, а без него круг стабильного цвета из `memberId` и первая буква имени) ведёт на `/profile`.
 - `/api/me` запрашивается один раз для всех разделов (`web/src/profile`: `ProfileProvider` внутри `AppShell`, хук `useProfile`, `refresh()` после изменений); при 401 он очищает вход. Данные перезапрашиваются при каждом переходе и при возврате на вкладку, чтобы правки других участников (фото, имя, дата) были видны без перезагрузки. После смены имени обновляйте и `Identity` на устройстве (`save`).
@@ -138,7 +138,7 @@ cd server && npm run migrate:create -- имя   # migrate:up / migrate:down — 
 
 - `App/`, `main.tsx` — корень, роуты.
 - `pages/<Page>/` — страницы (default export), у них свои `components/`.
-- `components/` — общие компоненты. Базовые примитивы (`Button`, `Chip`, `IconButton`, `Input`, `Notice`, `Page`, `Select`, `Stack`, `BackLink`) объявлены как styled-компоненты прямо в `index.tsx`; варианты задаются transient-пропсами (`$variant`, `$tone`, `$inline`, `$active`), ссылки получаются через `as={Link}`. Остальное: `AppShell`, `Avatar`, `CodeStep`, `DayTabs`, `Field`, `LessonViewList`, `LinkBox`, `MenuLink`, `Placeholder`, `ReplaceGuard`, `RoleForm`, `SortableList`, `TabBar`, `TaskItem`, `TrainingViewList`.
+- `components/` — общие компоненты. Базовые примитивы (`Button`, `Chip`, `IconButton`, `Input`, `Notice`, `Page`, `Select`, `Stack`, `BackLink`) объявлены как styled-компоненты прямо в `index.tsx`; варианты задаются transient-пропсами (`$variant`, `$tone`, `$inline`, `$active`), ссылки получаются через `as={Link}`. Остальное: `AppShell`, `Avatar`, `CodeStep`, `ConfirmDialog`, `DayTabs`, `Field`, `LessonViewList`, `LinkBox`, `MenuLink`, `Placeholder`, `ReplaceGuard`, `RoleForm`, `SortableList`, `TabBar`, `TaskItem`, `TrainingViewList`.
 - `GlobalStyle/` (в `components/`) — глобальные стили. Цвета заданы CSS-переменными, в styled-компонентах используйте `var(--...)`, а не жёсткие цвета. Новый цвет добавляйте в обе палитры (`lightColors`/`darkColors`).
 - `api/` — клиент API по доменам: `client.ts` (`request`, `ApiError`), `auth/`, `families/`, `invites/`, `profile/`, `push/`, `schedule/`, `tasks/`, `trainings/` (в каждом `index.ts` с функциями и `types.ts`), наружу всё реэкспортирует `api/index.ts`, поэтому импортируем из `@/api`. Новый эндпоинт кладём в свой домен.
 - `identity/`, `profile/` — провайдеры состояния (не UI): `context.ts` с хуком вынесен из `index.tsx` ради fast refresh.
@@ -146,6 +146,7 @@ cd server && npm run migrate:create -- имя   # migrate:up / migrate:down — 
 
 ## Соглашения
 
+- Подтверждения только через `useConfirm()` (`components/ConfirmDialog`, провайдер в `App`): окно на всю страницу, `await confirm({ title, message, confirmLabel, danger })` → `true/false`. Системные `window.confirm/alert/prompt` не используем. В тестах компонентов с подтверждением оборачивайте их в `ConfirmProvider`.
 - В `web/` включён `erasableSyntaxOnly`: никаких `enum` и parameter properties в конструкторах.
 - API-запросы фронтенда только через `web/src/api` (общий `request`, ошибки как `ApiError` с `status` и `code`). Коды ошибок сервера — snake_case (`invite_expired`, `name_taken`), UI мапит их на тексты.
 - Валидация входных данных на сервере через JSON-схемы Fastify; запросы к БД — параметризованный SQL через `pg`, без ORM. Даты и время отдаём строками через `to_char`.

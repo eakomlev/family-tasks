@@ -3,6 +3,7 @@ import { Navigate, useParams } from 'react-router-dom'
 import { ApiError, getTrainings, saveTrainings } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
+import { useConfirm } from '@/components/ConfirmDialog/context'
 import { DayTabs } from '@/components/DayTabs'
 import { Notice } from '@/components/Notice'
 import { Page } from '@/components/Page'
@@ -29,6 +30,7 @@ import {
 export default function Trainings() {
   const { memberId: paramId } = useParams()
   const { identity } = useIdentity()
+  const confirm = useConfirm()
   const { data } = useProfile()
 
   // saved — то, что лежит на сервере; draft — правки в режиме редактирования
@@ -80,8 +82,8 @@ export default function Trainings() {
     setMode('edit')
   }
 
-  function cancelEditing() {
-    if (isDirty && !window.confirm('Отменить несохранённые изменения?')) return
+  async function cancelEditing() {
+    if (isDirty && !(await confirm({ title: 'Отменить изменения?', message: 'Несохранённые правки пропадут.', confirmLabel: 'Отменить изменения', cancelLabel: 'Продолжить редактирование', danger: true }))) return
     setDraft(undefined)
     setError(undefined)
     setMode('view')

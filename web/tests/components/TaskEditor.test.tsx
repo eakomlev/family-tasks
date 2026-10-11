@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, type Member } from '@/api'
+import { ConfirmProvider } from '@/components/ConfirmDialog'
 import { TaskEditor } from '@/pages/TaskForm/components/TaskEditor'
 import { emptyForm } from '@/pages/TaskForm/utils'
 
@@ -13,7 +14,9 @@ const members: Member[] = [
 function setup(props: Partial<Parameters<typeof TaskEditor>[0]> = {}) {
   const onSubmit = vi.fn().mockResolvedValue(undefined)
   render(
-    <TaskEditor initial={emptyForm('m1')} members={members} me="m1" submitLabel="Создать" onSubmit={onSubmit} {...props} />,
+    <ConfirmProvider>
+      <TaskEditor initial={emptyForm('m1')} members={members} me="m1" submitLabel="Создать" onSubmit={onSubmit} {...props} />
+    </ConfirmProvider>,
   )
   return { onSubmit, user: userEvent.setup() }
 }
@@ -120,15 +123,20 @@ describe('TaskEditor', () => {
     expect(screen.queryByRole('button', { name: 'Удалить задание' })).not.toBeInTheDocument()
   })
 
-  it('удаление требует подтверждения', async () => {
+  it('удаление требует подтверждения в окне приложения, а не в системном', async () => {
     const onDelete = vi.fn().mockResolvedValue(undefined)
     const { user } = setup({ onDelete })
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    await user.click(screen.getByRole('button', { name: 'Удалить задание' }))
-    expect(onDelete).not.toHaveBeenCalled()
+    const systemConfirm = vi.spyOn(window, 'confirm')
 
-    confirm.mockReturnValue(true)
     await user.click(screen.getByRole('button', { name: 'Удалить задание' }))
+    expect(screen.getByRole('alertdialog', { name: 'Удалить задание?' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Отмена' }))
+    expect(onDelete).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Удалить задание' }))
+    await user.click(screen.getByRole('button', { name: 'Удалить' }))
     await waitFor(() => expect(onDelete).toHaveBeenCalledTimes(1))
+    expect(systemConfirm).not.toHaveBeenCalled()
   })
 })

@@ -39,7 +39,6 @@ export function InviteSection({ token }: InviteSectionProps) {
 
   return (
     <Stack as="section">
-      <h2>Пригласить в семью</h2>
       {invite === undefined && !error && <p>Загрузка…</p>}
       {invite === null && <Notice $tone="muted">Прошлое приглашение истекло.</Notice>}
       {invite && <LinkBox link={inviteLink(invite.code)} expiresAt={invite.expiresAt} />}

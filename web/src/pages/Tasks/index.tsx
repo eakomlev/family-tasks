@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { listDoneTasks, listTasks, type TaskList } from '@/api'
-import { Button } from '@/components/Button'
 import { Chip } from '@/components/Chip'
 import { Notice } from '@/components/Notice'
 import { Page } from '@/components/Page'
+import { Select } from '@/components/Select'
 import { Stack } from '@/components/Stack'
 import { TaskItem } from '@/components/TaskItem'
 import { useIdentity } from '@/identity/context'
@@ -13,7 +12,7 @@ import { occurrenceKey, type TaskEntry } from '@/lib/occurrences'
 import { useNow } from '@/lib/useNow'
 import { useToggleOccurrence } from '@/lib/useToggleOccurrence'
 import { useProfile } from '@/profile/context'
-import { Filters, Header, List, SectionTitle } from './styles'
+import { AddButton, Filters, Header, List, ListEnd, SectionTitle } from './styles'
 import type { Tab } from './types'
 import { buildDone, buildSections } from './utils'
 
@@ -75,13 +74,11 @@ export default function Tasks() {
     <Page>
       <Header>
         <h1>Задания</h1>
-        <Button as={Link} to="/tasks/new" $variant="primary" $inline>+ Новое</Button>
+        <Select aria-label="Раздел" value={tab} onChange={(e) => switchTab(e.target.value as Tab)}>
+          <option value="upcoming">Предстоящие</option>
+          <option value="done">Выполненные</option>
+        </Select>
       </Header>
-
-      <Filters role="tablist" aria-label="Раздел">
-        <Chip type="button" role="tab" aria-selected={tab === 'upcoming'} $active={tab === 'upcoming'} onClick={() => switchTab('upcoming')}>Предстоящие</Chip>
-        <Chip type="button" role="tab" aria-selected={tab === 'done'} $active={tab === 'done'} onClick={() => switchTab('done')}>Выполненные</Chip>
-      </Filters>
 
       <Filters aria-label="Чьи задания">
         <Chip type="button" aria-pressed={filter === null} $active={filter === null} onClick={() => setFilter(null)}>Все</Chip>
@@ -109,6 +106,9 @@ export default function Tasks() {
         ))}
         {doneEntries.length > 0 && <List>{doneEntries.map(renderItem)}</List>}
       </Stack>
+
+      <ListEnd />
+      <AddButton to="/tasks/new">＋ Новая задача</AddButton>
     </Page>
   )
 }
