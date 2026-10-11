@@ -10,7 +10,8 @@
     "dev:server": "npm --prefix server run dev",
     "dev:web": "npm --prefix web run dev",
     "dev:stop": "docker compose -f docker-compose.yml -f docker-compose.dev.yml stop db mailpit",
-    "seed": "npm --prefix server run seed --"
+    "seed": "npm --prefix server run seed --",
+    "test": "npm --prefix server test"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

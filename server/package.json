@@ -12,7 +12,10 @@
     "migrate:down": "node --env-file-if-exists=../.env node_modules/node-pg-migrate/bin/node-pg-migrate.js down --migrations-dir migrations",
     "vapid": "web-push generate-vapid-keys",
     "notify:tick": "tsx --env-file=../.env scripts/tick.ts",
-    "seed": "tsx --env-file=../.env scripts/seed.ts"
+    "seed": "tsx --env-file=../.env scripts/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",
@@ -28,6 +31,7 @@
     "@types/pg": "^8.23.1",
     "@types/web-push": "^3.6.4",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
   }
 }

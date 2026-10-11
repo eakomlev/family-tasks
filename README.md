@@ -30,6 +30,17 @@ npm run dev
 
 Service worker в dev выключен, PWA проверяйте на сборке (`docker compose up --build` или `npm run build && npm run preview` в `web/`). Если в браузере остался service worker от старых запусков, удалите его в DevTools → Application → Service Workers.
 
+## Тесты
+
+Тесты сервера (Vitest) идут на настоящем Postgres, но в отдельной базе `family_tasks_test`, которую создают сами, ваши данные не затрагиваются. БД должна быть запущена:
+
+```bash
+npm run dev:infra   # если ещё не запущена
+npm test            # около 3 секунд
+```
+
+Состав: проверки чистой логики (`server/tests/unit`) и проверки API без сети (`server/tests/api`: вход, профиль, приглашения, расписания, задания, push, планировщик уведомлений). Почта и отправка push подменяются. Типы тестов: `cd server && npm run typecheck`.
+
 ## Миграции БД
 
 SQL-файлы лежат в `server/migrations/` (формат `-- Up Migration` / `-- Down Migration`), используется [node-pg-migrate](https://github.com/salsita/node-pg-migrate). Сервер применяет новые миграции сам при старте. Вручную (нужен `DATABASE_URL` из `.env`):

@@ -1,30 +1,14 @@
-import rateLimit from '@fastify/rate-limit'
-import Fastify from 'fastify'
+import { buildApp } from './app.js'
 import { pool } from './db.js'
 import { migrate } from './migrate.js'
 import { startScheduler } from './notifications/scheduler.js'
-import { pushEnabled, pushRoutes } from './push.js'
-import { routes } from './routes.js'
-import { scheduleRoutes } from './schedule.js'
-import { taskRoutes } from './tasks/routes.js'
-import { trainingRoutes } from './trainings.js'
+import { pushEnabled } from './push.js'
 
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is not set')
 
-const app = Fastify({
-  logger: true,
-  // сервер доступен только через nginx, берём реальный IP клиента из X-Forwarded-For
-  trustProxy: true,
-})
-
 await migrate(databaseUrl)
-await app.register(rateLimit, { max: 120, timeWindow: '1 minute' })
-await app.register(routes)
-await app.register(scheduleRoutes)
-await app.register(trainingRoutes)
-await app.register(taskRoutes)
-await app.register(pushRoutes)
+const app = await buildApp()
 
 const port = Number(process.env.PORT ?? 3000)
 await app.listen({ port, host: '0.0.0.0' })
