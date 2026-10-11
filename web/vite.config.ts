@@ -22,9 +22,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: 'Семейные задачи',
-        short_name: 'Задачи',
-        description: 'Общий список задач для семьи',
+        name: 'Моя семья',
+        short_name: 'Моя семья',
+        description: 'Задания, расписание, чат и дела всей семьи',
         lang: 'ru',
         theme_color: '#4f46e5',
         background_color: '#ffffff',

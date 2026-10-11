@@ -1,4 +1,4 @@
-# Family Tasks
+# Моя семья (Family Tasks)
 
 PWA для семьи: задания, расписание уроков и тренировок детей, дни рождения, уведомления. Монорепозиторий без workspaces: у `web/` и `server/` свои `package.json` и `node_modules`. Язык интерфейса и сообщений об ошибках для пользователя — русский, комментарии в коде тоже на русском.
 
@@ -134,7 +134,7 @@ cd server && npm run migrate:create -- имя   # migrate:up / migrate:down — 
 
 ## PWA, кэширование, тема
 
-- Service worker свой, `web/src/sw.ts` (стратегия `injectManifest`): кэш приложения (`/api/` в кэш не попадает) и обработчики `push` и `notificationclick`. Он собирается отдельным tsconfig (`tsconfig.sw.json`, lib `WebWorker`) и исключён из `tsconfig.app.json`. Иконки генерируются из `web/public/icon.svg` командой `npm run generate-pwa-assets` (в `web/`).
+- Service worker свой, `web/src/sw.ts` (стратегия `injectManifest`): кэш приложения (`/api/` в кэш не попадает) и обработчики `push` и `notificationclick`. Он собирается отдельным tsconfig (`tsconfig.sw.json`, lib `WebWorker`) и исключён из `tsconfig.app.json`. Иконки генерируются из `web/public/icon.svg` командой `npm run generate-pwa-assets` (в `web/`) (настройки в `web/pwa-assets.config.ts`: значок для iOS `apple-touch-icon` без полей и прозрачности, на всю плашку, потому что скругление iOS делает сам; maskable для Android с полями 15% на сплошном фоне). Название приложения «Моя семья» задано в манифесте (`vite.config.ts`), `<title>`, `apple-mobile-web-app-title` в `index.html`, по умолчанию в заголовке push (`sw.ts`) и в письмах (`mail.ts`).
 - Кэширование (`web/nginx.conf`): `index.html` (включая `/` и все маршруты SPA, их отдаёт SPA fallback), `sw.js`, `registerSW.js` и `manifest.webmanifest` отдаются с `Cache-Control: no-cache` (браузер каждый раз сверяется по ETag, 304 если не менялись), файлы с хэшем в `/assets/` с `public, max-age=31536000, immutable`; манифест отдаётся с типом `application/manifest+json`. Если добавите файл, который меняется между сборками без хэша в имени, добавьте его в `no-cache`-правило, иначе пользователи будут видеть старую версию.
 - Тема: по умолчанию следует `prefers-color-scheme`, явный выбор (`pages/Settings/components/ThemeSetting`: как в системе / светлая / тёмная) хранится в `localStorage['theme']` и применяется атрибутом `data-theme` на `<html>`. Скрипт в `web/index.html` ставит его до первого рендера (без вспышки) и синхронизирует `<meta name="theme-color">`; логика дублирует `lib/theme.ts`, при изменении правьте оба места. Слушатель смены системной темы (`lib/useThemeSync`) подключён один раз в `App`.
 
