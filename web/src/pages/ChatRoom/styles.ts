@@ -9,6 +9,11 @@ export const Room = styled.main`
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+
+  /* клавиатура открыта: панели табов нет, страница по высоте равна видимой области, поэтому поле ввода сидит над клавиатурой */
+  :root[data-keyboard] && {
+    min-height: var(--vvh, 100dvh);
+  }
 `
 
 export const Header = styled.header`
@@ -36,12 +41,21 @@ export const FamilyIcon = styled.span`
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 `
 
+// Сообщения прижаты к низу, к полю ввода: когда их мало (или открыта клавиатура), они остаются на виду рядом с ним.
 export const Feed = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   gap: 0.25rem;
   padding-bottom: 0.5rem;
+
+  /* сообщения одного дня: между ними заметный промежуток */
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
 `
 
 export const DayLabel = styled.div`

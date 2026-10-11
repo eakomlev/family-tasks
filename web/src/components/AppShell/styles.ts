@@ -14,6 +14,11 @@ export const Content = styled.div`
   > main {
     min-height: calc(100dvh - var(--tabbar-height));
   }
+
+  /* открыта экранная клавиатура (чат): панели табов нет */
+  :root[data-keyboard] & {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 `
 
 export const ProfileLink = styled(Link)`

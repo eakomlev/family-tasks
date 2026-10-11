@@ -8,6 +8,7 @@ import { useIdentity } from '@/identity/context'
 import { toIdentity } from '@/identity/utils'
 import { JOIN_ROLES } from '@/lib/roles'
 import type { InviteState, JoinWithCodeProps } from './types'
+import { START_PATH } from '@/lib/routes'
 
 const PROBLEMS: Partial<Record<InviteState, string>> = {
   not_found: 'Приглашение не найдено. Проверьте ссылку.',
@@ -36,7 +37,7 @@ export function JoinWithCode({ code }: JoinWithCodeProps) {
   async function handleSubmit(data: SignupData) {
     const res = await joinFamily(code, data)
     await save(toIdentity(res))
-    navigate('/family', { replace: true })
+    navigate(START_PATH, { replace: true })
   }
 
   if (invite === 'checking') return <p>Проверяем приглашение…</p>

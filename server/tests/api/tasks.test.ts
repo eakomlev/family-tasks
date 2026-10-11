@@ -123,7 +123,7 @@ describe('права на изменение и удаление', () => {
   it('менять и удалять может только автор', async () => {
     const { body } = await create(fam.mom.token)
     const id = body.task.id
-    for (const other of [fam.kid, fam.sis, fam.dad]) {
+    for (const other of [fam.kid, fam.dad]) {
       expect((await api(app, other.token, 'PUT', `/api/tasks/${id}`, task({ title: 'Чужое' }))).status).toBe(403)
       expect((await api(app, other.token, 'DELETE', `/api/tasks/${id}`)).status).toBe(403)
     }
@@ -132,9 +132,9 @@ describe('права на изменение и удаление', () => {
     expect((await api(app, fam.mom.token, 'GET', `/api/tasks/${id}`)).status).toBe(404)
   })
 
-  it('задание видят все в семье, но не чужая семья', async () => {
+  it('задание видят родители и исполнитель, но не чужая семья', async () => {
     const { body } = await create(fam.mom.token)
-    expect((await api(app, fam.sis.token, 'GET', `/api/tasks/${body.task.id}`)).status).toBe(200)
+    expect((await api(app, fam.dad.token, 'GET', `/api/tasks/${body.task.id}`)).status).toBe(200)
     for (const call of [
       api(app, outsider.mom.token, 'GET', `/api/tasks/${body.task.id}`),
       api(app, outsider.mom.token, 'PUT', `/api/tasks/${body.task.id}`, task({ assigneeId: outsider.mom.id })),
@@ -152,11 +152,11 @@ describe('выполнение', () => {
     const id = body.task.id
     expect((await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })).status).toBe(204)
     expect((await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })).status).toBe(204)
-    const list = await api(app, fam.sis.token, 'GET', '/api/tasks?from=2026-10-12&to=2026-10-12')
+    const list = await api(app, fam.dad.token, 'GET', '/api/tasks?from=2026-10-12&to=2026-10-12')
     const occ = list.body.occurrences.find((o: { taskId: string }) => o.taskId === id)
     expect(occ.done).toMatchObject({ memberId: fam.kid.id })
-    expect((await api(app, fam.sis.token, 'POST', `/api/tasks/${id}/uncomplete`, { date: '2026-10-12' })).status).toBe(204)
-    const after = await api(app, fam.sis.token, 'GET', '/api/tasks?from=2026-10-12&to=2026-10-12')
+    expect((await api(app, fam.dad.token, 'POST', `/api/tasks/${id}/uncomplete`, { date: '2026-10-12' })).status).toBe(204)
+    const after = await api(app, fam.dad.token, 'GET', '/api/tasks?from=2026-10-12&to=2026-10-12')
     expect(after.body.occurrences.find((o: { taskId: string }) => o.taskId === id).done).toBeNull()
   })
 
@@ -187,12 +187,12 @@ describe('одно задание и его вхождение', () => {
 
   it('по умолчанию первое вхождение, статус выполнения виден всем в семье', async () => {
     const id = (await create(fam.mom.token, { description: 'Подробности' })).body.task.id
-    const before = await get(fam.sis.token, id)
+    const before = await get(fam.dad.token, id)
     expect(before.body.task.description).toBe('Подробности')
     expect(before.body.occurrence).toEqual({ taskId: id, date: '2026-10-12', done: null })
 
     await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })
-    const after = await get(fam.sis.token, id)
+    const after = await get(fam.dad.token, id)
     expect(after.body.occurrence.done).toMatchObject({ memberId: fam.kid.id })
   })
 
@@ -213,6 +213,79 @@ describe('одно задание и его вхождение', () => {
     const id = (await create(fam.mom.token)).body.task.id
     expect((await get(fam.kid.token, id, '?date=вчера')).status).toBe(400)
     expect((await get(outsider.mom.token, id)).status).toBe(404)
+  })
+})
+
+describe('ребёнок видит только свои задания', () => {
+  // мама дала задание ребёнку, сестре и себе; сестра дала задание себе и маме
+  let forKid: string, forSis: string, forMom: string, sisOwn: string, sisForMom: string
+  beforeAll(async () => {
+    forKid = (await create(fam.mom.token, { title: 'Ребёнку', assigneeId: fam.kid.id })).body.task.id
+    forSis = (await create(fam.mom.token, { title: 'Сестре', assigneeId: fam.sis.id })).body.task.id
+    forMom = (await create(fam.mom.token, { title: 'Маме', assigneeId: fam.mom.id })).body.task.id
+    sisOwn = (await create(fam.sis.token, { title: 'Своё сестры', assigneeId: fam.sis.id })).body.task.id
+    sisForMom = (await create(fam.sis.token, { title: 'Сестра маме', assigneeId: fam.mom.id })).body.task.id
+  })
+
+  const titles = async (token: string, from = '2026-10-12', to = '2026-10-12') =>
+    ((await api(app, token, 'GET', `/api/tasks?from=${from}&to=${to}`)).body.tasks as { title: string }[]).map((t) => t.title)
+
+  it('в списке: назначенные ему и созданные им; чужие задания не видны', async () => {
+    const kid = await titles(fam.kid.token)
+    expect(kid).toContain('Ребёнку')
+    for (const hidden of ['Сестре', 'Маме', 'Своё сестры', 'Сестра маме']) expect(kid).not.toContain(hidden)
+
+    const sis = await titles(fam.sis.token)
+    expect(sis).toEqual(expect.arrayContaining(['Сестре', 'Своё сестры', 'Сестра маме']))
+    for (const hidden of ['Ребёнку', 'Маме']) expect(sis).not.toContain(hidden)
+  })
+
+  it('родители видят все задания семьи', async () => {
+    for (const parent of [fam.mom, fam.dad]) {
+      expect(await titles(parent.token)).toEqual(
+        expect.arrayContaining(['Ребёнку', 'Сестре', 'Маме', 'Своё сестры', 'Сестра маме']),
+      )
+    }
+  })
+
+  it('чужое задание ребёнка не отличить от несуществующего: 404 на просмотр, изменение, удаление и отметку', async () => {
+    for (const id of [forSis, forMom]) {
+      expect((await api(app, fam.kid.token, 'GET', `/api/tasks/${id}`)).status).toBe(404)
+      expect((await api(app, fam.kid.token, 'PUT', `/api/tasks/${id}`, task())).status).toBe(404)
+      expect((await api(app, fam.kid.token, 'DELETE', `/api/tasks/${id}`)).status).toBe(404)
+      expect((await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })).status).toBe(404)
+      expect((await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/uncomplete`, { date: '2026-10-12' })).status).toBe(404)
+    }
+    // а задание осталось на месте
+    expect((await api(app, fam.mom.token, 'GET', `/api/tasks/${forSis}`)).status).toBe(200)
+  })
+
+  it('своё и созданное им ребёнок открывает и отмечает', async () => {
+    expect((await api(app, fam.kid.token, 'GET', `/api/tasks/${forKid}`)).status).toBe(200)
+    expect((await api(app, fam.kid.token, 'POST', `/api/tasks/${forKid}/complete`, { date: '2026-10-12' })).status).toBe(204)
+    // сестра создала задание маме: видит, меняет и удаляет как автор
+    expect((await api(app, fam.sis.token, 'GET', `/api/tasks/${sisForMom}`)).status).toBe(200)
+    expect((await api(app, fam.sis.token, 'PUT', `/api/tasks/${sisForMom}`, task({ title: 'Сестра маме 2', assigneeId: fam.mom.id }))).status).toBe(200)
+    expect((await api(app, fam.sis.token, 'DELETE', `/api/tasks/${sisForMom}`)).status).toBe(204)
+    expect((await api(app, fam.sis.token, 'GET', `/api/tasks/${sisOwn}`)).status).toBe(200)
+  })
+
+  it('«выполненные» тоже только свои', async () => {
+    await api(app, fam.mom.token, 'POST', `/api/tasks/${forSis}/complete`, { date: '2026-10-12' })
+    await api(app, fam.mom.token, 'POST', `/api/tasks/${forKid}/complete`, { date: '2026-10-12' })
+    const done = async (token: string) => ((await api(app, token, 'GET', '/api/tasks/done')).body.tasks as { id: string }[]).map((t) => t.id)
+    const kid = await done(fam.kid.token)
+    expect(kid).toContain(forKid)
+    expect(kid).not.toContain(forSis)
+    expect(await done(fam.dad.token)).toEqual(expect.arrayContaining([forKid, forSis]))
+  })
+
+  it('смена исполнителя забирает задание у ребёнка из видимости', async () => {
+    const id = (await create(fam.mom.token, { title: 'Переданное', assigneeId: fam.kid.id })).body.task.id
+    expect(await titles(fam.kid.token)).toContain('Переданное')
+    await api(app, fam.mom.token, 'PUT', `/api/tasks/${id}`, task({ title: 'Переданное', assigneeId: fam.dad.id }))
+    expect(await titles(fam.kid.token)).not.toContain('Переданное')
+    expect((await api(app, fam.kid.token, 'GET', `/api/tasks/${id}`)).status).toBe(404)
   })
 })
 
@@ -346,8 +419,8 @@ describe('уведомления', () => {
     const id = (await create(fam.mom.token)).body.task.id
     await pushes('kid')
     sendNotification.mockClear()
-    await api(app, fam.sis.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })
+    await api(app, fam.dad.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })
     const sent = await pushes('mom', 'kid', 'sis')
-    expect(sent.map((s) => [s.endpoint, s.payload.body])).toEqual([[endpoints.mom, 'Сестра: Вынести мусор']])
+    expect(sent.map((s) => [s.endpoint, s.payload.body])).toEqual([[endpoints.mom, 'Папа: Вынести мусор']])
   })
 })

@@ -12,6 +12,12 @@ export const Bar = styled.form`
   padding: 0.6rem 1rem;
   border-top: 1px solid var(--border);
   background: var(--bg);
+
+  /* клавиатура открыта: панели табов нет, поле ввода у самого низа */
+  :root[data-keyboard] & {
+    bottom: 0;
+    padding-bottom: calc(0.6rem + env(safe-area-inset-bottom));
+  }
 `
 
 export const Field = styled.textarea`

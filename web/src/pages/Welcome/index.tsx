@@ -2,10 +2,11 @@ import { Link, Navigate } from 'react-router-dom'
 import { Button } from '@/components/Button'
 import { useIdentity } from '@/identity/context'
 import { Actions, Hero, Logo, WelcomePage } from './styles'
+import { START_PATH } from '@/lib/routes'
 
 export default function Welcome() {
   const { identity } = useIdentity()
-  if (identity) return <Navigate to="/tasks" replace />
+  if (identity) return <Navigate to={START_PATH} replace />
 
   return (
     <WelcomePage>

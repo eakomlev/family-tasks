@@ -83,13 +83,16 @@ export default function Tasks() {
         </Select>
       </Header>
 
-      <Filters aria-label="Чьи задания">
-        <Chip type="button" aria-pressed={filter === null} $active={filter === null} onClick={() => setFilter(null)}>Все</Chip>
-        {me && <Chip type="button" aria-pressed={filter === me} $active={filter === me} onClick={() => setFilter(me)}>Мои</Chip>}
-        {members.filter((m) => m.id !== me).map((m) => (
-          <Chip key={m.id} type="button" aria-pressed={filter === m.id} $active={filter === m.id} onClick={() => setFilter(m.id)}>{m.name}</Chip>
-        ))}
-      </Filters>
+      {/* ребёнок видит только свои задания (сервер другие не отдаёт), фильтр по людям ему не нужен */}
+      {identity?.role !== 'child' && (
+        <Filters aria-label="Чьи задания">
+          <Chip type="button" aria-pressed={filter === null} $active={filter === null} onClick={() => setFilter(null)}>Все</Chip>
+          {me && <Chip type="button" aria-pressed={filter === me} $active={filter === me} onClick={() => setFilter(me)}>Мои</Chip>}
+          {members.filter((m) => m.id !== me).map((m) => (
+            <Chip key={m.id} type="button" aria-pressed={filter === m.id} $active={filter === m.id} onClick={() => setFilter(m.id)}>{m.name}</Chip>
+          ))}
+        </Filters>
+      )}
 
       {loadFailed && <Notice $tone="error">Не удалось загрузить задания. Проверьте соединение.</Notice>}
       {!list && !loadFailed && <p>Загрузка…</p>}

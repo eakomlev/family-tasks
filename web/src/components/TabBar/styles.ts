@@ -12,6 +12,10 @@ export const Bar = styled.nav`
   padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   border-top: 1px solid var(--border);
   /* полупрозрачная панель: содержимое страницы размыто просвечивает под ней */
+  :root[data-keyboard] & {
+    display: none;
+  }
+
   background: var(--glass-bar);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);

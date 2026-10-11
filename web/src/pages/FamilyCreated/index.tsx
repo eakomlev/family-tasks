@@ -8,6 +8,7 @@ import { useIdentity } from '@/identity/context'
 import { inviteLink } from '@/lib/links'
 import { Celebration } from './styles'
 import type { LocationState } from './types'
+import { START_PATH } from '@/lib/routes'
 
 export default function FamilyCreated() {
   const { identity } = useIdentity()
@@ -32,7 +33,7 @@ export default function FamilyCreated() {
 
       {invite ? <LinkBox link={inviteLink(invite.code)} expiresAt={invite.expiresAt} /> : <p>Загрузка…</p>}
 
-      <Button $variant="primary" type="button" onClick={() => navigate('/family', { replace: true })}>
+      <Button $variant="primary" type="button" onClick={() => navigate(START_PATH, { replace: true })}>
         ОК
       </Button>
     </Page>

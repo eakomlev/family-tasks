@@ -137,8 +137,17 @@ export async function taskRoutes(app: FastifyInstance) {
     return member
   }
 
-  async function findTask(id: string, familyId: string): Promise<TaskRow | undefined> {
-    const { rows } = await pool.query(`${SELECT_TASK} where t.id = $1 and t.family_id = $2`, [id, familyId])
+  // Ребёнок видит только свои задания: назначенные ему и созданные им. Родители видят все задания семьи.
+  // Условие для SQL (параметр `param` это id участника) и значения, которые нужно добавить к запросу.
+  const visibility = (member: { id: string; role: string }, param: number) =>
+    member.role === 'child'
+      ? { sql: ` and (t.assignee_id = $${param} or t.author_id = $${param})`, values: [member.id] }
+      : { sql: '', values: [] as string[] }
+
+  // Задание, доступное этому участнику; чужое ребёнка не отличается от несуществующего (404).
+  async function findTask(id: string, member: { id: string; role: string; family_id: string }): Promise<TaskRow | undefined> {
+    const vis = visibility(member, 3)
+    const { rows } = await pool.query(`${SELECT_TASK} where t.id = $1 and t.family_id = $2${vis.sql}`, [id, member.family_id, ...vis.values])
     return rows[0]
   }
 
@@ -156,7 +165,8 @@ export async function taskRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'invalid_range' })
     }
 
-    const { rows } = await pool.query<TaskRow>(`${SELECT_TASK} where t.family_id = $1 order by t.created_at`, [member.family_id])
+    const vis = visibility(member, 2)
+    const { rows } = await pool.query<TaskRow>(`${SELECT_TASK} where t.family_id = $1${vis.sql} order by t.created_at`, [member.family_id, ...vis.values])
     const { rows: done } = await pool.query(
       `select c.task_id as "taskId", to_char(c.occurrence_date, 'YYYY-MM-DD') as date, c.done_by as "doneBy", c.done_at as "doneAt"
        from task_completions c join tasks t on t.id = c.task_id
@@ -197,9 +207,9 @@ export async function taskRoutes(app: FastifyInstance) {
               t.repeat_type as "repeatType", t.repeat_days as "repeatDays", to_char(t.repeat_until, 'YYYY-MM-DD') as "repeatUntil",
               to_char(c.occurrence_date, 'YYYY-MM-DD') as "occurrenceDate", c.done_by as "doneBy", c.done_at as "doneAt"
        from task_completions c join tasks t on t.id = c.task_id
-       where t.family_id = $1 and c.done_at > now() - make_interval(days => $2)
+       where t.family_id = $1 and c.done_at > now() - make_interval(days => $2)${visibility(member, 3).sql}
        order by c.done_at desc limit 200`,
-      [member.family_id, req.query.days ?? 30],
+      [member.family_id, req.query.days ?? 30, ...visibility(member, 3).values],
     )
 
     const tasks = new Map<string, TaskDto>()
@@ -219,7 +229,7 @@ export async function taskRoutes(app: FastifyInstance) {
   app.get<{ Params: { id: string }; Querystring: { date?: string } }>('/api/tasks/:id', { schema: getSchema }, async (req, reply) => {
     const member = await me(req, reply)
     if (!member) return
-    const row = await findTask(req.params.id, member.family_id)
+    const row = await findTask(req.params.id, member)
     if (!row) return reply.code(404).send({ error: 'task_not_found' })
 
     const date = req.query.date ?? row.date
@@ -250,7 +260,7 @@ export async function taskRoutes(app: FastifyInstance) {
        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
       [member.family_id, member.id, req.body.assigneeId, req.body.title.trim(), (req.body.description ?? '').trim(), schedule.date, time, schedule.repeatType, schedule.repeatDays, schedule.repeatUntil],
     )
-    const task = toDto((await findTask(rows[0].id, member.family_id))!)
+    const task = toDto((await findTask(rows[0].id, member))!)
 
     publish(member.family_id, { type: 'tasks' })
     // исполнителю сообщаем о новом задании, если его дал не он сам
@@ -262,7 +272,7 @@ export async function taskRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string }; Body: TaskBody }>('/api/tasks/:id', { schema: updateSchema }, async (req, reply) => {
     const member = await me(req, reply)
     if (!member) return
-    const existing = await findTask(req.params.id, member.family_id)
+    const existing = await findTask(req.params.id, member)
     if (!existing) return reply.code(404).send({ error: 'task_not_found' })
     if (existing.authorId !== member.id) return reply.code(403).send({ error: 'forbidden' })
     if (!(await assigneeInFamily(req.body.assigneeId, member.family_id))) {
@@ -290,7 +300,7 @@ export async function taskRoutes(app: FastifyInstance) {
       db.release()
     }
 
-    const task = toDto((await findTask(existing.id, member.family_id))!)
+    const task = toDto((await findTask(existing.id, member))!)
     publish(member.family_id, { type: 'tasks' })
     if (task.assigneeId !== member.id) void notifyMember(task.assigneeId, updatedMessage(task, member.name))
     return { task }
@@ -299,7 +309,7 @@ export async function taskRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string } }>('/api/tasks/:id', { schema: idSchema }, async (req, reply) => {
     const member = await me(req, reply)
     if (!member) return
-    const existing = await findTask(req.params.id, member.family_id)
+    const existing = await findTask(req.params.id, member)
     if (!existing) return reply.code(404).send({ error: 'task_not_found' })
     if (existing.authorId !== member.id) return reply.code(403).send({ error: 'forbidden' })
     await pool.query('delete from tasks where id = $1', [existing.id])
@@ -314,7 +324,7 @@ export async function taskRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const member = await me(req, reply)
       if (!member) return
-      const row = await findTask(req.params.id, member.family_id)
+      const row = await findTask(req.params.id, member)
       if (!row) return reply.code(404).send({ error: 'task_not_found' })
 
       const date = req.body.date
@@ -341,7 +351,7 @@ export async function taskRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const member = await me(req, reply)
       if (!member) return
-      const row = await findTask(req.params.id, member.family_id)
+      const row = await findTask(req.params.id, member)
       if (!row) return reply.code(404).send({ error: 'task_not_found' })
       await pool.query('delete from task_completions where task_id = $1 and occurrence_date = $2', [row.id, req.body.date ?? NO_DATE])
       publish(member.family_id, { type: 'tasks' })

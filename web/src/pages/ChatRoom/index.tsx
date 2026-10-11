@@ -7,6 +7,7 @@ import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { useChats } from '@/chat/context'
 import { useIdentity } from '@/identity/context'
+import { useKeyboardViewport } from '@/lib/useKeyboardViewport'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
 import { useLive } from '@/realtime/context'
@@ -46,6 +47,11 @@ export default function ChatRoom() {
   const token = identity?.token
   const me = identity?.memberId
   const members = data?.members ?? []
+
+  // клавиатура телефона меняет видимую область: переписка остаётся прижатой к низу, если читатель и так внизу
+  useKeyboardViewport(() => {
+    if (stick.current) scrollToBottom()
+  })
 
   useLive(['chat'], (e) => {
     if (e.type === 'resync' || (e.type === 'chat' && e.chat === chat)) setVersion((v) => v + 1)

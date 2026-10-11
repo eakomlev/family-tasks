@@ -8,7 +8,7 @@ export const Wrap = styled.div<{ $mine: boolean }>`
 
 export const Bubble = styled.div<{ $mine: boolean }>`
   max-width: 82%;
-  padding: 0.5rem 0.75rem;
+  padding: 0.3rem 0.6rem;
   border-radius: 1rem;
   ${({ $mine }) => ($mine ? 'border-bottom-right-radius: 0.3rem;' : 'border-bottom-left-radius: 0.3rem;')}
   background: ${({ $mine }) => ($mine ? 'var(--accent)' : 'var(--surface)')};

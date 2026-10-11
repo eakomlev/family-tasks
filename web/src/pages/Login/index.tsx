@@ -11,6 +11,7 @@ import { describeCodeError, isTooSoon } from '@/lib/errors'
 import { ChooseMember } from './components/ChooseMember'
 import { EmailStep } from './components/EmailStep'
 import type { Step } from './types'
+import { START_PATH } from '@/lib/routes'
 
 function LoginFlow() {
   const { save } = useIdentity()
@@ -44,7 +45,7 @@ function LoginFlow() {
     setError(undefined)
     try {
       await save(toIdentity(await login(trimmedEmail, enteredCode, memberId)))
-      navigate('/family', { replace: true })
+      navigate(START_PATH, { replace: true })
     } catch (err) {
       if (err instanceof ApiError && err.code === 'choose_member') {
         // email состоит в нескольких семьях: код ещё действителен, просим выбрать
