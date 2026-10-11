@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useIdentity } from '@/identity/context'
+import { useLive } from '@/realtime/context'
 import { ProfileContext } from './context'
 import type { ProfileData } from './types'
 import { fetchProfile, type ProfileResult } from './utils'
@@ -35,6 +36,9 @@ export function ProfileProvider({ token, children }: { token: string; children: 
   }, [token, apply, pathname])
 
   const refresh = useCallback(async () => apply(await fetchProfile(token)), [token, apply])
+
+  // кто-то из семьи изменил профиль или присоединился
+  useLive(['members'], () => void refresh())
 
   useEffect(() => {
     const onVisible = () => {

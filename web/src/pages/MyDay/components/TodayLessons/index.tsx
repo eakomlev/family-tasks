@@ -4,6 +4,7 @@ import { LessonViewList } from '@/components/LessonViewList'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
+import { useLive } from '@/realtime/context'
 import { EditLink, Header } from './styles'
 import type { TodayLessonsProps } from './types'
 import { capitalize, lessonsForDay, pickLessonDay } from '../../utils'
@@ -18,6 +19,11 @@ export function TodayLessons({ now }: TodayLessonsProps) {
   const memberId = identity?.memberId
   const isChild = identity?.role === 'child'
 
+  const [version, setVersion] = useState(0)
+  useLive(['schedule'], (e) => {
+    if (e.type === 'resync' || (e.type === 'schedule' && e.memberId === memberId)) setVersion((v) => v + 1)
+  })
+
   useEffect(() => {
     if (!token || !memberId || !isChild) return
     let cancelled = false
@@ -25,7 +31,7 @@ export function TodayLessons({ now }: TodayLessonsProps) {
       .then((res) => !cancelled && setLessons(res.lessons))
       .catch(() => !cancelled && setFailed(true))
     return () => { cancelled = true }
-  }, [token, memberId, isChild])
+  }, [token, memberId, isChild, version])
 
   if (!isChild) return null
 

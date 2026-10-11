@@ -12,6 +12,7 @@ import { SortableList } from '@/components/SortableList'
 import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
+import { useLive } from '@/realtime/context'
 import { LessonRow } from './components/LessonRow'
 import { Subtitle } from './styles'
 import type { Days, LessonDraft } from './types'
@@ -52,6 +53,12 @@ export default function Schedule() {
   // пока список семьи не загружен, участника проверить нельзя, поэтому пропускаем (сервер проверит сам)
   const allowed = isOwn ? isChild : !isChild && (!data || target?.role === 'child')
 
+  // чужие правки этого расписания: серверное состояние обновляется, черновик при правке не трогаем
+  const [version, setVersion] = useState(0)
+  useLive(['schedule'], (e) => {
+    if (e.type === 'resync' || (e.type === 'schedule' && e.memberId === memberId)) setVersion((v) => v + 1)
+  })
+
   useEffect(() => {
     if (!token || !memberId || !allowed) return
     let cancelled = false
@@ -59,7 +66,7 @@ export default function Schedule() {
       .then((res) => !cancelled && setSaved(fromLessons(res.lessons)))
       .catch(() => !cancelled && setLoadFailed(true))
     return () => { cancelled = true }
-  }, [token, memberId, allowed])
+  }, [token, memberId, allowed, version])
 
   if (!identity || !memberId || !allowed) {
     return <Navigate to={isChild ? '/settings' : '/family'} replace />

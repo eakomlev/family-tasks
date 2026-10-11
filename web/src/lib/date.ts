@@ -62,3 +62,11 @@ export function isoWeekdayOf(iso: string): number {
   const [year, month, day] = parts(iso)
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay() || 7
 }
+
+// «11 октября, 10:00»: когда что-то произошло (по местному времени)
+export function formatDateTime(iso: string): string {
+  const at = new Date(iso)
+  const day = at.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+  const time = at.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  return `${day}, ${time}`
+}

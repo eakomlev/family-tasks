@@ -48,7 +48,20 @@ describe('создание', () => {
   it('создаёт задание, обрезает название, автор — тот, кто создал', async () => {
     const { status, body } = await create(fam.mom.token, { title: '  Вынести мусор  ' })
     expect(status).toBe(201)
+    expect(Date.now() - new Date(body.task.createdAt).getTime()).toBeLessThan(60_000)
     expect(body.task).toMatchObject({ title: 'Вынести мусор', authorId: fam.mom.id, assigneeId: fam.kid.id, date: '2026-10-12', time: '18:00' })
+  })
+
+  it('описание необязательно, обрезается и возвращается; слишком длинное отклоняется', async () => {
+    const plain = await create(fam.mom.token)
+    expect(plain.body.task.description).toBe('')
+
+    const withText = await create(fam.mom.token, { description: '  Пакеты у двери.\nНе забыть ведро.  ' })
+    expect(withText.status).toBe(201)
+    expect(withText.body.task.description).toBe('Пакеты у двери.\nНе забыть ведро.')
+
+    expect((await create(fam.mom.token, { description: 'я'.repeat(1000) })).status).toBe(201)
+    expect((await create(fam.mom.token, { description: 'я'.repeat(1001) })).status).toBe(400)
   })
 
   it('можно дать задание себе, и без срока', async () => {
@@ -89,6 +102,20 @@ describe('создание', () => {
     it('без авторизации 401', async () => {
       expect((await api(app, null, 'POST', '/api/tasks', task())).status).toBe(401)
     })
+  })
+})
+
+describe('изменение описания', () => {
+  it('автор меняет описание, отметки при этом сохраняются', async () => {
+    const id = (await create(fam.mom.token, { description: 'старое' })).body.task.id
+    await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })
+    const put = await api(app, fam.mom.token, 'PUT', `/api/tasks/${id}`, task({ description: 'новое' }))
+    expect(put.body.task.description).toBe('новое')
+    const got = await api(app, fam.kid.token, 'GET', `/api/tasks/${id}`)
+    expect(got.body.occurrence.done).not.toBeNull()
+    // без поля описание очищается: форма всегда отправляет его целиком
+    const cleared = await api(app, fam.mom.token, 'PUT', `/api/tasks/${id}`, task())
+    expect(cleared.body.task.description).toBe('')
   })
 })
 
@@ -152,6 +179,40 @@ describe('выполнение', () => {
     const list = await api(app, fam.kid.token, 'GET', '/api/tasks?from=2026-10-12&to=2026-10-14')
     const days = list.body.occurrences.filter((o: { taskId: string }) => o.taskId === id).map((o: { date: string; done: unknown }) => [o.date, o.done !== null])
     expect(days).toEqual([['2026-10-12', false], ['2026-10-13', true], ['2026-10-14', false]])
+  })
+})
+
+describe('одно задание и его вхождение', () => {
+  const get = (token: string, id: string, query = '') => api(app, token, 'GET', `/api/tasks/${id}${query}`)
+
+  it('по умолчанию первое вхождение, статус выполнения виден всем в семье', async () => {
+    const id = (await create(fam.mom.token, { description: 'Подробности' })).body.task.id
+    const before = await get(fam.sis.token, id)
+    expect(before.body.task.description).toBe('Подробности')
+    expect(before.body.occurrence).toEqual({ taskId: id, date: '2026-10-12', done: null })
+
+    await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })
+    const after = await get(fam.sis.token, id)
+    expect(after.body.occurrence.done).toMatchObject({ memberId: fam.kid.id })
+  })
+
+  it('задание без срока: вхождение с датой null', async () => {
+    const id = (await create(fam.mom.token, { date: null, time: null })).body.task.id
+    expect((await get(fam.kid.token, id)).body.occurrence).toEqual({ taskId: id, date: null, done: null })
+  })
+
+  it('повторяющееся: вхождение выбирается по ?date, лишнего дня нет', async () => {
+    const id = (await create(fam.mom.token, { date: '2026-10-10', time: null, repeat: { type: 'daily' } })).body.task.id
+    await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-13' })
+    expect((await get(fam.kid.token, id, '?date=2026-10-13')).body.occurrence.done).not.toBeNull()
+    expect((await get(fam.kid.token, id, '?date=2026-10-14')).body.occurrence).toMatchObject({ date: '2026-10-14', done: null })
+    expect((await get(fam.kid.token, id, '?date=2026-10-09')).body.occurrence).toBeNull()
+  })
+
+  it('неверная дата в запросе: 400, чужая семья и неизвестное задание: 404', async () => {
+    const id = (await create(fam.mom.token)).body.task.id
+    expect((await get(fam.kid.token, id, '?date=вчера')).status).toBe(400)
+    expect((await get(outsider.mom.token, id)).status).toBe(404)
   })
 })
 

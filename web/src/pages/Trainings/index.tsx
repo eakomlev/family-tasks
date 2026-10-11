@@ -13,6 +13,7 @@ import { TrainingViewList } from '@/components/TrainingViewList'
 import { useIdentity } from '@/identity/context'
 import { WEEK_DAYS } from '@/lib/weekdays'
 import { useProfile } from '@/profile/context'
+import { useLive } from '@/realtime/context'
 import { TrainingRow } from './components/TrainingRow'
 import { Subtitle } from './styles'
 import type { Days, TrainingDraft } from './types'
@@ -52,6 +53,12 @@ export default function Trainings() {
   // пока список семьи не загружен, участника проверить нельзя, поэтому пропускаем (сервер проверит сам)
   const allowed = isOwn ? isChild : !isChild && (!data || target?.role === 'child')
 
+  // чужие правки этого расписания: серверное состояние обновляется, черновик при правке не трогаем
+  const [version, setVersion] = useState(0)
+  useLive(['trainings'], (e) => {
+    if (e.type === 'resync' || (e.type === 'trainings' && e.memberId === memberId)) setVersion((v) => v + 1)
+  })
+
   useEffect(() => {
     if (!token || !memberId || !allowed) return
     let cancelled = false
@@ -59,7 +66,7 @@ export default function Trainings() {
       .then((res) => !cancelled && setSaved(fromTrainings(res.trainings)))
       .catch(() => !cancelled && setLoadFailed(true))
     return () => { cancelled = true }
-  }, [token, memberId, allowed])
+  }, [token, memberId, allowed, version])
 
   if (!identity || !memberId || !allowed) {
     return <Navigate to={isChild ? '/settings' : '/family'} replace />

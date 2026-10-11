@@ -3,6 +3,7 @@ import { getTrainings, type Training } from '@/api'
 import { Stack } from '@/components/Stack'
 import { TrainingViewList } from '@/components/TrainingViewList'
 import { useIdentity } from '@/identity/context'
+import { useLive } from '@/realtime/context'
 import { EditLink, Header } from '../TodayLessons/styles'
 import { pickTrainingDay } from '../../utils'
 import type { TodayTrainingsProps } from './types'
@@ -16,6 +17,11 @@ export function TodayTrainings({ now }: TodayTrainingsProps) {
   const memberId = identity?.memberId
   const isChild = identity?.role === 'child'
 
+  const [version, setVersion] = useState(0)
+  useLive(['trainings'], (e) => {
+    if (e.type === 'resync' || (e.type === 'trainings' && e.memberId === memberId)) setVersion((v) => v + 1)
+  })
+
   useEffect(() => {
     if (!token || !memberId || !isChild) return
     let cancelled = false
@@ -23,7 +29,7 @@ export function TodayTrainings({ now }: TodayTrainingsProps) {
       .then((res) => !cancelled && setTrainings(res.trainings))
       .catch(() => {})
     return () => { cancelled = true }
-  }, [token, memberId, isChild])
+  }, [token, memberId, isChild, version])
 
   const day = trainings ? pickTrainingDay(now, trainings) : null
   if (!isChild || !day) return null

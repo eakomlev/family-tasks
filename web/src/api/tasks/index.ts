@@ -1,5 +1,5 @@
 import { request, send } from '../client'
-import type { Task, TaskInput, TaskList } from './types'
+import type { Occurrence, Task, TaskInput, TaskList } from './types'
 
 // вхождения с from по to (YYYY-MM-DD), плюс просроченные и задания без срока
 export const listTasks = (token: string, from: string, to: string) =>
@@ -9,8 +9,14 @@ export const listTasks = (token: string, from: string, to: string) =>
 export const listDoneTasks = (token: string, days = 30) =>
   request<TaskList>(`/tasks/done?days=${days}`, {}, token)
 
-export const getTask = (token: string, id: string) =>
-  request<{ task: Task }>(`/tasks/${encodeURIComponent(id)}`, {}, token)
+// Задание и одно его вхождение (date — день вхождения; без него первое или «без срока»).
+// occurrence = null, если такого вхождения у задания нет.
+export const getTask = (token: string, id: string, date?: string | null) =>
+  request<{ task: Task; occurrence: Occurrence | null }>(
+    `/tasks/${encodeURIComponent(id)}${date ? `?date=${date}` : ''}`,
+    {},
+    token,
+  )
 
 export const createTask = (token: string, input: TaskInput) =>
   request<{ task: Task }>('/tasks', send('POST', input), token)

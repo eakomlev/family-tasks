@@ -3,6 +3,7 @@ import { Avatar } from '@/components/Avatar'
 import { TabBar } from '@/components/TabBar'
 import { useIdentity } from '@/identity/context'
 import { ProfileProvider } from '@/profile'
+import { RealtimeProvider } from '@/realtime'
 import { useProfile } from '@/profile/context'
 import { Content, ProfileLink, Root } from './styles'
 
@@ -30,8 +31,10 @@ export function AppShell() {
   if (!identity) return <Navigate to="/" replace />
 
   return (
-    <ProfileProvider token={identity.token}>
-      <Shell />
-    </ProfileProvider>
+    <RealtimeProvider token={identity.token}>
+      <ProfileProvider token={identity.token}>
+        <Shell />
+      </ProfileProvider>
+    </RealtimeProvider>
   )
 }

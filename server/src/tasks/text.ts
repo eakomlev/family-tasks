@@ -4,6 +4,9 @@ import type { RepeatType } from './recurrence.js'
 export interface TaskDto {
   id: string
   title: string
+  description: string
+  // когда создано, ISO-время
+  createdAt: string
   authorId: string
   assigneeId: string
   // YYYY-MM-DD первого вхождения или null

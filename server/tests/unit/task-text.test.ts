@@ -4,6 +4,8 @@ import { completedMessage, createdMessage, dueText, updatedMessage, type TaskDto
 const task = (over: Partial<TaskDto> = {}): TaskDto => ({
   id: 't1',
   title: 'Вынести мусор',
+  description: '',
+  createdAt: '2026-10-11T10:00:00.000Z',
   authorId: 'a',
   assigneeId: 'b',
   date: '2026-10-12',

@@ -3,6 +3,7 @@ import type { FormState } from './types'
 
 export const emptyForm = (assigneeId: string): FormState => ({
   title: '',
+  description: '',
   assigneeId,
   date: '',
   time: '',
@@ -13,6 +14,7 @@ export const emptyForm = (assigneeId: string): FormState => ({
 
 export const fromTask = (task: Task): FormState => ({
   title: task.title,
+  description: task.description,
   assigneeId: task.assigneeId,
   date: task.date ?? '',
   time: task.time ?? '',
@@ -23,6 +25,7 @@ export const fromTask = (task: Task): FormState => ({
 
 export const toInput = (form: FormState): TaskInput => ({
   title: form.title.trim(),
+  description: form.description.trim(),
   assigneeId: form.assigneeId,
   date: form.date || null,
   time: form.date && form.time ? form.time : null,

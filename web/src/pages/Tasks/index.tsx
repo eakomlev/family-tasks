@@ -10,8 +10,8 @@ import { useIdentity } from '@/identity/context'
 import { addDays, todayIso } from '@/lib/date'
 import { occurrenceKey, type TaskEntry } from '@/lib/occurrences'
 import { useNow } from '@/lib/useNow'
-import { useToggleOccurrence } from '@/lib/useToggleOccurrence'
 import { useProfile } from '@/profile/context'
+import { useLive } from '@/realtime/context'
 import { AddButton, Filters, Header, List, ListEnd, SectionTitle } from './styles'
 import type { Tab } from './types'
 import { buildDone, buildSections } from './utils'
@@ -29,10 +29,12 @@ export default function Tasks() {
   const [filter, setFilter] = useState<string | null>(null)
   const [list, setList] = useState<TaskList>()
   const [loadFailed, setLoadFailed] = useState(false)
+  // растёт, когда по сокету пришло изменение: список запрашивается заново
+  const [version, setVersion] = useState(0)
+  useLive(['tasks'], () => setVersion((v) => v + 1))
 
   const token = identity?.token
   const me = identity?.memberId
-  const { busy, error, toggle } = useToggleOccurrence(token, me, list, setList, { removeWhenUndone: tab === 'done' })
   const members = data?.members ?? []
   const memberById = new Map(members.map((m) => [m.id, m]))
 
@@ -44,7 +46,7 @@ export default function Tasks() {
       .then((res) => !cancelled && setList(res))
       .catch(() => !cancelled && setLoadFailed(true))
     return () => { cancelled = true }
-  }, [token, tab, today])
+  }, [token, tab, today, version])
 
   function switchTab(next: Tab) {
     if (next === tab) return
@@ -62,11 +64,12 @@ export default function Tasks() {
       key={occurrenceKey(entry.task.id, entry.occurrence.date)}
       task={entry.task}
       occurrence={entry.occurrence}
-      assignee={filter === null ? memberById.get(entry.task.assigneeId) : undefined}
+      assignee={memberById.get(entry.task.assigneeId)}
+      showAssignee={filter === null}
+      author={memberById.get(entry.task.authorId)}
+      showDate={tab === 'done'}
       doneBy={tab === 'done' && entry.occurrence.done ? memberById.get(entry.occurrence.done.memberId) : undefined}
       today={today}
-      disabled={busy === occurrenceKey(entry.task.id, entry.occurrence.date)}
-      onToggle={() => toggle(entry)}
     />
   )
 
@@ -88,7 +91,6 @@ export default function Tasks() {
         ))}
       </Filters>
 
-      {error && <Notice $tone="error">{error}</Notice>}
       {loadFailed && <Notice $tone="error">Не удалось загрузить задания. Проверьте соединение.</Notice>}
       {!list && !loadFailed && <p>Загрузка…</p>}
       {isEmpty && (

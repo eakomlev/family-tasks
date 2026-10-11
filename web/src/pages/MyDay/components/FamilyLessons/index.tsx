@@ -3,6 +3,7 @@ import { getSchedule, getTrainings } from '@/api'
 import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
+import { useLive } from '@/realtime/context'
 import { ChildCard } from './components/ChildCard'
 import { List } from './styles'
 import type { FamilyLessonsProps, SchedulesByChild } from './types'
@@ -12,6 +13,8 @@ export function FamilyLessons({ now }: FamilyLessonsProps) {
   const { identity } = useIdentity()
   const { data } = useProfile()
   const [byChild, setByChild] = useState<SchedulesByChild>({})
+  const [version, setVersion] = useState(0)
+  useLive(['schedule', 'trainings'], () => setVersion((v) => v + 1))
 
   const token = identity?.token
   const isParent = !!identity && identity.role !== 'child'
@@ -33,7 +36,7 @@ export function FamilyLessons({ now }: FamilyLessonsProps) {
       }),
     ).then((entries) => !cancelled && setByChild(Object.fromEntries(entries)))
     return () => { cancelled = true }
-  }, [token, isParent, childIds])
+  }, [token, isParent, childIds, version])
 
   if (!isParent || children.length === 0) return null
 

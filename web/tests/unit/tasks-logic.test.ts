@@ -56,6 +56,17 @@ describe('taskMeta', () => {
     expect(parts).toEqual(['Просрочено, 9 октября', '18:00', 'каждый день'])
   })
 
+  it('повтор «до даты»', () => {
+    const t = task({ repeat: { type: 'weekly', days: [1, 3], until: '2026-12-01' } })
+    expect(taskMeta(t, occ('t1', TODAY), TODAY).parts).toEqual(['по пн, ср до 1 декабря'])
+  })
+
+  it('дата вхождения по запросу; у просроченного она уже в подписи «Просрочено»', () => {
+    expect(taskMeta(task(), occ('t1', '2026-10-12'), TODAY, true).parts).toEqual(['12 октября'])
+    expect(taskMeta(task(), occ('t1', '2026-10-09'), TODAY, true).parts).toEqual(['Просрочено, 9 октября'])
+    expect(taskMeta(task(), occ('t1', null), TODAY, true).parts).toEqual([])
+  })
+
   it('выполненное прошлое не считается просроченным', () => {
     expect(taskMeta(task(), occ('t1', '2026-10-09', true), TODAY)).toEqual({ parts: [], late: false })
   })
@@ -127,6 +138,7 @@ describe('форма задания', () => {
   it('toInput обрезает название, без даты время сбрасывается', () => {
     const input = toInput({ ...emptyForm('m1'), title: '  Купить хлеб ', time: '10:00' })
     expect(input.title).toBe('Купить хлеб')
+    expect(input.description).toBe('')
     expect(input.date).toBeNull()
     expect(input.time).toBeNull()
   })
@@ -146,12 +158,13 @@ describe('форма задания', () => {
   it('fromTask и toInput взаимно обратны', () => {
     const t = task({
       title: 'Поливать',
+      description: 'Не заливать',
       assigneeId: 'm2',
       date: '2026-10-12',
       time: '08:00',
       repeat: { type: 'weekly', days: [2, 4], until: '2026-11-01' },
     })
-    const { id: _id, authorId: _author, ...input } = t
+    const { id: _id, authorId: _author, createdAt: _created, ...input } = t
     expect(toInput(fromTask(t))).toEqual(input)
   })
 

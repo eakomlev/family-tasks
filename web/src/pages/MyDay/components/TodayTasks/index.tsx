@@ -4,22 +4,25 @@ import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
 import { TaskItem } from '@/components/TaskItem'
 import { useIdentity } from '@/identity/context'
+import { useLive } from '@/realtime/context'
 import { todayIso } from '@/lib/date'
 import { byTimeThenTitle, occurrenceKey, toEntries } from '@/lib/occurrences'
-import { useToggleOccurrence } from '@/lib/useToggleOccurrence'
+import { useProfile } from '@/profile/context'
 import { EditLink, Header, List, Links } from '../TodayLessons/styles'
 import type { TodayTasksProps } from './types'
 
 // Мои задания на сегодня и невыполненные просроченные; задания без срока здесь не показываем (они на странице «Задания»).
 export function TodayTasks({ now }: TodayTasksProps) {
   const { identity } = useIdentity()
+  const { data } = useProfile()
   const today = todayIso(now)
   const [list, setList] = useState<TaskList>()
   const [failed, setFailed] = useState(false)
+  const [version, setVersion] = useState(0)
+  useLive(['tasks'], () => setVersion((v) => v + 1))
 
   const token = identity?.token
   const me = identity?.memberId
-  const { busy, error, toggle } = useToggleOccurrence(token, me, list, setList)
 
   useEffect(() => {
     if (!token) return
@@ -28,7 +31,7 @@ export function TodayTasks({ now }: TodayTasksProps) {
       .then((res) => !cancelled && setList(res))
       .catch(() => !cancelled && setFailed(true))
     return () => { cancelled = true }
-  }, [token, today])
+  }, [token, today, version])
 
   const entries = list && me
     ? toEntries(list, me).filter(({ occurrence }) => occurrence.date !== null && occurrence.date <= today)
@@ -50,7 +53,6 @@ export function TodayTasks({ now }: TodayTasksProps) {
         </Links>
       </Header>
       {failed && <Notice $tone="error">Не удалось загрузить задания. Проверьте соединение.</Notice>}
-      {error && <Notice $tone="error">{error}</Notice>}
       {!list && !failed && <p>Загрузка…</p>}
       {list && sorted.length === 0 && <Notice $tone="muted">На сегодня заданий нет.</Notice>}
       {sorted.length > 0 && (
@@ -60,9 +62,9 @@ export function TodayTasks({ now }: TodayTasksProps) {
               key={occurrenceKey(entry.task.id, entry.occurrence.date)}
               task={entry.task}
               occurrence={entry.occurrence}
+              assignee={data?.members.find((m) => m.id === entry.task.assigneeId)}
+              author={data?.members.find((m) => m.id === entry.task.authorId)}
               today={today}
-              disabled={busy === occurrenceKey(entry.task.id, entry.occurrence.date)}
-              onToggle={() => toggle(entry)}
             />
           ))}
         </List>

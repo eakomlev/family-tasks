@@ -14,6 +14,7 @@ import {
 import { familyCode, hashToken, inviteCode } from './codes.js'
 import { pool } from './db.js'
 import { sendCode } from './mail.js'
+import { closeSession, publish } from './realtime.js'
 
 const INVITE_TTL_DAYS = 7
 const UNIQUE_VIOLATION = '23505'
@@ -271,6 +272,7 @@ export async function routes(app: FastifyInstance) {
         const member = await insertMember(db, invite.family_id, req.body, email, false)
         await discardEmailCode(db, email, 'signup')
         await db.query('commit')
+        publish(invite.family_id, { type: 'members' })
         return reply.code(201).send({ family: { code: invite.family_code }, member })
       } catch (err) {
         await db.query('rollback').catch(() => {})
@@ -346,6 +348,7 @@ export async function routes(app: FastifyInstance) {
     const token = bearerToken(req)
     if (!token) return reply.code(401).send({ error: 'unauthorized' })
     await pool.query('delete from sessions where token_hash = $1', [hashToken(token)])
+    closeSession(token)
     return reply.code(204).send()
   })
 
@@ -431,6 +434,7 @@ export async function routes(app: FastifyInstance) {
                      to_char(birth_date, 'YYYY-MM-DD') as "birthDate"`,
           values,
         )
+        publish(me.family_id, { type: 'members' })
         return { member: rows[0] }
       } catch (err) {
         if (constraintOf(err) === 'members_family_name_idx') {

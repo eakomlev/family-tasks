@@ -1,7 +1,13 @@
 import { Link } from 'react-router-dom'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
+import type { TaskState } from './types'
 
 export const Row = styled.li`
+  list-style: none;
+`
+
+// вся карточка — ссылка на страницу задания
+export const Card = styled(Link)`
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
@@ -9,35 +15,57 @@ export const Row = styled.li`
   border: 1px solid var(--border);
   border-radius: 0.8rem;
   background: var(--surface);
-  list-style: none;
-`
+  color: inherit;
+  text-decoration: none;
 
-// круглый флажок выполнения
-export const Check = styled.button<{ $done: boolean }>`
-  flex: none;
-  width: 1.6rem;
-  height: 1.6rem;
-  margin-top: 0.1rem;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 2px solid ${({ $done }) => ($done ? 'var(--accent)' : 'var(--border)')};
-  border-radius: 50%;
-  background: ${({ $done }) => ($done ? 'var(--accent)' : 'transparent')};
-  color: var(--accent-text);
-  font-size: 0.9rem;
-  line-height: 1;
-  cursor: pointer;
+  &:hover {
+    border-color: var(--accent);
+  }
 
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  &:active {
+    transform: scale(0.99);
   }
 
   &:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
+`
+
+// значок состояния: что сделано, что ещё нет, что просрочено
+export const Badge = styled.span<{ $state: TaskState }>`
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: grid;
+  place-items: center;
+  border-radius: 0.7rem;
+
+  svg {
+    width: 1.35rem;
+    height: 1.35rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  ${({ $state }) =>
+    $state === 'done'
+      ? css`
+          background: var(--accent);
+          color: var(--accent-text);
+        `
+      : $state === 'late'
+        ? css`
+            background: color-mix(in srgb, var(--error) 16%, transparent);
+            color: var(--error);
+          `
+        : css`
+            background: color-mix(in srgb, var(--accent) 14%, transparent);
+            color: var(--accent);
+          `}
 `
 
 export const Body = styled.div`
@@ -48,14 +76,10 @@ export const Body = styled.div`
   gap: 0.15rem;
 `
 
-export const Title = styled(Link)<{ $done: boolean }>`
+export const Title = styled.span<{ $done: boolean }>`
   color: ${({ $done }) => ($done ? 'var(--muted)' : 'var(--text)')};
   text-decoration: ${({ $done }) => ($done ? 'line-through' : 'none')};
   overflow-wrap: anywhere;
-
-  &:hover {
-    text-decoration: underline;
-  }
 `
 
 export const Meta = styled.span<{ $late?: boolean }>`
@@ -71,4 +95,22 @@ export const Who = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+`
+
+export const Chevron = styled.span`
+  flex: none;
+  align-self: center;
+  color: var(--muted);
+  font-size: 1.4rem;
+  line-height: 1;
+`
+
+// для скринридеров: состояние, которое снаружи видно только по значку
+export const Hidden = styled.span`
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 `

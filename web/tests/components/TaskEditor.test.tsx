@@ -51,11 +51,20 @@ describe('TaskEditor', () => {
     await user.click(screen.getByRole('button', { name: 'Создать' }))
     expect(onSubmit).toHaveBeenCalledWith({
       title: 'Помыть посуду',
+      description: '',
       assigneeId: 'm2',
       date: null,
       time: null,
       repeat: { type: 'none', days: [], until: null },
     })
+  })
+
+  it('описание обрезается и уходит вместе с заданием', async () => {
+    const { onSubmit, user } = setup()
+    await user.type(screen.getByLabelText('Название'), 'Уборка')
+    await user.type(screen.getByLabelText(/^Описание/), '  Пропылесосить\nи протереть пыль ')
+    await user.click(screen.getByRole('button', { name: 'Создать' }))
+    expect(onSubmit.mock.calls[0][0].description).toBe('Пропылесосить\nи протереть пыль')
   })
 
   it('время доступно только с датой, очистка даты сбрасывает время и повтор', async () => {

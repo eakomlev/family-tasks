@@ -11,6 +11,10 @@ export interface RepeatRule {
 export interface Task {
   id: string
   title: string
+  // свободный текст, может быть пустым
+  description: string
+  // когда создано, ISO-время
+  createdAt: string
   authorId: string
   assigneeId: string
   // YYYY-MM-DD первого вхождения или null (без срока)
@@ -36,6 +40,7 @@ export interface TaskList {
 // то, что отправляется при создании и изменении
 export interface TaskInput {
   title: string
+  description: string
   assigneeId: string
   date: string | null
   time: string | null

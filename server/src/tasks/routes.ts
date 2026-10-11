@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify'
 import { authenticate } from '../auth.js'
 import { pool } from '../db.js'
 import { notifyMember } from '../push.js'
+import { publish } from '../realtime.js'
 import { addDays, isRealDate, NO_DATE, occursOn, occurrencesBetween, type RepeatType, type Schedule } from './recurrence.js'
 import { completedMessage, createdMessage, updatedMessage, type TaskDto } from './text.js'
 
@@ -19,6 +20,7 @@ const taskBodySchema = {
   additionalProperties: false,
   properties: {
     title: { type: 'string', minLength: 1, maxLength: 100, pattern: '\\S' },
+    description: { type: 'string', maxLength: 1000 },
     assigneeId: { type: 'string', format: 'uuid' },
     date: dateSchema,
     time: timeSchema,
@@ -38,6 +40,7 @@ const taskBodySchema = {
 const writeSchema = { body: taskBodySchema }
 const updateSchema = { params: idParams, body: taskBodySchema }
 const idSchema = { params: idParams }
+const getSchema = { params: idParams, querystring: { type: 'object', properties: { date: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' } } } }
 const completionSchema = {
   params: idParams,
   body: { type: 'object', required: ['date'], additionalProperties: false, properties: { date: dateSchema } },
@@ -55,6 +58,7 @@ const doneSchema = {
 
 interface TaskBody {
   title: string
+  description?: string
   assigneeId: string
   date?: string | null
   time?: string | null
@@ -62,7 +66,7 @@ interface TaskBody {
 }
 
 const SELECT_TASK = `
-  select t.id, t.title, t.author_id as "authorId", t.assignee_id as "assigneeId",
+  select t.id, t.title, t.description, t.created_at as "createdAt", t.author_id as "authorId", t.assignee_id as "assigneeId",
          to_char(t.due_date, 'YYYY-MM-DD') as date, to_char(t.due_time, 'HH24:MI') as time,
          t.repeat_type as "repeatType", t.repeat_days as "repeatDays",
          to_char(t.repeat_until, 'YYYY-MM-DD') as "repeatUntil"
@@ -71,6 +75,8 @@ const SELECT_TASK = `
 interface TaskRow {
   id: string
   title: string
+  description: string
+  createdAt: string
   authorId: string
   assigneeId: string
   date: string | null
@@ -83,6 +89,8 @@ interface TaskRow {
 const toDto = (row: TaskRow): TaskDto => ({
   id: row.id,
   title: row.title,
+  description: row.description,
+  createdAt: row.createdAt,
   authorId: row.authorId,
   assigneeId: row.assigneeId,
   date: row.date,
@@ -184,7 +192,7 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!member) return
 
     const { rows } = await pool.query(
-      `select t.id, t.title, t.author_id as "authorId", t.assignee_id as "assigneeId",
+      `select t.id, t.title, t.description, t.created_at as "createdAt", t.author_id as "authorId", t.assignee_id as "assigneeId",
               to_char(t.due_date, 'YYYY-MM-DD') as date, to_char(t.due_time, 'HH24:MI') as time,
               t.repeat_type as "repeatType", t.repeat_days as "repeatDays", to_char(t.repeat_until, 'YYYY-MM-DD') as "repeatUntil",
               to_char(c.occurrence_date, 'YYYY-MM-DD') as "occurrenceDate", c.done_by as "doneBy", c.done_at as "doneAt"
@@ -206,12 +214,25 @@ export async function taskRoutes(app: FastifyInstance) {
     return { tasks: [...tasks.values()], occurrences }
   })
 
-  app.get<{ Params: { id: string } }>('/api/tasks/:id', { schema: idSchema }, async (req, reply) => {
+  // Одно задание и то его вхождение, которое открыто на странице: ?date=YYYY-MM-DD (по умолчанию первое или «без срока»).
+  // occurrence = null, если такого вхождения у задания нет.
+  app.get<{ Params: { id: string }; Querystring: { date?: string } }>('/api/tasks/:id', { schema: getSchema }, async (req, reply) => {
     const member = await me(req, reply)
     if (!member) return
     const row = await findTask(req.params.id, member.family_id)
     if (!row) return reply.code(404).send({ error: 'task_not_found' })
-    return { task: toDto(row) }
+
+    const date = req.query.date ?? row.date
+    const valid = date === null ? row.date === null : row.date !== null && isRealDate(date) && occursOn(scheduleOf(row), date)
+    let occurrence = null
+    if (valid) {
+      const { rows } = await pool.query(
+        'select done_by as "memberId", done_at as "at" from task_completions where task_id = $1 and occurrence_date = $2',
+        [row.id, date ?? NO_DATE],
+      )
+      occurrence = { taskId: row.id, date, done: rows[0] ? { memberId: rows[0].memberId as string, at: rows[0].at as string } : null }
+    }
+    return { task: toDto(row), occurrence }
   })
 
   app.post<{ Body: TaskBody }>('/api/tasks', { schema: writeSchema }, async (req, reply) => {
@@ -225,12 +246,13 @@ export async function taskRoutes(app: FastifyInstance) {
     const { schedule, time } = parsed.value
 
     const { rows } = await pool.query(
-      `insert into tasks (family_id, author_id, assignee_id, title, due_date, due_time, repeat_type, repeat_days, repeat_until)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id`,
-      [member.family_id, member.id, req.body.assigneeId, req.body.title.trim(), schedule.date, time, schedule.repeatType, schedule.repeatDays, schedule.repeatUntil],
+      `insert into tasks (family_id, author_id, assignee_id, title, description, due_date, due_time, repeat_type, repeat_days, repeat_until)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
+      [member.family_id, member.id, req.body.assigneeId, req.body.title.trim(), (req.body.description ?? '').trim(), schedule.date, time, schedule.repeatType, schedule.repeatDays, schedule.repeatUntil],
     )
     const task = toDto((await findTask(rows[0].id, member.family_id))!)
 
+    publish(member.family_id, { type: 'tasks' })
     // исполнителю сообщаем о новом задании, если его дал не он сам
     if (task.assigneeId !== member.id) void notifyMember(task.assigneeId, createdMessage(task, member.name))
     return reply.code(201).send({ task })
@@ -255,9 +277,9 @@ export async function taskRoutes(app: FastifyInstance) {
     try {
       await db.query('begin')
       await db.query(
-        `update tasks set assignee_id = $2, title = $3, due_date = $4, due_time = $5, repeat_type = $6,
-                repeat_days = $7, repeat_until = $8, updated_at = now() where id = $1`,
-        [existing.id, req.body.assigneeId, req.body.title.trim(), schedule.date, time, schedule.repeatType, schedule.repeatDays, schedule.repeatUntil],
+        `update tasks set assignee_id = $2, title = $3, description = $4, due_date = $5, due_time = $6, repeat_type = $7,
+                repeat_days = $8, repeat_until = $9, updated_at = now() where id = $1`,
+        [existing.id, req.body.assigneeId, req.body.title.trim(), (req.body.description ?? '').trim(), schedule.date, time, schedule.repeatType, schedule.repeatDays, schedule.repeatUntil],
       )
       if (scheduleChanged) await db.query('delete from task_completions where task_id = $1', [existing.id])
       await db.query('commit')
@@ -269,6 +291,7 @@ export async function taskRoutes(app: FastifyInstance) {
     }
 
     const task = toDto((await findTask(existing.id, member.family_id))!)
+    publish(member.family_id, { type: 'tasks' })
     if (task.assigneeId !== member.id) void notifyMember(task.assigneeId, updatedMessage(task, member.name))
     return { task }
   })
@@ -280,6 +303,7 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: 'task_not_found' })
     if (existing.authorId !== member.id) return reply.code(403).send({ error: 'forbidden' })
     await pool.query('delete from tasks where id = $1', [existing.id])
+    publish(member.family_id, { type: 'tasks' })
     return reply.code(204).send()
   })
 
@@ -302,6 +326,7 @@ export async function taskRoutes(app: FastifyInstance) {
         `insert into task_completions (task_id, occurrence_date, done_by) values ($1, $2, $3) on conflict do nothing`,
         [row.id, date ?? NO_DATE, member.id],
       )
+      publish(member.family_id, { type: 'tasks' })
       // автору сообщаем один раз, при первой отметке и если выполнил не он сам
       if (rowCount === 1 && row.authorId !== member.id) {
         void notifyMember(row.authorId, completedMessage(toDto(row), member.name))
@@ -319,6 +344,7 @@ export async function taskRoutes(app: FastifyInstance) {
       const row = await findTask(req.params.id, member.family_id)
       if (!row) return reply.code(404).send({ error: 'task_not_found' })
       await pool.query('delete from task_completions where task_id = $1 and occurrence_date = $2', [row.id, req.body.date ?? NO_DATE])
+      publish(member.family_id, { type: 'tasks' })
       return reply.code(204).send()
     },
   )

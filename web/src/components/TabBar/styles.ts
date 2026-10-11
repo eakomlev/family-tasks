@@ -10,7 +10,10 @@ export const Bar = styled.nav`
   height: var(--tabbar-height);
   padding-bottom: env(safe-area-inset-bottom);
   border-top: 1px solid var(--border);
-  background: var(--surface);
+  /* полупрозрачная панель: содержимое страницы размыто просвечивает под ней */
+  background: var(--glass-bar);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
 `
 
 export const Tabs = styled.ul`
@@ -24,6 +27,7 @@ export const Tabs = styled.ul`
 `
 
 export const TabLink = styled(NavLink)`
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -37,6 +41,39 @@ export const TabLink = styled(NavLink)`
   &.active {
     color: var(--accent);
     font-weight: 600;
+  }
+
+  /* выделенный таб: стеклянная капсула в духе iOS (подсветка сверху, тень снизу, размытие фона) */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0.3rem 0.2rem;
+    z-index: -1;
+    border-radius: 1.2rem;
+    background:
+      linear-gradient(180deg, var(--glass-edge) 0%, transparent 55%),
+      var(--glass-tint);
+    -webkit-backdrop-filter: blur(12px) saturate(200%);
+    backdrop-filter: blur(12px) saturate(200%);
+    box-shadow:
+      0 0 0 0.5px var(--glass-ring),
+      inset 0 1px 0 var(--glass-edge),
+      inset 0 -1px 0 rgb(255 255 255 / 0.08),
+      0 2px 10px var(--glass-shade);
+    opacity: 0;
+    transform: scale(0.85);
+    transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.3, 1.4, 0.5, 1);
+  }
+
+  &.active::before {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::before {
+      transition: none;
+    }
   }
 
   &:focus-visible {

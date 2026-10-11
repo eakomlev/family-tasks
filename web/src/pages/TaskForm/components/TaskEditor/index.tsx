@@ -7,6 +7,7 @@ import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
 import { Select } from '@/components/Select'
 import { Stack } from '@/components/Stack'
+import { Textarea } from '@/components/Textarea'
 import { isoWeekdayOf, todayIso } from '@/lib/date'
 import type { FormState } from '../../types'
 import { toInput, validate } from '../../utils'
@@ -85,6 +86,10 @@ export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDele
     <Stack as="form" onSubmit={handleSubmit}>
       <Field label="Название">
         <Input value={form.title} onChange={(e) => patch({ title: e.target.value })} maxLength={100} placeholder="Например, вынести мусор" autoFocus={!onDelete} />
+      </Field>
+
+      <Field label="Описание" hint="Необязательно: подробности, что и как сделать.">
+        <Textarea value={form.description} onChange={(e) => patch({ description: e.target.value })} maxLength={1000} rows={3} />
       </Field>
 
       <Field label="Кому">

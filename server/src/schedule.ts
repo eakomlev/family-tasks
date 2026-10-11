@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { authorizeChild, type MemberParams } from './access.js'
+import { publishForMember } from './realtime.js'
 import { pool } from './db.js'
 
 const MAX_LESSONS_PER_DAY = 12
@@ -99,6 +100,7 @@ export async function scheduleRoutes(app: FastifyInstance) {
           )
         }
         await db.query('commit')
+        void publishForMember(memberId, { type: 'schedule', memberId })
         return reply.code(204).send()
       } catch (err) {
         await db.query('rollback').catch(() => {})

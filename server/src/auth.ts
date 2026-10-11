@@ -81,7 +81,11 @@ export function bearerToken(req: FastifyRequest): string | null {
 
 export async function authenticate(req: FastifyRequest) {
   const token = bearerToken(req)
-  if (!token) return null
+  return token ? authenticateToken(token) : null
+}
+
+// участник по токену сессии или null (для HTTP по заголовку, для WebSocket по первому сообщению)
+export async function authenticateToken(token: string) {
   const { rows } = await pool.query(
     `select m.id, m.name, m.role, m.is_owner, m.email, m.avatar, to_char(m.birth_date, 'YYYY-MM-DD') as birth_date, m.family_id, f.code as family_code
      from sessions s

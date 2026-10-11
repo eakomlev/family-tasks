@@ -3,6 +3,8 @@ import type { Occurrence, Task } from '@/api'
 export const task = (over: Partial<Task> = {}): Task => ({
   id: 't1',
   title: 'Задание',
+  description: '',
+  createdAt: '2026-10-11T10:00:00.000Z',
   authorId: 'm1',
   assigneeId: 'm1',
   date: null,

@@ -1,6 +1,8 @@
 import rateLimit from '@fastify/rate-limit'
+import websocket from '@fastify/websocket'
 import Fastify from 'fastify'
 import { pushRoutes } from './push.js'
+import { MAX_PAYLOAD, realtimeRoutes } from './realtime.js'
 import { routes } from './routes.js'
 import { scheduleRoutes } from './schedule.js'
 import { taskRoutes } from './tasks/routes.js'
@@ -21,6 +23,8 @@ export async function buildApp({ logger = true, rateLimit: limit = true }: Optio
   })
 
   if (limit) await app.register(rateLimit, { max: 120, timeWindow: '1 minute' })
+  await app.register(websocket, { options: { maxPayload: MAX_PAYLOAD } })
+  await app.register(realtimeRoutes)
   await app.register(routes)
   await app.register(scheduleRoutes)
   await app.register(trainingRoutes)

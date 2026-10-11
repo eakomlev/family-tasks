@@ -6,11 +6,10 @@ import { Notice } from '@/components/Notice'
 import { Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
-import { TaskDetails } from './components/TaskDetails'
 import { TaskEditor } from './components/TaskEditor'
 import { emptyForm, fromTask } from './utils'
 
-// /tasks/new — создание; /tasks/:taskId — изменение своего задания или просмотр чужого
+// /tasks/new — создание; /tasks/:taskId/edit — изменение своего задания (чужое только смотрят, на /tasks/:taskId)
 export default function TaskForm() {
   const { taskId } = useParams()
   const navigate = useNavigate()
@@ -42,6 +41,8 @@ export default function TaskForm() {
   if (!token || !me) return null
   const members = data?.members ?? []
   if (state === 'missing') return <Navigate to="/tasks" replace />
+  // изменять может только автор
+  if (task && task.authorId !== me) return <Navigate to={`/tasks/${task.id}`} replace />
 
   async function create(input: TaskInput) {
     await createTask(token!, input)
@@ -50,7 +51,7 @@ export default function TaskForm() {
 
   async function update(input: TaskInput) {
     await updateTask(token!, task!.id, input)
-    navigate('/tasks', { replace: true })
+    navigate(`/tasks/${task!.id}`, { replace: true })
   }
 
   async function remove() {
@@ -58,12 +59,10 @@ export default function TaskForm() {
     navigate('/tasks', { replace: true })
   }
 
-  const byId = (id: string) => members.find((m) => m.id === id)
-
   return (
     <Page>
-      <BackLink to="/tasks">← Задания</BackLink>
-      <h1>{!taskId ? 'Новое задание' : task && task.authorId !== me ? task.title : 'Задание'}</h1>
+      <BackLink to={taskId ? `/tasks/${taskId}` : '/tasks'}>{taskId ? '← Задание' : '← Задания'}</BackLink>
+      <h1>{taskId ? 'Изменить задание' : 'Новое задание'}</h1>
 
       {!taskId && members.length > 0 && (
         <TaskEditor initial={emptyForm(me)} members={members} me={me} submitLabel="Создать" onSubmit={create} />
@@ -71,13 +70,10 @@ export default function TaskForm() {
 
       {taskId && state === 'loading' && <p>Загрузка…</p>}
       {taskId && state === 'failed' && <Notice $tone="error">Не удалось загрузить задание. Проверьте соединение.</Notice>}
-      {task && state === 'ready' && members.length > 0 &&
-        (task.authorId === me ? (
-          // key: при переходе между заданиями форма начинает с чистого состояния
-          <TaskEditor key={task.id} initial={fromTask(task)} members={members} me={me} submitLabel="Сохранить" onSubmit={update} onDelete={remove} />
-        ) : (
-          <TaskDetails task={task} author={byId(task.authorId)} assignee={byId(task.assigneeId)} />
-        ))}
+      {task && state === 'ready' && members.length > 0 && (
+        // key: при переходе между заданиями форма начинает с чистого состояния
+        <TaskEditor key={task.id} initial={fromTask(task)} members={members} me={me} submitLabel="Сохранить" onSubmit={update} onDelete={remove} />
+      )}
     </Page>
   )
 }

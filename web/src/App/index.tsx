@@ -18,6 +18,7 @@ import Schedule from '@/pages/Schedule'
 import Settings from '@/pages/Settings'
 import Tasks from '@/pages/Tasks'
 import TaskForm from '@/pages/TaskForm'
+import TaskView from '@/pages/TaskView'
 import Trainings from '@/pages/Trainings'
 import Welcome from '@/pages/Welcome'
 
@@ -38,7 +39,8 @@ export default function App() {
             <Route element={<AppShell />}>
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/tasks/new" element={<TaskForm />} />
-              <Route path="/tasks/:taskId" element={<TaskForm />} />
+              <Route path="/tasks/:taskId" element={<TaskView />} />
+              <Route path="/tasks/:taskId/edit" element={<TaskForm />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/my-day" element={<MyDay />} />
               <Route path="/family" element={<Family />} />
