@@ -1,27 +1,28 @@
 import { NavLink } from 'react-router-dom'
 import styled from 'styled-components'
 
+// Плавающая панель, как в Telegram: овал с отступами от краёв экрана и от низа, под ней видно содержимое страницы
 export const Bar = styled.nav`
   position: fixed;
   right: 0;
-  bottom: 0;
+  bottom: calc(var(--tabbar-bottom) + var(--tabbar-gap));
   left: 0;
   z-index: 10;
-  height: var(--tabbar-height);
-  /* безопасные зоны iPhone: индикатор «Домой» снизу, скруглённые углы и вырез по бокам в горизонтальном положении */
-  padding: 0 env(safe-area-inset-right) var(--tabbar-bottom) env(safe-area-inset-left);
-  /* скруглённый верх в тон закруглениям экрана iPhone */
+  width: min(calc(100% - 1.5rem), 26rem);
+  height: var(--tabbar-bar-height);
+  margin: 0 auto;
+  padding: 0 0.3rem;
   border: 1px solid var(--border);
-  border-bottom: 0;
-  border-radius: 1.6rem 1.6rem 0 0;
+  border-radius: 2rem;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.22);
   /* полупрозрачная панель: содержимое страницы размыто просвечивает под ней */
-  :root[data-keyboard] & {
-    display: none;
-  }
-
   background: var(--glass-bar);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
+
+  :root[data-keyboard] & {
+    display: none;
+  }
 `
 
 export const Tabs = styled.ul`
@@ -29,9 +30,8 @@ export const Tabs = styled.ul`
   /* колонки по числу табов */
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  max-width: 28rem;
   height: 100%;
-  margin: 0 auto;
+  margin: 0;
   padding: 0;
   list-style: none;
 `
@@ -61,9 +61,9 @@ export const TabLink = styled(NavLink)`
   &::before {
     content: '';
     position: absolute;
-    inset: 0.1rem 0.05rem;
+    inset: 0.25rem 0.1rem;
     z-index: -1;
-    border-radius: 2rem;
+    border-radius: 1.6rem;
     background:
       linear-gradient(180deg, var(--glass-edge) 0%, transparent 55%),
       var(--glass-tint);

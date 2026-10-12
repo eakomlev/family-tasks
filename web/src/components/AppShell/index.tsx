@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { ChatsProvider } from '@/chat'
 import { Avatar } from '@/components/Avatar'
+import { PushPrompt } from '@/components/PushPrompt'
 import { TabBar } from '@/components/TabBar'
 import { useIdentity } from '@/identity/context'
 import { ProfileProvider } from '@/profile'
@@ -22,6 +23,7 @@ function Shell() {
 
   return (
     <Root $chatRoom={chatRoom} $reserve={data?.me.coins !== undefined ? (hideAvatar ? '6.5rem' : '9.5rem') : hideAvatar ? '0rem' : '3.25rem'}>
+      <PushPrompt />
       <TopRight $fixed={chatRoom}>
         {/* монеты есть только у детей */}
         {data?.me.coins !== undefined && <CoinBalance coins={data.me.coins} />}

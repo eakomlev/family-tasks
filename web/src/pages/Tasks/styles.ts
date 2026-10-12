@@ -38,7 +38,7 @@ export const SectionTitle = styled.h2`
 export const AddButton = styled(Link)`
   position: fixed;
   right: max(1rem, calc((100vw - 28rem) / 2 + 1rem));
-  bottom: calc(var(--tabbar-height, 3.75rem) + 1rem);
+  bottom: calc(var(--tabbar-height, 4.5rem) + 0.4rem);
   z-index: 20;
   display: inline-flex;
   align-items: center;
