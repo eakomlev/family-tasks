@@ -21,6 +21,8 @@ declare module 'fastify' {
   }
 }
 
+export const GENERAL_LIMIT_PER_MINUTE = 600
+
 interface Options {
   logger?: boolean
   // вызывается для каждого зарегистрированного маршрута (тест списка открытых маршрутов)
@@ -55,7 +57,9 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
     return reply.send(error)
   })
 
-  if (limit) await app.register(rateLimit, { max: 120, timeWindow: '1 minute' })
+  // Общий лимит на IP. Семья сидит за одним адресом (домашний Wi-Fi, мобильный оператор), а каждый переход между экранами
+  // даёт до десятка запросов, поэтому лимит с запасом: от перебора кодов защищают строгие лимиты отдельных маршрутов (10 в минуту).
+  if (limit) await app.register(rateLimit, { max: GENERAL_LIMIT_PER_MINUTE, timeWindow: '1 minute' })
   await app.register(websocket, { options: { maxPayload: MAX_PAYLOAD } })
   await app.register(realtimeRoutes)
   await app.register(routes)

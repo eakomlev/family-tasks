@@ -92,3 +92,44 @@ describe('запросы заданий', () => {
     expect(calls[6][1]).toBe('DELETE')
   })
 })
+
+describe('request: ответ 429 («слишком часто»)', () => {
+  const limited = () => new Response(JSON.stringify({ error: 'rate' }), { status: 429, headers: { 'Retry-After': '1' } })
+
+  it('чтение после 429 повторяется и возвращает данные', async () => {
+    vi.useFakeTimers()
+    try {
+      let calls = 0
+      const fetchMock = vi.fn<typeof fetch>(async () => (++calls === 1 ? limited() : json({ ok: 1 })))
+      vi.stubGlobal('fetch', fetchMock)
+      const result = request('/x', {}, 'tok')
+      await vi.advanceTimersByTimeAsync(1000)
+      await expect(result).resolves.toEqual({ ok: 1 })
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('если лимит не снимается, после двух повторов ошибка 429', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchMock = vi.fn<typeof fetch>(async () => limited())
+      vi.stubGlobal('fetch', fetchMock)
+      const result = request('/x', {}, 'tok').catch((err) => err)
+      await vi.advanceTimersByTimeAsync(10_000)
+      const err = await result
+      expect(err).toBeInstanceOf(ApiError)
+      expect((err as ApiError).status).toBe(429)
+      expect(fetchMock).toHaveBeenCalledTimes(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('изменяющие запросы при 429 не повторяются сами', async () => {
+    const fetchMock = mockFetch(limited)
+    await expect(request('/x', send('POST', { a: 1 }), 'tok')).rejects.toMatchObject({ status: 429 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
