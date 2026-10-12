@@ -81,3 +81,13 @@ export const totalCoins = (awards: { amount: number }[]) => awards.reduce((sum, 
 // Подменяет сообщение в списке его обновлённой версией (после реакции или начисления).
 export const replaceMessage = (list: ChatMessage[], message: ChatMessage): ChatMessage[] =>
   list.map((m) => (m.id === message.id ? message : m))
+
+// Подпись шапки личного чата: «сейчас в чате» или «был(а) сегодня в 14:05, вчера в 09:30, 12 октября в 18:00».
+export function visitLabel(peer: { viewing: boolean; lastVisitAt: string | null } | null, now: Date): string | null {
+  if (!peer) return null
+  if (peer.viewing) return 'Сейчас в чате'
+  if (!peer.lastVisitAt) return null
+  const time = new Date(peer.lastVisitAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  const day = dayLabel(peer.lastVisitAt, now)
+  return `Последний визит: ${day === 'Сегодня' ? 'сегодня' : day === 'Вчера' ? 'вчера' : day} в ${time}`
+}

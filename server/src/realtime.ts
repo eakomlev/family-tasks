@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import type { WebSocket } from 'ws'
 import { authenticateToken } from './auth.js'
+import { directKey } from './chatKey.js'
 import { hashToken } from './codes.js'
 import { pool } from './db.js'
 
@@ -74,6 +75,21 @@ export function isViewingChat(memberId: string, chat: string) {
   return false
 }
 
+// Запоминает визит в личный чат (вход или выход) и даёт знать собеседнику, чтобы шапка у него обновилась.
+async function recordVisit(memberId: string, chat: string | null) {
+  if (!chat || chat === 'family') return
+  try {
+    await pool.query(
+      `insert into chat_visits (member_id, chat_key, visited_at) values ($1, $2, now())
+       on conflict (member_id, chat_key) do update set visited_at = excluded.visited_at`,
+      [memberId, directKey(memberId, chat)],
+    )
+  } catch {
+    return // не критично: следующий визит запишется
+  }
+  publishTo(chat, { type: 'chat', chat: memberId })
+}
+
 export function connectionCount() {
   return clients.size
 }
@@ -91,7 +107,12 @@ export async function realtimeRoutes(app: FastifyInstance) {
         try {
           const message = JSON.parse(raw.toString())
           if (message?.type === 'viewing') {
+            const previous = client.viewing
             client.viewing = typeof message.chat === 'string' && message.chat.length <= 64 ? message.chat : null
+            if (previous !== client.viewing) {
+              void recordVisit(client.memberId, previous)
+              void recordVisit(client.memberId, client.viewing)
+            }
           }
         } catch {
           /* не JSON: игнорируем */
@@ -119,7 +140,10 @@ export async function realtimeRoutes(app: FastifyInstance) {
     })
     socket.on('close', () => {
       clearTimeout(authTimer)
-      if (client) clients.delete(client)
+      if (client) {
+        clients.delete(client)
+        void recordVisit(client.memberId, client.viewing)
+      }
     })
     socket.on('error', () => socket.terminate())
   })

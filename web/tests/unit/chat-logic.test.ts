@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ChatMessage, ChatSummary, Member } from '@/api'
 import { memberLabel } from '@/lib/roles'
 import { chatPreview, chatTitle, formatChatTime } from '@/pages/Chat/utils'
-import { appendMessage, canSend, dayLabel, groupByDay, mergeLatest, messageStatus } from '@/pages/ChatRoom/utils'
+import { appendMessage, canSend, dayLabel, groupByDay, mergeLatest, messageStatus, visitLabel } from '@/pages/ChatRoom/utils'
 
 const msg = (id: string, createdAt = '2026-10-11T10:00:00Z', senderId = 'm1', text = id): ChatMessage => ({ id, senderId, text, createdAt, reactions: [], awards: [] })
 
@@ -147,5 +147,27 @@ describe('список чатов', () => {
     expect(formatChatTime('2026-10-12T07:05:00Z', now)).toBe('10:05')
     expect(formatChatTime('2026-10-11T07:05:00Z', now)).toBe('Вчера')
     expect(formatChatTime('2026-10-01T07:05:00Z', now)).toMatch(/1\s+окт/)
+  })
+})
+
+describe('visitLabel', () => {
+  const now = new Date('2026-10-12T12:00:00')
+
+  it('общий чат: подписи нет', () => {
+    expect(visitLabel(null, now)).toBeNull()
+  })
+
+  it('собеседник сейчас в чате', () => {
+    expect(visitLabel({ viewing: true, lastVisitAt: '2026-10-10T10:00:00' }, now)).toBe('Сейчас в чате')
+  })
+
+  it('визитов не было: подписи нет', () => {
+    expect(visitLabel({ viewing: false, lastVisitAt: null }, now)).toBeNull()
+  })
+
+  it('сегодня, вчера и раньше', () => {
+    expect(visitLabel({ viewing: false, lastVisitAt: '2026-10-12T09:05:00' }, now)).toBe('Последний визит: сегодня в 09:05')
+    expect(visitLabel({ viewing: false, lastVisitAt: '2026-10-11T18:30:00' }, now)).toBe('Последний визит: вчера в 18:30')
+    expect(visitLabel({ viewing: false, lastVisitAt: '2026-10-05T07:00:00' }, now)).toBe('Последний визит: 5 октября в 07:00')
   })
 })

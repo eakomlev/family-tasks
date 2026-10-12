@@ -1,5 +1,16 @@
 import { Link } from 'react-router-dom'
-import styled from 'styled-components'
+import styled, { keyframes } from 'styled-components'
+
+// переписка выезжает справа, как в мессенджерах
+const slideIn = keyframes`
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: none;
+  }
+`
 
 // страница чата: переписка растягивается, поле ввода прижато к панели табов
 export const Room = styled.main`
@@ -14,6 +25,11 @@ export const Room = styled.main`
   /* клавиатура открыта: панели табов нет, страница по высоте равна видимой области, поэтому поле ввода сидит над клавиатурой */
   /* фон на весь экран: мягкий цветной градиент и узор из значков, рисуется цветом акцента (подходит обеим темам) */
   isolation: isolate;
+  animation: ${slideIn} 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 
   &::before,
   &::after {
@@ -92,6 +108,17 @@ export const BackButton = styled(Link)`
   &:focus-visible {
     outline: 2px solid var(--accent);
     border-radius: 0.5rem;
+  }
+`
+
+// имя собеседника и под ним, когда он был в чате
+export const Title = styled.div`
+  min-width: 0;
+
+  small {
+    display: block;
+    color: var(--muted);
+    font-size: 0.75rem;
   }
 `
 

@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-
 import { ApiError, createTask, deleteTask, getTask, updateTask, type Task, type TaskInput } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { Notice } from '@/components/Notice'
-import { Page } from '@/components/Page'
+import { SlideInPage as Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
 import { TaskEditor } from './components/TaskEditor'

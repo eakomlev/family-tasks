@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
-import { ApiError, FAMILY_CHAT, giveFeedback, listMessages, markChatRead, sendMessage, type ChatMessage, type MessageFeedback } from '@/api'
+import { ApiError, FAMILY_CHAT, giveFeedback, listMessages, markChatRead, sendMessage, type ChatMessage, type MessageFeedback, type MessagePage } from '@/api'
 import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
@@ -15,8 +15,8 @@ import { chatTitle } from '../Chat/utils'
 import { Composer } from './components/Composer'
 import { FeedbackDialog } from './components/FeedbackDialog'
 import { MessageBubble } from './components/MessageBubble'
-import { BackButton, DayLabel, Empty, Feed, FamilyIcon, Header, Room } from './styles'
-import { appendMessage, groupByDay, mergeLatest, messageStatus, replaceMessage } from './utils'
+import { BackButton, DayLabel, Title, Empty, Feed, FamilyIcon, Header, Room } from './styles'
+import { appendMessage, groupByDay, mergeLatest, messageStatus, replaceMessage, visitLabel } from './utils'
 
 // «рядом с низом»: тогда новое сообщение прокручивает переписку само, а не сбивает чтение старых
 const NEAR_BOTTOM_PX = 160
@@ -33,6 +33,7 @@ export default function ChatRoom() {
   const now = useNow()
 
   // загруженная переписка: старые сверху; hasMore — есть ли ещё более старые
+  const [peer, setPeer] = useState<MessagePage['peer']>(null)
   const [thread, setThread] = useState<{ messages: ChatMessage[]; hasMore: boolean; readUpTo: string | null }>()
   const messages = thread?.messages
   const hasMore = thread?.hasMore ?? false
@@ -84,6 +85,7 @@ export default function ChatRoom() {
           ...mergeLatest(current?.messages ?? [], page.messages, page.hasMore, current?.hasMore ?? false),
           readUpTo: page.readUpTo,
         }))
+        setPeer(page.peer)
         setFailed(false)
         // без findLast: он есть не во всех версиях Safari
         const newest = [...page.messages].reverse().find((m) => m.senderId !== me)
@@ -167,7 +169,10 @@ export default function ChatRoom() {
           </svg>
         </BackButton>
         {other ? <Avatar name={memberLabel(other, identity.role)} seed={other.id} src={other.avatar} size="2.25rem" /> : <FamilyIcon aria-hidden>👨‍👩‍👧</FamilyIcon>}
-        <h1>{chatTitle(chat, members, identity.role)}</h1>
+        <Title>
+          <h1>{chatTitle(chat, members, identity.role)}</h1>
+          {visitLabel(peer, now) && <small>{visitLabel(peer, now)}</small>}
+        </Title>
       </Header>
 
       {failed && <Notice $tone="error">Не удалось загрузить сообщения. Проверьте соединение.</Notice>}

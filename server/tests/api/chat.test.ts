@@ -451,3 +451,32 @@ describe('пуш не нужен, если чат открыт', () => {
     }
   })
 })
+
+describe('визиты в личный чат', () => {
+  const peerOf = async (token: string, chat: string) => (await messages(token, chat)).body.peer
+  const open = async (token: string, chat: string) => {
+    const ws = await app.injectWS('/api/ws')
+    const ready = new Promise<void>((r) => ws.once('message', () => r()))
+    ws.send(JSON.stringify({ type: 'auth', token }))
+    await ready
+    ws.send(JSON.stringify({ type: 'viewing', chat }))
+    await new Promise((r) => setTimeout(r, 100))
+    return ws
+  }
+
+  it('собеседник видит, что мама сейчас в чате, а после выхода время визита', async () => {
+    expect(await peerOf(fam.dad.token, fam.mom.id)).toEqual({ viewing: false, lastVisitAt: null })
+    const ws = await open(fam.mom.token, fam.dad.id)
+    expect(await peerOf(fam.dad.token, fam.mom.id)).toMatchObject({ viewing: true })
+    ws.send(JSON.stringify({ type: 'viewing', chat: null }))
+    await new Promise((r) => setTimeout(r, 100))
+    const peer = await peerOf(fam.dad.token, fam.mom.id)
+    expect(peer.viewing).toBe(false)
+    expect(peer.lastVisitAt).not.toBeNull()
+    ws.terminate()
+  })
+
+  it('в общем чате подписи нет', async () => {
+    expect(await peerOf(fam.dad.token, 'family')).toBeNull()
+  })
+})

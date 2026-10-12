@@ -91,7 +91,7 @@ describe('ребёнок видит родителей как «Мама» и «
   })
 
   it('в переписке: заголовок личного чата и подпись автора в общем', async () => {
-    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'me', 'привет всем')], hasMore: false, readUpTo: null })
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'me', 'привет всем')], hasMore: false, readUpTo: null, peer: null })
     window.scrollTo = vi.fn() as unknown as typeof window.scrollTo
     const view = (chat: string) =>
       render(
@@ -117,7 +117,7 @@ describe('реакции и монеты под сообщениями', () => {
   const kidMessage = { ...m('1', 'm2', 'Получил пятёрку!'), reactions: [{ memberId: 'me', emoji: '👏' }], awards: [{ amount: 20, by: 'me' }, { amount: 5, by: 'me' }] }
 
   function renderRoom(as: 'me' | 'm2', messages: ChatMessage[], chat = 'family') {
-    vi.mocked(api.listMessages).mockResolvedValue({ messages, hasMore: false, readUpTo: null })
+    vi.mocked(api.listMessages).mockResolvedValue({ messages, hasMore: false, readUpTo: null, peer: null })
     window.scrollTo = vi.fn() as unknown as typeof window.scrollTo
     render(
       providers(
@@ -278,7 +278,7 @@ describe('переписка', () => {
   })
 
   it('общий чат: имена авторов у чужих сообщений, свои без имени', async () => {
-    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'я дома'), m('2', 'me', 'молодец')], hasMore: false, readUpTo: null })
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'я дома'), m('2', 'me', 'молодец')], hasMore: false, readUpTo: null, peer: null })
     renderRoom('family')
     expect(await screen.findByText('я дома')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Общий чат' })).toBeInTheDocument()
@@ -295,7 +295,7 @@ describe('переписка', () => {
         m('3', 'm2', 'от собеседника', '2026-10-11T11:30:00Z'),
       ],
       hasMore: false,
-      readUpTo: '2026-10-11T10:30:00Z',
+      readUpTo: '2026-10-11T10:30:00Z', peer: null,
     })
     renderRoom('m2')
     await screen.findByText('прочитано')
@@ -305,7 +305,7 @@ describe('переписка', () => {
   })
 
   it('личный чат: заголовок по собеседнику, имён над сообщениями нет', async () => {
-    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'привет')], hasMore: false, readUpTo: null })
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'привет')], hasMore: false, readUpTo: null, peer: null })
     renderRoom('m2')
     expect(await screen.findByText('привет')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Миша' })).toBeInTheDocument()
@@ -313,7 +313,7 @@ describe('переписка', () => {
   })
 
   it('отмечает прочитанным, если есть чужие сообщения, и только один раз', async () => {
-    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'привет')], hasMore: false, readUpTo: null })
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'привет')], hasMore: false, readUpTo: null, peer: null })
     const { refresh } = renderRoom('m2')
     await screen.findByText('привет')
     await waitFor(() => expect(api.markChatRead).toHaveBeenCalledWith('tok', 'm2'))
@@ -323,7 +323,7 @@ describe('переписка', () => {
 
   it('сигнал сокета обновляет переписку, но повторной отметки о прочтении нет (иначе бесконечный цикл)', async () => {
     const listeners = new Set<Listener>()
-    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'привет')], hasMore: false, readUpTo: null })
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'привет')], hasMore: false, readUpTo: null, peer: null })
     render(
       <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
         {providers(
@@ -347,27 +347,27 @@ describe('переписка', () => {
     expect(api.markChatRead).toHaveBeenCalledTimes(1)
 
     // пришло новое чужое сообщение: отметка нужна снова
-    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'привет'), m('2', 'm2', 'ещё')], hasMore: false, readUpTo: null })
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'привет'), m('2', 'm2', 'ещё')], hasMore: false, readUpTo: null, peer: null })
     act(() => listeners.forEach((l) => l({ type: 'chat', chat: 'm2' })))
     await screen.findByText('ещё')
     await waitFor(() => expect(api.markChatRead).toHaveBeenCalledTimes(2))
   })
 
   it('в чате одни свои сообщения: отметка не нужна', async () => {
-    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'me', 'сам себе')], hasMore: false, readUpTo: null })
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'me', 'сам себе')], hasMore: false, readUpTo: null, peer: null })
     renderRoom('m2')
     await screen.findByText('сам себе')
     expect(api.markChatRead).not.toHaveBeenCalled()
   })
 
   it('пустой чат подсказывает написать первым', async () => {
-    vi.mocked(api.listMessages).mockResolvedValue({ messages: [], hasMore: false, readUpTo: null })
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [], hasMore: false, readUpTo: null, peer: null })
     renderRoom('m2')
     expect(await screen.findByText(/Напишите первым/)).toBeInTheDocument()
   })
 
   it('отправка: сообщение появляется сразу, список чатов обновляется', async () => {
-    vi.mocked(api.listMessages).mockResolvedValue({ messages: [], hasMore: false, readUpTo: null })
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [], hasMore: false, readUpTo: null, peer: null })
     vi.mocked(api.sendMessage).mockResolvedValue({ message: m('9', 'me', 'всем привет') })
     const { refresh } = renderRoom('family')
     const user = userEvent.setup()
@@ -379,8 +379,8 @@ describe('переписка', () => {
 
   it('более ранние сообщения подгружаются по кнопке и встают сверху', async () => {
     vi.mocked(api.listMessages)
-      .mockResolvedValueOnce({ messages: [m('5', 'me', 'новое')], hasMore: true, readUpTo: null })
-      .mockResolvedValueOnce({ messages: [m('1', 'me', 'старое')], hasMore: false, readUpTo: null })
+      .mockResolvedValueOnce({ messages: [m('5', 'me', 'новое')], hasMore: true, readUpTo: null, peer: null })
+      .mockResolvedValueOnce({ messages: [m('1', 'me', 'старое')], hasMore: false, readUpTo: null, peer: null })
     renderRoom('m2')
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Показать более ранние' }))

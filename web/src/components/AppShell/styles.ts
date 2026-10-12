@@ -8,6 +8,8 @@ export const Root = styled.div<{ $reserve: string; $chatRoom: boolean }>`
   /* сколько места справа вверху занимают баланс монет (у детей) и значок профиля: шапки страниц не должны под них заезжать */
   --topbar-reserve: ${({ $reserve }) => $reserve};
   position: relative;
+  /* выезжающие страницы не расширяют документ: иначе значок профиля уезжает вместе с шириной (clip не создаёт прокрутку, sticky работает) */
+  overflow-x: clip;
 `
 
 export const Content = styled.div`

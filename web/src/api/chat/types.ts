@@ -41,4 +41,6 @@ export interface MessagePage {
   hasMore: boolean
   // ISO-время, до которого прочитали остальные участники чата (в общем чате все); по нему свои сообщения получают отметку «прочитано»
   readUpTo: string | null
+  // только в личном чате: собеседник сейчас в чате и когда был в нём в последний раз (ISO)
+  peer: { viewing: boolean; lastVisitAt: string | null } | null
 }

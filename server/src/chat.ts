@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
 import { authenticate } from './auth.js'
+import { directKey } from './chatKey.js'
 import { pool } from './db.js'
 import type { PushMessage } from './notifications/messages.js'
 import { coinsWord } from './tasks/text.js'
@@ -17,8 +18,7 @@ const PREVIEW_LENGTH = 140
 
 export const FAMILY_CHAT = 'family'
 
-// Ключ личного чата: id обоих участников по возрастанию, поэтому у собеседников он одинаковый.
-export const directKey = (a: string, b: string) => (a < b ? `${a}:${b}` : `${b}:${a}`)
+export { directKey }
 
 const chatParams = {
   type: 'object',
@@ -264,7 +264,13 @@ export async function chatRoutes(app: FastifyInstance) {
         [chat.key, peers],
       )
       const page = await decorate(pool, rows.slice(0, limit).reverse().map(toMessage))
-      return { messages: page, hasMore, readUpTo: (read[0]?.readUpTo as string | null) ?? null }
+      // в личном чате: сидит ли собеседник в нём сейчас и когда был в последний раз
+      let peer: { viewing: boolean; lastVisitAt: string | null } | null = null
+      if (chat.otherId) {
+        const { rows: visit } = await pool.query('select visited_at as "at" from chat_visits where member_id = $1 and chat_key = $2', [chat.otherId, chat.key])
+        peer = { viewing: isViewingChat(chat.otherId, member.id), lastVisitAt: (visit[0]?.at as string | undefined) ?? null }
+      }
+      return { messages: page, hasMore, readUpTo: (read[0]?.readUpTo as string | null) ?? null, peer }
     },
   )
 
