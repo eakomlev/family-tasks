@@ -20,6 +20,8 @@ interface Client {
   memberId: string
   tokenHash: string
   alive: boolean
+  // какой чат открыт на экране этого устройства (с точки зрения участника), null — никакой
+  viewing: string | null
 }
 
 // коды закрытия соединения (4000-4999 свободны для приложения)
@@ -64,6 +66,14 @@ export function closeSession(token: string) {
   }
 }
 
+// Открыт ли у участника на каком-либо устройстве этот чат (и вкладка на виду): тогда пуш о сообщении не нужен.
+export function isViewingChat(memberId: string, chat: string) {
+  for (const client of clients) {
+    if (client.memberId === memberId && client.viewing === chat) return true
+  }
+  return false
+}
+
 export function connectionCount() {
   return clients.size
 }
@@ -76,7 +86,18 @@ export async function realtimeRoutes(app: FastifyInstance) {
     const authTimer = setTimeout(() => socket.close(CLOSE_UNAUTHORIZED, 'auth timeout'), AUTH_TIMEOUT_MS)
 
     socket.on('message', async (raw: Buffer) => {
-      if (client) return // после входа клиент ничего не присылает
+      if (client) {
+        // после входа клиент сообщает только, какой чат у него открыт
+        try {
+          const message = JSON.parse(raw.toString())
+          if (message?.type === 'viewing') {
+            client.viewing = typeof message.chat === 'string' && message.chat.length <= 64 ? message.chat : null
+          }
+        } catch {
+          /* не JSON: игнорируем */
+        }
+        return
+      }
       let token: unknown
       try {
         const message = JSON.parse(raw.toString())
@@ -88,7 +109,7 @@ export async function realtimeRoutes(app: FastifyInstance) {
       if (!member || socket.readyState !== socket.OPEN) return socket.close(CLOSE_UNAUTHORIZED, 'unauthorized')
 
       clearTimeout(authTimer)
-      client = { socket, familyId: member.family_id, memberId: member.id, tokenHash: hashToken(token as string), alive: true }
+      client = { socket, familyId: member.family_id, memberId: member.id, tokenHash: hashToken(token as string), alive: true, viewing: null }
       clients.add(client)
       send(client, { type: 'ready' })
     })

@@ -22,3 +22,13 @@ export function useLive(topics: Topic[], onChange: (event: RealtimeEvent) => voi
     return realtime.subscribe(listener)
   }, [realtime, key])
 }
+
+// Сообщает серверу, что чат открыт на экране, пока компонент смонтирован (и вкладка на виду): пуши о его сообщениях не приходят.
+export function useViewingChat(chat: string | undefined) {
+  const realtime = useContext(RealtimeContext)
+  useEffect(() => {
+    if (!realtime || !chat) return
+    realtime.setViewing(chat)
+    return () => realtime.setViewing(null)
+  }, [realtime, chat])
+}

@@ -325,7 +325,7 @@ describe('переписка', () => {
     const listeners = new Set<Listener>()
     vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'привет')], hasMore: false, readUpTo: null })
     render(
-      <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)) }}>
+      <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
         {providers(
           <MemoryRouter initialEntries={['/chat/m2']}>
             <Routes><Route path="/chat/:chat" element={<ChatRoom />} /></Routes>

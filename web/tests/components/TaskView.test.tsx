@@ -28,7 +28,7 @@ function renderView(me: Member, loaded: { task: Task; occurrence: Occurrence | n
   vi.mocked(api.getTask).mockResolvedValue(loaded)
   const identity = { familyCode: 'c', memberId: me.id, name: me.name, role: me.role, token: 'tok' }
   render(
-    <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)) }}>
+    <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
       <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
         <MemoryRouter initialEntries={[url]}>

@@ -16,4 +16,6 @@ export type Listener = (event: RealtimeEvent) => void
 
 export interface RealtimeContextValue {
   subscribe: (listener: Listener) => () => void
+  // какой чат открыт на экране (null — никакой): сервер не шлёт пуши о сообщениях в открытом чате
+  setViewing: (chat: string | null) => void
 }

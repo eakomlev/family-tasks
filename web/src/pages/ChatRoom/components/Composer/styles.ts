@@ -11,7 +11,9 @@ export const Bar = styled.form`
   margin: 0 -1rem;
   padding: 0.6rem 1rem;
   border-top: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--glass-bar);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
 
   /* клавиатура открыта: панели табов нет, поле ввода у самого низа */
   :root[data-keyboard] & {

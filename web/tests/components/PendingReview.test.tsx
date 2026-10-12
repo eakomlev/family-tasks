@@ -39,7 +39,7 @@ function renderBlock(props: Parameters<typeof PendingReview>[0] = {}, role: Iden
   const me = role === 'child' ? members[1] : members[0]
   const identity: Identity = { familyCode: 'c', memberId: me.id, name: me.name, role, token: 'tok' }
   render(
-    <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)) }}>
+    <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
       <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
         <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
           <MemoryRouter><PendingReview {...props} /></MemoryRouter>

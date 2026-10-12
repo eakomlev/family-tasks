@@ -9,7 +9,7 @@ import { useIdentity } from '@/identity/context'
 import { useKeyboardViewport } from '@/lib/useKeyboardViewport'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
-import { useLive } from '@/realtime/context'
+import { useLive, useViewingChat } from '@/realtime/context'
 import { memberLabel } from '@/lib/roles'
 import { chatTitle } from '../Chat/utils'
 import { Composer } from './components/Composer'
@@ -56,6 +56,8 @@ export default function ChatRoom() {
     if (stick.current) scrollToBottom()
   })
 
+  // пока чат открыт, пуши о его сообщениях не нужны
+  useViewingChat(chat)
   useLive(['chat'], (e) => {
     if (e.type === 'resync' || (e.type === 'chat' && e.chat === chat)) setVersion((v) => v + 1)
   })

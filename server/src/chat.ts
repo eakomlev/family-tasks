@@ -5,7 +5,7 @@ import { pool } from './db.js'
 import type { PushMessage } from './notifications/messages.js'
 import { coinsWord } from './tasks/text.js'
 import { notifyMember } from './push.js'
-import { publish, publishTo } from './realtime.js'
+import { isViewingChat, publish, publishTo } from './realtime.js'
 
 const MAX_TEXT = 2000
 
@@ -299,7 +299,8 @@ export async function chatRoutes(app: FastifyInstance) {
       for (const id of chat.participants) {
         const view = chat.otherId === null ? FAMILY_CHAT : id === member.id ? chat.otherId : member.id
         publishTo(id, { type: 'chat', chat: view })
-        if (id !== member.id) void notifyMember(id, chatPushMessage(senderLabel(member, roleOf.get(id) ?? ''), view, text))
+        // если получатель прямо сейчас смотрит этот чат, пуш не нужен: сообщение появится на экране
+        if (id !== member.id && !isViewingChat(id, view)) void notifyMember(id, chatPushMessage(senderLabel(member, roleOf.get(id) ?? ''), view, text))
       }
       return reply.code(201).send({ message })
     },

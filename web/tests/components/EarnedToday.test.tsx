@@ -17,7 +17,7 @@ const NOW = new Date(2026, 9, 11, 15, 0)
 function renderBanner(role: Identity['role'] = 'child', listeners = new Set<Listener>()) {
   const identity: Identity = { familyCode: 'c', memberId: 'kid', name: 'Миша', role, token: 'tok' }
   render(
-    <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)) }}>
+    <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
       <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
         <MemoryRouter><EarnedToday now={NOW} /></MemoryRouter>
       </IdentityContext.Provider>

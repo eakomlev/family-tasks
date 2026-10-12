@@ -417,3 +417,37 @@ describe('уведомления', () => {
     expect(await pushes('dad', 'kid', 'sis')).toEqual([])
   })
 })
+
+describe('пуш не нужен, если чат открыт', () => {
+  const view = async (token: string, chat: string | null) => {
+    const ws = await app.injectWS('/api/ws')
+    const ready = new Promise<void>((r) => ws.once('message', () => r()))
+    ws.send(JSON.stringify({ type: 'auth', token }))
+    await ready
+    ws.send(JSON.stringify({ type: 'viewing', chat }))
+    await new Promise((r) => setTimeout(r, 100))
+    return ws
+  }
+
+  it('открытый у получателя чат не получает уведомление, остальные получают', async () => {
+    const ws = await view(fam.dad.token, 'family')
+    try {
+      expect((await send(fam.mom.token, 'family', 'всем привет')).status).toBe(201)
+      expect(await pushes('dad')).toEqual([])
+      expect((await pushes('kid')).length).toBe(1)
+    } finally {
+      ws.terminate()
+    }
+  })
+
+  it('другой чат или null уведомление не гасят', async () => {
+    const ws = await view(fam.dad.token, fam.kid.id)
+    try {
+      await send(fam.mom.token, 'family', 'раз')
+      expect((await pushes('dad')).length).toBe(1)
+      ws.send(JSON.stringify({ type: 'viewing', chat: null }))
+    } finally {
+      ws.terminate()
+    }
+  })
+})

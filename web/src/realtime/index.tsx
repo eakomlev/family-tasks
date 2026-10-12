@@ -10,12 +10,19 @@ const RESYNC_AFTER_HIDDEN_MS = 5000
 // Переподключается сам (с нарастающей паузой), после восстановления связи просит все страницы обновиться.
 export function RealtimeProvider({ token, children }: { token: string; children: ReactNode }) {
   const listeners = useRef(new Set<Listener>())
+  // открытый чат и функция, которая отправляет его текущему соединению (задаёт эффект ниже)
+  const viewing = useRef<string | null>(null)
+  const reportViewing = useRef<() => void>(() => {})
 
   const value = useMemo<RealtimeContextValue>(
     () => ({
       subscribe(listener) {
         listeners.current.add(listener)
         return () => void listeners.current.delete(listener)
+      },
+      setViewing(chat) {
+        viewing.current = chat
+        reportViewing.current()
       },
     }),
     [],
@@ -28,6 +35,15 @@ export function RealtimeProvider({ token, children }: { token: string; children:
     let stopped = false
     let connectedBefore = false
     let hiddenAt: number | undefined
+    let ready = false
+
+    // вкладка в фоне — чат никто не смотрит
+    function sendViewing() {
+      if (socket?.readyState !== WebSocket.OPEN || !ready) return
+      const chat = document.visibilityState === 'hidden' ? null : viewing.current
+      socket.send(JSON.stringify({ type: 'viewing', chat }))
+    }
+    reportViewing.current = sendViewing
 
     const emit = (event: Parameters<Listener>[0]) => listeners.current.forEach((listener) => listener(event))
 
@@ -43,6 +59,8 @@ export function RealtimeProvider({ token, children }: { token: string; children:
         if (!message) return
         if (message.type === 'ready') {
           attempt = 0
+          ready = true
+          sendViewing()
           // после обрыва могли пропасть события: пусть страницы обновятся целиком
           if (connectedBefore) emit({ type: 'resync' })
           connectedBefore = true
@@ -51,7 +69,10 @@ export function RealtimeProvider({ token, children }: { token: string; children:
         }
       }
       ws.onclose = (e) => {
-        if (socket === ws) socket = undefined
+        if (socket === ws) {
+          socket = undefined
+          ready = false
+        }
         if (stopped || e.code === CLOSE_UNAUTHORIZED) return
         timer = setTimeout(connect, nextDelay(attempt++))
       }
@@ -59,6 +80,7 @@ export function RealtimeProvider({ token, children }: { token: string; children:
 
     // вкладка снова на виду или вернулась сеть: подключаемся сразу, не дожидаясь паузы, и обновляем данные
     const onVisibility = () => {
+      sendViewing()
       if (document.visibilityState === 'hidden') {
         hiddenAt = Date.now()
         return
@@ -78,6 +100,7 @@ export function RealtimeProvider({ token, children }: { token: string; children:
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('online', onOnline)
+      reportViewing.current = () => {}
       socket?.close()
     }
   }, [token])

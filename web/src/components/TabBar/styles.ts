@@ -42,6 +42,10 @@ export const TabLink = styled(NavLink)`
   color: var(--muted);
   font-size: 0.7rem;
   text-decoration: none;
+  /* без серой вспышки браузера при нажатии: выделение таба рисуем сами */
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-touch-callout: none;
 
   &.active {
     color: var(--accent);
@@ -52,7 +56,7 @@ export const TabLink = styled(NavLink)`
   &::before {
     content: '';
     position: absolute;
-    inset: 0.3rem 0.2rem;
+    inset: 0.1rem 0.05rem;
     z-index: -1;
     border-radius: 1.2rem;
     background:
@@ -92,8 +96,8 @@ export const Icon = styled.span<{ $active: boolean }>`
   display: inline-flex;
 
   svg {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 1.75rem;
+    height: 1.75rem;
     fill: none;
     stroke: currentColor;
     stroke-width: ${({ $active }) => ($active ? 2 : 1.7)};
