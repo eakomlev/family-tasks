@@ -181,18 +181,21 @@ describe('реакции и монеты под сообщениями', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
-  it('сообщения взрослых и свои у родителя не нажимаются', async () => {
+  it('на сообщения взрослых и свои у родителя реакцию поставить можно, а монет нет', async () => {
     renderRoom('me', [m('1', 'me', 'Моё сообщение'), m('2', 'papa', 'Сообщение папы')])
-    await screen.findByText('Моё сообщение')
-    expect(screen.queryByRole('button', { name: /Моё сообщение/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Сообщение папы/ })).not.toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('button', { name: /Сообщение папы/ }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Реакция 👍' })).toBeInTheDocument()
+    expect(screen.queryByText('Начислить монеты')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Моё сообщение/ })).toBeInTheDocument()
   })
 
-  it('у ребёнка сообщения не нажимаются (ни свои, ни чужие)', async () => {
+  it('ребёнок может поставить реакцию на любое сообщение, но монет у него нет', async () => {
     renderRoom('m2', [m('1', 'm2', 'Своё'), m('2', 'me', 'От мамы')])
-    await screen.findByText('Своё')
-    expect(screen.queryByRole('button', { name: /Своё/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /От мамы/ })).not.toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('button', { name: /От мамы/ }))
+    expect(screen.getByRole('button', { name: 'Реакция 👍' })).toBeInTheDocument()
+    expect(screen.queryByText('Начислить монеты')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Своё/ })).toBeInTheDocument()
   })
 
   it('нажатие с клавиатуры (Enter) тоже открывает окно', async () => {

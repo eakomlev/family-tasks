@@ -159,21 +159,39 @@ describe('монеты за сообщение', () => {
 })
 
 describe('кто может и на что', () => {
-  it('ребёнок не может ставить реакции и начислять монеты (и себе тоже)', async () => {
+  it('ребёнок не может начислять монеты (и себе тоже), даже вместе с реакцией', async () => {
     const msg = await send(fam.kid.token, 'family', 'сам себе')
     for (const token of [fam.kid.token, fam.sis.token]) {
       const res = await feedback(token, 'family', msg.id, { coins: 100, emoji: '👍' })
       expect(res.status).toBe(403)
       expect(res.body.error).toBe('parents_only')
     }
-    expect((await messageOf(fam.mom.token, 'family', msg.id)).awards).toEqual([])
+    const after = await messageOf(fam.mom.token, 'family', msg.id)
+    expect(after.awards).toEqual([])
+    expect(after.reactions).toEqual([])
   })
 
-  it('на сообщения взрослых нельзя: реакции и монеты только на сообщения детей', async () => {
+  it('реакцию ставит любой участник чата и на любое сообщение, в том числе ребёнок на сообщение родителя', async () => {
+    const dadMsg = await send(fam.dad.token, 'family', 'от папы')
+    expect((await feedback(fam.kid.token, 'family', dadMsg.id, { emoji: '❤️' })).status).toBe(200)
+    expect((await feedback(fam.mom.token, 'family', dadMsg.id, { emoji: '👍' })).status).toBe(200)
+    const reactions = (await messageOf(fam.mom.token, 'family', dadMsg.id)).reactions
+    expect(reactions).toEqual(expect.arrayContaining([
+      { memberId: fam.kid.id, emoji: '❤️' },
+      { memberId: fam.mom.id, emoji: '👍' },
+    ]))
+
+    const sisMsg = await send(fam.sis.token, 'family', 'от сестры')
+    expect((await feedback(fam.kid.token, 'family', sisMsg.id, { emoji: '🎉' })).status).toBe(200)
+  })
+
+  it('монеты только на сообщения детей: на сообщение взрослого нельзя', async () => {
     const msg = await send(fam.dad.token, 'family', 'от папы')
     const res = await feedback(fam.mom.token, 'family', msg.id, { coins: 10 })
     expect(res.status).toBe(400)
     expect(res.body.error).toBe('not_a_child_message')
+    // реакция на то же сообщение допустима
+    expect((await feedback(fam.mom.token, 'family', msg.id, { emoji: '👍' })).status).toBe(200)
   })
 
   it('личная переписка двоих недоступна остальным: другой родитель не найдёт это сообщение', async () => {

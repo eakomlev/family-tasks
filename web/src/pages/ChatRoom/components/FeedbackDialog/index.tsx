@@ -7,8 +7,8 @@ import { REACTIONS } from '@/lib/reactions'
 import { Backdrop, Emoji, Emojis, Quote, Sheet, Title } from './styles'
 import type { FeedbackDialogProps } from './types'
 
-// Окно родителя над сообщением ребёнка: выбрать реакцию и/или начислить монеты автору.
-export function FeedbackDialog({ message, authorName, myEmoji, onSubmit, onClose }: FeedbackDialogProps) {
+// Окно над сообщением: выбрать реакцию и, если это родитель и сообщение ребёнка, начислить монеты автору.
+export function FeedbackDialog({ message, authorName, canAward, myEmoji, onSubmit, onClose }: FeedbackDialogProps) {
   // выбранная реакция: undefined — не выбрана (у сообщения нет моей), строка — выбрана
   const [emoji, setEmoji] = useState<string | undefined>(myEmoji)
   const [coins, setCoins] = useState('0')
@@ -29,8 +29,8 @@ export function FeedbackDialog({ message, authorName, myEmoji, onSubmit, onClose
   }, [])
 
   const amount = Number(coins)
-  const coinsInvalid = custom && (coins.trim() === '' || !Number.isInteger(amount) || amount < 1 || amount > MAX_REWARD)
-  const coinsChosen = !coinsInvalid && amount > 0
+  const coinsInvalid = canAward && custom && (coins.trim() === '' || !Number.isInteger(amount) || amount < 1 || amount > MAX_REWARD)
+  const coinsChosen = canAward && !coinsInvalid && amount > 0
   // реакция изменилась: поставлена новая или снята прежняя
   const emojiChanged = emoji !== myEmoji
   const canSend = !busy && !coinsInvalid && (coinsChosen || emojiChanged)
@@ -85,6 +85,7 @@ export function FeedbackDialog({ message, authorName, myEmoji, onSubmit, onClose
           </Emojis>
         </div>
 
+        {canAward && (
         <CoinPicker
           value={coins}
           custom={custom}
@@ -98,6 +99,7 @@ export function FeedbackDialog({ message, authorName, myEmoji, onSubmit, onClose
           zeroLabel="Без монет"
           hint={`Монеты получит ${authorName}. Начислять можно несколько раз.`}
         />
+        )}
 
         {coinsInvalid && <Notice $tone="error">Монеты: целое число от 1 до {MAX_REWARD}.</Notice>}
         {error && <Notice $tone="error">{error}</Notice>}

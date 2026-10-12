@@ -145,8 +145,8 @@ export default function ChatRoom() {
     void refreshChats()
   }
 
-  // Реакции и монеты ставят родители, и только на сообщения детей.
-  const canGiveFeedback = (message: ChatMessage) =>
+  // Реакцию можно поставить на любое сообщение, а монеты начисляют только родители и только за сообщения детей.
+  const canAward = (message: ChatMessage) =>
     identity!.role !== 'child' && members.find((m) => m.id === message.senderId)?.role === 'child'
 
   async function handleFeedback(feedback: MessageFeedback) {
@@ -197,7 +197,7 @@ export default function ChatRoom() {
                   senderName={sender(message.senderId)}
                   showSender={chat === FAMILY_CHAT}
                   status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
-                  onFeedback={canGiveFeedback(message) ? () => setFeedbackFor(message) : undefined}
+                  onFeedback={() => setFeedbackFor(message)}
                 />
               ))}
             </section>
@@ -211,6 +211,7 @@ export default function ChatRoom() {
         <FeedbackDialog
           message={feedbackFor}
           authorName={sender(feedbackFor.senderId) ?? 'Участник'}
+          canAward={canAward(feedbackFor)}
           myEmoji={feedbackFor.reactions.find((r) => r.memberId === me)?.emoji}
           onSubmit={handleFeedback}
           onClose={() => setFeedbackFor(undefined)}

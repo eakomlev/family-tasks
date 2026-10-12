@@ -10,7 +10,7 @@ import { isViewingChat, publish, publishTo } from './realtime.js'
 
 const MAX_TEXT = 2000
 
-// Реакции, которые родитель может поставить на сообщение ребёнка (тот же список на клиенте, lib/reactions.ts).
+// Реакции, которые участник может поставить на сообщение (тот же список на клиенте, lib/reactions.ts).
 export const REACTIONS = ['👍', '❤️', '🔥', '👏', '🎉', '💪', '🤩', '😍']
 const MAX_AWARD = 1000
 const PAGE_SIZE = 50
@@ -340,7 +340,8 @@ export async function chatRoutes(app: FastifyInstance) {
     }
     return reply.code(204).send()
   })
-  // Реакция и/или монеты родителя на сообщение ребёнка (в любом доступном родителю чате).
+  // Реакция и/или монеты на сообщение в доступном чате. Реакцию ставит любой участник чата на любое сообщение,
+  // монеты начисляет только родитель и только автору-ребёнку.
   // emoji: поставить реакцию (null снимает свою), coins: начислить монеты автору сообщения. Нужно хотя бы одно.
   app.post<{ Params: { chat: string; messageId: string }; Body: { emoji?: string | null; coins?: number } }>(
     '/api/chats/:chat/messages/:messageId/feedback',
@@ -348,9 +349,9 @@ export async function chatRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const member = await me(req, reply)
       if (!member) return
-      if (member.role === 'child') return reply.code(403).send({ error: 'parents_only' })
       const { emoji, coins } = req.body
       if (emoji === undefined && coins === undefined) return reply.code(400).send({ error: 'nothing_to_do' })
+      if (coins !== undefined && member.role === 'child') return reply.code(403).send({ error: 'parents_only' })
 
       const chat = await resolveChat(member, req.params.chat, reply)
       if (!chat) return
@@ -362,8 +363,8 @@ export async function chatRoutes(app: FastifyInstance) {
       )
       const row = found[0]
       if (!row) return reply.code(404).send({ error: 'message_not_found' })
-      // реакции и монеты только на сообщения детей
-      if (row.senderRole !== 'child') return reply.code(400).send({ error: 'not_a_child_message' })
+      // монеты только на сообщения детей
+      if (coins !== undefined && row.senderRole !== 'child') return reply.code(400).send({ error: 'not_a_child_message' })
 
       const db = await pool.connect()
       try {

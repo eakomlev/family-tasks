@@ -16,13 +16,21 @@ const message: ChatMessage = {
 function setup(props: Partial<Parameters<typeof FeedbackDialog>[0]> = {}) {
   const onSubmit = vi.fn().mockResolvedValue(undefined)
   const onClose = vi.fn()
-  render(<FeedbackDialog message={message} authorName="Миша" onSubmit={onSubmit} onClose={onClose} {...props} />)
+  render(<FeedbackDialog message={message} authorName="Миша" canAward onSubmit={onSubmit} onClose={onClose} {...props} />)
   return { onSubmit, onClose, user: userEvent.setup() }
 }
 
 const send = () => screen.getByRole('button', { name: 'Отправить' })
 
 describe('FeedbackDialog', () => {
+  it('без права начислять (сообщение взрослого или открыл ребёнок) монет нет, реакция уходит', async () => {
+    const { onSubmit, user } = setup({ canAward: false })
+    expect(screen.queryByText('Начислить монеты')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Реакция 👏' }))
+    await user.click(send())
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ emoji: '👏' }))
+  })
+
   it('показывает, к чему относится: автор и текст сообщения; как модальное окно', () => {
     setup()
     expect(screen.getByRole('dialog', { name: /Миша/ })).toHaveAttribute('aria-modal', 'true')
