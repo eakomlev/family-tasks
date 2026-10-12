@@ -5,7 +5,7 @@ import styled from 'styled-components'
 export const Root = styled.div<{ $reserve: string; $chatRoom: boolean }>`
   /* плавающая панель табов: высота овала, зазор под ним и часть нижнего отступа iPhone (индикатор «Домой» остаётся ниже) */
   --tabbar-bottom: calc(env(safe-area-inset-bottom) * 0.4);
-  --tabbar-bar-height: 3.5rem;
+  --tabbar-bar-height: 4rem;
   --tabbar-gap: 0.6rem;
   /* в переписке панели табов нет: остаётся лишь часть нижнего отступа под индикатор «Домой», поле ввода почти у края экрана */
   --tabbar-height: ${({ $chatRoom }) => ($chatRoom ? 'var(--tabbar-bottom)' : 'calc(var(--tabbar-bar-height) + var(--tabbar-gap) + var(--tabbar-bottom) + 0.6rem)')};

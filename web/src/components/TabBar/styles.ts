@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import styled from 'styled-components'
+import styled, { css, keyframes } from 'styled-components'
 
 // Плавающая панель, как в Telegram: овал с отступами от краёв экрана и от низа, под ней видно содержимое страницы
 export const Bar = styled.nav`
@@ -96,9 +96,38 @@ export const TabLink = styled(NavLink)`
   }
 `
 
+// при выборе таба значок подпрыгивает и остаётся чуть приподнятым и увеличенным, с мягким свечением акцентного цвета
+const pop = keyframes`
+  0% {
+    transform: translateY(0) scale(0.85);
+  }
+
+  45% {
+    transform: translateY(-0.3rem) scale(1.35);
+  }
+
+  100% {
+    transform: translateY(-0.12rem) scale(1.12);
+  }
+`
+
 // значок рисуется цветом текста таба (серый у обычного, акцентный у выбранного); у выбранного линия чуть толще
 export const Icon = styled.span<{ $active: boolean }>`
   display: inline-flex;
+  transition: transform 0.25s ease, filter 0.25s ease;
+
+  ${({ $active }) =>
+    $active &&
+    css`
+      transform: translateY(-0.12rem) scale(1.12);
+      filter: drop-shadow(0 3px 7px color-mix(in srgb, var(--accent) 55%, transparent));
+      animation: ${pop} 0.5s cubic-bezier(0.3, 1.4, 0.5, 1);
+    `}
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+  }
 
   svg {
     width: 1.75rem;
