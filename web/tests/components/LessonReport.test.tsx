@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '@/api'
@@ -7,21 +8,25 @@ import { LessonViewList } from '@/components/LessonViewList'
 import { IdentityContext } from '@/identity/context'
 import type { Identity } from '@/identity/types'
 import LessonReport from '@/pages/LessonReport'
+import { makeStore } from '@/store'
+import { setSession } from '@/store/session'
 
 vi.mock('@/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/api')>()), sendMessage: vi.fn() }))
 
 function renderPage(url: string, role: Identity['role'] = 'child') {
   const identity: Identity = { familyCode: 'c', memberId: 'kid', name: 'Миша', role, token: 'tok' }
   render(
-    <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-      <MemoryRouter initialEntries={[url]}>
-        <Routes>
-          <Route path="/lesson-report" element={<LessonReport />} />
-          <Route path="/chat/:chat" element={<p>Общий чат открыт</p>} />
-          <Route path="/my-day" element={<p>Мой день</p>} />
-        </Routes>
-      </MemoryRouter>
-    </IdentityContext.Provider>,
+    <Provider store={makeStore({ hydrate: false })}>
+      <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
+        <MemoryRouter initialEntries={[url]}>
+          <Routes>
+            <Route path="/lesson-report" element={<LessonReport />} />
+            <Route path="/chat/:chat" element={<p>Общий чат открыт</p>} />
+            <Route path="/my-day" element={<p>Мой день</p>} />
+          </Routes>
+        </MemoryRouter>
+      </IdentityContext.Provider>
+    </Provider>,
   )
   return userEvent.setup()
 }
@@ -29,6 +34,7 @@ function renderPage(url: string, role: Identity['role'] = 'child') {
 const send = () => screen.getByRole('button', { name: 'Отправить в общий чат' })
 
 beforeEach(() => {
+  setSession({ token: 'tok', memberId: 'kid' })
   vi.mocked(api.sendMessage).mockReset().mockResolvedValue({
     message: { id: 'x', senderId: 'kid', text: '', createdAt: '2026-10-11T10:00:00Z', reactions: [], awards: [] },
   })

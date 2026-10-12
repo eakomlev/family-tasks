@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '@/api'
@@ -13,6 +14,9 @@ import { Composer } from '@/pages/ChatRoom/components/Composer'
 import { ProfileContext } from '@/profile/context'
 import { RealtimeContext } from '@/realtime/context'
 import type { Listener } from '@/realtime/types'
+import { makeStore } from '@/store'
+import { RealtimeBridge } from '@/store/RealtimeBridge'
+import { setSession } from '@/store/session'
 
 vi.mock('@/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api')>()),
@@ -28,23 +32,26 @@ const members: Member[] = [
 ]
 const m = (id: string, senderId: string, text: string, createdAt = '2026-10-11T10:00:00Z'): ChatMessage => ({ id, senderId, text, createdAt, reactions: [], awards: [] })
 
-function providers(children: React.ReactNode, opts: { chats?: ChatSummary[]; refresh?: () => Promise<void>; as?: 'me' | 'm2' } = {}) {
+function providers(children: React.ReactNode, opts: { chats?: ChatSummary[]; as?: 'me' | 'm2' } = {}) {
   // по умолчанию смотрит мама (me), опционально ребёнок (m2)
   const viewer = members.find((m) => m.id === (opts.as ?? 'me'))!
   const identity = { familyCode: 'c', memberId: viewer.id, name: viewer.name, role: viewer.role, token: 'tok' }
   const chats = opts.chats ?? []
   return (
-    <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-      <ProfileContext.Provider value={{ data: { me: { ...viewer, email: 'l@x.y' }, members }, failed: false, refresh: async () => {} }}>
-        <ChatsContext.Provider value={{ chats, unread: chats.reduce((s, c) => s + c.unread, 0), refresh: opts.refresh ?? (async () => {}) }}>
-          {children}
-        </ChatsContext.Provider>
-      </ProfileContext.Provider>
-    </IdentityContext.Provider>
+    <Provider store={makeStore({ hydrate: false })}>
+      <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
+        <ProfileContext.Provider value={{ data: { me: { ...viewer, email: 'l@x.y' }, members }, failed: false }}>
+          <ChatsContext.Provider value={{ chats, unread: chats.reduce((s, c) => s + c.unread, 0) }}>
+            {children}
+          </ChatsContext.Provider>
+        </ProfileContext.Provider>
+      </IdentityContext.Provider>
+    </Provider>
   )
 }
 
 beforeEach(() => {
+  setSession({ token: 'tok', memberId: 'me' })
   vi.mocked(api.listMessages).mockReset()
   vi.mocked(api.sendMessage).mockReset()
   vi.mocked(api.markChatRead).mockReset().mockResolvedValue(undefined)
@@ -274,7 +281,7 @@ describe('реакции и монеты под сообщениями', () => {
 describe('значок на табе «Чат»', () => {
   const renderBar = (unread: number) =>
     render(
-      <ChatsContext.Provider value={{ chats: [], unread, refresh: async () => {} }}>
+      <ChatsContext.Provider value={{ chats: [], unread }}>
         <MemoryRouter><TabBar /></MemoryRouter>
       </ChatsContext.Provider>,
     )
@@ -325,7 +332,7 @@ describe('Composer', () => {
 })
 
 describe('переписка', () => {
-  const renderRoom = (chat = 'family', refresh = vi.fn().mockResolvedValue(undefined)) => {
+  const renderRoom = (chat = 'family') => {
     render(
       providers(
         <MemoryRouter initialEntries={[`/chat/${chat}`]}>
@@ -334,10 +341,8 @@ describe('переписка', () => {
             <Route path="/chat" element={<p>Список чатов</p>} />
           </Routes>
         </MemoryRouter>,
-        { refresh },
       ),
     )
-    return { refresh }
   }
 
   beforeEach(() => {
@@ -381,10 +386,9 @@ describe('переписка', () => {
 
   it('отмечает прочитанным, если есть чужие сообщения, и только один раз', async () => {
     vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'привет')], hasMore: false, readUpTo: null, peer: null })
-    const { refresh } = renderRoom('m2')
+    renderRoom('m2')
     await screen.findByText('привет')
     await waitFor(() => expect(api.markChatRead).toHaveBeenCalledWith('tok', 'm2'))
-    await waitFor(() => expect(refresh).toHaveBeenCalled())
     expect(api.markChatRead).toHaveBeenCalledTimes(1)
   })
 
@@ -394,9 +398,12 @@ describe('переписка', () => {
     render(
       <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
         {providers(
+          <>
+          <RealtimeBridge />
           <MemoryRouter initialEntries={['/chat/m2']}>
             <Routes><Route path="/chat/:chat" element={<ChatRoom />} /></Routes>
-          </MemoryRouter>,
+          </MemoryRouter>
+          </>,
         )}
       </RealtimeContext.Provider>,
     )
@@ -433,15 +440,14 @@ describe('переписка', () => {
     expect(await screen.findByText(/Напишите первым/)).toBeInTheDocument()
   })
 
-  it('отправка: сообщение появляется сразу, список чатов обновляется', async () => {
+  it('отправка: сообщение появляется сразу', async () => {
     vi.mocked(api.listMessages).mockResolvedValue({ messages: [], hasMore: false, readUpTo: null, peer: null })
     vi.mocked(api.sendMessage).mockResolvedValue({ message: m('9', 'me', 'всем привет') })
-    const { refresh } = renderRoom('family')
+    renderRoom('family')
     const user = userEvent.setup()
     await user.type(await screen.findByLabelText('Сообщение'), 'всем привет{Enter}')
     expect(api.sendMessage).toHaveBeenCalledWith('tok', 'family', 'всем привет')
     expect(await screen.findByText('всем привет')).toBeInTheDocument()
-    await waitFor(() => expect(refresh).toHaveBeenCalled())
   })
 
   it('более ранние сообщения подгружаются по кнопке и встают сверху', async () => {

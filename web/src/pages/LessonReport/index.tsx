@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import { FAMILY_CHAT, sendMessage } from '@/api'
+import { FAMILY_CHAT } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
 import { Field } from '@/components/Field'
@@ -11,6 +11,8 @@ import { Textarea } from '@/components/Textarea'
 import { useIdentity } from '@/identity/context'
 import { buildLessonReport, GRADES, MAX_COMMENT } from '@/lib/lessonReport'
 import { START_PATH } from '@/lib/routes'
+import { toApiError } from '@/store/api'
+import { useSendMessageMutation } from '@/store/chat'
 import { Grade, Grades, Label, Subject } from './styles'
 import { gradeTone } from './utils'
 import { useInFlight } from '@/lib/useInFlight'
@@ -18,6 +20,7 @@ import { useInFlight } from '@/lib/useInFlight'
 // «Что ты хочешь сообщить!»: ребёнок выбирает оценку за урок и/или пишет сообщение, из этого собирается сообщение в общий чат.
 export default function LessonReport() {
   const guard = useInFlight()
+  const [sendMessage] = useSendMessageMutation()
   const { identity } = useIdentity()
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -38,7 +41,7 @@ export default function LessonReport() {
     setBusy(true)
     setError(undefined)
     try {
-      await sendMessage(identity.token, FAMILY_CHAT, text)
+      await sendMessage({ chat: FAMILY_CHAT, text }).unwrap().catch(toApiError)
       navigate(`/chat/${FAMILY_CHAT}`, { replace: true })
     } catch {
       setError('Не удалось отправить. Попробуйте ещё раз.')

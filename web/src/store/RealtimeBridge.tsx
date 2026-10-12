@@ -8,7 +8,8 @@ import type { AppStore } from './index'
 
 const TOPICS: Topic[] = ['tasks', 'members', 'schedule', 'trainings', 'goals', 'chat', 'resync']
 
-// События сокета сбрасывают кэш по тегам. Пока экраны не переехали на RTK Query (фазы 1-5), рядом работают прежние подписки useLive.
+// События сокета сбрасывают кэш по тегам: активные экраны сами запрашивают данные заново, неактивные записи удаляются.
+// Единственное место, где используется `useLive`: экраны на сигналы не подписываются.
 export function RealtimeBridge() {
   const store = useStore() as AppStore
   const invalidate = useMemo(() => createInvalidator((tags) => store.dispatch(api.util.invalidateTags(tags))), [store])

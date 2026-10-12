@@ -36,7 +36,7 @@ function renderView(me: Member, loaded: { task: Task; occurrence: Occurrence | n
     <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
     <RealtimeBridge />
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-      <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
+      <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false }}>
         <MemoryRouter initialEntries={[url]}>
           <Routes>
             <Route path="/tasks/:taskId" element={<TaskView />} />
@@ -222,7 +222,7 @@ describe('страница задания', () => {
     render(
       <Provider store={makeStore({ hydrate: false })}>
       <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-        <ProfileContext.Provider value={{ data: { me: { ...members[1], email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
+        <ProfileContext.Provider value={{ data: { me: { ...members[1], email: 'x@y.z' }, members }, failed: false }}>
           <MemoryRouter initialEntries={['/tasks/zzz']}>
             <Routes>
               <Route path="/tasks/:taskId" element={<TaskView />} />

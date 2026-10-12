@@ -66,7 +66,7 @@ describe('TaskView: отметка и отправка на проверку', (
       <Provider store={makeStore({ hydrate: false })}>
       <RealtimeContext.Provider value={{ subscribe: () => () => {}, setViewing: () => {} }}>
         <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-          <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
+          <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false }}>
             <MemoryRouter initialEntries={['/tasks/a?date=2026-10-12']}>
               <Routes><Route path="/tasks/:taskId" element={<TaskView />} /></Routes>
             </MemoryRouter>
@@ -157,7 +157,7 @@ describe('создание и сохранение', () => {
     render(
       <Provider store={makeStore({ hydrate: false })}>
       <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-        <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
+        <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'x@y.z' }, members }, failed: false }}>
           <ConfirmProvider>
             <MemoryRouter initialEntries={['/family/m2/goals/new']}>
               <Routes><Route path="/family/:memberId/goals/new" element={<GoalForm />} /></Routes>

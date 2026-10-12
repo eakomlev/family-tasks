@@ -45,7 +45,7 @@ describe('расписания через кэш', () => {
     render(
       <Provider store={makeStore({ hydrate: false })}>
         <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-          <ProfileContext.Provider value={{ data: { me: { ...mama, email: 'x@y.z' }, members: [mama, misha, anya] }, failed: false, refresh: async () => {} }}>
+          <ProfileContext.Provider value={{ data: { me: { ...mama, email: 'x@y.z' }, members: [mama, misha, anya] }, failed: false }}>
             <MemoryRouter><FamilyLessons now={new Date(2026, 9, 12, 10)} /></MemoryRouter>
           </ProfileContext.Provider>
         </IdentityContext.Provider>

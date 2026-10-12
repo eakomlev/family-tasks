@@ -27,7 +27,7 @@ function renderApp(path: string) {
   return render(
     <Provider store={makeStore({ hydrate: false })}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-      <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
+      <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'x@y.z' }, members }, failed: false }}>
         <ConfirmProvider>
           <MemoryRouter initialEntries={[path]}>
             <Routes>

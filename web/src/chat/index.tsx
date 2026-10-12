@@ -1,29 +1,14 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { listChats, type ChatSummary } from '@/api'
-import { useLive } from '@/realtime/context'
+import { useMemo, type ReactNode } from 'react'
+import { useListChatsQuery } from '@/store/chat'
 import { ChatsContext } from './context'
 
 // Список чатов с непрочитанным: нужен и странице «Чат», и значку на панели табов.
-// Обновляется по сигналам сокета (новое сообщение, прочтение на другом устройстве).
-export function ChatsProvider({ token, children }: { token: string; children: ReactNode }) {
-  const [chats, setChats] = useState<ChatSummary[]>()
+// Лежит в кэше (после перезапуска виден сразу), обновляется по сигналам сокета (новое сообщение, прочтение на другом устройстве)
+// и после отправки или отметки «прочитано».
+export function ChatsProvider({ children }: { children: ReactNode }) {
+  const { data } = useListChatsQuery()
+  const chats = data?.chats
 
-  // при сбое список остаётся прежним и обновится при следующем сигнале
-  const refresh = useCallback(
-    () => listChats(token).then((res) => setChats(res.chats), () => {}),
-    [token],
-  )
-
-  useEffect(() => {
-    let cancelled = false
-    listChats(token).then((res) => !cancelled && setChats(res.chats), () => {})
-    return () => { cancelled = true }
-  }, [token])
-  useLive(['chat'], () => void refresh())
-
-  const value = useMemo(
-    () => ({ chats, unread: chats?.reduce((sum, c) => sum + c.unread, 0) ?? 0, refresh }),
-    [chats, refresh],
-  )
+  const value = useMemo(() => ({ chats, unread: chats?.reduce((sum, c) => sum + c.unread, 0) ?? 0 }), [chats])
   return <ChatsContext value={value}>{children}</ChatsContext>
 }

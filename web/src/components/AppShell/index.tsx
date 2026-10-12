@@ -52,7 +52,7 @@ export function AppShell() {
     <RealtimeProvider token={identity.token}>
       <RealtimeBridge />
       <ProfileProvider>
-        <ChatsProvider token={identity.token}>
+        <ChatsProvider>
           <TaskBadgeProvider>
             <Shell />
           </TaskBadgeProvider>

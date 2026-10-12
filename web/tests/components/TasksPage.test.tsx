@@ -25,7 +25,7 @@ function renderTasks(role: Identity['role']) {
   return render(
     <Provider store={makeStore({ hydrate: false })}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-      <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
+      <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false }}>
         <MemoryRouter><Tasks /></MemoryRouter>
       </ProfileContext.Provider>
     </IdentityContext.Provider>

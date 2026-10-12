@@ -22,13 +22,12 @@ const identity: Identity = { familyCode: 'c', memberId: 'mama', name: 'Лена'
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
 function Probe() {
-  const { data, failed, refresh } = useProfile()
+  const { data, failed } = useProfile()
   const navigate = useNavigate()
   return (
     <div>
       <p data-testid="name">{data?.me.name ?? 'нет данных'}</p>
       <p data-testid="failed">{String(failed)}</p>
-      <button onClick={() => void refresh()}>refresh</button>
       <button onClick={() => navigate('/other')}>go</button>
     </div>
   )
@@ -108,15 +107,6 @@ describe('профиль из кэша RTK Query', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
     for (let i = 0; i < 3; i++) await act(async () => screen.getByText('go').click())
     expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
-
-  it('refresh() запрашивает профиль заново', async () => {
-    const fetchMock = vi.fn(async () => json(overview()))
-    vi.stubGlobal('fetch', fetchMock)
-    renderProvider(makeStore({ hydrate: false }))
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-    await act(async () => screen.getByText('refresh').click())
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
   })
 
   it('сигнал members с сервера обновляет профиль (через инвалидацию кэша)', async () => {

@@ -9,5 +9,4 @@ export interface ProfileContextValue {
   // undefined, пока данные не загружены
   data?: ProfileData
   failed: boolean
-  refresh: () => Promise<void>
 }

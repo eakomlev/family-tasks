@@ -5,5 +5,4 @@ export interface ChatsContextValue {
   chats?: ChatSummary[]
   // всего непрочитанных сообщений (для значка на табе)
   unread: number
-  refresh: () => Promise<void>
 }

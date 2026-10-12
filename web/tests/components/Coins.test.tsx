@@ -66,7 +66,7 @@ function renderPage(role: 'child' | 'mama' = 'child', listeners = new Set<Listen
     <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
       <RealtimeBridge />
       <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-        <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z', coins: 70 }, members }, failed: false, refresh: async () => {} }}>
+        <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z', coins: 70 }, members }, failed: false }}>
           <MemoryRouter initialEntries={[path]}>
             <Routes>
               <Route path="/coins" element={<Coins />} />

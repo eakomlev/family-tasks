@@ -42,7 +42,7 @@ function renderView(me: Member, loaded: { goal: Goal; balance: number }) {
   render(
     <Provider store={makeStore({ hydrate: false })}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-      <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members: [mom, kid] }, failed: false, refresh: async () => {} }}>
+      <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members: [mom, kid] }, failed: false }}>
         <ConfirmProvider>
           <MemoryRouter initialEntries={['/goals/g1']}>
             <Routes>

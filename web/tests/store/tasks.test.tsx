@@ -39,7 +39,7 @@ function renderAll(store = makeStore({ hydrate: false })) {
   return render(
     <Provider store={store}>
       <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-        <ProfileContext.Provider value={{ data: { me: { ...mama, email: 'x@y.z' }, members: [mama] }, failed: false, refresh: async () => {} }}>
+        <ProfileContext.Provider value={{ data: { me: { ...mama, email: 'x@y.z' }, members: [mama] }, failed: false }}>
           <MemoryRouter>
             <TaskBadgeProvider>
               <Badge />

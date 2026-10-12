@@ -163,8 +163,9 @@ describe('инвалидация по событиям сокета', () => {
   it('события сопоставлены с тегами; resync сбрасывает всё', () => {
     expect(tagsForEvent({ type: 'tasks' })).toEqual(['Tasks', 'Pending', 'Done'])
     expect(tagsForEvent({ type: 'members' })).toContain('Me')
-    expect(tagsForEvent({ type: 'schedule', memberId: 'k' })).toEqual(['Schedule'])
-    expect(tagsForEvent({ type: 'chat', chat: 'family' })).toEqual(['Chats', 'Messages'])
+    expect(tagsForEvent({ type: 'schedule', memberId: 'k' })).toEqual([{ type: 'Schedule', id: 'k' }])
+    expect(tagsForEvent({ type: 'trainings', memberId: 'k' })).toEqual([{ type: 'Trainings', id: 'k' }])
+    expect(tagsForEvent({ type: 'chat', chat: 'family' })).toEqual(['Chats', { type: 'Messages', id: 'family' }])
     expect(tagsForEvent({ type: 'resync' })).toEqual(TAGS)
   })
 

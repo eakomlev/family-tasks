@@ -24,7 +24,7 @@ function renderBlock(role: 'child' | 'mama' = 'child') {
   return render(
     <Provider store={makeStore({ hydrate: false })}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-      <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
+      <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'x@y.z' }, members }, failed: false }}>
         <MemoryRouter><TodayTasks now={NOW} /></MemoryRouter>
       </ProfileContext.Provider>
     </IdentityContext.Provider>

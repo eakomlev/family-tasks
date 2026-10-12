@@ -59,7 +59,7 @@ describe('история монет из кэша', () => {
     render(
       <Provider store={makeStore()}>
         <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-          <ProfileContext.Provider value={{ data: { me: { ...kid, email: 'x@y.z', coins: 70 }, members: [kid] }, failed: false, refresh: async () => {} }}>
+          <ProfileContext.Provider value={{ data: { me: { ...kid, email: 'x@y.z', coins: 70 }, members: [kid] }, failed: false }}>
             <MemoryRouter initialEntries={['/coins']}>
               <Routes><Route path="/coins" element={<Coins />} /></Routes>
             </MemoryRouter>

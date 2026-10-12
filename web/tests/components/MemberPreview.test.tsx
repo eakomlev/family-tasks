@@ -28,7 +28,7 @@ function renderAt(path: string) {
   render(
     <Provider store={makeStore({ hydrate: false })}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-      <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'l@x.y' }, members }, failed: false, refresh: async () => {} }}>
+      <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'l@x.y' }, members }, failed: false }}>
         <MemoryRouter initialEntries={[path]}>
           <Routes>
             <Route path="/family/:memberId" element={<MemberPreview />} />

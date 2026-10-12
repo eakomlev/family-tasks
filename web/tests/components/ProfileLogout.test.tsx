@@ -18,7 +18,7 @@ function renderProfile(as: Member & { coins?: number; birthDate?: string | null 
   const identity = { familyCode: 'c', memberId: 'me', name: 'Лена', role: as.role, token: 'tok' }
   render(
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear }}>
-      <ProfileContext.Provider value={{ data: { me: { ...as, email: 'l@x.y' }, members: [me] }, failed: false, refresh: async () => {} }}>
+      <ProfileContext.Provider value={{ data: { me: { ...as, email: 'l@x.y' }, members: [me] }, failed: false }}>
         <ConfirmProvider>
           <MemoryRouter><Profile /></MemoryRouter>
         </ConfirmProvider>

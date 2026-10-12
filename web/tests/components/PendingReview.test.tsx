@@ -47,7 +47,7 @@ function renderBlock(props: Parameters<typeof PendingReview>[0] = {}, role: Iden
     <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
     <RealtimeBridge />
       <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-        <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
+        <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false }}>
           <MemoryRouter><PendingReview {...props} /></MemoryRouter>
         </ProfileContext.Provider>
       </IdentityContext.Provider>
