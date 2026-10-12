@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react'
+import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '@/api'
@@ -8,6 +9,9 @@ import { EarnedToday } from '@/pages/MyDay/components/EarnedToday'
 import { startOfDayIso } from '@/pages/MyDay/utils'
 import { RealtimeContext } from '@/realtime/context'
 import type { Listener } from '@/realtime/types'
+import { makeStore } from '@/store'
+import { RealtimeBridge } from '@/store/RealtimeBridge'
+import { setSession } from '@/store/session'
 
 vi.mock('@/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/api')>()), getCoinsEarned: vi.fn() }))
 
@@ -17,16 +21,20 @@ const NOW = new Date(2026, 9, 11, 15, 0)
 function renderBanner(role: Identity['role'] = 'child', listeners = new Set<Listener>()) {
   const identity: Identity = { familyCode: 'c', memberId: 'kid', name: 'Миша', role, token: 'tok' }
   render(
-    <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
-      <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
-        <MemoryRouter><EarnedToday now={NOW} /></MemoryRouter>
-      </IdentityContext.Provider>
-    </RealtimeContext.Provider>,
+    <Provider store={makeStore({ hydrate: false })}>
+      <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
+        <RealtimeBridge />
+        <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
+          <MemoryRouter><EarnedToday now={NOW} /></MemoryRouter>
+        </IdentityContext.Provider>
+      </RealtimeContext.Provider>
+    </Provider>,
   )
   return listeners
 }
 
 beforeEach(() => {
+  setSession({ token: 'tok', memberId: 'kid' })
   vi.mocked(api.getCoinsEarned).mockReset()
 })
 

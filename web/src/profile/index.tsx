@@ -1,52 +1,24 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useCallback, useEffect, type ReactNode } from 'react'
 import { useIdentity } from '@/identity/context'
-import { useLive } from '@/realtime/context'
+import { useGetMeQuery } from '@/store/profile'
 import { ProfileContext } from './context'
-import type { ProfileData } from './types'
-import { fetchProfile, type ProfileResult } from './utils'
 
-// Запрос /me для всех разделов: из него берутся фото в углу, имя, участники семьи.
-// Данные обновляются при каждом переходе и при возврате на вкладку, иначе чужие правки
-// (например, ребёнок поменял фото или дату рождения) были бы видны только после перезагрузки.
-export function ProfileProvider({ token, children }: { token: string; children: ReactNode }) {
+// Профиль для всех разделов (фото в углу, имя, участники семьи) из кэша RTK Query: из сохранённого на устройстве показывается сразу,
+// свежее приходит следом. Обновляется по сигналу `members` с сервера (RealtimeBridge инвалидирует тег Me), при возврате на вкладку
+// и при открытии приложения, если данные старше 30 секунд; на каждом переходе между экранами больше не запрашивается.
+export function ProfileProvider({ children }: { children: ReactNode }) {
   const { clear } = useIdentity()
-  const { pathname } = useLocation()
-  const [data, setData] = useState<ProfileData>()
-  const [failed, setFailed] = useState(false)
+  const { data, error, isError, refetch } = useGetMeQuery()
 
-  const apply = useCallback(
-    (result: ProfileResult) => {
-      if (result.status === 'ok') {
-        setData(result.data)
-        setFailed(false)
-      } else if (result.status === 'unauthorized') {
-        clear()
-      } else {
-        setFailed(true)
-      }
-    },
-    [clear],
-  )
-
+  // токен больше не действителен (например, сессию отозвали): выходим
+  const unauthorized = !!error && 'status' in error && error.status === 401
   useEffect(() => {
-    let cancelled = false
-    fetchProfile(token).then((result) => !cancelled && apply(result))
-    return () => { cancelled = true }
-  }, [token, apply, pathname])
+    if (unauthorized) void clear()
+  }, [unauthorized, clear])
 
-  const refresh = useCallback(async () => apply(await fetchProfile(token)), [token, apply])
+  const refresh = useCallback(async () => {
+    await refetch()
+  }, [refetch])
 
-  // кто-то из семьи изменил профиль или присоединился
-  useLive(['members'], () => void refresh())
-
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void refresh()
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [refresh])
-
-  return <ProfileContext value={{ data, failed, refresh }}>{children}</ProfileContext>
+  return <ProfileContext value={{ data, failed: isError && !unauthorized, refresh }}>{children}</ProfileContext>
 }

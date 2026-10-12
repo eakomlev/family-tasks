@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '@/api'
@@ -6,8 +7,10 @@ import { AppShell } from '@/components/AppShell'
 import { CoinBalance } from '@/components/CoinBalance'
 import { IdentityContext } from '@/identity/context'
 import type { Identity } from '@/identity/types'
+import { makeStore } from '@/store'
+import { setSession } from '@/store/session'
 
-vi.mock('@/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/api')>()), getMe: vi.fn(), listChats: vi.fn() }))
+vi.mock('@/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/api')>()), listChats: vi.fn() }))
 
 describe('CoinBalance', () => {
   it('показывает число и подпись для скринридера; ведёт на историю', () => {
@@ -38,14 +41,20 @@ const kid = { id: 'kid', name: 'Миша', role: 'child' as const, avatar: null,
 const mama = { id: 'mama', name: 'Лена', role: 'mama' as const, avatar: null, isOwner: true }
 
 function renderShell(who: typeof kid | typeof mama, coins: number | undefined, path = '/tasks') {
-  vi.mocked(api.getMe).mockResolvedValue({
+  const overview = {
     member: { ...who, email: 'x@y.z', ...(coins === undefined ? {} : { coins }) },
     family: { code: 'c' },
     members: [mama, kid],
-  })
+  }
+  // профиль идёт через RTK Query (настоящий fetch), остальные запросы оболочки отвечают ошибкой
+  vi.stubGlobal('fetch', async (input: string) =>
+    String(input) === '/api/me' ? new Response(JSON.stringify(overview), { status: 200 }) : new Response('{}', { status: 500 }),
+  )
+  setSession({ token: 'tok', memberId: who.id })
   vi.mocked(api.listChats).mockResolvedValue({ chats: [] })
   const identity: Identity = { familyCode: 'c', memberId: who.id, name: who.name, role: who.role, token: 'tok' }
   return render(
+    <Provider store={makeStore({ hydrate: false })}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
@@ -55,14 +64,18 @@ function renderShell(who: typeof kid | typeof mama, coins: number | undefined, p
           </Route>
         </Routes>
       </MemoryRouter>
-    </IdentityContext.Provider>,
+    </IdentityContext.Provider>
+    </Provider>,
   )
 }
 
 beforeEach(() => {
   vi.stubGlobal('WebSocket', QuietSocket)
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  setSession(undefined)
+})
 
 describe('баланс монет сверху', () => {
   it('у ребёнка стоит слева от значка профиля', async () => {

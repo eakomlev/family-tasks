@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { setMood } from '@/api'
 import { MoodDialog } from '@/components/MoodDialog'
 import { Page } from '@/components/Page'
 import { PendingReview } from '@/components/PendingReview'
@@ -7,6 +6,8 @@ import { useIdentity } from '@/identity/context'
 import { currentMood } from '@/lib/mood'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
+import { toApiError } from '@/store/api'
+import { useSetMoodMutation } from '@/store/profile'
 import { DateLine, Hero, Icon, MoodButton } from './styles'
 import { EarnedToday } from './components/EarnedToday'
 import { FamilyLessons } from './components/FamilyLessons'
@@ -19,7 +20,8 @@ export default function MyDay() {
   const { identity } = useIdentity()
   const now = useNow()
   const greeting = getGreeting(now)
-  const { data, refresh } = useProfile()
+  const { data } = useProfile()
+  const [setMood] = useSetMoodMutation()
   const [moodOpen, setMoodOpen] = useState(false)
 
   // настроение есть только у детей: утром (с 5 часов) выбор показывается принудительно, потом по нажатию на смайлик
@@ -28,8 +30,8 @@ export default function MyDay() {
   const forced = isChild && !!data && !mood && now.getHours() >= 5
 
   async function pickMood(value: number) {
-    await setMood(identity!.token, value)
-    await refresh()
+    // настроение показывается сразу (кэш профиля обновляется до ответа сервера), при ошибке откатывается и диалог остаётся
+    await setMood(value).unwrap().catch(toApiError)
     setMoodOpen(false)
   }
 

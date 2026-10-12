@@ -7,6 +7,7 @@ import { useIdentity } from '@/identity/context'
 import { ProfileProvider } from '@/profile'
 import { TaskBadgeProvider } from '@/tasks'
 import { RealtimeProvider } from '@/realtime'
+import { RealtimeBridge } from '@/store/RealtimeBridge'
 import { useProfile } from '@/profile/context'
 import { CoinBalance } from '@/components/CoinBalance'
 import { Content, ProfileLink, Root, TopRight } from './styles'
@@ -49,7 +50,8 @@ export function AppShell() {
 
   return (
     <RealtimeProvider token={identity.token}>
-      <ProfileProvider token={identity.token}>
+      <RealtimeBridge />
+      <ProfileProvider>
         <ChatsProvider token={identity.token}>
           <TaskBadgeProvider>
             <Shell />

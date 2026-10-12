@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
-import { listPendingTasks, type TaskList } from '@/api'
+import { useEffect } from 'react'
 import { Notice } from '@/components/Notice'
 import { TaskItem } from '@/components/TaskItem'
 import { useIdentity } from '@/identity/context'
@@ -7,7 +6,7 @@ import { todayIso } from '@/lib/date'
 import { occurrenceKey, toEntries } from '@/lib/occurrences'
 import { useReview } from '@/lib/useReview'
 import { useProfile } from '@/profile/context'
-import { useLive } from '@/realtime/context'
+import { useListPendingTasksQuery } from '@/store/tasks'
 import { Count, List, Section, Title } from './styles'
 import type { PendingReviewProps } from './types'
 
@@ -16,23 +15,10 @@ import type { PendingReviewProps } from './types'
 export function PendingReview({ assigneeId = null, onCount }: PendingReviewProps) {
   const { identity } = useIdentity()
   const { data } = useProfile()
-  const [list, setList] = useState<TaskList>()
-  const [version, setVersion] = useState(0)
-  useLive(['tasks'], () => setVersion((v) => v + 1))
-
-  const token = identity?.token
   const isParent = !!identity && identity.role !== 'child'
-  const reload = useCallback(() => setVersion((v) => v + 1), [])
-  const review = useReview(token, reload)
-
-  useEffect(() => {
-    if (!token || !isParent) return
-    let cancelled = false
-    listPendingTasks(token)
-      .then((res) => !cancelled && setList(res))
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [token, isParent, version])
+  const review = useReview()
+  // тот же запрос, что у значка на табе «Задачи»: в кэше он общий
+  const { data: list } = useListPendingTasksQuery(undefined, { skip: !isParent })
 
   const entries = isParent && list ? toEntries(list, assigneeId) : []
   const count = entries.length

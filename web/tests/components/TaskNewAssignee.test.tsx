@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react'
+import { Provider } from 'react-redux'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeStore } from '@/store'
+import { setSession } from '@/store/session'
 import * as api from '@/api'
 import type { Member } from '@/api'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
@@ -22,6 +25,7 @@ const members: Member[] = [
 function renderApp(path: string) {
   const identity: Identity = { familyCode: 'c', memberId: 'mama', name: 'Лена', role: 'mama', token: 'tok' }
   return render(
+    <Provider store={makeStore({ hydrate: false })}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
       <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
         <ConfirmProvider>
@@ -33,11 +37,13 @@ function renderApp(path: string) {
           </MemoryRouter>
         </ConfirmProvider>
       </ProfileContext.Provider>
-    </IdentityContext.Provider>,
+    </IdentityContext.Provider>
+    </Provider>,
   )
 }
 
 beforeEach(() => {
+  setSession({ token: 'tok', memberId: 'm1' })
   vi.mocked(api.listTasks).mockReset().mockResolvedValue({ tasks: [], occurrences: [] })
 })
 

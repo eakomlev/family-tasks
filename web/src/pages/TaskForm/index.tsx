@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ApiError, createTask, deleteTask, getTask, updateTask, type Task, type TaskInput } from '@/api'
+import { type TaskInput } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
+import { toApiError } from '@/store/api'
+import { useCreateTaskMutation, useDeleteTaskMutation, useGetTaskQuery, useUpdateTaskMutation } from '@/store/tasks'
 import { TaskEditor } from './components/TaskEditor'
 import { emptyForm, fromTask } from './utils'
 
@@ -19,27 +20,18 @@ export default function TaskForm() {
   const { identity } = useIdentity()
   const { data } = useProfile()
 
-  const [task, setTask] = useState<Task>()
-  const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'failed'>('loading')
-
   const token = identity?.token
   const me = identity?.memberId
 
-  useEffect(() => {
-    if (!token || !taskId) return
-    let cancelled = false
-    getTask(token, taskId)
-      .then((res) => {
-        if (cancelled) return
-        setTask(res.task)
-        setState('ready')
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setState(err instanceof ApiError && err.status === 404 ? 'missing' : 'failed')
-      })
-    return () => { cancelled = true }
-  }, [token, taskId])
+  // задание для изменения: из кэша сразу, свежее следом
+  const query = useGetTaskQuery({ id: taskId ?? '' }, { skip: !token || !taskId })
+  const task = query.data?.task
+  const error = query.error
+  const missing = !!error && 'status' in error && error.status === 404
+  const state: 'loading' | 'ready' | 'missing' | 'failed' = task ? 'ready' : missing ? 'missing' : error ? 'failed' : 'loading'
+  const [createTask] = useCreateTaskMutation()
+  const [updateTask] = useUpdateTaskMutation()
+  const [deleteTask] = useDeleteTaskMutation()
 
   if (!token || !me) return null
   const members = data?.members ?? []
@@ -48,17 +40,17 @@ export default function TaskForm() {
   if (task && task.authorId !== me) return <Navigate to={`/tasks/${task.id}`} replace />
 
   async function create(input: TaskInput) {
-    await createTask(token!, input)
+    await createTask(input).unwrap().catch(toApiError)
     navigate('/tasks', { replace: true })
   }
 
   async function update(input: TaskInput) {
-    await updateTask(token!, task!.id, input)
+    await updateTask({ id: task!.id, input }).unwrap().catch(toApiError)
     navigate(`/tasks/${task!.id}`, { replace: true })
   }
 
   async function remove() {
-    await deleteTask(token!, task!.id)
+    await deleteTask(task!.id).unwrap().catch(toApiError)
     navigate('/tasks', { replace: true })
   }
 

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '@/api'
@@ -6,10 +7,13 @@ import type { Member } from '@/api'
 import { IdentityContext } from '@/identity/context'
 import MemberPreview from '@/pages/MemberPreview'
 import { ProfileContext } from '@/profile/context'
+import { makeStore } from '@/store'
+import { setSession } from '@/store/session'
 
 vi.mock('@/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/api')>()), getCoinBalance: vi.fn() }))
 
 beforeEach(() => {
+  setSession({ token: 'tok', memberId: 'me' })
   vi.mocked(api.getCoinBalance).mockReset()
   vi.mocked(api.getCoinBalance).mockResolvedValue(45)
 })
@@ -22,6 +26,7 @@ const members: Member[] = [
 function renderAt(path: string) {
   const identity = { familyCode: 'c', memberId: 'me', name: 'Лена', role: 'mama' as const, token: 'tok' }
   render(
+    <Provider store={makeStore({ hydrate: false })}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
       <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'l@x.y' }, members }, failed: false, refresh: async () => {} }}>
         <MemoryRouter initialEntries={[path]}>
@@ -31,7 +36,8 @@ function renderAt(path: string) {
           </Routes>
         </MemoryRouter>
       </ProfileContext.Provider>
-    </IdentityContext.Provider>,
+    </IdentityContext.Provider>
+    </Provider>,
   )
 }
 

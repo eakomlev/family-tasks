@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ApiError, completeTask, confirmTask, getTask, uncompleteTask, type Occurrence, type Task } from '@/api'
+import { ApiError, type Occurrence, type Task } from '@/api'
 import { Avatar } from '@/components/Avatar'
 import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
@@ -12,7 +12,8 @@ import { coinsWord } from '@/lib/coins'
 import { formatDateTime, todayIso } from '@/lib/date'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
-import { useLive } from '@/realtime/context'
+import { toApiError } from '@/store/api'
+import { useCompleteTaskMutation, useConfirmTaskMutation, useGetTaskQuery, useUncompleteTaskMutation } from '@/store/tasks'
 import { Actions, Description, Details, Who } from './styles'
 import { describeFullRepeat, describeOccurrenceDue } from './utils'
 import { useInFlight } from '@/lib/useInFlight'
@@ -32,39 +33,44 @@ export default function TaskView() {
   const { data } = useProfile()
   const today = todayIso(useNow())
 
-  const [task, setTask] = useState<Task>()
-  const [occurrence, setOccurrence] = useState<Occurrence | null>(null)
-  const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'failed'>('loading')
+  const token = identity?.token
+  const me = identity?.memberId
+
+  // задание из кэша сразу (в том числе сохранённого на устройстве), свежее приходит следом и после каждого сигнала сокета
+  const query = useGetTaskQuery({ id: taskId ?? '', date }, { skip: !token || !taskId })
+  const fetched = query.data
+  // после отметки показываем результат сразу, не дожидаясь повторного запроса; пришли новые данные, и поверх них уже они
+  const [override, setOverride] = useState<{ base: typeof fetched; value: Occurrence | null }>()
+  const task: Task | undefined = fetched?.task
+  const occurrence: Occurrence | null = override && override.base === fetched ? override.value : (fetched?.occurrence ?? null)
+  const setOccurrence = (value: Occurrence | null) => setOverride({ base: fetched, value })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
   const [celebrating, setCelebrating] = useState(false)
-  const [version, setVersion] = useState(0)
-  useLive(['tasks'], () => setVersion((v) => v + 1))
-
-  const token = identity?.token
-  const me = identity?.memberId
-  // прежнее состояние вхождения: по нему видно, что задание, ожидавшее проверки, только что подтвердили
+  const [completeTask] = useCompleteTaskMutation()
+  const [uncompleteTask] = useUncompleteTaskMutation()
+  const [confirmTask] = useConfirmTaskMutation()
+  // прежнее состояние вхождения: по нему видно, что задание, ожидавшее проверки, только что подтвердили.
+  // Берётся только из данных, полученных с сервера за эту сессию: сохранённое на устройстве с прошлого раза поздравления не вызывает
   const previous = useRef<Occurrence | null>(null)
-
+  const openedAt = useRef(0)
   useEffect(() => {
-    if (!token || !taskId) return
-    let cancelled = false
-    getTask(token, taskId, date)
-      .then((res) => {
-        if (cancelled) return
-        // родитель подтвердил то, что ждало проверки, пока ребёнок смотрит на страницу: поздравляем его с наградой
-        if (previous.current?.pending && res.occurrence?.done && res.task.reward > 0 && res.task.assigneeId === me) setCelebrating(true)
-        previous.current = res.occurrence
-        setTask(res.task)
-        setOccurrence(res.occurrence)
-        setState('ready')
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setState(err instanceof ApiError && err.status === 404 ? 'missing' : 'failed')
-      })
-    return () => { cancelled = true }
-  }, [token, taskId, date, version, me])
+    openedAt.current = Date.now()
+  }, [])
+  const fulfilledAt = query.fulfilledTimeStamp
+  useEffect(() => {
+    if (!fetched || !fulfilledAt || fulfilledAt < openedAt.current) return
+    // родитель подтвердил то, что ждало проверки, пока ребёнок смотрит на страницу: поздравляем его с наградой
+    if (previous.current?.pending && fetched.occurrence?.done && fetched.task.reward > 0 && fetched.task.assigneeId === me) {
+      // oxlint-disable-next-line react/set-state-in-effect -- реакция на пришедшие с сервера данные, а не вычисляемое значение
+      setCelebrating(true)
+    }
+    previous.current = fetched.occurrence
+  }, [fetched, fulfilledAt, me])
+
+  const queryError = query.error
+  const state: 'loading' | 'ready' | 'missing' | 'failed' =
+    task ? 'ready' : queryError && 'status' in queryError && queryError.status === 404 ? 'missing' : queryError ? 'failed' : 'loading'
 
   if (!token || !me) return null
   if (state === 'missing') return <Navigate to="/tasks" replace />
@@ -86,13 +92,13 @@ export default function TaskView() {
     const now = nowIso()
     try {
       if (kind === 'undo') {
-        await uncompleteTask(token!, task.id, occurrence.date)
+        await uncompleteTask({ id: task.id, date: occurrence.date }).unwrap().catch(toApiError)
         setOccurrence({ ...occurrence, done: null, pending: null })
       } else if (kind === 'confirm') {
-        await confirmTask(token!, task.id, occurrence.date)
+        await confirmTask({ id: task.id, date: occurrence.date }).unwrap().catch(toApiError)
         setOccurrence({ ...occurrence, done: { memberId: pending?.memberId ?? me!, at: now }, pending: null })
       } else {
-        await completeTask(token!, task.id, occurrence.date)
+        await completeTask({ id: task.id, date: occurrence.date }).unwrap().catch(toApiError)
         if (needsReview) {
           // отправлено на проверку: праздника пока нет, он будет после подтверждения
           setOccurrence({ ...occurrence, pending: { memberId: me!, at: now } })

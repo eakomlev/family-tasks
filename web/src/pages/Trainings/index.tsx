@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
-import { ApiError, getTrainings, saveTrainings } from '@/api'
+import { ApiError } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
 import { useConfirm } from '@/components/ConfirmDialog/context'
@@ -13,7 +13,8 @@ import { TrainingViewList } from '@/components/TrainingViewList'
 import { useIdentity } from '@/identity/context'
 import { WEEK_DAYS } from '@/lib/weekdays'
 import { useProfile } from '@/profile/context'
-import { useLive } from '@/realtime/context'
+import { toApiError } from '@/store/api'
+import { useGetTrainingsQuery, useSaveTrainingsMutation } from '@/store/schedules'
 import { TrainingRow } from './components/TrainingRow'
 import { Subtitle } from './styles'
 import type { Days, TrainingDraft } from './types'
@@ -37,11 +38,9 @@ export default function Trainings() {
   const { data } = useProfile()
 
   // saved — то, что лежит на сервере; draft — правки в режиме редактирования
-  const [saved, setSaved] = useState<Days>()
   const [draft, setDraft] = useState<Days>()
   const [mode, setMode] = useState<'view' | 'edit'>('view')
   const [day, setDay] = useState(defaultDay)
-  const [loadFailed, setLoadFailed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string>()
   const [justSaved, setJustSaved] = useState(false)
@@ -55,20 +54,12 @@ export default function Trainings() {
   // пока список семьи не загружен, участника проверить нельзя, поэтому пропускаем (сервер проверит сам)
   const allowed = isOwn ? isChild : !isChild && (!data || target?.role === 'child')
 
-  // чужие правки этого расписания: серверное состояние обновляется, черновик при правке не трогаем
-  const [version, setVersion] = useState(0)
-  useLive(['trainings'], (e) => {
-    if (e.type === 'resync' || (e.type === 'trainings' && e.memberId === memberId)) setVersion((v) => v + 1)
-  })
-
-  useEffect(() => {
-    if (!token || !memberId || !allowed) return
-    let cancelled = false
-    getTrainings(token, memberId)
-      .then((res) => !cancelled && setSaved(fromTrainings(res.trainings)))
-      .catch(() => !cancelled && setLoadFailed(true))
-    return () => { cancelled = true }
-  }, [token, memberId, allowed, version])
+  // серверное состояние из кэша (сохранённое на устройстве видно сразу, свежее приходит следом); чужие правки приходят по сокету
+  // через инвалидацию кэша, черновик при этом не трогаем
+  const query = useGetTrainingsQuery(memberId ?? '', { skip: !memberId || !allowed })
+  const saved = useMemo<Days | undefined>(() => (query.data ? fromTrainings(query.data.trainings) : undefined), [query.data])
+  const loadFailed = query.isError && !query.data
+  const [saveTrainings] = useSaveTrainingsMutation()
 
   if (!identity || !memberId || !allowed) {
     return <Navigate to={isChild ? '/profile' : '/family'} replace />
@@ -113,9 +104,8 @@ export default function Trainings() {
     setError(undefined)
     try {
       const trainings = toTrainings(draft)
-      await saveTrainings(token, memberId, trainings)
-      // пустые строки при сохранении отбрасываются, поэтому показываем ровно то, что ушло на сервер
-      setSaved(fromTrainings(trainings))
+      // кэш обновляется сразу тем, что ушло на сервер (пустые строки при сохранении отбрасываются), при ошибке откатывается
+      await saveTrainings({ memberId, trainings }).unwrap().catch(toApiError)
       setDraft(undefined)
       setJustSaved(true)
       setMode('view')

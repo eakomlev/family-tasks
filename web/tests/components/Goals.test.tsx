@@ -1,7 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import { Provider } from 'react-redux'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeStore } from '@/store'
+import { setSession } from '@/store/session'
 import * as api from '@/api'
 import type { Goal, Member } from '@/api'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
@@ -37,6 +40,7 @@ function renderView(me: Member, loaded: { goal: Goal; balance: number }) {
   vi.mocked(api.getGoal).mockResolvedValue(loaded)
   const identity = { familyCode: 'c', memberId: me.id, name: me.name, role: me.role, token: 'tok' }
   render(
+    <Provider store={makeStore({ hydrate: false })}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
       <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members: [mom, kid] }, failed: false, refresh: async () => {} }}>
         <ConfirmProvider>
@@ -50,11 +54,13 @@ function renderView(me: Member, loaded: { goal: Goal; balance: number }) {
           </MemoryRouter>
         </ConfirmProvider>
       </ProfileContext.Provider>
-    </IdentityContext.Provider>,
+    </IdentityContext.Provider>
+    </Provider>,
   )
 }
 
 beforeEach(() => {
+  setSession({ token: 'tok', memberId: 'x' })
   vi.mocked(api.getGoal).mockReset()
   vi.mocked(api.purchaseGoal).mockReset()
   vi.mocked(api.deleteGoal).mockReset().mockResolvedValue(undefined)
@@ -103,7 +109,12 @@ describe('страница цели у ребёнка', () => {
   it('хватает: подтверждение, оплата, цель становится купленной', async () => {
     renderView(kid, { goal: goal(), balance: 500 })
     const user = userEvent.setup()
-    vi.mocked(api.purchaseGoal).mockResolvedValue({ goal: goal({ purchasedAt: '2026-10-12T10:00:00Z' }), balance: 200 })
+    // как у настоящего сервера: после покупки и карточка из повторного запроса уже «куплена»
+    const bought = { goal: goal({ purchasedAt: '2026-10-12T10:00:00Z' }), balance: 200 }
+    vi.mocked(api.purchaseGoal).mockImplementation(async () => {
+      vi.mocked(api.getGoal).mockResolvedValue(bought)
+      return bought
+    })
     await user.click(await screen.findByRole('button', { name: 'Оплатить: 300' }))
     // окно подтверждения
     await user.click(await screen.findByRole('button', { name: 'Оплатить' }))

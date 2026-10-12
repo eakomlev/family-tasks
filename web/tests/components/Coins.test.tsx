@@ -1,7 +1,11 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { Provider } from 'react-redux'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeStore } from '@/store'
+import { RealtimeBridge } from '@/store/RealtimeBridge'
+import { setSession } from '@/store/session'
 import * as api from '@/api'
 import type { CoinEntry, Member } from '@/api'
 import { IdentityContext } from '@/identity/context'
@@ -46,6 +50,9 @@ class FakeObserver {
     return []
   }
 }
+// Сторож в конце списка появляется в эффекте уже после показа записей, а после каждой подгрузки старый сторож отключается и создаётся новый:
+// «прокручивать» можно только когда живой сторож есть, иначе тест случайно не прокручивает ничего
+const observerReady = () => waitFor(() => expect(observers.some((o) => !o.disconnected && o.observed.length > 0)).toBe(true))
 const scrollToEnd = () => {
   const live = observers.filter((o) => !o.disconnected)
   act(() => live.forEach((o) => o.callback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver)))
@@ -55,7 +62,9 @@ function renderPage(role: 'child' | 'mama' = 'child', listeners = new Set<Listen
   const me = role === 'child' ? members[1] : members[0]
   const identity: Identity = { familyCode: 'c', memberId: me.id, name: me.name, role, token: 'tok' }
   render(
+    <Provider store={makeStore({ hydrate: false })}>
     <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
+      <RealtimeBridge />
       <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
         <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z', coins: 70 }, members }, failed: false, refresh: async () => {} }}>
           <MemoryRouter initialEntries={[path]}>
@@ -68,12 +77,14 @@ function renderPage(role: 'child' | 'mama' = 'child', listeners = new Set<Listen
           </MemoryRouter>
         </ProfileContext.Provider>
       </IdentityContext.Provider>
-    </RealtimeContext.Provider>,
+    </RealtimeContext.Provider>
+    </Provider>,
   )
   return listeners
 }
 
 beforeEach(() => {
+  setSession({ token: 'tok', memberId: 'x' })
   observers = []
   vi.stubGlobal('IntersectionObserver', FakeObserver)
   vi.mocked(api.listCoinHistory).mockReset()
@@ -119,11 +130,13 @@ describe('страница истории монет', () => {
     await screen.findByText('за дело 2')
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
 
+    await observerReady()
     scrollToEnd()
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(4))
     // следующий запрос просит записи старше самой старой из загруженных
     expect(api.listCoinHistory).toHaveBeenLastCalledWith('tok', 'e2', undefined)
 
+    await observerReady()
     scrollToEnd()
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(5))
     expect(api.listCoinHistory).toHaveBeenLastCalledWith('tok', 'e4', undefined)
@@ -138,6 +151,7 @@ describe('страница истории монет', () => {
       .mockReturnValueOnce(new Promise((resolve) => (finish = resolve)))
     renderPage()
     await screen.findByText('за дело 1')
+    await observerReady()
     scrollToEnd()
     scrollToEnd()
     scrollToEnd()
@@ -162,6 +176,7 @@ describe('страница истории монет', () => {
       .mockResolvedValueOnce({ balance: 70, hasMore: false, items: [entry(2)] })
     renderPage()
     await screen.findByText('за дело 1')
+    await observerReady()
     scrollToEnd()
     expect(await screen.findByText(/Не удалось загрузить ещё/)).toBeInTheDocument()
     expect(screen.getByText('за дело 1')).toBeInTheDocument()

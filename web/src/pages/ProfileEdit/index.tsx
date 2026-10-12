@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { getRobloxAvatar, updateProfile, type ProfilePatch } from '@/api'
+import { getRobloxAvatar, type ProfilePatch } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { SlideInPage as Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { resizeToAvatar } from '@/lib/image'
 import { useProfile } from '@/profile/context'
+import { toApiError } from '@/store/api'
+import { useUpdateProfileMutation } from '@/store/profile'
 import { AvatarEditor } from './components/AvatarEditor'
 import { ProfileForm } from './components/ProfileForm'
 import { describePhotoError } from './utils'
@@ -13,7 +15,8 @@ import { useInFlight } from '@/lib/useInFlight'
 export default function ProfileEdit() {
   const guard = useInFlight()
   const { identity, save } = useIdentity()
-  const { data, refresh } = useProfile()
+  const { data } = useProfile()
+  const [updateProfile] = useUpdateProfileMutation()
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState<string>()
 
@@ -25,8 +28,7 @@ export default function ProfileEdit() {
     setPhotoError(undefined)
     try {
       const avatar = file ? await resizeToAvatar(file) : null
-      await updateProfile(token, { avatar })
-      await refresh()
+      await updateProfile({ avatar }).unwrap().catch(toApiError)
     } catch (err) {
       setPhotoError(describePhotoError(err))
     } finally {
@@ -42,8 +44,7 @@ export default function ProfileEdit() {
       const { image } = await getRobloxAvatar(token, username)
       const blob = await (await fetch(image)).blob()
       const avatar = await resizeToAvatar(new File([blob], 'roblox.png', { type: blob.type }))
-      await updateProfile(token, { avatar })
-      await refresh()
+      await updateProfile({ avatar }).unwrap().catch(toApiError)
     } catch (err) {
       setPhotoError(describePhotoError(err))
       throw err
@@ -53,10 +54,9 @@ export default function ProfileEdit() {
   })
 
   async function saveProfile(patch: ProfilePatch) {
-    await updateProfile(token, patch)
+    await updateProfile(patch).unwrap().catch(toApiError)
     // имя хранится и на устройстве (приветствие, шапка), поэтому обновляем и его
     if (patch.name && identity) await save({ ...identity, name: patch.name })
-    await refresh()
   }
 
   if (!data) return <Page><BackLink to="/profile">← Профиль</BackLink><h1>Изменить профиль</h1><p>Загрузка…</p></Page>

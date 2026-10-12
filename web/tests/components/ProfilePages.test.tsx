@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react'
+import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
+import { makeStore } from '@/store'
 import type { Member } from '@/api'
 import { TabBar } from '@/components/TabBar'
 import { TABS } from '@/components/TabBar/utils'
@@ -16,11 +18,13 @@ const me: Member = { id: 'me', name: 'Лена', role: 'mama', avatar: null, isO
 function renderPage(page: React.ReactNode) {
   const identity = { familyCode: 'c', memberId: 'me', name: 'Лена', role: 'mama' as const, token: 'tok' }
   render(
+    <Provider store={makeStore({ hydrate: false })}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
       <ProfileContext.Provider value={{ data: { me: { ...me, email: 'l@x.y', birthDate: '1990-05-01' }, members: [me] }, failed: false, refresh: async () => {} }}>
         <MemoryRouter>{page}</MemoryRouter>
       </ProfileContext.Provider>
-    </IdentityContext.Provider>,
+    </IdentityContext.Provider>
+    </Provider>,
   )
 }
 

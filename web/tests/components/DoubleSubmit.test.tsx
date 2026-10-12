@@ -1,10 +1,13 @@
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
+import { Provider } from 'react-redux'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '@/api'
 import type { Member } from '@/api'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
+import { makeStore } from '@/store'
+import { setSession } from '@/store/session'
 import { IdentityContext } from '@/identity/context'
 import { useReview } from '@/lib/useReview'
 import { Composer } from '@/pages/ChatRoom/components/Composer'
@@ -47,6 +50,7 @@ const members: Member[] = [
 ]
 
 beforeEach(() => {
+  setSession({ token: 'tok', memberId: 'm1' })
   vi.mocked(api.completeTask).mockReset()
   vi.mocked(api.confirmTask).mockReset()
   vi.mocked(api.uncompleteTask).mockReset()
@@ -59,6 +63,7 @@ describe('TaskView: отметка и отправка на проверку', (
     vi.mocked(api.getTask).mockResolvedValue({ task: t, occurrence: occ('a', '2026-10-12', false, pending) })
     const identity = { familyCode: 'c', memberId: me.id, name: me.name, role: me.role, token: 'tok' }
     render(
+      <Provider store={makeStore({ hydrate: false })}>
       <RealtimeContext.Provider value={{ subscribe: () => () => {}, setViewing: () => {} }}>
         <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
           <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
@@ -67,7 +72,8 @@ describe('TaskView: отметка и отправка на проверку', (
             </MemoryRouter>
           </ProfileContext.Provider>
         </IdentityContext.Provider>
-      </RealtimeContext.Provider>,
+      </RealtimeContext.Provider>
+      </Provider>,
     )
   }
 
@@ -94,7 +100,7 @@ describe('useReview: подтвердить и вернуть в списках'
   it('повторное «Подтвердить» по тому же заданию, пока идёт запрос, игнорируется', async () => {
     const request = slow()
     vi.mocked(api.confirmTask).mockReturnValue(request.promise)
-    const { result } = renderHook(() => useReview('tok', () => {}))
+    const { result } = renderHook(() => useReview(), { wrapper: ({ children }) => <Provider store={makeStore({ hydrate: false })}>{children}</Provider> })
     const entry = { task: task({ id: 'a' }), occurrence: occ('a', '2026-10-12', false, true) }
     act(() => {
       void result.current.confirm(entry)
@@ -149,6 +155,7 @@ describe('создание и сохранение', () => {
     const identity = { familyCode: 'c', memberId: 'm1', name: 'Лена', role: 'mama' as const, token: 'tok' }
     const user = userEvent.setup()
     render(
+      <Provider store={makeStore({ hydrate: false })}>
       <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
         <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
           <ConfirmProvider>
@@ -157,7 +164,8 @@ describe('создание и сохранение', () => {
             </MemoryRouter>
           </ConfirmProvider>
         </ProfileContext.Provider>
-      </IdentityContext.Provider>,
+      </IdentityContext.Provider>
+      </Provider>,
     )
     await user.type(screen.getByLabelText('Название'), 'Лего')
     await user.type(screen.getByLabelText('Цена в монетах'), '300')

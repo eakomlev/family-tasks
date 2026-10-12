@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react'
-import { listTasks, type TaskList } from '@/api'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
 import { TaskItem } from '@/components/TaskItem'
 import { useIdentity } from '@/identity/context'
-import { useLive } from '@/realtime/context'
+import { useListTasksQuery } from '@/store/tasks'
 import { todayIso } from '@/lib/date'
 import { byTimeThenTitle, occurrenceKey, toEntries } from '@/lib/occurrences'
 import { useProfile } from '@/profile/context'
@@ -16,22 +14,10 @@ export function TodayTasks({ now }: TodayTasksProps) {
   const { identity } = useIdentity()
   const { data } = useProfile()
   const today = todayIso(now)
-  const [list, setList] = useState<TaskList>()
-  const [failed, setFailed] = useState(false)
-  const [version, setVersion] = useState(0)
-  useLive(['tasks'], () => setVersion((v) => v + 1))
-
-  const token = identity?.token
   const me = identity?.memberId
-
-  useEffect(() => {
-    if (!token) return
-    let cancelled = false
-    listTasks(token, today, today)
-      .then((res) => !cancelled && setList(res))
-      .catch(() => !cancelled && setFailed(true))
-    return () => { cancelled = true }
-  }, [token, today, version])
+  // из кэша сразу (в том числе сохранённого на устройстве), свежее приходит следом; обновляется по сокету через инвалидацию
+  const { data: list, isError } = useListTasksQuery({ from: today, to: today })
+  const failed = isError && !list
 
   const all = list && me ? toEntries(list, me) : []
   // у ребёнка выполненные (подтверждённые) задания на этой странице не показываем: остаётся то, что ещё надо сделать

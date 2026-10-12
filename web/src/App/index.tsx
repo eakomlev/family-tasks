@@ -1,9 +1,12 @@
+import { Provider } from 'react-redux'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/AppShell'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
 import { GlobalStyle } from '@/components/GlobalStyle'
 import { UpdateBanner } from '@/components/UpdateBanner'
 import { IdentityProvider } from '@/identity'
+import { store } from '@/store'
+import { SessionSync } from '@/store/SessionSync'
 import { useThemeSync } from '@/lib/useThemeSync'
 import Chat from '@/pages/Chat'
 import Coins from '@/pages/Coins'
@@ -35,7 +38,9 @@ export default function App() {
   useThemeSync()
 
   return (
+    <Provider store={store}>
     <IdentityProvider>
+      <SessionSync />
       <GlobalStyle />
       <UpdateBanner />
       <ConfirmProvider>
@@ -82,5 +87,6 @@ export default function App() {
         </BrowserRouter>
       </ConfirmProvider>
     </IdentityProvider>
+    </Provider>
   )
 }

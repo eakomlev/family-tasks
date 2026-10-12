@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { listDoneTasks, listTasks, type TaskList } from '@/api'
+import { useState } from 'react'
 import { Chip } from '@/components/Chip'
 import { PendingReview } from '@/components/PendingReview'
 import { Notice } from '@/components/Notice'
@@ -12,7 +11,7 @@ import { addDays, todayIso } from '@/lib/date'
 import { occurrenceKey, type TaskEntry } from '@/lib/occurrences'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
-import { useLive } from '@/realtime/context'
+import { useListDoneTasksQuery, useListTasksQuery } from '@/store/tasks'
 import { AddButton, Filters, Header, List, ListEnd, SectionTitle } from './styles'
 import type { Tab } from './types'
 import { buildDone, buildSections } from './utils'
@@ -28,32 +27,20 @@ export default function Tasks() {
   const [tab, setTab] = useState<Tab>('upcoming')
   // null — все; иначе id участника, чьи задания показываем
   const [filter, setFilter] = useState<string | null>(null)
-  const [list, setList] = useState<TaskList>()
-  const [loadFailed, setLoadFailed] = useState(false)
-  // растёт, когда по сокету пришло изменение: список запрашивается заново
-  const [version, setVersion] = useState(0)
-  useLive(['tasks'], () => setVersion((v) => v + 1))
-
-  const token = identity?.token
   const me = identity?.memberId
   const members = data?.members ?? []
   const memberById = new Map(members.map((m) => [m.id, m]))
 
-  useEffect(() => {
-    if (!token) return
-    let cancelled = false
-    const request = tab === 'upcoming' ? listTasks(token, today, addDays(today, DAYS_AHEAD), { collapse: true }) : listDoneTasks(token, 30)
-    request
-      .then((res) => !cancelled && setList(res))
-      .catch(() => !cancelled && setLoadFailed(true))
-    return () => { cancelled = true }
-  }, [token, tab, today, version])
+  // у каждой вкладки свой запрос в кэше: показывается из сохранённого сразу, обновляется по сигналам сокета через инвалидацию;
+  // вторая вкладка запрашивается только когда открыта
+  const upcoming = useListTasksQuery({ from: today, to: addDays(today, DAYS_AHEAD), collapse: true }, { skip: tab !== 'upcoming' })
+  const done = useListDoneTasksQuery({ days: 30 }, { skip: tab !== 'done' })
+  const active = tab === 'upcoming' ? upcoming : done
+  const list = active.data
+  const loadFailed = active.isError && !list
 
   function switchTab(next: Tab) {
-    if (next === tab) return
-    setList(undefined)
-    setLoadFailed(false)
-    setTab(next)
+    if (next !== tab) setTab(next)
   }
 
   const isParent = identity?.role !== 'child'

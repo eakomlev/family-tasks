@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
-import { ApiError, getSchedule, saveSchedule } from '@/api'
+import { ApiError } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
 import { useConfirm } from '@/components/ConfirmDialog/context'
@@ -12,7 +12,8 @@ import { SortableList } from '@/components/SortableList'
 import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
-import { useLive } from '@/realtime/context'
+import { toApiError } from '@/store/api'
+import { useGetScheduleQuery, useSaveScheduleMutation } from '@/store/schedules'
 import { LessonRow } from './components/LessonRow'
 import { Subtitle } from './styles'
 import type { Days, LessonDraft } from './types'
@@ -37,11 +38,9 @@ export default function Schedule() {
   const { data } = useProfile()
 
   // saved — то, что лежит на сервере; draft — правки в режиме редактирования
-  const [saved, setSaved] = useState<Days>()
   const [draft, setDraft] = useState<Days>()
   const [mode, setMode] = useState<'view' | 'edit'>('view')
   const [day, setDay] = useState(defaultDay)
-  const [loadFailed, setLoadFailed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string>()
   const [justSaved, setJustSaved] = useState(false)
@@ -55,20 +54,12 @@ export default function Schedule() {
   // пока список семьи не загружен, участника проверить нельзя, поэтому пропускаем (сервер проверит сам)
   const allowed = isOwn ? isChild : !isChild && (!data || target?.role === 'child')
 
-  // чужие правки этого расписания: серверное состояние обновляется, черновик при правке не трогаем
-  const [version, setVersion] = useState(0)
-  useLive(['schedule'], (e) => {
-    if (e.type === 'resync' || (e.type === 'schedule' && e.memberId === memberId)) setVersion((v) => v + 1)
-  })
-
-  useEffect(() => {
-    if (!token || !memberId || !allowed) return
-    let cancelled = false
-    getSchedule(token, memberId)
-      .then((res) => !cancelled && setSaved(fromLessons(res.lessons)))
-      .catch(() => !cancelled && setLoadFailed(true))
-    return () => { cancelled = true }
-  }, [token, memberId, allowed, version])
+  // серверное состояние из кэша (сохранённое на устройстве видно сразу, свежее приходит следом); чужие правки приходят по сокету
+  // через инвалидацию кэша, черновик при этом не трогаем
+  const query = useGetScheduleQuery(memberId ?? '', { skip: !memberId || !allowed })
+  const saved = useMemo<Days | undefined>(() => (query.data ? fromLessons(query.data.lessons) : undefined), [query.data])
+  const loadFailed = query.isError && !query.data
+  const [saveSchedule] = useSaveScheduleMutation()
 
   if (!identity || !memberId || !allowed) {
     return <Navigate to={isChild ? '/profile' : '/family'} replace />
@@ -113,9 +104,8 @@ export default function Schedule() {
     setError(undefined)
     try {
       const lessons = toLessons(draft)
-      await saveSchedule(token, memberId, lessons)
-      // пустые строки при сохранении отбрасываются, поэтому показываем ровно то, что ушло на сервер
-      setSaved(fromLessons(lessons))
+      // кэш обновляется сразу тем, что ушло на сервер (пустые строки при сохранении отбрасываются), при ошибке откатывается
+      await saveSchedule({ memberId, lessons }).unwrap().catch(toApiError)
       setDraft(undefined)
       setJustSaved(true)
       setMode('view')

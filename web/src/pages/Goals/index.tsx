@@ -1,13 +1,11 @@
-import { useEffect, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
-import { listGoals, type Goal } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { GoalCard } from '@/components/GoalCard'
 import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
-import { useLive } from '@/realtime/context'
+import { useListGoalsQuery } from '@/store/goals'
 import { AddButton, List, ListEnd } from './styles'
 
 // Цели ребёнка для родителей: список, внизу кнопка «Новая цель». Ребёнок видит свои цели на странице монет.
@@ -15,26 +13,11 @@ export default function Goals() {
   const { memberId } = useParams()
   const { identity } = useIdentity()
   const { data } = useProfile()
-  const [goals, setGoals] = useState<Goal[]>()
-  const [failed, setFailed] = useState(false)
-  const [version, setVersion] = useState(0)
-  useLive(['goals'], () => setVersion((v) => v + 1))
-
-  const token = identity?.token
   const isParent = !!identity && identity.role !== 'child'
-
-  useEffect(() => {
-    if (!token || !memberId || !isParent) return
-    let cancelled = false
-    listGoals(token, memberId)
-      .then((res) => {
-        if (cancelled) return
-        setGoals(res.goals)
-        setFailed(false)
-      })
-      .catch(() => !cancelled && setFailed(true))
-    return () => { cancelled = true }
-  }, [token, memberId, isParent, version])
+  // из кэша сразу, свежее приходит следом и после каждого изменения целей
+  const query = useListGoalsQuery(memberId ?? '', { skip: !memberId || !isParent })
+  const goals = query.data?.goals
+  const failed = query.isError && !goals
 
   if (!identity) return null
   if (!isParent) return <Navigate to="/coins" replace />

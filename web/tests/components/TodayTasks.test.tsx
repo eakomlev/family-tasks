@@ -1,6 +1,9 @@
 import { render, screen } from '@testing-library/react'
+import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeStore } from '@/store'
+import { setSession } from '@/store/session'
 import * as api from '@/api'
 import type { Member } from '@/api'
 import { IdentityContext } from '@/identity/context'
@@ -19,17 +22,22 @@ const NOW = new Date(2026, 9, 11, 10)
 function renderBlock(role: 'child' | 'mama' = 'child') {
   const identity = { familyCode: 'c', memberId: 'me', name: 'Миша', role, token: 'tok' }
   return render(
+    <Provider store={makeStore({ hydrate: false })}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
       <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
         <MemoryRouter><TodayTasks now={NOW} /></MemoryRouter>
       </ProfileContext.Provider>
-    </IdentityContext.Provider>,
+    </IdentityContext.Provider>
+    </Provider>,
   )
 }
 
 const t = (id: string, title: string, assigneeId = 'me', time: string | null = null) => task({ id, title, assigneeId, time })
 
-beforeEach(() => vi.mocked(api.listTasks).mockReset())
+beforeEach(() => {
+  setSession({ token: 'tok', memberId: 'me' })
+  vi.mocked(api.listTasks).mockReset()
+})
 
 describe('TodayTasks: мои задания', () => {
   it('просроченные, потом сегодняшние по времени, потом без срока, всё одним списком; будущие и чужие не показываются', async () => {

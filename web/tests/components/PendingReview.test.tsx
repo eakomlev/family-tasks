@@ -1,7 +1,11 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { Provider } from 'react-redux'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeStore } from '@/store'
+import { RealtimeBridge } from '@/store/RealtimeBridge'
+import { setSession } from '@/store/session'
 import * as api from '@/api'
 import type { Member } from '@/api'
 import { PendingReview } from '@/components/PendingReview'
@@ -39,18 +43,22 @@ function renderBlock(props: Parameters<typeof PendingReview>[0] = {}, role: Iden
   const me = role === 'child' ? members[1] : members[0]
   const identity: Identity = { familyCode: 'c', memberId: me.id, name: me.name, role, token: 'tok' }
   render(
+    <Provider store={makeStore({ hydrate: false })}>
     <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
+    <RealtimeBridge />
       <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
         <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
           <MemoryRouter><PendingReview {...props} /></MemoryRouter>
         </ProfileContext.Provider>
       </IdentityContext.Provider>
-    </RealtimeContext.Provider>,
+    </RealtimeContext.Provider>
+    </Provider>,
   )
   return listeners
 }
 
 beforeEach(() => {
+  setSession({ token: 'tok', memberId: 'm1' })
   vi.mocked(api.listPendingTasks).mockReset().mockResolvedValue(pendingList())
   vi.mocked(api.confirmTask).mockReset().mockResolvedValue(undefined)
   vi.mocked(api.uncompleteTask).mockReset().mockResolvedValue(undefined)

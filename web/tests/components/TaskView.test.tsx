@@ -1,7 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import { Provider } from 'react-redux'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeStore } from '@/store'
+import { RealtimeBridge } from '@/store/RealtimeBridge'
+import { setSession } from '@/store/session'
 import * as api from '@/api'
 import type { Member, Occurrence, Task } from '@/api'
 import { IdentityContext } from '@/identity/context'
@@ -28,7 +32,9 @@ function renderView(me: Member, loaded: { task: Task; occurrence: Occurrence | n
   vi.mocked(api.getTask).mockResolvedValue(loaded)
   const identity = { familyCode: 'c', memberId: me.id, name: me.name, role: me.role, token: 'tok' }
   render(
+    <Provider store={makeStore({ hydrate: false })}>
     <RealtimeContext.Provider value={{ subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)), setViewing: () => {} }}>
+    <RealtimeBridge />
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
       <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
         <MemoryRouter initialEntries={[url]}>
@@ -40,13 +46,15 @@ function renderView(me: Member, loaded: { task: Task; occurrence: Occurrence | n
         </MemoryRouter>
       </ProfileContext.Provider>
     </IdentityContext.Provider>
-    </RealtimeContext.Provider>,
+    </RealtimeContext.Provider>
+    </Provider>,
   )
 }
 
 const base = task({ id: 'a', title: 'Вынести мусор', description: 'Пакеты у двери.\nНе забыть ведро.', authorId: 'm1', assigneeId: 'm2', date: '2026-10-12', time: '18:00' })
 
 beforeEach(() => {
+  setSession({ token: 'tok', memberId: 'm1' })
   vi.mocked(api.getTask).mockReset()
   vi.mocked(api.completeTask).mockReset().mockResolvedValue(undefined)
   vi.mocked(api.uncompleteTask).mockReset().mockResolvedValue(undefined)
@@ -212,6 +220,7 @@ describe('страница задания', () => {
     vi.mocked(api.getTask).mockRejectedValue(new api.ApiError(404, 'task_not_found'))
     const identity = { familyCode: 'c', memberId: 'm2', name: 'Миша', role: 'child' as const, token: 'tok' }
     render(
+      <Provider store={makeStore({ hydrate: false })}>
       <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
         <ProfileContext.Provider value={{ data: { me: { ...members[1], email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
           <MemoryRouter initialEntries={['/tasks/zzz']}>
@@ -221,7 +230,8 @@ describe('страница задания', () => {
             </Routes>
           </MemoryRouter>
         </ProfileContext.Provider>
-      </IdentityContext.Provider>,
+      </IdentityContext.Provider>
+      </Provider>,
     )
     expect(await screen.findByText('Список заданий')).toBeInTheDocument()
   })

@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { ApiError, createGoal, deleteGoal, getGoal, updateGoal, type Goal } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
 import { useConfirm } from '@/components/ConfirmDialog/context'
@@ -13,6 +12,8 @@ import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
 import { resizeToAvatar } from '@/lib/image'
 import { useProfile } from '@/profile/context'
+import { toApiError } from '@/store/api'
+import { useCreateGoalMutation, useDeleteGoalMutation, useGetGoalQuery, useUpdateGoalMutation } from '@/store/goals'
 import { HiddenInput, ImageButtons, ImageRow } from './styles'
 import { describeGoalError, emptyGoalForm, fromGoal, toGoalInput, validateGoal, type GoalFormState } from './utils'
 import { useInFlight } from '@/lib/useInFlight'
@@ -29,8 +30,6 @@ export default function GoalForm() {
   const { identity } = useIdentity()
   const { data } = useProfile()
 
-  const [goal, setGoal] = useState<Goal>()
-  const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'failed'>(goalId ? 'loading' : 'ready')
   const [form, setForm] = useState<GoalFormState>(emptyGoalForm)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
@@ -39,19 +38,29 @@ export default function GoalForm() {
   const token = identity?.token
   const isParent = !!identity && identity.role !== 'child'
 
-  useEffect(() => {
-    if (!token || !goalId) return
-    let cancelled = false
-    getGoal(token, goalId)
-      .then((res) => {
-        if (cancelled) return
-        setGoal(res.goal)
-        setForm(fromGoal(res.goal))
-        setState('ready')
-      })
-      .catch((err) => !cancelled && setState(err instanceof ApiError && err.status === 404 ? 'missing' : 'failed'))
-    return () => { cancelled = true }
-  }, [token, goalId])
+  // цель для изменения: из кэша сразу, свежее следом
+  const query = useGetGoalQuery(goalId ?? '', { skip: !token || !goalId })
+  const goal = query.data?.goal
+  const queryError = query.error
+  const state: 'loading' | 'ready' | 'missing' | 'failed' = !goalId
+    ? 'ready'
+    : goal
+      ? 'ready'
+      : queryError && 'status' in queryError && queryError.status === 404
+        ? 'missing'
+        : queryError
+          ? 'failed'
+          : 'loading'
+  const [createGoal] = useCreateGoalMutation()
+  const [updateGoal] = useUpdateGoalMutation()
+  const [deleteGoal] = useDeleteGoalMutation()
+
+  // форма заполняется данными цели один раз, когда она появилась (правки пользователя поверх не затираем)
+  const [filledFor, setFilledFor] = useState<string>()
+  if (goal && filledFor !== goal.id) {
+    setFilledFor(goal.id)
+    setForm(fromGoal(goal))
+  }
 
   if (!identity || !token) return null
   if (!isParent || state === 'missing') return <Navigate to="/coins" replace />
@@ -82,10 +91,10 @@ export default function GoalForm() {
     setBusy(true)
     try {
       if (goal) {
-        await updateGoal(token!, goal.id, toGoalInput(form))
+        await updateGoal({ id: goal.id, input: toGoalInput(form) }).unwrap().catch(toApiError)
         navigate(`/goals/${goal.id}`, { replace: true })
       } else {
-        await createGoal(token!, ownerId!, toGoalInput(form))
+        await createGoal({ memberId: ownerId!, input: toGoalInput(form) }).unwrap().catch(toApiError)
         navigate(`/family/${ownerId}/goals`, { replace: true })
       }
     } catch (err) {
@@ -100,7 +109,7 @@ export default function GoalForm() {
     if (!ok) return
     setBusy(true)
     try {
-      await deleteGoal(token!, goal.id)
+      await deleteGoal(goal.id).unwrap().catch(toApiError)
       navigate(`/family/${goal.memberId}/goals`, { replace: true })
     } catch (err) {
       setError(describeGoalError(err))

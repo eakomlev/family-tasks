@@ -1,6 +1,9 @@
 import { render, screen } from '@testing-library/react'
+import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeStore } from '@/store'
+import { setSession } from '@/store/session'
 import * as api from '@/api'
 import type { Member } from '@/api'
 import { IdentityContext } from '@/identity/context'
@@ -20,15 +23,18 @@ function renderTasks(role: Identity['role']) {
   const me = role === 'child' ? members[1] : members[0]
   const identity: Identity = { familyCode: 'c', memberId: me.id, name: me.name, role, token: 'tok' }
   return render(
+    <Provider store={makeStore({ hydrate: false })}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
       <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false, refresh: async () => {} }}>
         <MemoryRouter><Tasks /></MemoryRouter>
       </ProfileContext.Provider>
-    </IdentityContext.Provider>,
+    </IdentityContext.Provider>
+    </Provider>,
   )
 }
 
 beforeEach(() => {
+  setSession({ token: 'tok', memberId: 'm1' })
   vi.mocked(api.listTasks).mockReset().mockResolvedValue({
     tasks: [task({ id: 'a', title: 'Вынести мусор', assigneeId: 'kid', authorId: 'mama' })],
     occurrences: [occ('a', null)],

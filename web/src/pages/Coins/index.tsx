@@ -9,7 +9,7 @@ import { Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { START_PATH } from '@/lib/routes'
 import { useProfile } from '@/profile/context'
-import { useLive } from '@/realtime/context'
+import { useGetCoinHistoryQuery } from '@/store/coins'
 import { GoalsList } from './components/GoalsList'
 import { HistoryRow } from './components/HistoryRow'
 import { List, Sentinel, Total } from './styles'
@@ -22,18 +22,6 @@ export default function Coins() {
   // /coins у ребёнка свои монеты; /coins/:memberId у родителя монеты этого ребёнка
   const { memberId } = useParams()
 
-  // загруженная история: свежие сверху; hasMore — есть ли ещё более старые записи
-  const [history, setHistory] = useState<{ items: CoinEntry[]; hasMore: boolean; balance: number }>()
-  const items = history?.items
-  const hasMore = history?.hasMore ?? false
-  const balance = history?.balance
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [failed, setFailed] = useState(false)
-  const [version, setVersion] = useState(0)
-  // защита от двойной подгрузки: сторож может сработать несколько раз, пока идёт запрос
-  const busy = useRef(false)
-  const sentinel = useRef<HTMLDivElement>(null)
-
   const token = identity?.token
   const isChild = identity?.role === 'child'
   const isParent = !!identity && !isChild
@@ -41,24 +29,33 @@ export default function Coins() {
   const ownerId = isChild ? undefined : memberId
   const canView = isChild || (isParent && !!memberId)
 
-  // начисления делают родители или система: запись появляется сама
-  useLive(['members'], () => setVersion((v) => v + 1))
+  // Свежая первая страница из кэша: сохранённая на устройстве видна сразу; начисления делают родители или система,
+  // сигнал `members` сбрасывает кэш, и новая запись встаёт сверху сама. Старые, уже подгруженные страницы остаются (mergeNewest).
+  const first = useGetCoinHistoryQuery(ownerId ?? '', { skip: !canView })
+  const firstPage = first.data
+
+  // загруженная история: свежие сверху; hasMore — есть ли ещё более старые записи (с первого кадра из кэша, если он есть)
+  const [history, setHistory] = useState<{ items: CoinEntry[]; hasMore: boolean; balance: number } | undefined>(() => firstPage)
+  const items = history?.items
+  const hasMore = history?.hasMore ?? false
+  const balance = history?.balance
+  const [loadingMore, setLoadingMore] = useState(false)
+  // ошибка подгрузки старых записей; ошибка первой загрузки приходит из запроса
+  const [moreFailed, setFailed] = useState(false)
+  // защита от двойной подгрузки: сторож может сработать несколько раз, пока идёт запрос
+  const busy = useRef(false)
+  const sentinel = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!token || !canView) return
-    let cancelled = false
-    listCoinHistory(token, undefined, ownerId)
-      .then((page) => {
-        if (cancelled) return
-        setHistory((current) => ({
-          ...mergeNewest(current?.items ?? [], page.items, page.hasMore, current?.hasMore ?? false),
-          balance: page.balance,
-        }))
-        setFailed(false)
-      })
-      .catch(() => !cancelled && setFailed(true))
-    return () => { cancelled = true }
-  }, [token, canView, ownerId, version])
+    if (!firstPage) return
+    // oxlint-disable-next-line react/set-state-in-effect -- сливаем пришедшую страницу с уже подгруженными старыми записями
+    setHistory((current) => ({
+      ...mergeNewest(current?.items ?? [], firstPage.items, firstPage.hasMore, current?.hasMore ?? false),
+      balance: firstPage.balance,
+    }))
+    setFailed(false)
+  }, [firstPage])
+  const failed = moreFailed || (first.isError && !history)
 
   const loadMore = useCallback(async () => {
     if (!token || !items?.length || busy.current) return
