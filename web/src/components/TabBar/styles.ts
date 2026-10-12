@@ -10,7 +10,10 @@ export const Bar = styled.nav`
   height: var(--tabbar-height);
   /* безопасные зоны iPhone: индикатор «Домой» снизу, скруглённые углы и вырез по бокам в горизонтальном положении */
   padding: 0 env(safe-area-inset-right) var(--tabbar-bottom) env(safe-area-inset-left);
-  border-top: 1px solid var(--border);
+  /* скруглённый верх в тон закруглениям экрана iPhone */
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 1.6rem 1.6rem 0 0;
   /* полупрозрачная панель: содержимое страницы размыто просвечивает под ней */
   :root[data-keyboard] & {
     display: none;
@@ -60,7 +63,7 @@ export const TabLink = styled(NavLink)`
     position: absolute;
     inset: 0.1rem 0.05rem;
     z-index: -1;
-    border-radius: 1.2rem;
+    border-radius: 2rem;
     background:
       linear-gradient(180deg, var(--glass-edge) 0%, transparent 55%),
       var(--glass-tint);

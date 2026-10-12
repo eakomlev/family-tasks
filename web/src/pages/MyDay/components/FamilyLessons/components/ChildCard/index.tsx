@@ -19,7 +19,8 @@ export function ChildCard({ child, lessons, trainings, tasks, now }: ChildCardPr
   else if (lessons.length === 0) subjects = 'Расписание не составлено.'
   else if (dayLessons.length === 0) subjects = `${capitalize(day?.label ?? '')} уроков нет.`
   else {
-    subjects = dayLessons.map((l) => l.subject).join(' · ')
+    // кабинет в скобках после предмета, если указан
+    subjects = dayLessons.map((l) => (l.room ? `${l.subject} (каб. ${l.room})` : l.subject)).join(' · ')
     meta = [pluralLessons(dayLessons.length), range].filter(Boolean).join(' · ')
   }
 

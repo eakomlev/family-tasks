@@ -86,3 +86,21 @@ describe('ChildCard с заданиями', () => {
     expect(screen.queryByText('Задания на сегодня')).not.toBeInTheDocument()
   })
 })
+
+describe('ChildCard: кабинеты уроков', () => {
+  const child = { id: 'c1', name: 'Миша', role: 'child' as const, avatar: null, isOwner: false }
+  // 11 октября 2026 это воскресенье, поэтому показывается понедельник (weekday 1)
+  const lessons = [
+    { weekday: 1, subject: 'Химия', startsAt: null, endsAt: null, room: '12а' },
+    { weekday: 1, subject: 'Физика', startsAt: null, endsAt: null, room: null },
+  ]
+
+  it('у предмета с кабинетом он указан в скобках, у остальных нет', () => {
+    render(
+      <MemoryRouter>
+        <ChildCard child={child} lessons={lessons} now={new Date(2026, 9, 11, 10)} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('Химия (каб. 12а) · Физика')).toBeInTheDocument()
+  })
+})
