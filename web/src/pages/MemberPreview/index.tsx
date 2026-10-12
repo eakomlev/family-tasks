@@ -52,6 +52,7 @@ export default function MemberPreview() {
       {member?.role === 'child' && identity?.role !== 'child' && (
         <>
           <ChildCoins memberId={member.id} />
+          <MenuLink to={`/family/${member.id}/goals`}>Цели</MenuLink>
           <MenuLink to={`/family/${member.id}/schedule`}>Расписание уроков</MenuLink>
           <MenuLink to={`/family/${member.id}/trainings`}>Расписание тренировок</MenuLink>
         </>

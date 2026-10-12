@@ -4,6 +4,8 @@ export type ServerEvent =
   | { type: 'members' }
   | { type: 'schedule'; memberId: string }
   | { type: 'trainings'; memberId: string }
+  // цели ребёнка: создали, изменили, удалили или купили
+  | { type: 'goals'; memberId: string }
   // изменение в чате; chat — «family» или собеседник
   | { type: 'chat'; chat: string }
 

@@ -10,6 +10,7 @@ import { useIdentity } from '@/identity/context'
 import { START_PATH } from '@/lib/routes'
 import { useProfile } from '@/profile/context'
 import { useLive } from '@/realtime/context'
+import { GoalsList } from './components/GoalsList'
 import { HistoryRow } from './components/HistoryRow'
 import { List, Sentinel, Total } from './styles'
 import { entryMeta, mergeNewest } from './utils'
@@ -109,6 +110,9 @@ export default function Coins() {
         <strong>{balance ?? data?.me.coins ?? 0}</strong>
         <span>сейчас на счёте</span>
       </Total>
+
+      {/* цели видит и оплачивает сам ребёнок */}
+      {isChild && <GoalsList balance={balance ?? data?.me.coins ?? 0} />}
 
       <h2>История</h2>
       {failed && !items && <Notice $tone="error">Не удалось загрузить историю. Проверьте соединение.</Notice>}

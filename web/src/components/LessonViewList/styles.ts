@@ -66,3 +66,10 @@ export const Time = styled.span`
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
 `
+
+export const Chevron = styled.span`
+  flex: none;
+  color: var(--muted);
+  font-size: 1.4rem;
+  line-height: 1;
+`

@@ -11,6 +11,9 @@ import ChatRoom from '@/pages/ChatRoom'
 import CreateFamily from '@/pages/CreateFamily'
 import Family from '@/pages/Family'
 import FamilyCreated from '@/pages/FamilyCreated'
+import GoalForm from '@/pages/GoalForm'
+import Goals from '@/pages/Goals'
+import GoalView from '@/pages/GoalView'
 import Invite from '@/pages/Invite'
 import Join from '@/pages/Join'
 import LessonReport from '@/pages/LessonReport'
@@ -48,6 +51,10 @@ export default function App() {
               <Route path="/tasks/:taskId/edit" element={<TaskForm />} />
               <Route path="/coins" element={<Coins />} />
               <Route path="/coins/:memberId" element={<Coins />} />
+              <Route path="/family/:memberId/goals" element={<Goals />} />
+              <Route path="/family/:memberId/goals/new" element={<GoalForm />} />
+              <Route path="/goals/:goalId" element={<GoalView />} />
+              <Route path="/goals/:goalId/edit" element={<GoalForm />} />
               <Route path="/lesson-report" element={<LessonReport />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/chat/:chat" element={<ChatRoom />} />

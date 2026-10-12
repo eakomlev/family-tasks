@@ -3,6 +3,7 @@ import websocket from '@fastify/websocket'
 import Fastify from 'fastify'
 import { chatRoutes } from './chat.js'
 import { coinRoutes } from './coins.js'
+import { goalRoutes } from './goals.js'
 import { robloxRoutes } from './roblox.js'
 import { pushRoutes } from './push.js'
 import { MAX_PAYLOAD, realtimeRoutes } from './realtime.js'
@@ -36,5 +37,6 @@ export async function buildApp({ logger = true, rateLimit: limit = true }: Optio
   await app.register(chatRoutes)
   await app.register(coinRoutes)
   await app.register(robloxRoutes)
+  await app.register(goalRoutes)
   return app
 }

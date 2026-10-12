@@ -1,4 +1,4 @@
-import { Item, List, Number, RowLink, Subject, Time } from './styles'
+import { Chevron, Item, List, Number, RowLink, Subject, Time } from './styles'
 import type { LessonViewListProps } from './types'
 import { formatTimeRange } from './utils'
 
@@ -12,6 +12,8 @@ export function LessonViewList({ lessons, getLink }: LessonViewListProps) {
             <Number aria-hidden>{index + 1}</Number>
             <Subject>{lesson.subject}</Subject>
             <Time>{formatTimeRange(lesson)}</Time>
+            {/* стрелка подсказывает, что урок нажимается */}
+            {getLink && <Chevron aria-hidden>›</Chevron>}
           </>
         )
         return getLink ? (

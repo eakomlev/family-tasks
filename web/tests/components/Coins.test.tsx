@@ -11,7 +11,7 @@ import { ProfileContext } from '@/profile/context'
 import { RealtimeContext } from '@/realtime/context'
 import type { Listener } from '@/realtime/types'
 
-vi.mock('@/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/api')>()), listCoinHistory: vi.fn() }))
+vi.mock('@/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/api')>()), listCoinHistory: vi.fn(), listGoals: vi.fn(async () => ({ goals: [] })) }))
 
 const members: Member[] = [
   { id: 'mama', name: 'Лена', role: 'mama', avatar: null, isOwner: true },
