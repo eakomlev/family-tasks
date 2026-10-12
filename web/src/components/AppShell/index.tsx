@@ -4,6 +4,7 @@ import { Avatar } from '@/components/Avatar'
 import { TabBar } from '@/components/TabBar'
 import { useIdentity } from '@/identity/context'
 import { ProfileProvider } from '@/profile'
+import { TaskBadgeProvider } from '@/tasks'
 import { RealtimeProvider } from '@/realtime'
 import { useProfile } from '@/profile/context'
 import { CoinBalance } from '@/components/CoinBalance'
@@ -46,7 +47,9 @@ export function AppShell() {
     <RealtimeProvider token={identity.token}>
       <ProfileProvider token={identity.token}>
         <ChatsProvider token={identity.token}>
-          <Shell />
+          <TaskBadgeProvider>
+            <Shell />
+          </TaskBadgeProvider>
         </ChatsProvider>
       </ProfileProvider>
     </RealtimeProvider>

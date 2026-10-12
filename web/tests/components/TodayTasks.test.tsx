@@ -32,7 +32,7 @@ const t = (id: string, title: string, assigneeId = 'me', time: string | null = n
 beforeEach(() => vi.mocked(api.listTasks).mockReset())
 
 describe('TodayTasks: мои задания', () => {
-  it('просроченные, потом сегодняшние по времени, потом отдельной группой «Без срока»; будущие и чужие не показываются', async () => {
+  it('просроченные, потом сегодняшние по времени, потом без срока, всё одним списком; будущие и чужие не показываются', async () => {
     vi.mocked(api.listTasks).mockResolvedValue({
       tasks: [
         t('late', 'Просроченное'),
@@ -61,17 +61,17 @@ describe('TodayTasks: мои задания', () => {
     expect(order.every((i) => i >= 0)).toBe(true)
     expect([...order].sort((a, b) => a - b)).toEqual(order)
 
-    expect(screen.getByText('Без срока')).toBeInTheDocument()
+    expect(screen.queryByText('Без срока')).not.toBeInTheDocument()
     expect(screen.queryByText('Завтрашнее')).not.toBeInTheDocument()
     expect(screen.queryByText('Чужое без срока')).not.toBeInTheDocument()
     expect(screen.queryByText('Чужое сегодня')).not.toBeInTheDocument()
   })
 
-  it('есть только задания без срока: блок не пустой, группа подписана', async () => {
+  it('есть только задания без срока: блок не пустой', async () => {
     vi.mocked(api.listTasks).mockResolvedValue({ tasks: [t('none', 'Разобрать полку')], occurrences: [occ('none', null)] })
     renderBlock()
     expect(await screen.findByText('Разобрать полку')).toBeInTheDocument()
-    expect(screen.getByText('Без срока')).toBeInTheDocument()
+    expect(screen.queryByText('Без срока')).not.toBeInTheDocument()
     expect(screen.queryByText(/заданий на сегодня и без срока нет/i)).not.toBeInTheDocument()
   })
 

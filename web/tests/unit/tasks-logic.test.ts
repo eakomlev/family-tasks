@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { byTimeThenTitle, occurrenceKey, sameOccurrence, toEntries } from '@/lib/occurrences'
+import { byTimeThenTitle, countActionable, occurrenceKey, sameOccurrence, toEntries } from '@/lib/occurrences'
 import { taskMeta } from '@/components/TaskItem/utils'
 import { buildDone, buildSections } from '@/pages/Tasks/utils'
 import { emptyForm, fromTask, toInput, validate } from '@/pages/TaskForm/utils'
@@ -232,5 +232,34 @@ describe('форма задания', () => {
     it('корректная форма', () => {
       expect(validate({ ...emptyForm('m1'), title: 'x' })).toBeUndefined()
     })
+  })
+})
+
+describe('countActionable', () => {
+  const today = '2026-10-12'
+  const list = (tasks: ReturnType<typeof task>[], occurrences: ReturnType<typeof occ>[]) => ({ tasks, occurrences })
+  const none = list([], [])
+
+  it('считает мои просроченные, сегодняшние и без срока; будущие, выполненные и чужие нет', () => {
+    const tasks = [task({ id: 'a' }), task({ id: 'b' }), task({ id: 'c' }), task({ id: 'd' }), task({ id: 'e' }), task({ id: 'f', assigneeId: 'm2' })]
+    const occurrences = [
+      occ('a', '2026-10-10'),
+      occ('b', today),
+      occ('c', null),
+      occ('d', '2026-10-13'),
+      occ('e', today, true),
+      occ('f', today),
+    ]
+    expect(countActionable(list(tasks, occurrences), none, 'm1', false, today)).toBe(3)
+  })
+
+  it('отправленное мной на проверку не считается', () => {
+    expect(countActionable(list([task({ id: 'a' })], [occ('a', today, false, true)]), none, 'm1', false, today)).toBe(0)
+  })
+
+  it('родителю добавляются задания детей, ждущие проверки; ребёнку нет', () => {
+    const pending = list([task({ id: 'p', assigneeId: 'kid' })], [occ('p', today, false, true), occ('p', '2026-10-11', false, true)])
+    expect(countActionable(none, pending, 'm1', true, today)).toBe(2)
+    expect(countActionable(none, pending, 'kid', false, today)).toBe(0)
   })
 })

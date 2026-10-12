@@ -39,20 +39,21 @@ describe('ChildTasks', () => {
     expect(links[0]).not.toHaveAccessibleName(/Выполнено/)
   })
 
-  it('задания без срока идут отдельной группой, ссылка без даты, в счётчик «выполнено» не входят', () => {
+  it('задания без срока идут тем же списком после сегодняшних, ссылка без даты, входят в счётчик', () => {
     renderTasks([entry('a', 'Сегодняшнее', { done: true })], [entry('u', 'Разобрать полку', { date: null })])
-    expect(screen.getByText('Без срока')).toBeInTheDocument()
-    expect(screen.getByText('выполнено 1 из 1')).toBeInTheDocument()
+    expect(screen.queryByText('Без срока')).not.toBeInTheDocument()
+    expect(screen.getByText('выполнено 1 из 2')).toBeInTheDocument()
+    const titles = screen.getAllByRole('link').map((l) => l.textContent ?? '')
+    expect(titles.findIndex((x) => x.includes('Сегодняшнее'))).toBeLessThan(titles.findIndex((x) => x.includes('Разобрать полку')))
     expect(screen.getByRole('link', { name: /Разобрать полку/ })).toHaveAttribute('href', '/tasks/u')
     expect(screen.getByRole('link', { name: /Сегодняшнее/ })).toHaveAttribute('href', '/tasks/a?date=2026-10-11')
   })
 
-  it('на сегодня нет, но есть без срока: так и написано, группа «Без срока» видна', () => {
+  it('только задания без срока: они в списке, «Заданий нет» не пишем', () => {
     renderTasks([], [entry('u', 'Разобрать полку', { date: null })])
-    expect(screen.getByText('На сегодня заданий нет.')).toBeInTheDocument()
     expect(screen.queryByText('Заданий нет.')).not.toBeInTheDocument()
-    expect(screen.getByText('Без срока')).toBeInTheDocument()
-    expect(screen.queryByText(/выполнено \d/)).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Разобрать полку/ })).toBeInTheDocument()
+    expect(screen.getByText('выполнено 0 из 1')).toBeInTheDocument()
   })
 
   it('все выполнены: «выполнено 2 из 2»', () => {

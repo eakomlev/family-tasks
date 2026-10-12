@@ -8,7 +8,7 @@ import { useLive } from '@/realtime/context'
 import { todayIso } from '@/lib/date'
 import { byTimeThenTitle, occurrenceKey, toEntries } from '@/lib/occurrences'
 import { useProfile } from '@/profile/context'
-import { EditLink, Header, List, Links, SubTitle } from '../TodayLessons/styles'
+import { EditLink, Header, List, Links } from '../TodayLessons/styles'
 import type { TodayTasksProps } from './types'
 
 // Мои задания на сегодня и невыполненные просроченные; задания без срока здесь не показываем (они на странице «Задания»).
@@ -39,17 +39,12 @@ export function TodayTasks({ now }: TodayTasksProps) {
   const hideDone = identity?.role === 'child'
   const mine = hideDone ? all.filter(({ occurrence }) => occurrence.done === null) : all
   const allDone = hideDone && all.length > 0 && mine.length === 0
-  // сначала просроченные, потом сегодняшние по времени; будущие дни здесь не показываем
-  const dated = mine
-    .filter(({ occurrence }) => occurrence.date !== null && occurrence.date <= today)
-    .sort((a, b) => {
-      const lateA = a.occurrence.date! < today
-      const lateB = b.occurrence.date! < today
-      return lateA === lateB ? byTimeThenTitle(a, b) : lateA ? -1 : 1
-    })
-  // задания без срока: невыполненные, отдельной группой в конце
-  const undated = mine.filter(({ occurrence }) => occurrence.date === null).sort(byTimeThenTitle)
-  const empty = dated.length === 0 && undated.length === 0
+  // одним списком: сначала просроченные, потом сегодняшние по времени, в конце задания без срока; будущие дни здесь не показываем
+  const rank = (entry: (typeof mine)[number]) => (entry.occurrence.date === null ? 2 : entry.occurrence.date < today ? 0 : 1)
+  const list_ = mine
+    .filter(({ occurrence }) => occurrence.date === null || occurrence.date <= today)
+    .sort((a, b) => rank(a) - rank(b) || byTimeThenTitle(a, b))
+  const empty = list_.length === 0
 
   const renderItem = (entry: (typeof mine)[number]) => (
     <TaskItem
@@ -76,13 +71,7 @@ export function TodayTasks({ now }: TodayTasksProps) {
       {list && empty && (
         <Notice $tone="muted">{allDone ? 'Все задания на сегодня выполнены.' : 'Заданий на сегодня и без срока нет.'}</Notice>
       )}
-      {dated.length > 0 && <List>{dated.map(renderItem)}</List>}
-      {undated.length > 0 && (
-        <>
-          <SubTitle>Без срока</SubTitle>
-          <List>{undated.map(renderItem)}</List>
-        </>
-      )}
+      {list_.length > 0 && <List>{list_.map(renderItem)}</List>}
     </Stack>
   )
 }

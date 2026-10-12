@@ -31,3 +31,12 @@ export function byTimeThenTitle(a: TaskEntry, b: TaskEntry): number {
   }
   return a.task.title.localeCompare(b.task.title, 'ru')
 }
+
+// Сколько заданий ждёт действия: мои невыполненные (просроченные, на сегодня и без срока; отправленные на проверку не считаем)
+// и, у родителей, всё, что дети отправили на проверку.
+export function countActionable(current: TaskList, pending: TaskList, me: string, isParent: boolean, today: string): number {
+  const open = toEntries(current, me).filter(
+    ({ occurrence }) => occurrence.done === null && occurrence.pending === null && (occurrence.date === null || occurrence.date <= today),
+  ).length
+  return open + (isParent ? pending.occurrences.length : 0)
+}

@@ -134,8 +134,11 @@ export const Badge = styled.span<{ $state: TaskState }>`
 export const Body = styled.div`
   flex: 1;
   min-width: 0;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
+  /* без второй строки (срока и т. п.) название стоит по центру напротив значка */
+  justify-content: center;
   gap: 0.15rem;
 `
 

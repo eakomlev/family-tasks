@@ -21,33 +21,24 @@ function TaskRow({ task, occurrence }: TaskEntry) {
   )
 }
 
-// Задания ребёнка для родителя: на сегодня (выполненные зачёркнуты и остаются в списке) и отдельной группой без срока.
+// Задания ребёнка для родителя одним списком: на сегодня (выполненные зачёркнуты и остаются) и затем без срока.
 export function ChildTasks({ tasks }: ChildTasksProps) {
   if (tasks === undefined) return null
 
-  const { today, undated } = tasks
-  const done = today.filter((e) => e.occurrence.done !== null).length
+  const all = [...tasks.today, ...tasks.undated]
+  const done = all.filter((e) => e.occurrence.done !== null).length
 
   return (
     <Section>
       <Heading>
         <span>Задания на сегодня</span>
-        {today.length > 0 && <span>выполнено {done} из {today.length}</span>}
+        {all.length > 0 && <span>выполнено {done} из {all.length}</span>}
       </Heading>
-      {today.length === 0 && undated.length === 0 && <Heading>Заданий нет.</Heading>}
-      {today.length === 0 && undated.length > 0 && <Heading>На сегодня заданий нет.</Heading>}
-      {today.length > 0 && (
+      {all.length === 0 && <Heading>Заданий нет.</Heading>}
+      {all.length > 0 && (
         <List>
-          {today.map((entry) => <TaskRow key={`${entry.task.id}|${entry.occurrence.date}`} {...entry} />)}
+          {all.map((entry) => <TaskRow key={`${entry.task.id}|${entry.occurrence.date ?? 'none'}`} {...entry} />)}
         </List>
-      )}
-      {undated.length > 0 && (
-        <>
-          <Heading><span>Без срока</span></Heading>
-          <List>
-            {undated.map((entry) => <TaskRow key={`${entry.task.id}|none`} {...entry} />)}
-          </List>
-        </>
       )}
     </Section>
   )
