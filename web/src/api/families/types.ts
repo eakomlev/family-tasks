@@ -10,6 +10,8 @@ export interface Member {
   avatar?: string | null
   // дата рождения YYYY-MM-DD (без времени); приходит из /me
   birthDate?: string | null
+  // настроение ребёнка (1…5) и когда выбрано; у взрослых и без выбора null; приходит из /me
+  mood?: { value: number; at: string } | null
 }
 
 // ответ любого запроса, после которого устройство получает новую сессию

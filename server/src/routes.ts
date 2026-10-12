@@ -380,7 +380,8 @@ export async function routes(app: FastifyInstance) {
     if (!me) return reply.code(401).send({ error: 'unauthorized' })
     const { rows: members } = await pool.query(
       `select id, name, role, is_owner as "isOwner", avatar,
-              to_char(birth_date, 'YYYY-MM-DD') as "birthDate"
+              to_char(birth_date, 'YYYY-MM-DD') as "birthDate",
+              case when role = 'child' and mood is not null then json_build_object('value', mood, 'at', mood_at) end as mood
        from members where family_id = $1 order by created_at`,
       [me.family_id],
     )
@@ -393,6 +394,7 @@ export async function routes(app: FastifyInstance) {
         email: me.email,
         avatar: me.avatar,
         birthDate: me.birth_date,
+        mood: members.find((m) => m.id === me.id)?.mood ?? null,
         // монеты есть только у детей и только свои: у остальных поля нет
         ...(me.role === 'child' ? { coins: await coinBalance(pool, me.id) } : {}),
       },
@@ -400,6 +402,29 @@ export async function routes(app: FastifyInstance) {
       members,
     }
   })
+
+  // Настроение на сегодня: только ребёнок и только своё. Клиент показывает его, пока оно «сегодняшнее» (по mood_at).
+  app.put<{ Body: { mood: number } }>(
+    '/api/me/mood',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['mood'],
+          additionalProperties: false,
+          properties: { mood: { type: 'integer', minimum: 1, maximum: 5 } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const me = await authenticate(req)
+      if (!me) return reply.code(401).send({ error: 'unauthorized' })
+      if (me.role !== 'child') return reply.code(403).send({ error: 'children_only' })
+      const { rows } = await pool.query(`update members set mood = $2, mood_at = now() where id = $1 returning mood as value, mood_at as at`, [me.id, req.body.mood])
+      publish(me.family_id, { type: 'members' })
+      return { mood: rows[0] }
+    },
+  )
 
   // изменение своего профиля: имя и/или фото (null удаляет фото). Email менять нельзя
   app.patch<{ Body: { name?: string; avatar?: string | null; birthDate?: string | null } }>(

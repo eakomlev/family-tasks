@@ -3,7 +3,7 @@ import { formatMessageTime, groupReactions, totalCoins } from '../../utils'
 import { Bubble, CoinPill, Extras, Footer, ReactionChip, Sender, Text, Tick, Time, Wrap } from './styles'
 import type { MessageBubbleProps } from './types'
 
-export function MessageBubble({ message, mine, senderName, showSender, status, onFeedback }: MessageBubbleProps) {
+export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, onFeedback }: MessageBubbleProps) {
   const reactions = groupReactions(message.reactions)
   const coins = totalCoins(message.awards)
 
@@ -27,7 +27,7 @@ export function MessageBubble({ message, mine, senderName, showSender, status, o
   return (
     <Wrap $mine={mine}>
       <Bubble $mine={mine} $clickable={!!onFeedback} {...interactive}>
-        {showSender && !mine && <Sender>{senderName ?? 'Участник'}</Sender>}
+        {showSender && !mine && <Sender>{senderName ?? 'Участник'}{senderMood && <span aria-hidden> {senderMood}</span>}</Sender>}
         <Text>{message.text}</Text>
         <Footer>
           <Time>{formatMessageTime(message.createdAt)}</Time>

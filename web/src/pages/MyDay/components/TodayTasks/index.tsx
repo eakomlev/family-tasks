@@ -63,7 +63,6 @@ export function TodayTasks({ now }: TodayTasksProps) {
         <h2>Задания на сегодня</h2>
         <Links>
           <EditLink to="/tasks/new">+ Добавить</EditLink>
-          <EditLink to="/tasks">Все</EditLink>
         </Links>
       </Header>
       {failed && <Notice $tone="error">Не удалось загрузить задания. Проверьте соединение.</Notice>}

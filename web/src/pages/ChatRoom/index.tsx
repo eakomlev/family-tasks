@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Navigate, useParams } from 'react-router-dom'
 import { ApiError, FAMILY_CHAT, giveFeedback, listMessages, markChatRead, sendMessage, type ChatMessage, type MessageFeedback, type MessagePage } from '@/api'
 import { Avatar } from '@/components/Avatar'
+import { MoodMark } from '@/components/MoodMark'
 import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { useChats } from '@/chat/context'
@@ -10,6 +11,7 @@ import { useKeyboardViewport } from '@/lib/useKeyboardViewport'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
 import { useLive, useViewingChat } from '@/realtime/context'
+import { currentMood } from '@/lib/mood'
 import { memberLabel } from '@/lib/roles'
 import { chatTitle } from '../Chat/utils'
 import { Composer } from './components/Composer'
@@ -170,7 +172,7 @@ export default function ChatRoom() {
         </BackButton>
         {other ? <Avatar name={memberLabel(other, identity.role)} seed={other.id} src={other.avatar} size="2.25rem" /> : <FamilyIcon aria-hidden>👨‍👩‍👧</FamilyIcon>}
         <Title>
-          <h1>{chatTitle(chat, members, identity.role)}</h1>
+          <h1>{chatTitle(chat, members, identity.role)}{other && <> <MoodMark mood={other.mood} now={now} /></>}</h1>
           {visitLabel(peer, now) && <small>{visitLabel(peer, now)}</small>}
         </Title>
       </Header>
@@ -195,6 +197,7 @@ export default function ChatRoom() {
                   message={message}
                   mine={message.senderId === me}
                   senderName={sender(message.senderId)}
+                  senderMood={currentMood(members.find((m) => m.id === message.senderId)?.mood, now)?.emoji}
                   showSender={chat === FAMILY_CHAT}
                   status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
                   onFeedback={() => setFeedbackFor(message)}

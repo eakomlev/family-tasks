@@ -1,4 +1,5 @@
 import { Avatar } from '@/components/Avatar'
+import { MoodMark } from '@/components/MoodMark'
 import { Body, Bottom, Count, FamilyIcon, Name, Preview, Row, Time, Top } from '../../styles'
 import type { ChatRowProps } from '../../types'
 import { memberLabel } from '@/lib/roles'
@@ -13,7 +14,7 @@ export function ChatRow({ chat, member, members, me, viewerRole, now }: ChatRowP
       {member ? <Avatar name={memberLabel(member, viewerRole)} seed={member.id} src={member.avatar} size="2.5rem" /> : <FamilyIcon aria-hidden>👨‍👩‍👧</FamilyIcon>}
       <Body>
         <Top>
-          <Name $unread={unread}>{chatTitle(chat.id, members, viewerRole)}</Name>
+          <Name $unread={unread}>{chatTitle(chat.id, members, viewerRole)}{member && <> <MoodMark mood={member.mood} now={now} /></>}</Name>
           {chat.last && <Time $unread={unread}>{formatChatTime(chat.last.createdAt, now)}</Time>}
         </Top>
         <Bottom>

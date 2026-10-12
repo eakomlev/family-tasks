@@ -2,7 +2,10 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <!-- Safari не понимает SVG-значок вкладки и при наличии ссылки на него не ищет favicon.ico сам, поэтому ico и png указаны явно -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" sizes="any" />
+    <link rel="icon" type="image/png" href="/pwa-192x192.png" sizes="192x192" />
     <!-- viewport-fit=cover: без него iOS не сообщает безопасные отступы (env(safe-area-inset-*)), и панель табов уходит под индикатор «Домой» и скруглённые углы -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#f7f7fb" />

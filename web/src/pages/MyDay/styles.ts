@@ -16,3 +16,22 @@ export const Icon = styled.div`
 export const DateLine = styled.p`
   color: var(--muted);
 `
+
+// настроение ребёнка на месте значка времени суток: тот же размер, но нажимается
+export const MoodButton = styled.button`
+  align-self: flex-start;
+  margin: -0.5rem 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 3rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+    border-radius: 0.5rem;
+  }
+`

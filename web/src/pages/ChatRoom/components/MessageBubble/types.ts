@@ -6,6 +6,8 @@ export interface MessageBubbleProps {
   mine: boolean
   // как подписать автора (имя или «Мама»); имя над чужим сообщением показываем только в общем чате
   senderName?: string
+  // настроение автора (смайлик справа от имени), если выбрано сегодня
+  senderMood?: string
   showSender: boolean
   // статус своего сообщения: отправлено или прочитано; у чужих не показывается
   status?: MessageStatus
