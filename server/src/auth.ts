@@ -79,9 +79,25 @@ export function bearerToken(req: FastifyRequest): string | null {
   return /^Bearer (.+)$/.exec(req.headers.authorization ?? '')?.[1] ?? null
 }
 
+// Срок жизни сессии без использования, дней; пока токеном пользуются, он продлевается
+export const SESSION_TTL_DAYS = 90
+
+// участник запроса вычисляется один раз: проверку делает общий хук (default-deny в app.ts), а обработчик берёт готовый результат
+const resolved = new WeakMap<FastifyRequest, ReturnType<typeof authenticateToken>>()
+
 export async function authenticate(req: FastifyRequest) {
+  const cached = resolved.get(req)
+  if (cached) return cached
   const token = bearerToken(req)
-  return token ? authenticateToken(token) : null
+  const result = token ? authenticateToken(token) : Promise.resolve(null)
+  resolved.set(req, result)
+  return result
+}
+
+// Удаляет сессии, которыми не пользовались дольше срока (запускается при старте и раз в сутки).
+export async function deleteExpiredSessions(): Promise<number> {
+  const { rowCount } = await pool.query(`delete from sessions where last_used_at < now() - make_interval(days => $1)`, [SESSION_TTL_DAYS])
+  return rowCount ?? 0
 }
 
 // участник по токену сессии или null (для HTTP по заголовку, для WebSocket по первому сообщению)
@@ -91,8 +107,13 @@ export async function authenticateToken(token: string) {
      from sessions s
      join members m on m.id = s.member_id
      join families f on f.id = m.family_id
-     where s.token_hash = $1`,
-    [hashToken(token)],
+     where s.token_hash = $1 and s.last_used_at > now() - make_interval(days => $2)`,
+    [hashToken(token), SESSION_TTL_DAYS],
   )
-  return rows[0] ?? null
+  if (!rows[0]) return null
+  // продлеваем не чаще раза в сутки, чтобы не писать в базу на каждый запрос
+  void pool
+    .query(`update sessions set last_used_at = now() where token_hash = $1 and last_used_at < now() - interval '1 day'`, [hashToken(token)])
+    .catch(() => {})
+  return rows[0]
 }

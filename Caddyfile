@@ -2,5 +2,7 @@
 # Нужно: домен направлен на сервер (A-запись), порты 80 и 443 открыты.
 {$DOMAIN} {
 	encode zstd gzip
+	# HTTPS-only на год: браузер сам переходит на https, даже если набрать http. Остальные заголовки безопасности отдаёт nginx (web/security-headers.conf)
+	header Strict-Transport-Security "max-age=31536000"
 	reverse_proxy web:80
 }

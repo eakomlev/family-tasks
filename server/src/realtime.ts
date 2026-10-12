@@ -98,7 +98,8 @@ export function connectionCount() {
 export async function realtimeRoutes(app: FastifyInstance) {
   // Живые обновления: GET /api/ws, затем первым сообщением {"type":"auth","token":"..."}.
   // Токен не передаём в адресе: адреса попадают в журналы прокси.
-  app.get('/api/ws', { websocket: true }, (socket) => {
+  // авторизация по первому сообщению сокета, а не по заголовку: токен не должен попадать в адрес
+  app.get('/api/ws', { websocket: true, config: { public: true } }, (socket) => {
     let client: Client | undefined
     const authTimer = setTimeout(() => socket.close(CLOSE_UNAUTHORIZED, 'auth timeout'), AUTH_TIMEOUT_MS)
 

@@ -24,6 +24,8 @@ type Role = 'mama' | 'papa' | 'child'
 
 // эндпоинты, где можно подбирать коды, ограничиваем строже общего лимита
 const strictLimit = { rateLimit: { max: 10, timeWindow: '1 minute' } }
+// открытые маршруты (вход, регистрация, приглашения): без токена, но с жёстким лимитом
+const publicStrict = { ...strictLimit, public: true }
 
 const nameSchema = { type: 'string', minLength: 1, maxLength: 40, pattern: '\\S' } as const
 const emailSchema = { type: 'string', format: 'email', maxLength: 254 } as const
@@ -150,7 +152,7 @@ function constraintOf(err: unknown): string | undefined {
 }
 
 export async function routes(app: FastifyInstance) {
-  app.get('/api/health', async (_req, reply) => {
+  app.get('/api/health', { config: { public: true } }, async (_req, reply) => {
     try {
       await pool.query('select 1')
       return { status: 'ok' }
@@ -163,7 +165,7 @@ export async function routes(app: FastifyInstance) {
   // отправка кода на почту. Ответ не зависит от того, известен ли email, чтобы адреса нельзя было перебирать
   app.post<{ Body: { email: string; purpose: Purpose } }>(
     '/api/email-codes',
-    { schema: emailCodeSchema, config: strictLimit },
+    { schema: emailCodeSchema, config: publicStrict },
     async (req, reply) => {
       const email = normalizeEmail(req.body.email)
       const { purpose } = req.body
@@ -193,7 +195,7 @@ export async function routes(app: FastifyInstance) {
   // создание семьи: семья + владелец + первое приглашение
   app.post<{ Body: SignupBody }>(
     '/api/families',
-    { schema: createFamilySchema, config: strictLimit },
+    { schema: createFamilySchema, config: publicStrict },
     async (req, reply) => {
       const email = normalizeEmail(req.body.email)
       if (!(await checkEmailCode(email, 'signup', req.body.code))) {
@@ -236,7 +238,7 @@ export async function routes(app: FastifyInstance) {
   )
 
   // проверка приглашения перед показом выбора роли
-  app.get<{ Params: { code: string } }>('/api/invites/:code', { config: strictLimit }, async (req, reply) => {
+  app.get<{ Params: { code: string } }>('/api/invites/:code', { config: publicStrict }, async (req, reply) => {
     const { rows } = await pool.query('select expires_at from invites where code = $1', [
       req.params.code,
     ])
@@ -249,7 +251,7 @@ export async function routes(app: FastifyInstance) {
 
   app.post<{ Params: { code: string }; Body: SignupBody }>(
     '/api/invites/:code/join',
-    { schema: joinSchema, config: strictLimit },
+    { schema: joinSchema, config: publicStrict },
     async (req, reply) => {
       const { rows } = await pool.query(
         `select i.family_id, i.expires_at, f.code as family_code
@@ -290,7 +292,7 @@ export async function routes(app: FastifyInstance) {
   // вход по email и коду; если email есть в нескольких семьях, клиент должен выбрать участника
   app.post<{ Body: { email: string; code: string; memberId?: string } }>(
     '/api/auth/login',
-    { schema: loginSchema, config: strictLimit },
+    { schema: loginSchema, config: publicStrict },
     async (req, reply) => {
       const email = normalizeEmail(req.body.email)
       if (!(await checkEmailCode(email, 'login', req.body.code))) {
@@ -344,8 +346,8 @@ export async function routes(app: FastifyInstance) {
     },
   )
 
-  // выход: отзываем сессию этого устройства
-  app.delete('/api/session', async (req, reply) => {
+  // выход: отзываем сессию этого устройства. Помечен открытым, чтобы выход с уже истёкшим токеном тоже проходил (идемпотентно); без токена 401 отдаёт сам обработчик
+  app.delete('/api/session', { config: { public: true } }, async (req, reply) => {
     const token = bearerToken(req)
     if (!token) return reply.code(401).send({ error: 'unauthorized' })
     await pool.query('delete from sessions where token_hash = $1', [hashToken(token)])

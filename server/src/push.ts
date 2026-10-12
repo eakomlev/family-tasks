@@ -113,7 +113,7 @@ const unsubscribeSchema = {
 
 export async function pushRoutes(app: FastifyInstance) {
   // публичный ключ нужен браузеру, чтобы оформить подписку
-  app.get('/api/push/config', async (_req, reply) => {
+  app.get('/api/push/config', { config: { public: true } }, async (_req, reply) => {
     if (!pushEnabled) return reply.code(503).send({ error: 'push_not_configured' })
     return { publicKey }
   })
