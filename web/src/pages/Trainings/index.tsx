@@ -25,10 +25,12 @@ import {
   newTraining,
   toTrainings,
 } from './utils'
+import { useInFlight } from '@/lib/useInFlight'
 
 // Один редактор для двух случаев: ребёнок правит своё (/profile/trainings),
 // родитель правит расписание ребёнка (/family/:memberId/trainings).
 export default function Trainings() {
+  const guard = useInFlight()
   const { memberId: paramId } = useParams()
   const { identity } = useIdentity()
   const confirm = useConfirm()
@@ -101,7 +103,7 @@ export default function Trainings() {
     setError(undefined)
   }
 
-  async function handleSave() {
+  const handleSave = guard(async () => {
     if (!draft || !token || !memberId) return
     if (hasInvalidTime(draft)) {
       setError('У некоторых тренировок время окончания раньше начала или совпадает с ним.')
@@ -126,7 +128,7 @@ export default function Trainings() {
     } finally {
       setSaving(false)
     }
-  }
+  })
 
   return (
     <Page>

@@ -13,9 +13,11 @@ import { coinsWord } from '@/lib/coins'
 import { formatDateTime } from '@/lib/date'
 import { useLive } from '@/realtime/context'
 import { Details, PriceLine } from './styles'
+import { useInFlight } from '@/lib/useInFlight'
 
 // Карточка цели (только просмотр): ребёнок видит «Оплатить» или сколько не хватает, родитель «Изменить»
 export default function GoalView() {
+  const guard = useInFlight()
   const { goalId } = useParams()
   const navigate = useNavigate()
   const confirm = useConfirm()
@@ -53,7 +55,7 @@ export default function GoalView() {
   const missing = goal ? Math.max(0, goal.price - balance) : 0
   const bought = goal?.purchasedAt != null
 
-  async function pay() {
+  const pay = guard(async () => {
     if (!goal) return
     const ok = await confirm({
       title: 'Оплатить цель?',
@@ -78,9 +80,9 @@ export default function GoalView() {
     } finally {
       setBusy(false)
     }
-  }
+  })
 
-  async function remove() {
+  const remove = guard(async () => {
     if (!goal) return
     const ok = await confirm({ title: 'Удалить цель?', message: 'Это действие нельзя отменить.', confirmLabel: 'Удалить', danger: true })
     if (!ok) return
@@ -92,7 +94,7 @@ export default function GoalView() {
       setError('Не удалось удалить цель. Попробуйте ещё раз.')
       setBusy(false)
     }
-  }
+  })
 
   return (
     <Page>

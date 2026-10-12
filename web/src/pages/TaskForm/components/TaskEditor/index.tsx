@@ -15,6 +15,7 @@ import type { FormState } from '../../types'
 import { toInput, validate } from '../../utils'
 import { RepeatFields } from '../RepeatFields'
 import type { TaskEditorProps } from './types'
+import { useInFlight } from '@/lib/useInFlight'
 
 function describeError(err: unknown): string {
   if (err instanceof ApiError) {
@@ -26,6 +27,7 @@ function describeError(err: unknown): string {
 }
 
 export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDelete }: TaskEditorProps) {
+  const guard = useInFlight()
   const confirm = useConfirm()
   const [form, setForm] = useState<FormState>(initial)
   const [busy, setBusy] = useState(false)
@@ -73,7 +75,7 @@ export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDele
   const toggleDay = (day: number) =>
     patch({ days: form.days.includes(day) ? form.days.filter((d) => d !== day) : [...form.days, day].sort((a, b) => a - b) })
 
-  async function handleSubmit(e: FormEvent) {
+  const handleSubmit = guard(async (e: FormEvent) => {
     e.preventDefault()
     const problem = validate(form)
     if (problem) return setError(problem)
@@ -85,9 +87,9 @@ export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDele
       setError(describeError(err))
       setBusy(false)
     }
-  }
+  })
 
-  async function handleDelete() {
+  const handleDelete = guard(async () => {
     if (!onDelete) return
     const ok = await confirm({ title: 'Удалить задание?', message: 'Это действие нельзя отменить.', confirmLabel: 'Удалить', danger: true })
     if (!ok) return
@@ -99,7 +101,7 @@ export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDele
       setError(describeError(err))
       setBusy(false)
     }
-  }
+  })
 
   return (
     <Stack as="form" noValidate onSubmit={handleSubmit}>

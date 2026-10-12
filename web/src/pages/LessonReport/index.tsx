@@ -13,9 +13,11 @@ import { buildLessonReport, GRADES, MAX_COMMENT } from '@/lib/lessonReport'
 import { START_PATH } from '@/lib/routes'
 import { Grade, Grades, Label, Subject } from './styles'
 import { gradeTone } from './utils'
+import { useInFlight } from '@/lib/useInFlight'
 
 // «Что ты хочешь сообщить!»: ребёнок выбирает оценку за урок и/или пишет сообщение, из этого собирается сообщение в общий чат.
 export default function LessonReport() {
+  const guard = useInFlight()
   const { identity } = useIdentity()
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -31,7 +33,7 @@ export default function LessonReport() {
 
   const text = buildLessonReport(subject, grade, comment)
 
-  async function send() {
+  const send = guard(async () => {
     if (!text || !identity) return
     setBusy(true)
     setError(undefined)
@@ -42,7 +44,7 @@ export default function LessonReport() {
       setError('Не удалось отправить. Попробуйте ещё раз.')
       setBusy(false)
     }
-  }
+  })
 
   return (
     <Page>

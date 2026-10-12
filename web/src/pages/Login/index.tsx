@@ -12,8 +12,10 @@ import { ChooseMember } from './components/ChooseMember'
 import { EmailStep } from './components/EmailStep'
 import type { Step } from './types'
 import { START_PATH } from '@/lib/routes'
+import { useInFlight } from '@/lib/useInFlight'
 
 function LoginFlow() {
+  const guard = useInFlight()
   const { save } = useIdentity()
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('email')
@@ -26,7 +28,7 @@ function LoginFlow() {
   const trimmedEmail = email.trim()
   const sendCode = () => requestEmailCode(trimmedEmail, 'login')
 
-  async function handleEmail() {
+  const handleEmail = guard(async () => {
     setBusy(true)
     setError(undefined)
     try {
@@ -38,9 +40,9 @@ function LoginFlow() {
     } finally {
       setBusy(false)
     }
-  }
+  })
 
-  async function finish(enteredCode: string, memberId?: string) {
+  const finish = guard(async (enteredCode: string, memberId?: string) => {
     setBusy(true)
     setError(undefined)
     try {
@@ -59,7 +61,7 @@ function LoginFlow() {
       }
       setBusy(false)
     }
-  }
+  })
 
   if (step === 'code') {
     return (

@@ -8,10 +8,12 @@ import { Stack } from '@/components/Stack'
 import { ageFromBirthDate, formatAge, todayIso } from '@/lib/date'
 import type { ProfileFormProps } from './types'
 import { describeSaveError } from './utils'
+import { useInFlight } from '@/lib/useInFlight'
 
 const MIN_BIRTH_DATE = '1900-01-01'
 
 export function ProfileForm({ name, birthDate, onSave }: ProfileFormProps) {
+  const guard = useInFlight()
   const [nameValue, setNameValue] = useState(name)
   // пустая строка — даты нет
   const [birthValue, setBirthValue] = useState(birthDate ?? '')
@@ -30,7 +32,7 @@ export function ProfileForm({ name, birthDate, onSave }: ProfileFormProps) {
     setError(undefined)
   }
 
-  async function handleSubmit(e: FormEvent) {
+  const handleSubmit = guard(async (e: FormEvent) => {
     e.preventDefault()
     if (!ready) return
     const patch: ProfilePatch = {}
@@ -49,7 +51,7 @@ export function ProfileForm({ name, birthDate, onSave }: ProfileFormProps) {
     } finally {
       setBusy(false)
     }
-  }
+  })
 
   return (
     <Stack as="form" onSubmit={handleSubmit}>

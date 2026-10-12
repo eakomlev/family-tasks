@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { confirmTask, uncompleteTask } from '@/api'
 import { occurrenceKey, type TaskEntry } from './occurrences'
 
@@ -7,10 +7,13 @@ import { occurrenceKey, type TaskEntry } from './occurrences'
 export function useReview(token: string | undefined, onDone: () => void) {
   const [busy, setBusy] = useState<string>()
   const [error, setError] = useState<string>()
+  // пока идёт одно действие, остальные игнорируются (двойное нажатие до перерисовки)
+  const flying = useRef(false)
 
   const act = useCallback(
     async (entry: TaskEntry, action: typeof confirmTask) => {
-      if (!token) return
+      if (!token || flying.current) return
+      flying.current = true
       setBusy(occurrenceKey(entry.task.id, entry.occurrence.date))
       setError(undefined)
       try {
@@ -19,6 +22,7 @@ export function useReview(token: string | undefined, onDone: () => void) {
       } catch {
         setError('Не удалось выполнить. Попробуйте ещё раз.')
       } finally {
+        flying.current = false
         setBusy(undefined)
       }
     },

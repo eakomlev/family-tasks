@@ -4,9 +4,11 @@ import { Notice } from '@/components/Notice'
 import { MOODS } from '@/lib/mood'
 import { Choice, Choices, Dialog, Overlay } from './styles'
 import type { MoodDialogProps } from './types'
+import { useInFlight } from '@/lib/useInFlight'
 
 // «Как настроение?»: пять эмоций от радости до грусти. Утром показывается принудительно (forced), потом открывается по нажатию на смайлик.
 export function MoodDialog({ current, forced, onPick, onClose }: MoodDialogProps) {
+  const guard = useInFlight()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
   const dialog = useRef<HTMLDivElement>(null)
@@ -22,7 +24,7 @@ export function MoodDialog({ current, forced, onPick, onClose }: MoodDialogProps
     }
   }, [])
 
-  async function pick(value: number) {
+  const pick = guard(async (value: number) => {
     setBusy(true)
     setError(undefined)
     try {
@@ -31,7 +33,7 @@ export function MoodDialog({ current, forced, onPick, onClose }: MoodDialogProps
       setError('Не удалось сохранить. Попробуйте ещё раз.')
       setBusy(false)
     }
-  }
+  })
 
   return (
     <Overlay onKeyDown={(e) => !forced && e.key === 'Escape' && onClose()}>

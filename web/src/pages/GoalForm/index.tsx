@@ -15,12 +15,14 @@ import { resizeToAvatar } from '@/lib/image'
 import { useProfile } from '@/profile/context'
 import { HiddenInput, ImageButtons, ImageRow } from './styles'
 import { describeGoalError, emptyGoalForm, fromGoal, toGoalInput, validateGoal, type GoalFormState } from './utils'
+import { useInFlight } from '@/lib/useInFlight'
 
 // размер картинки цели: квадрат по центру, чтобы уложиться в лимит сервера
 const IMAGE_SIZE = 256
 
 // /family/:memberId/goals/new — создание цели ребёнку; /goals/:goalId/edit — изменение (только родители, только не купленная)
 export default function GoalForm() {
+  const guard = useInFlight()
   const { memberId, goalId } = useParams()
   const navigate = useNavigate()
   const confirm = useConfirm()
@@ -73,7 +75,7 @@ export default function GoalForm() {
     }
   }
 
-  async function submit(e: FormEvent) {
+  const submit = guard(async (e: FormEvent) => {
     e.preventDefault()
     const problem = validateGoal(form)
     if (problem) return setError(problem)
@@ -90,9 +92,9 @@ export default function GoalForm() {
       setError(describeGoalError(err))
       setBusy(false)
     }
-  }
+  })
 
-  async function remove() {
+  const remove = guard(async () => {
     if (!goal) return
     const ok = await confirm({ title: 'Удалить цель?', message: 'Это действие нельзя отменить.', confirmLabel: 'Удалить', danger: true })
     if (!ok) return
@@ -104,7 +106,7 @@ export default function GoalForm() {
       setError(describeGoalError(err))
       setBusy(false)
     }
-  }
+  })
 
   const childName = data?.members.find((m) => m.id === ownerId)?.name
 

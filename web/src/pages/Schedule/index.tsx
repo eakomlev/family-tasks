@@ -25,10 +25,12 @@ import {
   toLessons,
   WEEKDAYS,
 } from './utils'
+import { useInFlight } from '@/lib/useInFlight'
 
 // Один редактор для двух случаев: ребёнок правит своё (/profile/schedule),
 // родитель правит расписание ребёнка (/family/:memberId/schedule).
 export default function Schedule() {
+  const guard = useInFlight()
   const { memberId: paramId } = useParams()
   const { identity } = useIdentity()
   const confirm = useConfirm()
@@ -101,7 +103,7 @@ export default function Schedule() {
     setError(undefined)
   }
 
-  async function handleSave() {
+  const handleSave = guard(async () => {
     if (!draft || !token || !memberId) return
     if (hasInvalidTime(draft)) {
       setError('У некоторых уроков время окончания раньше начала или совпадает с ним.')
@@ -126,7 +128,7 @@ export default function Schedule() {
     } finally {
       setSaving(false)
     }
-  }
+  })
 
   return (
     <Page>

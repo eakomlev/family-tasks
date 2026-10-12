@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, getPushConfig, subscribePush, unsubscribePush } from '@/api'
 
 // unsupported — браузер не умеет; no-worker — нет service worker (например, в режиме разработки);
@@ -36,6 +36,8 @@ export function usePushSubscription(token: string) {
   const [status, setStatus] = useState<PushStatus>('loading')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  // включение и выключение не идут одновременно (двойное нажатие до перерисовки)
+  const flying = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -60,6 +62,8 @@ export function usePushSubscription(token: string) {
   }, [token])
 
   const enable = useCallback(async () => {
+    if (flying.current) return
+    flying.current = true
     setBusy(true)
     setError(undefined)
     try {
@@ -91,11 +95,14 @@ export function usePushSubscription(token: string) {
           : 'Не удалось включить уведомления. Попробуйте ещё раз.',
       )
     } finally {
+      flying.current = false
       setBusy(false)
     }
   }, [token])
 
   const disable = useCallback(async () => {
+    if (flying.current) return
+    flying.current = true
     setBusy(true)
     setError(undefined)
     try {
@@ -108,6 +115,7 @@ export function usePushSubscription(token: string) {
     } catch {
       setError('Не удалось выключить уведомления. Попробуйте ещё раз.')
     } finally {
+      flying.current = false
       setBusy(false)
     }
   }, [token])

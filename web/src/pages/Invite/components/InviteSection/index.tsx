@@ -6,8 +6,10 @@ import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
 import { inviteLink } from '@/lib/links'
 import type { InviteSectionProps } from './types'
+import { useInFlight } from '@/lib/useInFlight'
 
 export function InviteSection({ token }: InviteSectionProps) {
+  const guard = useInFlight()
   // undefined — загружаем, null — действующего приглашения нет
   const [invite, setInvite] = useState<Link | null>()
   const [busy, setBusy] = useState(false)
@@ -25,7 +27,7 @@ export function InviteSection({ token }: InviteSectionProps) {
     return () => { cancelled = true }
   }, [token])
 
-  async function renew() {
+  const renew = guard(async () => {
     setBusy(true)
     setError(false)
     try {
@@ -35,7 +37,7 @@ export function InviteSection({ token }: InviteSectionProps) {
     } finally {
       setBusy(false)
     }
-  }
+  })
 
   return (
     <Stack as="section">

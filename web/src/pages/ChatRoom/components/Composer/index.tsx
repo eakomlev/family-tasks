@@ -3,9 +3,11 @@ import { Notice } from '@/components/Notice'
 import { canSend, MAX_LENGTH } from '../../utils'
 import { Bar, Field, SendButton } from './styles'
 import type { ComposerProps } from './types'
+import { useInFlight } from '@/lib/useInFlight'
 
 // Поле ввода сообщения: растёт по мере набора, Enter отправляет, Shift+Enter переносит строку.
 export function Composer({ onSend }: ComposerProps) {
+  const guard = useInFlight()
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -22,7 +24,7 @@ export function Composer({ onSend }: ComposerProps) {
   const shiftRef = useRef(false)
   const submitRef = useRef<() => Promise<void>>(async () => {})
 
-  async function submit(e?: FormEvent) {
+  const submit = guard(async (e?: FormEvent) => {
     e?.preventDefault()
     if (busy || !canSend(text)) return
     setBusy(true)
@@ -36,7 +38,7 @@ export function Composer({ onSend }: ComposerProps) {
       setBusy(false)
       field.current?.focus()
     }
-  }
+  })
 
   function onKeyDown(e: KeyboardEvent) {
     // при вводе через экранную клавиатуру (composition) Enter подтверждает слово, а не отправляет

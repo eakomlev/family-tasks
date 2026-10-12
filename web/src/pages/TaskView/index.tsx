@@ -15,10 +15,15 @@ import { useProfile } from '@/profile/context'
 import { useLive } from '@/realtime/context'
 import { Actions, Description, Details, Who } from './styles'
 import { describeFullRepeat, describeOccurrenceDue } from './utils'
+import { useInFlight } from '@/lib/useInFlight'
 
 // Просмотр задания: все детали и, внизу, отметка о выполнении (после неё экран поздравления).
 // ?date=YYYY-MM-DD выбирает вхождение повторяющегося задания.
+// отдельной функцией: время берётся в момент нажатия, а не при отрисовке
+const nowIso = () => new Date().toISOString()
+
 export default function TaskView() {
+  const guard = useInFlight()
   const { taskId } = useParams()
   const [params] = useSearchParams()
   const date = params.get('date')
@@ -74,11 +79,11 @@ export default function TaskView() {
   const needsReview = !!task && task.reward > 0 && isChild
 
   // Действие над вхождением; результат применяется сразу, а подтверждённый запрос обновит и остальных по сокету.
-  async function act(kind: 'complete' | 'confirm' | 'undo') {
+  const act = guard(async (kind: 'complete' | 'confirm' | 'undo') => {
     if (!task || !occurrence) return
     setBusy(true)
     setError(undefined)
-    const now = new Date().toISOString()
+    const now = nowIso()
     try {
       if (kind === 'undo') {
         await uncompleteTask(token!, task.id, occurrence.date)
@@ -101,7 +106,7 @@ export default function TaskView() {
     } finally {
       setBusy(false)
     }
-  }
+  })
 
   const person = (id: string) => {
     const member = byId(id)

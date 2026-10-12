@@ -8,8 +8,10 @@ import { useProfile } from '@/profile/context'
 import { AvatarEditor } from './components/AvatarEditor'
 import { ProfileForm } from './components/ProfileForm'
 import { describePhotoError } from './utils'
+import { useInFlight } from '@/lib/useInFlight'
 
 export default function ProfileEdit() {
+  const guard = useInFlight()
   const { identity, save } = useIdentity()
   const { data, refresh } = useProfile()
   const [photoBusy, setPhotoBusy] = useState(false)
@@ -18,7 +20,7 @@ export default function ProfileEdit() {
   if (!identity) return null
   const token = identity.token
 
-  async function changePhoto(file: File | null) {
+  const changePhoto = guard(async (file: File | null) => {
     setPhotoBusy(true)
     setPhotoError(undefined)
     try {
@@ -30,10 +32,10 @@ export default function ProfileEdit() {
     } finally {
       setPhotoBusy(false)
     }
-  }
+  })
 
   // аватар из Roblox: сервер отдаёт картинку, дальше как с обычным фото (обрезка до квадрата и сжатие)
-  async function takeRobloxAvatar(username: string) {
+  const takeRobloxAvatar = guard(async (username: string) => {
     setPhotoBusy(true)
     setPhotoError(undefined)
     try {
@@ -48,7 +50,7 @@ export default function ProfileEdit() {
     } finally {
       setPhotoBusy(false)
     }
-  }
+  })
 
   async function saveProfile(patch: ProfilePatch) {
     await updateProfile(token, patch)

@@ -7,9 +7,11 @@ import { isValidEmail } from '@/lib/validation'
 import { DetailsStep } from './components/DetailsStep'
 import type { RoleFormProps, Step } from './types'
 import { describeSignupError } from './utils'
+import { useInFlight } from '@/lib/useInFlight'
 
 // два шага: роль, имя и email, затем код из письма
 export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
+  const guard = useInFlight()
   const [step, setStep] = useState<Step>('details')
   const [role, setRole] = useState<Role | null>(null)
   const [name, setName] = useState('')
@@ -22,7 +24,7 @@ export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
 
   const sendCode = () => requestEmailCode(trimmedEmail, 'signup')
 
-  async function handleDetails() {
+  const handleDetails = guard(async () => {
     if (!ready) return
     setBusy(true)
     setError(undefined)
@@ -36,9 +38,9 @@ export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
     } finally {
       setBusy(false)
     }
-  }
+  })
 
-  async function handleCode(code: string) {
+  const handleCode = guard(async (code: string) => {
     if (!role) return
     setBusy(true)
     setError(undefined)
@@ -50,7 +52,7 @@ export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
       setError(text)
       setBusy(false)
     }
-  }
+  })
 
   if (step === 'code') {
     return (

@@ -5,6 +5,7 @@ import { REWARD_CHOICES } from '@/lib/coins'
 import { REACTIONS } from '@/lib/reactions'
 import { Backdrop, CoinButton, Coins, Emoji, Emojis, Sheet } from './styles'
 import type { FeedbackDialogProps } from './types'
+import { useInFlight } from '@/lib/useInFlight'
 
 // быстрые суммы монет (без «0 — без награды»)
 const COIN_CHOICES = REWARD_CHOICES.filter((n) => n > 0)
@@ -12,6 +13,7 @@ const COIN_CHOICES = REWARD_CHOICES.filter((n) => n > 0)
 // Компактное окно над сообщением (открывается долгим нажатием): реакция и, если это родитель и сообщение ребёнка, монеты автору.
 // Выбор применяется сразу, кнопки «Отправить» нет: повторное нажатие на свою реакцию снимает её.
 export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onClose }: FeedbackDialogProps) {
+  const guard = useInFlight()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
   const sheet = useRef<HTMLDivElement>(null)
@@ -27,7 +29,7 @@ export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onClos
     }
   }, [])
 
-  async function apply(feedback: Parameters<typeof onSubmit>[0]) {
+  const apply = guard(async (feedback: Parameters<typeof onSubmit>[0]) => {
     if (busy) return
     setBusy(true)
     setError(undefined)
@@ -37,7 +39,7 @@ export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onClos
       setError('Не удалось отправить. Попробуйте ещё раз.')
       setBusy(false)
     }
-  }
+  })
 
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === 'Escape') onClose()

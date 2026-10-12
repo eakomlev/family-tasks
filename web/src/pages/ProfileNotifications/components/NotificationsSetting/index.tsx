@@ -6,13 +6,15 @@ import { Stack } from '@/components/Stack'
 import { usePushSubscription } from '@/lib/usePushSubscription'
 import type { NotificationsSettingProps } from './types'
 import { STATUS_HINTS } from './utils'
+import { useInFlight } from '@/lib/useInFlight'
 
 export function NotificationsSetting({ token }: NotificationsSettingProps) {
+  const guard = useInFlight()
   const { status, busy, error, enable, disable } = usePushSubscription(token)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<string>()
 
-  async function handleTest() {
+  const handleTest = guard(async () => {
     setTesting(true)
     setTestResult(undefined)
     try {
@@ -31,7 +33,7 @@ export function NotificationsSetting({ token }: NotificationsSettingProps) {
     } finally {
       setTesting(false)
     }
-  }
+  })
 
   const hint = STATUS_HINTS[status]
 
