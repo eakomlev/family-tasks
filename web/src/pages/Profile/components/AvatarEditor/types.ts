@@ -6,4 +6,6 @@ export interface AvatarEditorProps {
   error?: string
   onPick: (file: File) => void
   onRemove: () => void
+  // только у детей: взять аватар из Roblox по нику (бросает ошибку, если не вышло)
+  onRoblox?: (username: string) => Promise<void>
 }

@@ -17,3 +17,12 @@ export const Buttons = styled.div`
 export const HiddenInput = styled.input`
   display: none;
 `
+
+export const RobloxForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 20rem;
+`

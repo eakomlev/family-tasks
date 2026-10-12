@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { logout, updateProfile, type ProfilePatch } from '@/api'
+import { getRobloxAvatar, logout, updateProfile, type ProfilePatch } from '@/api'
 import { Button } from '@/components/Button'
 import { CoinBalanceCard } from '@/components/CoinBalance'
 import { useConfirm } from '@/components/ConfirmDialog/context'
@@ -40,6 +40,24 @@ export default function Profile() {
     }
   }
 
+  // аватар из Roblox: сервер отдаёт картинку, дальше как с обычным фото (обрезка до квадрата и сжатие)
+  async function takeRobloxAvatar(username: string) {
+    setPhotoBusy(true)
+    setPhotoError(undefined)
+    try {
+      const { image } = await getRobloxAvatar(token, username)
+      const blob = await (await fetch(image)).blob()
+      const avatar = await resizeToAvatar(new File([blob], 'roblox.png', { type: blob.type }))
+      await updateProfile(token, { avatar })
+      await refresh()
+    } catch (err) {
+      setPhotoError(describePhotoError(err))
+      throw err
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+
   async function saveProfile(patch: ProfilePatch) {
     await updateProfile(token, patch)
     // имя хранится и на устройстве (приветствие, шапка), поэтому обновляем и его
@@ -73,6 +91,7 @@ export default function Profile() {
         error={photoError}
         onPick={(file) => changePhoto(file)}
         onRemove={() => changePhoto(null)}
+        onRoblox={data.me.role === 'child' ? takeRobloxAvatar : undefined}
       />
 
       {/* у ребёнка: монеты и переход к истории начислений */}
