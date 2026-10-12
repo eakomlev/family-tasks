@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -149,56 +149,95 @@ describe('реакции и монеты под сообщениями', () => {
     expect(screen.queryByLabelText('Реакции и монеты')).not.toBeInTheDocument()
   })
 
-  it('родитель нажимает на сообщение ребёнка: открывается окно, выбор уходит на сервер, под сообщением обновляется', async () => {
+  // долгое нажатие: контекстное меню (правая кнопка мыши, Android) или удержание пальца
+  const hold = (el: HTMLElement) => fireEvent.contextMenu(el)
+
+  it('обычное нажатие окно не открывает', async () => {
+    renderRoom('me', [m('1', 'm2', 'Просто нажатие')])
+    await userEvent.click(await screen.findByRole('button', { name: /Просто нажатие/ }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('удержание пальца открывает окно только после паузы; сдвиг пальца (прокрутка) отменяет', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      renderRoom('me', [m('1', 'm2', 'Держим')])
+      const bubble = await screen.findByRole('button', { name: /Держим/ })
+      fireEvent.pointerDown(bubble, { pointerType: 'touch', clientX: 10, clientY: 10, button: 0 })
+      await act(async () => { await vi.advanceTimersByTimeAsync(200) })
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      await act(async () => { await vi.advanceTimersByTimeAsync(300) })
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('палец сдвинулся: окно не открывается', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      renderRoom('me', [m('1', 'm2', 'Прокрутка')])
+      const bubble = await screen.findByRole('button', { name: /Прокрутка/ })
+      fireEvent.pointerDown(bubble, { pointerType: 'touch', clientX: 10, clientY: 10, button: 0 })
+      fireEvent.pointerMove(bubble, { pointerType: 'touch', clientX: 10, clientY: 60 })
+      await act(async () => { await vi.advanceTimersByTimeAsync(700) })
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('родитель удерживает сообщение ребёнка: реакция применяется сразу, окно закрывается, под сообщением обновляется', async () => {
     renderRoom('me', [m('1', 'm2', 'Сдал контрольную')])
-    const updated = { ...m('1', 'm2', 'Сдал контрольную'), reactions: [{ memberId: 'me', emoji: '🔥' }], awards: [{ amount: 30, by: 'me' }] }
+    const updated = { ...m('1', 'm2', 'Сдал контрольную'), reactions: [{ memberId: 'me', emoji: '🔥' }], awards: [] }
     vi.mocked(api.giveFeedback).mockResolvedValue({ message: updated })
     const user = userEvent.setup()
 
-    await user.click(await screen.findByRole('button', { name: /Сдал контрольную/ }))
-    const dialog = screen.getByRole('dialog')
-    await user.click(within(dialog).getByRole('button', { name: 'Реакция 🔥' }))
-    await user.click(within(dialog).getByRole('button', { name: '20' }))
-    await user.click(within(dialog).getByRole('button', { name: 'Другая' }))
-    await user.type(within(dialog).getByLabelText('Своя награда, монет'), '30')
-    await user.click(within(dialog).getByRole('button', { name: 'Отправить' }))
+    hold(await screen.findByRole('button', { name: /Сдал контрольную/ }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Реакция 🔥' }))
 
-    expect(api.giveFeedback).toHaveBeenCalledWith('tok', 'family', '1', { emoji: '🔥', coins: 30 })
+    expect(api.giveFeedback).toHaveBeenCalledWith('tok', 'family', '1', { emoji: '🔥' })
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(await screen.findByLabelText('Начислено монет: 30')).toBeInTheDocument()
-    expect(screen.getByLabelText('Реакция 🔥')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Реакция 🔥')).toBeInTheDocument()
+  })
+
+  it('монеты за сообщение ребёнка применяются сразу одним нажатием', async () => {
+    renderRoom('me', [m('1', 'm2', 'Получил пятёрку')])
+    vi.mocked(api.giveFeedback).mockResolvedValue({ message: { ...m('1', 'm2', 'Получил пятёрку'), reactions: [], awards: [{ amount: 20, by: 'me' }] } })
+    hold(await screen.findByRole('button', { name: /Получил пятёрку/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Начислить 20 монет' }))
+    expect(api.giveFeedback).toHaveBeenCalledWith('tok', 'family', '1', { coins: 20 })
+    expect(await screen.findByLabelText('Начислено монет: 20')).toBeInTheDocument()
   })
 
   it('моя прежняя реакция в окне уже выбрана', async () => {
     renderRoom('me', [kidMessage])
-    await userEvent.click(await screen.findByRole('button', { name: /Получил пятёрку/ }))
+    hold(await screen.findByRole('button', { name: /Получил пятёрку/ }))
     expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Реакция 👏' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('работает и в личном чате с ребёнком', async () => {
     renderRoom('me', [m('1', 'm2', 'Мам, смотри')], 'm2')
-    await userEvent.click(await screen.findByRole('button', { name: /Мам, смотри/ }))
+    hold(await screen.findByRole('button', { name: /Мам, смотри/ }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   it('на сообщения взрослых и свои у родителя реакцию поставить можно, а монет нет', async () => {
     renderRoom('me', [m('1', 'me', 'Моё сообщение'), m('2', 'papa', 'Сообщение папы')])
-    await userEvent.click(await screen.findByRole('button', { name: /Сообщение папы/ }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    hold(await screen.findByRole('button', { name: /Сообщение папы/ }))
     expect(screen.getByRole('button', { name: 'Реакция 👍' })).toBeInTheDocument()
-    expect(screen.queryByText('Начислить монеты')).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Монеты' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Моё сообщение/ })).toBeInTheDocument()
   })
 
   it('ребёнок может поставить реакцию на любое сообщение, но монет у него нет', async () => {
     renderRoom('m2', [m('1', 'm2', 'Своё'), m('2', 'me', 'От мамы')])
-    await userEvent.click(await screen.findByRole('button', { name: /От мамы/ }))
+    hold(await screen.findByRole('button', { name: /От мамы/ }))
     expect(screen.getByRole('button', { name: 'Реакция 👍' })).toBeInTheDocument()
-    expect(screen.queryByText('Начислить монеты')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Своё/ })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Монеты' })).not.toBeInTheDocument()
   })
 
-  it('нажатие с клавиатуры (Enter) тоже открывает окно', async () => {
+  it('с клавиатуры (Enter) тоже открывается окно', async () => {
     renderRoom('me', [m('1', 'm2', 'С клавиатуры')])
     const bubble = await screen.findByRole('button', { name: /С клавиатуры/ })
     bubble.focus()

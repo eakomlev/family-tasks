@@ -174,7 +174,7 @@ export async function pushRoutes(app: FastifyInstance) {
         sendPush(sub, {
           title: 'Проверка уведомлений',
           body: 'Если вы это видите, уведомления работают ✅',
-          url: '/settings',
+          url: '/profile/notifications',
           tag: 'test',
         }),
       ),

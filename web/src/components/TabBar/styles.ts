@@ -9,7 +9,7 @@ export const Bar = styled.nav`
   z-index: 10;
   height: var(--tabbar-height);
   /* безопасные зоны iPhone: индикатор «Домой» снизу, скруглённые углы и вырез по бокам в горизонтальном положении */
-  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  padding: 0 env(safe-area-inset-right) var(--tabbar-bottom) env(safe-area-inset-left);
   border-top: 1px solid var(--border);
   /* полупрозрачная панель: содержимое страницы размыто просвечивает под ней */
   :root[data-keyboard] & {
@@ -23,7 +23,9 @@ export const Bar = styled.nav`
 
 export const Tabs = styled.ul`
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  /* колонки по числу табов */
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   max-width: 28rem;
   height: 100%;
   margin: 0 auto;

@@ -1,4 +1,4 @@
-export type TabIconName = 'tasks' | 'chat' | 'day' | 'family' | 'settings'
+export type TabIconName = 'tasks' | 'chat' | 'day' | 'family'
 
 export interface Tab {
   path: string

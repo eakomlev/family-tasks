@@ -14,7 +14,7 @@ export function ThemeSetting() {
 
   return (
     <Stack as="section">
-      <h2>Тема оформления</h2>
+      <h1>Тема оформления</h1>
       <Options role="radiogroup" aria-label="Тема оформления">
         {THEME_OPTIONS.map((option) => (
           <Option

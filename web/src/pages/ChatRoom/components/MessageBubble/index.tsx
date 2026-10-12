@@ -1,4 +1,5 @@
 import { CoinIcon } from '@/components/CoinBalance'
+import { useLongPress } from '../../useLongPress'
 import { formatMessageTime, groupReactions, totalCoins } from '../../utils'
 import { Bubble, CoinPill, Extras, Footer, ReactionChip, Sender, Text, Tick, Time, Wrap } from './styles'
 import type { MessageBubbleProps } from './types'
@@ -7,14 +8,16 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
   const reactions = groupReactions(message.reactions)
   const coins = totalCoins(message.awards)
 
-  // родителю сообщение ребёнка можно нажать (мышью или с клавиатуры): откроется окно реакции и монет
+  const press = useLongPress(onFeedback)
+
+  // долгое нажатие (палец), удержание мыши или правая кнопка открывают окно реакции; с клавиатуры Enter и пробел
   const interactive = onFeedback
     ? {
         role: 'button',
         tabIndex: 0,
         'aria-haspopup': 'dialog' as const,
-        title: 'Реакция или монеты',
-        onClick: onFeedback,
+        title: 'Удерживайте, чтобы поставить реакцию',
+        ...press,
         onKeyDown: (e: React.KeyboardEvent) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
@@ -26,7 +29,7 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
 
   return (
     <Wrap $mine={mine}>
-      <Bubble $mine={mine} $clickable={!!onFeedback} {...interactive}>
+      <Bubble $mine={mine} $interactive={!!onFeedback} {...interactive}>
         {showSender && !mine && <Sender>{senderName ?? 'Участник'}{senderMood && <span aria-hidden> {senderMood}</span>}</Sender>}
         <Text>{message.text}</Text>
         <Footer>

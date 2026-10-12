@@ -2,8 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/api'
-import { AvatarEditor } from '@/pages/Profile/components/AvatarEditor'
-import { describePhotoError } from '@/pages/Profile/utils'
+import { AvatarEditor } from '@/pages/ProfileEdit/components/AvatarEditor'
+import { describePhotoError } from '@/pages/ProfileEdit/utils'
 
 const base = { name: 'Миша', seed: 'm1', busy: false, onPick: vi.fn(), onRemove: vi.fn() }
 

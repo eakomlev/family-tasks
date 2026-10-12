@@ -47,7 +47,7 @@ export function TodayLessons({ now }: TodayLessonsProps) {
     <Stack as="section">
       <Header>
         <h2>{lessons ? `Уроки ${day.label}` : 'Уроки'}</h2>
-        <EditLink to="/settings/schedule">Расписание</EditLink>
+        <EditLink to="/profile/schedule">Расписание</EditLink>
       </Header>
       {failed && <Notice $tone="error">Не удалось загрузить расписание. Проверьте соединение.</Notice>}
       {!lessons && !failed && <p>Загрузка…</p>}

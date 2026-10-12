@@ -26,7 +26,7 @@ import {
   WEEKDAYS,
 } from './utils'
 
-// Один редактор для двух случаев: ребёнок правит своё (/settings/schedule),
+// Один редактор для двух случаев: ребёнок правит своё (/profile/schedule),
 // родитель правит расписание ребёнка (/family/:memberId/schedule).
 export default function Schedule() {
   const { memberId: paramId } = useParams()
@@ -69,7 +69,7 @@ export default function Schedule() {
   }, [token, memberId, allowed, version])
 
   if (!identity || !memberId || !allowed) {
-    return <Navigate to={isChild ? '/settings' : '/family'} replace />
+    return <Navigate to={isChild ? '/profile' : '/family'} replace />
   }
 
   const editing = mode === 'edit'
@@ -130,7 +130,7 @@ export default function Schedule() {
 
   return (
     <Page>
-      <BackLink to={isOwn ? '/settings' : `/family/${memberId}`}>← Назад</BackLink>
+      <BackLink to={isOwn ? '/profile' : `/family/${memberId}`}>← Назад</BackLink>
       <h1>Расписание уроков</h1>
       {!isOwn && target && <Subtitle>{target.name}</Subtitle>}
 

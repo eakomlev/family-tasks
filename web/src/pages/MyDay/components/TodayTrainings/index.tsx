@@ -38,7 +38,7 @@ export function TodayTrainings({ now }: TodayTrainingsProps) {
     <Stack as="section">
       <Header>
         <h2>Тренировки {day.label}</h2>
-        <EditLink to="/settings/trainings">Расписание</EditLink>
+        <EditLink to="/profile/trainings">Расписание</EditLink>
       </Header>
       <TrainingViewList trainings={day.trainings} />
     </Stack>

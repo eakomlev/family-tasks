@@ -1,69 +1,25 @@
-import { useState } from 'react'
-import { getRobloxAvatar, logout, updateProfile, type ProfilePatch } from '@/api'
+import { logout } from '@/api'
+import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/Button'
 import { CoinBalanceCard } from '@/components/CoinBalance'
 import { useConfirm } from '@/components/ConfirmDialog/context'
-import { Field } from '@/components/Field'
-import { Input } from '@/components/Input'
+import { MenuLink } from '@/components/MenuLink'
 import { SlideInPage as Page } from '@/components/Page'
-import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
-import { resizeToAvatar } from '@/lib/image'
+import { ageFromBirthDate, formatAge, formatBirthDate } from '@/lib/date'
 import { ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
-import { AvatarEditor } from './components/AvatarEditor'
-import { ProfileForm } from './components/ProfileForm'
-import { LogoutBox } from './styles'
-import { describePhotoError } from './utils'
+import { Badge, EditLink, Facts, Header, Hero, LogoutBox, Menu } from './styles'
 
+// Профиль кратко: фото, имя, роль, дата рождения и email; ниже пункты (расписания у детей, уведомления, тема) и «Выйти».
+// Править имя, дату рождения и фото: «Изменить» справа сверху.
 export default function Profile() {
-  const { identity, save, clear } = useIdentity()
+  const { identity, clear } = useIdentity()
   const confirm = useConfirm()
-  const { data, refresh } = useProfile()
-  const [photoBusy, setPhotoBusy] = useState(false)
-  const [photoError, setPhotoError] = useState<string>()
+  const { data } = useProfile()
 
   if (!identity) return null
   const token = identity.token
-
-  async function changePhoto(file: File | null) {
-    setPhotoBusy(true)
-    setPhotoError(undefined)
-    try {
-      const avatar = file ? await resizeToAvatar(file) : null
-      await updateProfile(token, { avatar })
-      await refresh()
-    } catch (err) {
-      setPhotoError(describePhotoError(err))
-    } finally {
-      setPhotoBusy(false)
-    }
-  }
-
-  // аватар из Roblox: сервер отдаёт картинку, дальше как с обычным фото (обрезка до квадрата и сжатие)
-  async function takeRobloxAvatar(username: string) {
-    setPhotoBusy(true)
-    setPhotoError(undefined)
-    try {
-      const { image } = await getRobloxAvatar(token, username)
-      const blob = await (await fetch(image)).blob()
-      const avatar = await resizeToAvatar(new File([blob], 'roblox.png', { type: blob.type }))
-      await updateProfile(token, { avatar })
-      await refresh()
-    } catch (err) {
-      setPhotoError(describePhotoError(err))
-      throw err
-    } finally {
-      setPhotoBusy(false)
-    }
-  }
-
-  async function saveProfile(patch: ProfilePatch) {
-    await updateProfile(token, patch)
-    // имя хранится и на устройстве (приветствие, шапка), поэтому обновляем и его
-    if (patch.name && identity) await save({ ...identity, name: patch.name })
-    await refresh()
-  }
 
   async function handleLogout() {
     const ok = await confirm({
@@ -78,35 +34,42 @@ export default function Profile() {
     await clear()
   }
 
-  if (!data) return <Page><h1>Профиль</h1><p>Загрузка…</p></Page>
+  const me = data?.me
 
   return (
     <Page>
-      <h1>Профиль</h1>
-      <AvatarEditor
-        name={data.me.name}
-        seed={data.me.id}
-        avatar={data.me.avatar}
-        busy={photoBusy}
-        error={photoError}
-        onPick={(file) => changePhoto(file)}
-        onRemove={() => changePhoto(null)}
-        onRoblox={data.me.role === 'child' ? takeRobloxAvatar : undefined}
-      />
+      <Header>
+        <h1>Профиль</h1>
+        {me && <EditLink to="/profile/edit">Изменить</EditLink>}
+      </Header>
+      {!me && <p>Загрузка…</p>}
+      {me && (
+        <>
+          <Hero>
+            <Avatar name={me.name} seed={me.id} src={me.avatar} size="6rem" />
+            <h2>{me.name}</h2>
+            <Badge>{ROLE_LABELS[me.role]}</Badge>
+          </Hero>
+          <Facts>
+            {me.birthDate && <li>{formatBirthDate(me.birthDate)} · {formatAge(ageFromBirthDate(me.birthDate))}</li>}
+            <li>{me.email}</li>
+          </Facts>
 
-      {/* у ребёнка: монеты и переход к истории начислений */}
-      {data.me.coins !== undefined && <CoinBalanceCard coins={data.me.coins} to="/coins" />}
+          {/* у ребёнка: монеты и переход к истории начислений */}
+          {me.coins !== undefined && <CoinBalanceCard coins={me.coins} to="/coins" />}
 
-      <ProfileForm name={data.me.name} birthDate={data.me.birthDate} onSave={saveProfile} />
-
-      <Stack>
-        <Field label="Email" hint="Email изменить нельзя: по нему вы входите в приложение.">
-          <Input value={data.me.email} disabled readOnly />
-        </Field>
-        <Field label="Роль в семье">
-          <Input value={ROLE_LABELS[data.me.role]} disabled readOnly />
-        </Field>
-      </Stack>
+          <Menu aria-label="Разделы профиля">
+            {me.role === 'child' && (
+              <>
+                <MenuLink to="/profile/schedule">Расписание уроков</MenuLink>
+                <MenuLink to="/profile/trainings">Расписание тренировок</MenuLink>
+              </>
+            )}
+            <MenuLink to="/profile/notifications">Уведомления</MenuLink>
+            <MenuLink to="/profile/theme">Тема</MenuLink>
+          </Menu>
+        </>
+      )}
 
       <LogoutBox>
         <Button type="button" onClick={handleLogout}>Выйти</Button>

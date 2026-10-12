@@ -26,7 +26,7 @@ import {
   toTrainings,
 } from './utils'
 
-// Один редактор для двух случаев: ребёнок правит своё (/settings/trainings),
+// Один редактор для двух случаев: ребёнок правит своё (/profile/trainings),
 // родитель правит расписание ребёнка (/family/:memberId/trainings).
 export default function Trainings() {
   const { memberId: paramId } = useParams()
@@ -69,7 +69,7 @@ export default function Trainings() {
   }, [token, memberId, allowed, version])
 
   if (!identity || !memberId || !allowed) {
-    return <Navigate to={isChild ? '/settings' : '/family'} replace />
+    return <Navigate to={isChild ? '/profile' : '/family'} replace />
   }
 
   const editing = mode === 'edit'
@@ -130,7 +130,7 @@ export default function Trainings() {
 
   return (
     <Page>
-      <BackLink to={isOwn ? '/settings' : `/family/${memberId}`}>← Назад</BackLink>
+      <BackLink to={isOwn ? '/profile' : `/family/${memberId}`}>← Назад</BackLink>
       <h1>Расписание тренировок</h1>
       {!isOwn && target && <Subtitle>{target.name}</Subtitle>}
 

@@ -115,7 +115,7 @@ describe('проверочное уведомление', () => {
     expect(sendNotification).toHaveBeenCalledTimes(2)
     const [sub, payload, options] = sendNotification.mock.calls[0]
     expect((sub as { keys: unknown }).keys).toEqual(keys)
-    expect(JSON.parse(String(payload))).toMatchObject({ title: 'Проверка уведомлений', url: '/settings' })
+    expect(JSON.parse(String(payload))).toMatchObject({ title: 'Проверка уведомлений', url: '/profile/notifications' })
     expect(options).toMatchObject({ TTL: 21_600 })
   })
 

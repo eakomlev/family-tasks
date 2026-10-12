@@ -13,12 +13,12 @@ vi.mock('@/api', async (importOriginal) => ({ ...(await importOriginal<typeof im
 
 const me: Member = { id: 'me', name: 'Лена', role: 'mama', avatar: null, isOwner: true }
 
-function renderProfile() {
+function renderProfile(as: Member & { coins?: number; birthDate?: string | null } = me) {
   const clear = vi.fn().mockResolvedValue(undefined)
-  const identity = { familyCode: 'c', memberId: 'me', name: 'Лена', role: 'mama' as const, token: 'tok' }
+  const identity = { familyCode: 'c', memberId: 'me', name: 'Лена', role: as.role, token: 'tok' }
   render(
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear }}>
-      <ProfileContext.Provider value={{ data: { me: { ...me, email: 'l@x.y' }, members: [me] }, failed: false, refresh: async () => {} }}>
+      <ProfileContext.Provider value={{ data: { me: { ...as, email: 'l@x.y' }, members: [me] }, failed: false, refresh: async () => {} }}>
         <ConfirmProvider>
           <MemoryRouter><Profile /></MemoryRouter>
         </ConfirmProvider>
@@ -34,12 +34,11 @@ beforeEach(() => {
 })
 
 describe('«Выйти» на странице профиля', () => {
-  it('кнопка последняя на странице, после полей профиля', () => {
+  it('кнопка последняя на странице, после пунктов меню', () => {
     renderProfile()
     const logout = screen.getByRole('button', { name: 'Выйти' })
-    const role = screen.getByDisplayValue('Мама')
-    // «Выйти» стоит в документе после последнего поля (роли)
-    expect(role.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const theme = screen.getByRole('link', { name: /Тема/ })
+    expect(theme.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const all = [...document.querySelectorAll('button, input, textarea, a')]
     expect(all[all.length - 1]).toBe(logout)
   })
@@ -71,5 +70,31 @@ describe('«Выйти» на странице профиля', () => {
     await user.click(screen.getByRole('button', { name: 'Выйти' }))
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Выйти' }))
     await waitFor(() => expect(clear).toHaveBeenCalledTimes(1))
+  })
+})
+
+describe('профиль кратко', () => {
+  it('имя, роль, email и «Изменить» справа сверху; полей ввода нет', () => {
+    renderProfile()
+    expect(screen.getByRole('heading', { name: 'Лена' })).toBeInTheDocument()
+    expect(screen.getByText('Мама')).toBeInTheDocument()
+    expect(screen.getByText('l@x.y')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Изменить' })).toHaveAttribute('href', '/profile/edit')
+    expect(document.querySelectorAll('input, textarea')).toHaveLength(0)
+  })
+
+  it('у родителя пункты «Уведомления» и «Тема», расписаний нет', () => {
+    renderProfile()
+    expect(screen.getByRole('link', { name: /Уведомления/ })).toHaveAttribute('href', '/profile/notifications')
+    expect(screen.getByRole('link', { name: /Тема/ })).toHaveAttribute('href', '/profile/theme')
+    expect(screen.queryByRole('link', { name: /Расписание/ })).not.toBeInTheDocument()
+  })
+
+  it('у ребёнка добавлены расписания уроков и тренировок, монеты и дата рождения с возрастом', () => {
+    renderProfile({ id: 'kid', name: 'Миша', role: 'child', avatar: null, isOwner: false, coins: 40, birthDate: '2016-01-01' })
+    expect(screen.getByRole('link', { name: /Расписание уроков/ })).toHaveAttribute('href', '/profile/schedule')
+    expect(screen.getByRole('link', { name: /Расписание тренировок/ })).toHaveAttribute('href', '/profile/trainings')
+    expect(screen.getByRole('link', { name: /Монеты|40/ })).toHaveAttribute('href', '/coins')
+    expect(screen.getByText(/1 января 2016/)).toBeInTheDocument()
   })
 })

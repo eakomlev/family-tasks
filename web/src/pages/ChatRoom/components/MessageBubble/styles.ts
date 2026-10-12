@@ -6,7 +6,7 @@ export const Wrap = styled.div<{ $mine: boolean }>`
   align-items: ${({ $mine }) => ($mine ? 'flex-end' : 'flex-start')};
 `
 
-export const Bubble = styled.div<{ $mine: boolean; $clickable?: boolean }>`
+export const Bubble = styled.div<{ $mine: boolean; $interactive?: boolean }>`
   max-width: 82%;
   padding: 0.3rem 0.6rem;
   border-radius: 1rem;
@@ -14,9 +14,14 @@ export const Bubble = styled.div<{ $mine: boolean; $clickable?: boolean }>`
   background: ${({ $mine }) => ($mine ? 'var(--accent)' : 'var(--surface)')};
   color: ${({ $mine }) => ($mine ? 'var(--accent-text)' : 'var(--text)')};
   border: 1px solid ${({ $mine }) => ($mine ? 'var(--accent)' : 'var(--border)')};
-  ${({ $clickable }) =>
-    $clickable
-      ? `cursor: pointer;
+  ${({ $interactive }) =>
+    $interactive
+      ? `cursor: default;
+  /* долгое нажатие открывает окно реакции, поэтому системное выделение и меню на телефоне отключены */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
   &:hover { border-color: var(--accent); }
   &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }`
       : ''}

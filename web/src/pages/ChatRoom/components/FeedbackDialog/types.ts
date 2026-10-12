@@ -8,7 +8,7 @@ export interface FeedbackDialogProps {
   canAward: boolean
   // моя текущая реакция на это сообщение (если есть)
   myEmoji?: string
-  // отправляет выбор; бросает ошибку, если не вышло (окно остаётся открытым и показывает её)
+  // применяет выбор сразу; бросает ошибку, если не вышло (окно остаётся открытым и показывает её)
   onSubmit: (feedback: MessageFeedback) => Promise<void>
   onClose: () => void
 }

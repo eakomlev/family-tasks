@@ -23,13 +23,6 @@ const SHAPES: Record<TabIconName, React.ReactNode> = {
       <path d="M16 14.3c3 .1 4.8 1.9 4.8 4.7" />
     </>
   ),
-  settings: (
-    <>
-      <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
-      <circle cx="16" cy="7" r="2" />
-      <circle cx="8" cy="17" r="2" />
-    </>
-  ),
 }
 
 export function TabIcon({ name }: { name: TabIconName }) {

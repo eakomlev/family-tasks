@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/AppShell'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
 import { GlobalStyle } from '@/components/GlobalStyle'
@@ -21,8 +21,10 @@ import Login from '@/pages/Login'
 import MemberPreview from '@/pages/MemberPreview'
 import MyDay from '@/pages/MyDay'
 import Profile from '@/pages/Profile'
+import ProfileEdit from '@/pages/ProfileEdit'
+import ProfileNotifications from '@/pages/ProfileNotifications'
+import ProfileTheme from '@/pages/ProfileTheme'
 import Schedule from '@/pages/Schedule'
-import Settings from '@/pages/Settings'
 import Tasks from '@/pages/Tasks'
 import TaskForm from '@/pages/TaskForm'
 import TaskView from '@/pages/TaskView'
@@ -62,9 +64,15 @@ export default function App() {
               <Route path="/family" element={<Family />} />
               <Route path="/family/invite" element={<Invite />} />
               <Route path="/family/:memberId" element={<MemberPreview />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/settings/schedule" element={<Schedule />} />
-              <Route path="/settings/trainings" element={<Trainings />} />
+              <Route path="/profile/schedule" element={<Schedule />} />
+              <Route path="/profile/trainings" element={<Trainings />} />
+              <Route path="/profile/edit" element={<ProfileEdit />} />
+              <Route path="/profile/notifications" element={<ProfileNotifications />} />
+              <Route path="/profile/theme" element={<ProfileTheme />} />
+              {/* прежние адреса настроек (закладки, уже отправленные уведомления) */}
+              <Route path="/settings" element={<Navigate to="/profile" replace />} />
+              <Route path="/settings/schedule" element={<Navigate to="/profile/schedule" replace />} />
+              <Route path="/settings/trainings" element={<Navigate to="/profile/trainings" replace />} />
               <Route path="/family/:memberId/schedule" element={<Schedule />} />
               <Route path="/family/:memberId/trainings" element={<Trainings />} />
               <Route path="/profile" element={<Profile />} />

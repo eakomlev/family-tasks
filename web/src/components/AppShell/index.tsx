@@ -17,14 +17,16 @@ function Shell() {
   if (!identity) return null
   // переписка (/chat/:chat) занимает весь экран, без панели табов
   const chatRoom = pathname.startsWith('/chat/')
+  // на страницах профиля значок профиля не нужен (баланс монет остаётся)
+  const hideAvatar = chatRoom || pathname.startsWith('/profile')
 
   return (
-    <Root $chatRoom={chatRoom} $reserve={data?.me.coins !== undefined ? (chatRoom ? '6.5rem' : '9.5rem') : chatRoom ? '0rem' : '3.25rem'}>
+    <Root $chatRoom={chatRoom} $reserve={data?.me.coins !== undefined ? (hideAvatar ? '6.5rem' : '9.5rem') : hideAvatar ? '0rem' : '3.25rem'}>
       <TopRight $fixed={chatRoom}>
         {/* монеты есть только у детей */}
         {data?.me.coins !== undefined && <CoinBalance coins={data.me.coins} />}
         {/* на странице профиля и в переписке значок не нужен */}
-        {pathname !== '/profile' && !chatRoom && (
+        {!hideAvatar && (
           <ProfileLink to="/profile" aria-label={`Профиль: ${identity.name}`}>
             <Avatar name={data?.me.name ?? identity.name} seed={identity.memberId} src={data?.me.avatar} />
           </ProfileLink>

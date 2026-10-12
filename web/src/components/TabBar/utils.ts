@@ -6,5 +6,4 @@ export const TABS: Tab[] = [
   { path: '/chat', label: 'Чат', icon: 'chat' },
   { path: '/my-day', label: 'Мой день', icon: 'day' },
   { path: '/family', label: 'Моя семья', icon: 'family' },
-  { path: '/settings', label: 'Настройки', icon: 'settings' },
 ]
