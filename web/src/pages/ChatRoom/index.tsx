@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Navigate, useParams } from 'react-router-dom'
 import { ApiError, FAMILY_CHAT, giveFeedback, listMessages, markChatRead, sendMessage, type ChatMessage, type MessageFeedback } from '@/api'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { useChats } from '@/chat/context'
@@ -16,7 +15,7 @@ import { chatTitle } from '../Chat/utils'
 import { Composer } from './components/Composer'
 import { FeedbackDialog } from './components/FeedbackDialog'
 import { MessageBubble } from './components/MessageBubble'
-import { DayLabel, Empty, Feed, FamilyIcon, Header, Room } from './styles'
+import { BackButton, DayLabel, Empty, Feed, FamilyIcon, Header, Room } from './styles'
 import { appendMessage, groupByDay, mergeLatest, messageStatus, replaceMessage } from './utils'
 
 // «рядом с низом»: тогда новое сообщение прокручивает переписку само, а не сбивает чтение старых
@@ -159,8 +158,12 @@ export default function ChatRoom() {
 
   return (
     <Room>
-      <BackLink to="/chat">← Чаты</BackLink>
       <Header>
+        <BackButton to="/chat" aria-label="К списку чатов">
+          <svg viewBox="0 0 24 24" aria-hidden>
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+        </BackButton>
         {other ? <Avatar name={memberLabel(other, identity.role)} seed={other.id} src={other.avatar} size="2.25rem" /> : <FamilyIcon aria-hidden>👨‍👩‍👧</FamilyIcon>}
         <h1>{chatTitle(chat, members, identity.role)}</h1>
       </Header>

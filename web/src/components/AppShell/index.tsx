@@ -14,14 +14,16 @@ function Shell() {
   const { data } = useProfile()
   const { pathname } = useLocation()
   if (!identity) return null
+  // переписка (/chat/:chat) занимает весь экран, без панели табов
+  const chatRoom = pathname.startsWith('/chat/')
 
   return (
-    <Root $reserve={data?.me.coins !== undefined ? '9.5rem' : '3.25rem'}>
-      <TopRight>
+    <Root $chatRoom={chatRoom} $reserve={data?.me.coins !== undefined ? (chatRoom ? '6.5rem' : '9.5rem') : chatRoom ? '0rem' : '3.25rem'}>
+      <TopRight $fixed={chatRoom}>
         {/* монеты есть только у детей */}
         {data?.me.coins !== undefined && <CoinBalance coins={data.me.coins} />}
-        {/* на самой странице профиля значок не нужен */}
-        {pathname !== '/profile' && (
+        {/* на странице профиля и в переписке значок не нужен */}
+        {pathname !== '/profile' && !chatRoom && (
           <ProfileLink to="/profile" aria-label={`Профиль: ${identity.name}`}>
             <Avatar name={data?.me.name ?? identity.name} seed={identity.memberId} src={data?.me.avatar} />
           </ProfileLink>
@@ -30,7 +32,7 @@ function Shell() {
       <Content>
         <Outlet />
       </Content>
-      <TabBar />
+      {!chatRoom && <TabBar />}
     </Root>
   )
 }

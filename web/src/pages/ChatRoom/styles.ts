@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 // страница чата: переписка растягивается, поле ввода прижато к панели табов
@@ -16,18 +17,52 @@ export const Room = styled.main`
   }
 `
 
+// закреплена сверху: при прокрутке переписки не уезжает (фон закрывает сообщения под ней)
 export const Header = styled.header`
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  margin: calc(-1rem - env(safe-area-inset-top)) -1rem 0;
+  padding: calc(1rem + env(safe-area-inset-top)) 1rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
   display: flex;
   align-items: center;
   gap: 0.75rem;
   /* справа вверху лежит значок профиля */
-  padding-right: var(--topbar-reserve, 3rem);
+  padding-right: calc(1rem + var(--topbar-reserve, 3rem));
 
   h1 {
     margin: 0;
     font-size: 1.25rem;
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+`
+
+// стрелка выхода из переписки слева от аватара собеседника
+export const BackButton = styled(Link)`
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2.25rem;
+  margin-left: -0.4rem;
+  color: var(--accent);
+
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    border-radius: 0.5rem;
   }
 `
 

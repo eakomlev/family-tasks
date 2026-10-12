@@ -2,8 +2,9 @@ import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 // переменная нужна и панели табов, и содержимому, чтобы оно не пряталось под панелью
-export const Root = styled.div<{ $reserve: string }>`
-  --tabbar-height: calc(3.75rem + env(safe-area-inset-bottom));
+export const Root = styled.div<{ $reserve: string; $chatRoom: boolean }>`
+  /* в переписке панели табов нет: остаётся только нижний отступ под индикатор «Домой» */
+  --tabbar-height: ${({ $chatRoom }) => ($chatRoom ? 'env(safe-area-inset-bottom)' : 'calc(3.75rem + env(safe-area-inset-bottom))')};
   /* сколько места справа вверху занимают баланс монет (у детей) и значок профиля: шапки страниц не должны под них заезжать */
   --topbar-reserve: ${({ $reserve }) => $reserve};
   position: relative;
@@ -24,12 +25,13 @@ export const Content = styled.div`
 `
 
 // правый верхний угол: баланс монет (у детей) слева от значка профиля
-export const TopRight = styled.div`
-  position: absolute;
+export const TopRight = styled.div<{ $fixed: boolean }>`
+  /* в переписке шапка закреплена, значок с монетами тоже не уезжает при прокрутке */
+  position: ${({ $fixed }) => ($fixed ? 'fixed' : 'absolute')};
   /* по центру строки с заголовком страницы: заголовок начинается на 1.5rem, его высота около 31px, значок 40px */
   top: calc(1.2rem + env(safe-area-inset-top));
   right: 0.75rem;
-  z-index: 5;
+  z-index: 11;
   display: flex;
   align-items: center;
   gap: 0.5rem;

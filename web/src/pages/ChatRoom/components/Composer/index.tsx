@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Notice } from '@/components/Notice'
 import { canSend, MAX_LENGTH } from '../../utils'
 import { Bar, Field, SendButton } from './styles'
@@ -18,6 +18,9 @@ export function Composer({ onSend }: ComposerProps) {
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
   }, [text])
+
+  const shiftRef = useRef(false)
+  const submitRef = useRef<() => Promise<void>>(async () => {})
 
   async function submit(e?: FormEvent) {
     e?.preventDefault()
@@ -43,6 +46,34 @@ export function Composer({ onSend }: ComposerProps) {
     }
   }
 
+  // мобильные клавиатуры не всегда присылают keydown с Enter: ловим вставку разрыва строки до того, как она случится
+  useEffect(() => {
+    submitRef.current = submit
+  })
+
+  useEffect(() => {
+    const el = field.current
+    if (!el) return
+    const onBeforeInput = (e: InputEvent) => {
+      if (e.inputType === 'insertLineBreak' && !e.isComposing && !shiftRef.current) {
+        e.preventDefault()
+        void submitRef.current()
+      }
+    }
+    // Shift+Enter (физическая клавиатура) остаётся переносом строки
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      shiftRef.current = e.shiftKey
+    }
+    el.addEventListener('beforeinput', onBeforeInput)
+    el.addEventListener('keydown', onKey)
+    el.addEventListener('keyup', onKey)
+    return () => {
+      el.removeEventListener('beforeinput', onBeforeInput)
+      el.removeEventListener('keydown', onKey)
+      el.removeEventListener('keyup', onKey)
+    }
+  }, [])
+
   return (
     <>
       {failed && <Notice $tone="error">Не удалось отправить сообщение. Попробуйте ещё раз.</Notice>}
@@ -54,6 +85,7 @@ export function Composer({ onSend }: ComposerProps) {
           maxLength={MAX_LENGTH}
           placeholder="Сообщение"
           aria-label="Сообщение"
+          enterKeyHint="send"
           onChange={(e) => {
             setText(e.target.value)
             setFailed(false)
