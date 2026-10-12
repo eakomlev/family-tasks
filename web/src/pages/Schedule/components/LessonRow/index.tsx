@@ -2,7 +2,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { IconButton } from '@/components/IconButton'
 import { Input } from '@/components/Input'
-import { Card, Handle, Number, Times } from './styles'
+import { Card, Handle, Number, Room, Times } from './styles'
 import type { LessonRowProps } from './types'
 
 export function LessonRow({ index, lesson, onChange, onRemove }: LessonRowProps) {
@@ -47,6 +47,13 @@ export function LessonRow({ index, lesson, onChange, onRemove }: LessonRowProps)
           value={lesson.endsAt}
           onChange={(e) => onChange({ endsAt: e.target.value })}
           aria-label={`${label}: окончание`}
+        />
+        <Room
+          value={lesson.room}
+          onChange={(e) => onChange({ room: e.target.value })}
+          maxLength={12}
+          placeholder="Каб."
+          aria-label={`${label}: кабинет`}
         />
       </Times>
     </Card>

@@ -4,6 +4,7 @@ export interface ViewLesson {
   subject: string
   startsAt?: string | null
   endsAt?: string | null
+  room?: string | null
 }
 
 export interface LessonViewListProps {

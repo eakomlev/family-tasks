@@ -1,4 +1,4 @@
-import { Chevron, Item, List, Number, RowLink, Subject, Time } from './styles'
+import { Chevron, Item, RoomLabel, List, Number, RowLink, Subject, Time } from './styles'
 import type { LessonViewListProps } from './types'
 import { formatTimeRange } from './utils'
 
@@ -10,7 +10,10 @@ export function LessonViewList({ lessons, getLink }: LessonViewListProps) {
         const content = (
           <>
             <Number aria-hidden>{index + 1}</Number>
-            <Subject>{lesson.subject}</Subject>
+            <Subject>
+              {lesson.subject}
+              {lesson.room && <RoomLabel>каб. {lesson.room}</RoomLabel>}
+            </Subject>
             <Time>{formatTimeRange(lesson)}</Time>
             {/* стрелка подсказывает, что урок нажимается */}
             {getLink && <Chevron aria-hidden>›</Chevron>}

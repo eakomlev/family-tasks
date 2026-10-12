@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { Input } from '@/components/Input'
 
 export const Card = styled.li<{ $dragging: boolean }>`
   position: relative;
@@ -62,4 +63,10 @@ export const Times = styled.div`
     flex: 1;
     min-width: 0;
   }
+`
+
+// номер кабинета: узкое поле после времени
+export const Room = styled(Input)`
+  flex: none;
+  width: 5.5rem;
 `

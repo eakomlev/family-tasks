@@ -26,6 +26,7 @@ const saveScheduleSchema = {
             subject: { type: 'string', minLength: 1, maxLength: 60, pattern: '\\S' },
             startsAt: timeSchema,
             endsAt: timeSchema,
+            room: { type: ['string', 'null'], maxLength: 12 },
           },
         },
       },
@@ -42,6 +43,7 @@ interface LessonInput {
   subject: string
   startsAt?: string | null
   endsAt?: string | null
+  room?: string | null
 }
 
 export async function scheduleRoutes(app: FastifyInstance) {
@@ -50,7 +52,7 @@ export async function scheduleRoutes(app: FastifyInstance) {
     if (!memberId) return
 
     const { rows } = await pool.query(
-      `select weekday, subject,
+      `select weekday, subject, room,
               to_char(starts_at, 'HH24:MI') as "startsAt",
               to_char(ends_at, 'HH24:MI') as "endsAt"
        from schedule_lessons where member_id = $1 order by weekday, position`,
@@ -87,8 +89,8 @@ export async function scheduleRoutes(app: FastifyInstance) {
           const position = (positions.get(lesson.weekday) ?? 0) + 1
           positions.set(lesson.weekday, position)
           await db.query(
-            `insert into schedule_lessons (member_id, weekday, position, subject, starts_at, ends_at)
-             values ($1, $2, $3, $4, $5, $6)`,
+            `insert into schedule_lessons (member_id, weekday, position, subject, starts_at, ends_at, room)
+             values ($1, $2, $3, $4, $5, $6, $7)`,
             [
               memberId,
               lesson.weekday,
@@ -96,6 +98,7 @@ export async function scheduleRoutes(app: FastifyInstance) {
               lesson.subject.trim(),
               lesson.startsAt || null,
               lesson.endsAt || null,
+              lesson.room?.trim() || null,
             ],
           )
         }

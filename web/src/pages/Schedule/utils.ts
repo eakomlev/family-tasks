@@ -16,7 +16,7 @@ let seq = 0
 // не crypto.randomUUID: он недоступен на страницах без HTTPS
 const newKey = () => `lesson-${++seq}`
 
-export const newLesson = (): LessonDraft => ({ key: newKey(), subject: '', startsAt: '', endsAt: '' })
+export const newLesson = (): LessonDraft => ({ key: newKey(), subject: '', startsAt: '', endsAt: '', room: '' })
 
 export function fromLessons(lessons: Lesson[]): Days {
   const days: Days = {}
@@ -27,6 +27,7 @@ export function fromLessons(lessons: Lesson[]): Days {
       subject: lesson.subject,
       startsAt: lesson.startsAt ?? '',
       endsAt: lesson.endsAt ?? '',
+      room: lesson.room ?? '',
     })
   }
   return days
@@ -42,6 +43,7 @@ export function toLessons(days: Days): Lesson[] {
         subject: l.subject.trim(),
         startsAt: l.startsAt || null,
         endsAt: l.endsAt || null,
+        room: l.room.trim() || null,
       })),
   )
 }

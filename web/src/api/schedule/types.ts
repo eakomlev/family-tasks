@@ -4,4 +4,6 @@ export interface Lesson {
   subject: string
   startsAt: string | null
   endsAt: string | null
+  // номер кабинета, необязательный
+  room: string | null
 }

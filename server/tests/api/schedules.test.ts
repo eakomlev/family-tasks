@@ -145,3 +145,21 @@ describe('место тренировки', () => {
     expect(trainings.map((t: { place: string | null }) => t.place)).toEqual(['Зал', null, null])
   })
 })
+
+describe('кабинет урока', () => {
+  const put = (items: unknown[]) => api(app, fam.kid.token, 'PUT', `/api/members/${fam.kid.id}/schedule`, { lessons: items })
+  const lessons = async () => (await api(app, fam.kid.token, 'GET', `/api/members/${fam.kid.id}/schedule`)).body.lessons as { subject: string; room: string | null }[]
+
+  it('сохраняется, обрезается по краям, пустой становится null', async () => {
+    expect((await put([
+      { weekday: 1, subject: 'Химия', room: ' 12а ' },
+      { weekday: 1, subject: 'Физика', room: '   ' },
+      { weekday: 1, subject: 'Труд' },
+    ])).status).toBe(204)
+    expect((await lessons()).map((l) => [l.subject, l.room])).toEqual([['Химия', '12а'], ['Физика', null], ['Труд', null]])
+  })
+
+  it('слишком длинный номер отклоняется', async () => {
+    expect((await put([{ weekday: 1, subject: 'Химия', room: '1'.repeat(13) }])).status).toBe(400)
+  })
+})

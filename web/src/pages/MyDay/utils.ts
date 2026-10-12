@@ -51,7 +51,7 @@ export function pickLessonDay(now: Date, lessons: Lesson[]): LessonDay {
 export function lessonsForDay(lessons: Lesson[], weekday: number): ViewLesson[] {
   return lessons
     .filter((l) => l.weekday === weekday)
-    .map((l, index) => ({ key: `${weekday}-${index}`, subject: l.subject, startsAt: l.startsAt, endsAt: l.endsAt }))
+    .map((l, index) => ({ key: `${weekday}-${index}`, subject: l.subject, startsAt: l.startsAt, endsAt: l.endsAt, room: l.room }))
 }
 
 // Какие тренировки показывать: до вечера сегодняшние, вечером (как с уроками) завтрашние.

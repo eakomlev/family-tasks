@@ -73,3 +73,10 @@ export const Chevron = styled.span`
   font-size: 1.4rem;
   line-height: 1;
 `
+
+// номер кабинета под названием предмета
+export const RoomLabel = styled.span`
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+`

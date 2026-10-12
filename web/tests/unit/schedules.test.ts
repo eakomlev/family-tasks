@@ -13,7 +13,7 @@ import { getGreeting, lessonsForDay, pickLessonDay, pickTrainingDay, trainingSum
 const at = (day: number, hour = 12) => new Date(2026, 9, day, hour)
 const MON = 12, FRI = 16, SAT = 17, SUN = 18
 
-const lesson = (weekday: number, subject = 'Математика') => ({ weekday, subject, startsAt: null, endsAt: null })
+const lesson = (weekday: number, subject = 'Математика') => ({ weekday, subject, startsAt: null, endsAt: null, room: null as string | null })
 const training = (weekday: number, title = 'Плавание', startsAt: string | null = null) => ({
   weekday,
   title,
@@ -38,9 +38,16 @@ describe('расписание уроков: черновик и сохране�
       { ...newLesson(), subject: 'Чтение' },
     ]
     expect(toLessons(days)).toEqual([
-      { weekday: 1, subject: 'Русский', startsAt: '08:30', endsAt: null },
-      { weekday: 1, subject: 'Чтение', startsAt: null, endsAt: null },
+      { weekday: 1, subject: 'Русский', startsAt: '08:30', endsAt: null, room: null },
+      { weekday: 1, subject: 'Чтение', startsAt: null, endsAt: null, room: null },
     ])
+  })
+
+  it('кабинет: обрезается, пустой становится null, при загрузке и сохранении не теряется', () => {
+    const days = fromLessons([{ ...lesson(1, 'Химия'), room: '12а' }])
+    expect(days[1][0].room).toBe('12а')
+    days[1].push({ ...newLesson(), subject: 'Физика', room: '  305 ' }, { ...newLesson(), subject: 'Труд', room: '   ' })
+    expect(toLessons(days).map((l) => l.room)).toEqual(['12а', '305', null])
   })
 
   it('круговой проход не меняет данные', () => {
