@@ -1,6 +1,10 @@
 import styled from 'styled-components'
 
 export const Wrap = styled.div<{ $mine: boolean }>`
+  /* долгое нажатие открывает окно реакции: системное выделение текста и меню на телефоне отключены для всего сообщения */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   display: flex;
   flex-direction: column;
   align-items: ${({ $mine }) => ($mine ? 'flex-end' : 'flex-start')};

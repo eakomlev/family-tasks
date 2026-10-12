@@ -5,8 +5,8 @@ import styled from 'styled-components'
 export const Root = styled.div<{ $reserve: string; $chatRoom: boolean }>`
   /* место под панелью табов: лишь часть высоты индикатора «Домой» (подписи табов остаются над ним) */
   --tabbar-bottom: calc(env(safe-area-inset-bottom) * 0.4);
-  /* в переписке панели табов нет: остаётся только нижний отступ под индикатор «Домой» */
-  --tabbar-height: ${({ $chatRoom }) => ($chatRoom ? 'env(safe-area-inset-bottom)' : 'calc(3.75rem + var(--tabbar-bottom))')};
+  /* в переписке панели табов нет: остаётся лишь часть нижнего отступа под индикатор «Домой», поле ввода почти у края экрана */
+  --tabbar-height: ${({ $chatRoom }) => ($chatRoom ? 'var(--tabbar-bottom)' : 'calc(3.75rem + var(--tabbar-bottom))')};
   /* сколько места справа вверху занимают баланс монет (у детей) и значок профиля: шапки страниц не должны под них заезжать */
   --topbar-reserve: ${({ $reserve }) => $reserve};
   position: relative;

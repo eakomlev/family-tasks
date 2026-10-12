@@ -10,6 +10,10 @@ export const Backdrop = styled.div`
   justify-content: center;
   padding: 0 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
   background: rgb(0 0 0 / 0.35);
+  /* палец ещё на экране после долгого нажатия: окно не должно ничего выделять */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 `
 
 export const Sheet = styled.div`

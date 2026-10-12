@@ -173,6 +173,31 @@ describe('реакции и монеты под сообщениями', () => {
     }
   })
 
+  it('пока палец держит сообщение, выделение текста блокируется, а после отпускания защита снимается', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      renderRoom('me', [m('1', 'm2', 'Не выделять')])
+      const bubble = await screen.findByRole('button', { name: /Не выделять/ })
+      const selectStart = () => {
+        const event = new Event('selectstart', { bubbles: true, cancelable: true })
+        document.dispatchEvent(event)
+        return event.defaultPrevented
+      }
+      // защита от прошлых тестов (их таймеры сняты вместе с поддельными часами): один пробный цикл нажатия
+      fireEvent.pointerDown(bubble, { pointerType: 'touch', clientX: 10, clientY: 10, button: 0 })
+      fireEvent.pointerUp(bubble, { pointerType: 'touch' })
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+      expect(selectStart()).toBe(false)
+      fireEvent.pointerDown(bubble, { pointerType: 'touch', clientX: 10, clientY: 10, button: 0 })
+      expect(selectStart()).toBe(true)
+      fireEvent.pointerUp(bubble, { pointerType: 'touch' })
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+      expect(selectStart()).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('палец сдвинулся: окно не открывается', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {

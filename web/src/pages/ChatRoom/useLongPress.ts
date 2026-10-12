@@ -4,6 +4,20 @@ import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent } fr
 const LONG_PRESS_MS = 450
 const MOVE_TOLERANCE_PX = 10
 
+// Пока палец удерживается (и недолго после срабатывания), браузер не должен начинать выделение текста.
+const preventSelect = (e: Event) => e.preventDefault()
+const SELECT_GUARD_MS = 800
+let guardTimer: ReturnType<typeof setTimeout> | undefined
+function blockSelection(on: boolean) {
+  clearTimeout(guardTimer)
+  if (on) {
+    document.addEventListener('selectstart', preventSelect)
+  } else {
+    // выделение может начаться уже после срабатывания, поэтому защиту снимаем с небольшой задержкой
+    guardTimer = setTimeout(() => document.removeEventListener('selectstart', preventSelect), SELECT_GUARD_MS)
+  }
+}
+
 // Долгое нажатие как в мессенджерах: палец или мышь удерживаются, правая кнопка мыши и системное меню (Android) тоже срабатывают.
 // Прокрутка, отпускание раньше времени и уход с элемента отменяют. Без обработчика возвращает пустой набор.
 export function useLongPress(onTrigger?: () => void) {
@@ -16,6 +30,7 @@ export function useLongPress(onTrigger?: () => void) {
 
   const cancel = useCallback(() => {
     clearTimeout(timer.current)
+    if (start.current) blockSelection(false)
     start.current = undefined
   }, [])
   useEffect(() => cancel, [cancel])
@@ -27,8 +42,12 @@ export function useLongPress(onTrigger?: () => void) {
       if (e.pointerType === 'mouse' && e.button !== 0) return
       start.current = { x: e.clientX, y: e.clientY }
       clearTimeout(timer.current)
+      blockSelection(true)
       timer.current = setTimeout(() => {
         start.current = undefined
+        // выделение, если оно всё же началось, снимаем: вместо него открывается окно реакции
+        window.getSelection()?.removeAllRanges()
+        blockSelection(false)
         callback.current?.()
       }, LONG_PRESS_MS)
     },
@@ -42,6 +61,7 @@ export function useLongPress(onTrigger?: () => void) {
     onContextMenu: (e: MouseEvent) => {
       e.preventDefault()
       cancel()
+      window.getSelection()?.removeAllRanges()
       callback.current?.()
     },
   }
