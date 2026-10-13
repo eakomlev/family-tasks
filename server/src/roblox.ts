@@ -1,3 +1,5 @@
+import dns from 'node:dns'
+import https from 'node:https'
 import type { FastifyInstance } from 'fastify'
 import { authenticate } from './auth.js'
 
@@ -27,6 +29,59 @@ async function json(url: string, init?: RequestInit): Promise<any> {
   return res.json()
 }
 
+// Домен картинок (tr.rbxcdn.com) не резолвится у некоторых хостеров (например, у российских), хотя API Roblox доступен.
+// Поэтому для скачивания картинки: сначала системный DNS, а если он не нашёл имя, публичные серверы.
+const PUBLIC_DNS = ['1.1.1.1', '8.8.8.8']
+
+type SystemLookup = (hostname: string, options: dns.LookupOptions, callback: (err: NodeJS.ErrnoException | null, address: string | dns.LookupAddress[], family?: number) => void) => void
+type Resolve4 = (hostname: string, callback: (err: NodeJS.ErrnoException | null, addresses?: string[]) => void) => void
+
+export function createLookup(systemLookup: SystemLookup, resolve4: Resolve4) {
+  return (hostname: string, options: dns.LookupOptions, callback: (err: NodeJS.ErrnoException | null, address: string | dns.LookupAddress[], family?: number) => void) => {
+    systemLookup(hostname, options, (err, address, family) => {
+      if (!err) return callback(null, address, family)
+      resolve4(hostname, (err2, addresses) => {
+        if (err2 || !addresses?.length) return callback(err, '')
+        // с options.all Node ждёт массив адресов
+        if (options.all) return callback(null, addresses.map((a) => ({ address: a, family: 4 })))
+        callback(null, addresses[0], 4)
+      })
+    })
+  }
+}
+
+const publicResolver = new dns.Resolver({ timeout: 3000, tries: 1 })
+publicResolver.setServers(PUBLIC_DNS)
+const lookup = createLookup(dns.lookup as SystemLookup, (host, cb) => publicResolver.resolve4(host, cb))
+
+// Скачивает картинку с CDN Roblox (адрес уже проверен: https и *.rbxcdn.com), не больше MAX_IMAGE_BYTES.
+// Вынесено в объект, чтобы тесты подменяли скачивание, не ходя в сеть.
+export const imageSource = {
+  download(url: URL): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const req = https.get(url, { lookup: lookup as never, timeout: TIMEOUT_MS }, (res) => {
+        if (res.statusCode !== 200) {
+          res.resume()
+          return reject(new RobloxError(`http_${res.statusCode}`))
+        }
+        const chunks: Buffer[] = []
+        let size = 0
+        res.on('data', (chunk: Buffer) => {
+          size += chunk.length
+          if (size > MAX_IMAGE_BYTES) {
+            req.destroy()
+            reject(new RobloxError('bad_size'))
+          } else chunks.push(chunk)
+        })
+        res.on('end', () => resolve(Buffer.concat(chunks)))
+        res.on('error', reject)
+      })
+      req.on('timeout', () => req.destroy(new RobloxError('timeout')))
+      req.on('error', reject)
+    })
+  },
+}
+
 // Картинка аватара (data URL) по нику Roblox; null, если такого игрока нет.
 export async function fetchRobloxAvatar(username: string): Promise<string | null> {
   const found = await json(USERS_URL, {
@@ -43,9 +98,7 @@ export async function fetchRobloxAvatar(username: string): Promise<string | null
   const url = new URL(imageUrl)
   if (url.protocol !== 'https:' || !url.hostname.endsWith(CDN_SUFFIX)) throw new RobloxError('bad_host')
 
-  const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
-  if (!res.ok) throw new RobloxError(`http_${res.status}`)
-  const bytes = Buffer.from(await res.arrayBuffer())
+  const bytes = await imageSource.download(url)
   if (bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES) throw new RobloxError('bad_size')
   return `data:image/png;base64,${bytes.toString('base64')}`
 }

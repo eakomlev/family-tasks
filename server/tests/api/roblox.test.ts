@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildApp } from '../../src/app.js'
 import { pool } from '../../src/db.js'
+import { createLookup, imageSource } from '../../src/roblox.js'
 import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
 
 let app: Awaited<ReturnType<typeof buildApp>>
@@ -40,9 +41,12 @@ describe('POST /api/me/roblox-avatar', () => {
     stubRoblox({
       'https://users.roblox.com/': okJson({ data: [{ id: 42, name: 'Kid' }] }),
       'https://thumbnails.roblox.com/': okJson({ data: [{ imageUrl: 'https://tr.rbxcdn.com/abc/150/150/AvatarHeadshot/Png' }] }),
-      'https://tr.rbxcdn.com/': () => new Response(png, { status: 200 }),
     })
+    // картинку скачивает отдельная функция (со своим DNS), сеть в тесте не нужна
+    const download = vi.spyOn(imageSource, 'download').mockResolvedValue(png)
     const res = await ask(fam.kid.token, 'Kid_1')
+    expect(String(download.mock.calls[0][0])).toBe('https://tr.rbxcdn.com/abc/150/150/AvatarHeadshot/Png')
+    download.mockRestore()
     expect(res.status).toBe(200)
     expect(res.body.image).toBe(`data:image/png;base64,${png.toString('base64')}`)
   })
@@ -59,9 +63,12 @@ describe('POST /api/me/roblox-avatar', () => {
       'https://users.roblox.com/': okJson({ data: [{ id: 42 }] }),
       'https://thumbnails.roblox.com/': okJson({ data: [{ imageUrl: 'https://evil.example/x.png' }] }),
     })
+    const download = vi.spyOn(imageSource, 'download').mockResolvedValue(png)
     const res = await ask(fam.kid.token, 'Kid_1')
     expect(res.status).toBe(502)
     expect(calls.some((c) => c.includes('evil.example'))).toBe(false)
+    expect(download).not.toHaveBeenCalled()
+    download.mockRestore()
   })
 
   it('Roblox недоступен: 502', async () => {
@@ -76,5 +83,40 @@ describe('POST /api/me/roblox-avatar', () => {
     expect((await api(app, 'чужой', 'POST', '/api/me/roblox-avatar', { username: 'Kid_1' })).status).toBe(401)
     expect((await ask(fam.kid.token, 'a')).status).toBe(400)
     expect((await ask(fam.kid.token, 'плохой ник!')).status).toBe(400)
+  })
+})
+
+describe('картинка аватара: DNS', () => {
+  const ok = (address: string) => (_host: string, _options: object, cb: (e: null, a: string, f: number) => void) => cb(null, address, 4)
+  const fail = (_host: string, _options: object, cb: (e: NodeJS.ErrnoException) => void) => cb(Object.assign(new Error('getaddrinfo ENOTFOUND'), { code: 'ENOTFOUND' }))
+
+  it('системный DNS нашёл имя: публичный не спрашиваем', () => {
+    const resolve4 = vi.fn()
+    const done = vi.fn()
+    createLookup(ok('1.2.3.4') as never, resolve4)('tr.rbxcdn.com', {}, done)
+    expect(done).toHaveBeenCalledWith(null, '1.2.3.4', 4)
+    expect(resolve4).not.toHaveBeenCalled()
+  })
+
+  it('системный не нашёл (как у хостера): адрес берётся из публичного DNS', () => {
+    const resolve4 = vi.fn((_h: string, cb: (e: null, a: string[]) => void) => cb(null, ['9.9.9.9', '8.8.4.4']))
+    const done = vi.fn()
+    createLookup(fail as never, resolve4 as never)('tr.rbxcdn.com', {}, done)
+    expect(resolve4).toHaveBeenCalledWith('tr.rbxcdn.com', expect.any(Function))
+    expect(done).toHaveBeenCalledWith(null, '9.9.9.9', 4)
+  })
+
+  it('Node просит все адреса (options.all): отдаём список', () => {
+    const resolve4 = (_h: string, cb: (e: null, a: string[]) => void) => cb(null, ['9.9.9.9', '8.8.4.4'])
+    const done = vi.fn()
+    createLookup(fail as never, resolve4 as never)('tr.rbxcdn.com', { all: true }, done)
+    expect(done).toHaveBeenCalledWith(null, [{ address: '9.9.9.9', family: 4 }, { address: '8.8.4.4', family: 4 }])
+  })
+
+  it('не нашёл ни тот, ни другой: ошибка системного DNS', () => {
+    const resolve4 = (_h: string, cb: (e: Error) => void) => cb(new Error('нет'))
+    const done = vi.fn()
+    createLookup(fail as never, resolve4 as never)('tr.rbxcdn.com', {}, done)
+    expect(done.mock.calls[0][0]).toMatchObject({ code: 'ENOTFOUND' })
   })
 })
