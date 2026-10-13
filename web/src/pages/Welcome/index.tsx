@@ -12,7 +12,7 @@ export default function Welcome() {
     <WelcomePage>
       <Hero>
         <Logo aria-hidden>✓</Logo>
-        <h1>Моя семья</h1>
+        <h1>Моя Семья</h1>
         <p>Задания, расписание, чат и дни рождения всей семьи в одном месте: кто что делает, что уже готово и что ждёт своей очереди.</p>
       </Hero>
       <Actions>

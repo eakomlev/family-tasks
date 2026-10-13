@@ -16,7 +16,7 @@ export function Splash() {
 
   return (
     <Box role="status" style={{ textAlign: 'center' }}>
-      <p>Моя семья</p>
+      <p>Моя Семья</p>
       <p>Загрузка…</p>
       {slow && (
         <>

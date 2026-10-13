@@ -26,10 +26,12 @@ services:
       SMTP_SECURE: ${SMTP_SECURE:-false}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_FROM: ${SMTP_FROM:-Моя семья <noreply@family-tasks.local>}
+      SMTP_FROM: ${SMTP_FROM:-Моя Семья <noreply@family-tasks.local>}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@family-tasks.local}
+      # администраторы сервиса (раздел «Сервис» в профиле), email через запятую
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     depends_on:
       db:
         condition: service_healthy

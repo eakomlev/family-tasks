@@ -67,6 +67,8 @@ export default function Profile() {
             )}
             <MenuLink to="/profile/notifications">Уведомления</MenuLink>
             <MenuLink to="/profile/theme">Тема</MenuLink>
+            {/* статистика сервиса: только у администраторов (ADMIN_EMAILS на сервере) */}
+            {me.isAdmin && <MenuLink to="/profile/service">Сервис</MenuLink>}
           </Menu>
         </>
       )}

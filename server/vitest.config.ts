@@ -16,6 +16,8 @@ export default defineConfig({
       VAPID_SUBJECT: 'mailto:test@example.com',
       // в тестах push-сервисом выступает подставной адрес
       PUSH_ALLOWED_HOSTS: 'push.test',
+      // администратор в тестах: почта, которую тесты выдают нужному участнику
+      ADMIN_EMAILS: 'Boss@Test.Local, other@test.local',
     },
     // файлы тестов работают параллельно, но каждый создаёт свою семью и убирает за собой
     testTimeout: 15_000,

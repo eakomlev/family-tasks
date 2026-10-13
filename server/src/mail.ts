@@ -10,7 +10,7 @@ const transport = nodemailer.createTransport({
     : undefined,
 })
 
-const from = process.env.SMTP_FROM ?? 'Моя семья <noreply@family-tasks.local>'
+const from = process.env.SMTP_FROM ?? 'Моя Семья <noreply@family-tasks.local>'
 
 export async function sendCode(to: string, code: string, ttlMinutes: number) {
   await transport.sendMail({

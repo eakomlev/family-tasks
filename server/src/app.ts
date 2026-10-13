@@ -2,6 +2,7 @@ import rateLimit from '@fastify/rate-limit'
 import websocket from '@fastify/websocket'
 import Fastify, { type RouteOptions } from 'fastify'
 import { authenticate } from './auth.js'
+import { adminRoutes } from './admin.js'
 import { chatRoutes } from './chat.js'
 import { coinRoutes } from './coins.js'
 import { goalRoutes } from './goals.js'
@@ -71,5 +72,6 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
   await app.register(coinRoutes)
   await app.register(robloxRoutes)
   await app.register(goalRoutes)
+  await app.register(adminRoutes)
   return app
 }

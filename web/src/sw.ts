@@ -24,7 +24,7 @@ interface PushPayload {
 }
 
 self.addEventListener('push', (event) => {
-  let payload: PushPayload = { title: 'Моя семья', body: '' }
+  let payload: PushPayload = { title: 'Моя Семья', body: '' }
   try {
     payload = { ...payload, ...(event.data?.json() as Partial<PushPayload>) }
   } catch {

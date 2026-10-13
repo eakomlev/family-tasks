@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import type { PoolClient } from 'pg'
+import { isAdminEmail } from './admin.js'
 import {
   authenticate,
   bearerToken,
@@ -394,6 +395,8 @@ export async function routes(app: FastifyInstance) {
         role: me.role,
         isOwner: me.is_owner,
         email: me.email,
+        // раздел «Сервис» (статистика) только у администраторов из ADMIN_EMAILS
+        isAdmin: isAdminEmail(me.email),
         avatar: me.avatar,
         birthDate: me.birth_date,
         mood: members.find((m) => m.id === me.id)?.mood ?? null,

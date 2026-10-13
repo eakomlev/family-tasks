@@ -1,4 +1,4 @@
-# Моя семья
+# Моя Семья
 
 [![CI](https://github.com/eakomlev/family-tasks/actions/workflows/ci.yml/badge.svg)](https://github.com/eakomlev/family-tasks/actions/workflows/ci.yml)
 
@@ -195,7 +195,7 @@ SMTP_HOST=smtp.example.com
 SMTP_PORT=2525
 SMTP_USER=...
 SMTP_PASS=...
-SMTP_FROM="Моя семья <noreply@family.example.com>"
+SMTP_FROM="Моя Семья <noreply@family.example.com>"
 
 VAPID_PUBLIC_KEY=...         # ключи для push-уведомлений, создайте командой ниже и больше не меняйте
 VAPID_PRIVATE_KEY=...

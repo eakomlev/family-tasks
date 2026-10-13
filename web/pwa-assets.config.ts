@@ -1,7 +1,7 @@
 import { defineConfig, minimal2023Preset } from '@vite-pwa/assets-generator/config'
 
-// цвет фона значка: тот же индиго, что и на icon.svg
-const BACKGROUND = '#4f46e5'
+// цвет фона значка: тот же тёмный индиго, что и на icon.svg (монета)
+const BACKGROUND = '#1e1b4b'
 
 export default defineConfig({
   preset: {

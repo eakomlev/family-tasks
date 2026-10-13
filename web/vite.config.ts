@@ -22,8 +22,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: 'Моя семья',
-        short_name: 'Моя семья',
+        // постоянный идентификатор приложения: смена названия и значка воспринимается как обновление того же приложения
+        id: '/',
+        name: 'Моя Семья',
+        short_name: 'Моя Семья',
         description: 'Задания, расписание, чат и дела всей семьи',
         lang: 'ru',
         theme_color: '#4f46e5',

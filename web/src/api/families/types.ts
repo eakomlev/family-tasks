@@ -33,7 +33,8 @@ export interface CreateFamilyResult extends SessionResult {
 
 export interface FamilyOverview {
   // coins: баланс виртуальных монет, есть только у детей
-  member: Member & { email: string; coins?: number }
+  // isAdmin: администратор сервиса (раздел «Сервис» в профиле), приходит только про самого себя
+  member: Member & { email: string; coins?: number; isAdmin?: boolean }
   family: { code: string }
   members: Member[]
 }
