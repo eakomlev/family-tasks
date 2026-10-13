@@ -1,5 +1,16 @@
 const MAX_SOURCE_BYTES = 30 * 1024 * 1024
 
+// Файл из data URL без `fetch`: запрос по `data:` запрещён правилом безопасности (CSP connect-src), а нам нужен только разбор base64
+export function dataUrlToFile(dataUrl: string, name: string): File {
+  const match = /^data:([^;,]+)(;base64)?,(.*)$/s.exec(dataUrl)
+  if (!match) throw new ImageError('decode_failed')
+  const [, type, base64, payload] = match
+  const text = base64 ? atob(payload) : decodeURIComponent(payload)
+  const bytes = new Uint8Array(text.length)
+  for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i)
+  return new File([bytes], name, { type })
+}
+
 export class ImageError extends Error {
   reason: 'not_image' | 'too_large' | 'decode_failed'
 

@@ -3,7 +3,7 @@ import { getRobloxAvatar, type ProfilePatch } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { SlideInPage as Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
-import { resizeToAvatar } from '@/lib/image'
+import { dataUrlToFile, resizeToAvatar } from '@/lib/image'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
 import { useUpdateProfileMutation } from '@/store/profile'
@@ -42,8 +42,7 @@ export default function ProfileEdit() {
     setPhotoError(undefined)
     try {
       const { image } = await getRobloxAvatar(token, username)
-      const blob = await (await fetch(image)).blob()
-      const avatar = await resizeToAvatar(new File([blob], 'roblox.png', { type: blob.type }))
+      const avatar = await resizeToAvatar(dataUrlToFile(image, 'roblox.png'))
       await updateProfile({ avatar }).unwrap().catch(toApiError)
     } catch (err) {
       setPhotoError(describePhotoError(err))
