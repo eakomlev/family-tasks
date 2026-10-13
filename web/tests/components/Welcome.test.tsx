@@ -70,4 +70,13 @@ describe('Welcome и стартовая страница', () => {
     expect(screen.getByRole('link', { name: 'Создать семью' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Уже есть семья? Войти' })).toBeInTheDocument()
   })
+
+  it('чип на хабе открывает слайдер с нужного слайда, «Пропустить» возвращает к хабу', () => {
+    localStorage.setItem('onboardingSeen', '1')
+    renderAt(null)
+    fireEvent.click(screen.getByRole('button', { name: '💬 Чат' }))
+    expect(screen.getByRole('button', { name: 'Слайд 4' })).toHaveAttribute('aria-current', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Пропустить' }))
+    expect(screen.getByRole('link', { name: 'Создать семью' })).toBeInTheDocument()
+  })
 })

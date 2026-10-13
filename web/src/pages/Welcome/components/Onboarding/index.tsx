@@ -6,10 +6,16 @@ import { Dot, Dots, Footer, Phone, Root, SlideView, Skip, TopBar, Track } from '
 
 // Знакомство с приложением: слайдер с экранами. «Пропустить» ведёт ко входу, «Начать» на последнем слайде к началу.
 // Когда человек долистал до последнего слайда, это запоминается, и в следующий раз слайдов уже нет.
-export function Onboarding({ onSkip, onDone }: { onSkip: () => void; onDone: () => void }) {
+export function Onboarding({ start = 0, onSkip, onDone }: { start?: number; onSkip: () => void; onDone: () => void }) {
   const track = useRef<HTMLDivElement>(null)
-  const [index, setIndex] = useState(0)
+  const [index, setIndex] = useState(start)
   const last = index === SLIDES.length - 1
+
+  // открытие с нужного слайда (по нажатию на чип на экране приветствия)
+  useEffect(() => {
+    const el = track.current
+    if (el && start > 0) el.scrollLeft = start * el.clientWidth
+  }, [start])
 
   useEffect(() => {
     if (last) markOnboardingSeen()

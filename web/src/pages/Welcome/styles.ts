@@ -34,12 +34,15 @@ export const Features = styled.ul`
   justify-content: center;
   gap: 0.5rem;
 
-  li {
+  button {
     padding: 0.35rem 0.8rem;
     border: 1px solid var(--glass-edge);
     border-radius: 2rem;
     background: var(--auth-card);
+    color: var(--text);
+    font: inherit;
     font-size: 0.9rem;
     font-weight: 600;
+    cursor: pointer;
   }
 `
