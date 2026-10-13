@@ -15,10 +15,19 @@ export const Bar = styled.form`
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
 
-  /* клавиатура открыта: панели табов нет, поле ввода у самого низа */
+  /* Клавиатура открыта: sticky больше не годится — он мерит отступ от низа слоя раскладки, а iOS не ужимает этот слой
+     под клавиатуру, только видимую область. Поэтому fixed и свой отступ --keyboard-inset (хук useKeyboardViewport) —
+     без этого поле ввода прячется под клавиатурой, и попытка прокрутить переписку превращается в борьбу с Safari,
+     который тащит страницу назад, чтобы вернуть «видимое» поле в кадр (выглядит как дрожание на месте). */
   :root[data-keyboard] & {
-    bottom: 0;
-    padding-bottom: calc(0.6rem + env(safe-area-inset-bottom));
+    position: fixed;
+    left: 50%;
+    bottom: var(--keyboard-inset, 0px);
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 28rem;
+    margin: 0;
+    padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom));
   }
 `
 

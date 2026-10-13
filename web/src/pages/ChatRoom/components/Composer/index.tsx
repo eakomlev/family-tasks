@@ -12,6 +12,23 @@ export function Composer({ onSend }: ComposerProps) {
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
   const field = useRef<HTMLTextAreaElement>(null)
+  const bar = useRef<HTMLFormElement>(null)
+
+  // высота поля ввода (--composer-h): при открытой клавиатуре оно встаёт как fixed и уходит из потока, поэтому
+  // переписке над ним нужно знать, сколько места под собой оставить, чтобы последние сообщения не легли под него
+  useEffect(() => {
+    const el = bar.current
+    if (!el) return
+    const root = document.documentElement
+    const publish = () => root.style.setProperty('--composer-h', `${Math.ceil(el.getBoundingClientRect().height)}px`)
+    publish()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(publish)
+    observer?.observe(el)
+    return () => {
+      observer?.disconnect()
+      root.style.removeProperty('--composer-h')
+    }
+  }, [])
 
   // высота по содержимому
   useLayoutEffect(() => {
@@ -79,7 +96,7 @@ export function Composer({ onSend }: ComposerProps) {
   return (
     <>
       {failed && <Notice $tone="error">Не удалось отправить сообщение. Попробуйте ещё раз.</Notice>}
-      <Bar onSubmit={submit}>
+      <Bar ref={bar} onSubmit={submit}>
         <Field
           ref={field}
           value={text}

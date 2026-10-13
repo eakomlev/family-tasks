@@ -159,6 +159,12 @@ export const Feed = styled.div`
     flex-direction: column;
     gap: 0.4rem;
   }
+
+  /* клавиатура открыта: поле ввода встаёт как fixed и уходит из потока (--composer-h в Composer), иначе последние
+     сообщения легли бы под него */
+  :root[data-keyboard] & {
+    padding-bottom: var(--composer-h, 4rem);
+  }
 `
 
 export const DayLabel = styled.div`
