@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatAge, MAIL_WARN_SHARE, nextUtcMidnightLabel, queueAlerts, STALE_SECONDS } from '@/pages/Service/utils'
+import { formatAge, MAIL_WARN_SHARE, nextUtcMidnightLabel, queueAlerts, STALE_SECONDS, TICK_STALE_SECONDS } from '@/pages/Service/utils'
 import type { QueueStats } from '@/store/admin'
 
 // 13 октября 2026, 10:00 по Москве (часовой пояс прогона фиксирован)
@@ -90,5 +90,37 @@ describe('queueAlerts', () => {
       NOW,
     )
     expect(alerts.map((a) => a.tone)).toEqual(['error', 'warning', 'error'])
+  })
+
+  describe('планировщик', () => {
+    const sched = (over: object = {}) => ({
+      alive: true, instances: 1, lastBeatSeconds: 4, lastTickSeconds: 20, lastSent: 3, lastError: null, ...over,
+    })
+
+    it('жив и недавно делал проход: предупреждений нет; сервер старой версии (поля нет) тоже молчит', () => {
+      expect(queueAlerts(healthy({ scheduler: sched() }), NOW)).toEqual([])
+      expect(queueAlerts(healthy(), NOW)).toEqual([])
+    })
+
+    it('не отвечает: ошибка с давностью сигнала', () => {
+      const [alert] = queueAlerts(healthy({ scheduler: sched({ alive: false, instances: 0, lastBeatSeconds: 600 }) }), NOW)
+      expect(alert).toMatchObject({ tone: 'error' })
+      expect(alert.text).toMatch(/Планировщик \(scheduler\) не отвечает/)
+      expect(alert.text).toMatch(/10 мин назад/)
+    })
+
+    it('жив, но проход давно не шёл: предупреждение; пока проходов не было (только запустился), молчим', () => {
+      const [alert] = queueAlerts(healthy({ scheduler: sched({ lastTickSeconds: TICK_STALE_SECONDS + 1 }) }), NOW)
+      expect(alert).toMatchObject({ tone: 'warning' })
+      expect(alert.text).toMatch(/не делал проход 5 мин/)
+      expect(queueAlerts(healthy({ scheduler: sched({ lastTickSeconds: TICK_STALE_SECONDS }) }), NOW)).toEqual([])
+      expect(queueAlerts(healthy({ scheduler: sched({ lastTickSeconds: null, lastSent: null }) }), NOW)).toEqual([])
+    })
+
+    it('последний проход кончился ошибкой: предупреждение с её текстом', () => {
+      const [alert] = queueAlerts(healthy({ scheduler: sched({ lastError: 'очередь недоступна' }) }), NOW)
+      expect(alert).toMatchObject({ tone: 'warning' })
+      expect(alert.text).toMatch(/очередь недоступна/)
+    })
   })
 })

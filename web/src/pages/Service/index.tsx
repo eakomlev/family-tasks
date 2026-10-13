@@ -83,6 +83,25 @@ export default function Service() {
           </>
         )}
       </Section>
+      {queue?.scheduler && (
+        <Section aria-label="Планировщик">
+          <h2>Планировщик</h2>
+          <Cards>
+            <Card $small>
+              <span>Состояние</span>
+              <strong>{queue.scheduler.alive ? 'работает' : 'не отвечает'}</strong>
+            </Card>
+            <Card $small>
+              <span>Последний проход</span>
+              <strong>{queue.scheduler.lastTickSeconds === null ? '—' : `${formatAge(queue.scheduler.lastTickSeconds)} назад`}</strong>
+            </Card>
+            <Card $small>
+              <span>Поставил в очередь</span>
+              <strong>{queue.scheduler.lastSent === null ? '—' : format(queue.scheduler.lastSent)}</strong>
+            </Card>
+          </Cards>
+        </Section>
+      )}
     </Page>
   )
 }

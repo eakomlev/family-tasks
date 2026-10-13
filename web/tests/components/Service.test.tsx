@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -20,6 +20,7 @@ const queue = {
   oldestSeconds: 95,
   mail: { usedToday: 1240, limit: 3000 },
   today: { email: { sent: 80, failed: 0 }, push: { sent: 400, failed: 0 } },
+  scheduler: { alive: true, instances: 1, lastBeatSeconds: 5, lastTickSeconds: 42, lastSent: 6, lastError: null },
 }
 // ответы по адресам: статистика и очередь; остальное ошибка
 const serve = (over: { queue?: unknown } = {}) =>
@@ -112,6 +113,30 @@ describe('раздел «Сервис»', () => {
       expect(region).toHaveTextContent('Дневной лимит писем исчерпан')
       expect(region).toHaveTextContent('Самое старое сообщение ждёт 11 мин')
       expect(region).toHaveTextContent('Сервис отправкине отвечает')
+    })
+
+    it('планировщик: состояние, давность прохода и сколько поставлено; у сервера старой версии блока нет', async () => {
+      vi.stubGlobal('fetch', serve())
+      renderAt('/profile/service', true)
+      const region = await screen.findByRole('region', { name: 'Планировщик' })
+      expect(region).toHaveTextContent('Состояниеработает')
+      expect(region).toHaveTextContent('Последний проход42 с назад')
+      expect(region).toHaveTextContent('Поставил в очередь6')
+      cleanup()
+
+      const { scheduler: _omit, ...old } = queue
+      vi.stubGlobal('fetch', serve({ queue: old }))
+      renderAt('/profile/service', true)
+      expect(await screen.findByRole('region', { name: 'Очередь отправки' })).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Планировщик' })).toBeNull()
+    })
+
+    it('планировщик не отвечает: предупреждение в очереди и статус в блоке', async () => {
+      vi.stubGlobal('fetch', serve({ queue: { ...queue, scheduler: { alive: false, instances: 0, lastBeatSeconds: 700, lastTickSeconds: 700, lastSent: 0, lastError: null } } }))
+      renderAt('/profile/service', true)
+      const region = await screen.findByRole('region', { name: 'Планировщик' })
+      expect(region).toHaveTextContent('Состояниене отвечает')
+      expect(await screen.findByText(/Планировщик \(scheduler\) не отвечает/)).toBeInTheDocument()
     })
 
     it('ошибка загрузки очереди не ломает статистику выше', async () => {

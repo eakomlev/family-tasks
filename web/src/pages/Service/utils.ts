@@ -4,6 +4,8 @@ import type { QueueStats } from '@/store/admin'
 export const STALE_SECONDS = 300
 // С какой доли дневного лимита писем предупреждаем.
 export const MAIL_WARN_SHARE = 0.8
+// Проход планировщика идёт раз в минуту: если с последнего больше этого, он завис или лидера нет.
+export const TICK_STALE_SECONDS = 300
 
 // «45 с», «3 мин», «2 ч 5 мин»
 export function formatAge(seconds: number): string {
@@ -48,6 +50,19 @@ export function queueAlerts(queue: QueueStats, now: Date): QueueAlert[] {
     })
   } else if (limit > 0 && usedToday >= limit * MAIL_WARN_SHARE) {
     alerts.push({ tone: 'warning', text: `Израсходовано ${Math.floor((usedToday / limit) * 100)}% дневного лимита писем.` })
+  }
+
+  const scheduler = queue.scheduler
+  if (scheduler) {
+    if (!scheduler.alive) {
+      const since = scheduler.lastBeatSeconds === null ? '' : ` Последний сигнал ${formatAge(scheduler.lastBeatSeconds)} назад.`
+      alerts.push({ tone: 'error', text: `Планировщик (scheduler) не отвечает: дни рождения, уроки и тренировки не напоминаются.${since}` })
+    } else if (scheduler.lastTickSeconds !== null && scheduler.lastTickSeconds > TICK_STALE_SECONDS) {
+      alerts.push({ tone: 'warning', text: `Планировщик не делал проход ${formatAge(scheduler.lastTickSeconds)}. Проверьте его лог.` })
+    }
+    if (scheduler.lastError) {
+      alerts.push({ tone: 'warning', text: `Последний проход планировщика закончился ошибкой: ${scheduler.lastError}` })
+    }
   }
 
   const failedMail = queue.today.email.failed

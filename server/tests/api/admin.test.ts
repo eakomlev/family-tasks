@@ -122,6 +122,7 @@ describe('GET /api/admin/queue', () => {
     vi.unstubAllEnvs()
     await pool.query('delete from outbox where id = any($1)', [created.outbox])
     await pool.query('delete from notifier_heartbeat where instance = any($1)', [created.beats])
+    await pool.query('delete from scheduler_state where instance = any($1)', [created.beats])
     await pool.query(`delete from provider_usage where provider = 'mail'`)
     await pool.query(`delete from delivery_stats where channel in ('email', 'push')`)
     created.outbox = []
@@ -162,6 +163,34 @@ describe('GET /api/admin/queue', () => {
     const { notifier } = (await queue()).body
     expect(notifier).toMatchObject({ alive: true, instances: 1 })
     expect(notifier.lastBeatSeconds).toBeLessThan(60)
+  })
+
+  it('состояние scheduler: метка живости, последний проход и его итог', async () => {
+    // таблицу пишет только scheduler, а его тесты работают в другой базе: здесь можно проверять точно
+    const none = (await queue()).body.scheduler
+    expect(none).toEqual({ alive: false, instances: 0, lastBeatSeconds: null, lastTickSeconds: null, lastSent: null, lastError: null })
+
+    const old = `test-${randomBytes(3).toString('hex')}`
+    const fresh = `test-${randomBytes(3).toString('hex')}`
+    created.beats.push(old, fresh)
+    await pool.query(
+      `insert into scheduler_state (instance, beat_at, last_tick_at, last_sent, last_error) values
+         ($1, now() - interval '10 minutes', now() - interval '10 minutes', 4, null)`,
+      [old],
+    )
+    expect((await queue()).body.scheduler).toMatchObject({ alive: false, instances: 0, lastSent: 4, lastError: null })
+    expect((await queue()).body.scheduler.lastTickSeconds).toBeGreaterThanOrEqual(600)
+
+    // берётся самый свежий проход среди экземпляров
+    await pool.query(
+      `insert into scheduler_state (instance, beat_at, last_tick_at, last_sent, last_error) values
+         ($1, now() - interval '5 seconds', now() - interval '30 seconds', 0, 'очередь недоступна')`,
+      [fresh],
+    )
+    const { scheduler } = (await queue()).body
+    expect(scheduler).toMatchObject({ alive: true, instances: 1, lastSent: 0, lastError: 'очередь недоступна' })
+    expect(scheduler.lastBeatSeconds).toBeLessThan(60)
+    expect(scheduler.lastTickSeconds).toBeLessThan(60)
   })
 
   it('расход дневного бюджета почты и лимит', async () => {

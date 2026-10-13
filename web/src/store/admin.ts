@@ -18,6 +18,17 @@ export interface QueueStats {
   // limit 0: без дневного лимита
   mail: { usedToday: number; limit: number }
   today: { email: { sent: number; failed: number }; push: { sent: number; failed: number } }
+  // планировщик плановых напоминаний; поля нет у сервера старой версии (во время выкладки)
+  scheduler?: {
+    alive: boolean
+    instances: number
+    lastBeatSeconds: number | null
+    // секунд с последнего прохода (null: проходов ещё не было)
+    lastTickSeconds: number | null
+    lastSent: number | null
+    // ошибка последнего прохода (null: прошёл без ошибки)
+    lastError: string | null
+  }
 }
 
 // Статистика сервиса для администратора. Аргумент: начало сегодняшнего дня в ISO (часовой пояс знает только клиент).

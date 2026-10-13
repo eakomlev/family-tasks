@@ -41,6 +41,17 @@ export interface QueueStats {
   // limit 0: без дневного лимита; usedToday без ждущих в очереди
   mail: { usedToday: number; limit: number }
   today: { email: { sent: number; failed: number }; push: { sent: number; failed: number } }
+  // планировщик плановых напоминаний (scheduler): жив ли, когда лидер в последний раз делал проход и чем он кончился
+  scheduler: {
+    alive: boolean
+    instances: number
+    lastBeatSeconds: number | null
+    // секунд с последнего прохода лидера (null: проходов ещё не было)
+    lastTickSeconds: number | null
+    // сколько напоминаний поставил последний проход и текст его ошибки (null, если прошёл без ошибки)
+    lastSent: number | null
+    lastError: string | null
+  }
 }
 
 export async function adminRoutes(app: FastifyInstance) {
@@ -64,6 +75,17 @@ export async function adminRoutes(app: FastifyInstance) {
     const { rows: delivery } = await pool.query<{ channel: 'email' | 'push'; sent: number; failed: number }>(
       `select channel, sent, failed from delivery_stats where day = (now() at time zone 'UTC')::date`,
     )
+    const { rows: [sched] } = await pool.query(
+      `select
+         (select count(*) from scheduler_state where beat_at > now() - interval '60 seconds')::int as instances,
+         (select floor(extract(epoch from now() - max(beat_at)))::int from scheduler_state) as last_beat,
+         t.tick_seconds, t.last_sent, t.last_error
+       from (select 1) one
+       left join lateral (
+         select floor(extract(epoch from now() - last_tick_at))::int as tick_seconds, last_sent, last_error
+           from scheduler_state where last_tick_at is not null order by last_tick_at desc limit 1
+       ) t on true`,
+    )
     const count = (channel: 'email' | 'push') => delivery.find((d) => d.channel === channel) ?? { sent: 0, failed: 0 }
 
     const queue: QueueStats = {
@@ -75,6 +97,14 @@ export async function adminRoutes(app: FastifyInstance) {
       today: {
         email: { sent: count('email').sent, failed: count('email').failed },
         push: { sent: count('push').sent, failed: count('push').failed },
+      },
+      scheduler: {
+        alive: sched.instances > 0,
+        instances: sched.instances,
+        lastBeatSeconds: sched.last_beat,
+        lastTickSeconds: sched.tick_seconds,
+        lastSent: sched.last_sent,
+        lastError: sched.last_error,
       },
     }
     return queue
