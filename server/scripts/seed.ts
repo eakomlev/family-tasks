@@ -9,7 +9,7 @@
 //
 // Нужна запущенная БД (npm run dev:infra) и .env с DATABASE_URL. Демо-участники узнаются по адресам
 // @demo.test: при каждом запуске только такие семьи удаляются и создаются заново, остальные данные не трогаются.
-// У Миши день рождения сегодня (удобно проверять поздравления: npm run notify:tick -- 10:05 --reset).
+// У Миши день рождения сегодня (удобно проверять поздравления: cd scheduler && npm run notify:tick -- 10:05 --reset).
 import { createSession } from '../src/auth.js'
 import { familyCode, inviteCode } from '../src/codes.js'
 import { pool } from '../src/db.js'

@@ -60,7 +60,7 @@ Service worker в dev выключен, PWA проверяйте на сборк
 | `npm run seed` | демо-семья (подробнее выше), режимы `-- --snippet Миша`, `-- --json` |
 | `npm test` | все тесты: сервер (нужна БД) и фронтенд; по отдельности `npm run test:server`, `npm run test:web` |
 | `cd server && npm run typecheck` | типы приложения и тестов |
-| `cd scheduler && npm run notify:tick -- 10:05 --reset` | принудительный проход планировщика уведомлений (см. раздел про push; такая же команда пока есть и в `server/`) |
+| `cd scheduler && npm run notify:tick -- 10:05 --reset` | принудительный проход планировщика уведомлений (см. раздел про push) |
 | `cd notifier && npm run vapid` | создать ключи VAPID для push |
 | `cd server && npm run migrate:create -- имя` | новая миграция БД |
 | `cd web && npx tsc -b && npm run lint && npm test && npm run build` | проверки, тесты и сборка фронтенда |
@@ -79,7 +79,7 @@ npm test            # сервер и фронтенд, около 5 секун�
 
 На GitHub те же проверки запускаются сами при каждом пуше в `main` и в каждом pull request (`.github/workflows/ci.yml`): тесты и типы сервера на настоящем Postgres, типы, линтер, тесты и сборка фронтенда, проверка конфигурации Docker Compose, `Caddyfile` и `update.sh`. Результат виден на вкладке Actions репозитория и в бейдже выше.
 
-Состав: проверки чистой логики (`server/tests/unit`) и проверки API без сети (`server/tests/api`: вход, профиль, приглашения, расписания, задания, push, планировщик уведомлений). Письма и push в тестах ставятся в очередь (таблица `outbox`), и проверяются её строки; настоящую отправку и повторы проверяют тесты сервиса отправки (`notifier/tests`, `cd notifier && npm test`). Типы тестов: `cd server && npm run typecheck`. Тесты фронтенда проверяют логику (даты, повторы заданий, выбор дня на «Моём дне», расписания, тема), клиент API, отметку выполнения с откатом и ключевые компоненты (`TaskItem`, `CodeStep`, форма задания).
+Состав: проверки чистой логики (`server/tests/unit`) и проверки API без сети (`server/tests/api`: вход, профиль, приглашения, расписания, задания, push). Планировщик уведомлений проверяют тесты `scheduler/tests` (`cd scheduler && npm test`). Письма и push в тестах ставятся в очередь (таблица `outbox`), и проверяются её строки; настоящую отправку и повторы проверяют тесты сервиса отправки (`notifier/tests`, `cd notifier && npm test`). Типы тестов: `cd server && npm run typecheck`. Тесты фронтенда проверяют логику (даты, повторы заданий, выбор дня на «Моём дне», расписания, тема), клиент API, отметку выполнения с откатом и ключевые компоненты (`TaskItem`, `CodeStep`, форма задания).
 
 ## Миграции БД
 
@@ -136,7 +136,7 @@ npm run migrate:down                  # откат последней
 
    ```bash
    docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db
-   cd server
+   cd scheduler
    npm run notify:tick -- 10:05 --reset   # дни рождения (окно 10:00–12:00)
    npm run notify:tick -- 17:05 --reset   # уроки ребёнку на следующий учебный день (окно 17:00–19:00)
    npm run notify:tick -- 16:05 --reset   # тренировка в 18:00 (напоминание в 16:00–16:15)

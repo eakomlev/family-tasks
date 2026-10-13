@@ -10,7 +10,6 @@
     "migrate:create": "node --env-file-if-exists=../.env node_modules/node-pg-migrate/bin/node-pg-migrate.js create -j sql --migrations-dir migrations",
     "migrate:up": "node --env-file-if-exists=../.env node_modules/node-pg-migrate/bin/node-pg-migrate.js up --migrations-dir migrations",
     "migrate:down": "node --env-file-if-exists=../.env node_modules/node-pg-migrate/bin/node-pg-migrate.js down --migrations-dir migrations",
-    "notify:tick": "tsx --env-file=../.env scripts/tick.ts",
     "seed": "tsx --env-file=../.env scripts/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest",

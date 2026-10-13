@@ -2,7 +2,6 @@ import { buildApp } from './app.js'
 import { deleteExpiredSessions } from './auth.js'
 import { pool } from './db.js'
 import { migrate } from './migrate.js'
-import { startScheduler } from './notifications/scheduler.js'
 import { pushEnabled } from './push.js'
 
 const databaseUrl = process.env.DATABASE_URL
@@ -20,11 +19,9 @@ const cleanSessions = () => deleteExpiredSessions().catch((err) => app.log.error
 void cleanSessions()
 const sessionCleanup = setInterval(cleanSessions, 24 * 60 * 60 * 1000)
 sessionCleanup.unref()
-const stopScheduler = startScheduler((err) => app.log.error(err, 'notification tick failed'))
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, async () => {
-    stopScheduler()
     await app.close()
     await pool.end()
     process.exit(0)
