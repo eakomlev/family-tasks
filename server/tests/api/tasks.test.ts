@@ -7,7 +7,7 @@ vi.mock('web-push', () => ({
 import { buildApp } from '../../src/app.js'
 import { pool } from '../../src/db.js'
 import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
-import { sendNotification, sentTo, subscribe } from '../webpush.js'
+import { resetSent, sentTo, subscribe } from '../webpush.js'
 
 let app: Awaited<ReturnType<typeof buildApp>>
 let fam: TestFamily
@@ -20,8 +20,8 @@ beforeAll(async () => {
   outsider = await createFamily()
   endpoints = { mom: await subscribe(fam.mom.id), kid: await subscribe(fam.kid.id), sis: await subscribe(fam.sis.id) }
 })
-beforeEach(() => {
-  sendNotification.mockClear()
+beforeEach(async () => {
+  await resetSent()
 })
 afterAll(async () => {
   await removeFamilies(fam.id, outsider.id)
@@ -41,7 +41,7 @@ const create = (token: string, over: object = {}) => api(app, token, 'POST', '/a
 // уведомления уходят в фоне, после ответа
 const pushes = async (...who: (keyof typeof endpoints)[]) => {
   await new Promise((r) => setTimeout(r, 150))
-  return sentTo(who.map((w) => endpoints[w]))
+  return (await sentTo(who.map((w) => endpoints[w])))
 }
 
 describe('создание', () => {
@@ -467,7 +467,7 @@ describe('уведомления', () => {
   it('об изменении получает исполнитель', async () => {
     const id = (await create(fam.mom.token)).body.task.id
     await pushes('kid')
-    sendNotification.mockClear()
+    await resetSent()
     await api(app, fam.mom.token, 'PUT', `/api/tasks/${id}`, task({ title: 'Другое' }))
     const sent = await pushes('mom', 'kid', 'sis')
     expect(sent.map((s) => [s.endpoint, s.payload.title])).toEqual([[endpoints.kid, 'Задание изменено']])
@@ -476,14 +476,14 @@ describe('уведомления', () => {
   it('автору о выполнении: один раз и не самому себе', async () => {
     const id = (await create(fam.mom.token)).body.task.id
     await pushes('kid')
-    sendNotification.mockClear()
+    await resetSent()
 
     await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })
     await api(app, fam.kid.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })
     const sent = await pushes('mom', 'kid', 'sis')
     expect(sent.map((s) => [s.endpoint, s.payload.title, s.payload.body])).toEqual([[endpoints.mom, 'Задание выполнено', 'Ребёнок: Вынести мусор']])
 
-    sendNotification.mockClear()
+    await resetSent()
     const own = (await create(fam.mom.token, { assigneeId: fam.mom.id })).body.task.id
     await api(app, fam.mom.token, 'POST', `/api/tasks/${own}/complete`, { date: '2026-10-12' })
     expect(await pushes('mom', 'kid', 'sis')).toEqual([])
@@ -492,7 +492,7 @@ describe('уведомления', () => {
   it('выполнил третий человек: уведомление автору', async () => {
     const id = (await create(fam.mom.token)).body.task.id
     await pushes('kid')
-    sendNotification.mockClear()
+    await resetSent()
     await api(app, fam.dad.token, 'POST', `/api/tasks/${id}/complete`, { date: '2026-10-12' })
     const sent = await pushes('mom', 'kid', 'sis')
     expect(sent.map((s) => [s.endpoint, s.payload.body])).toEqual([[endpoints.mom, 'Папа: Вынести мусор']])

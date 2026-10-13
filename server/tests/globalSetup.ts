@@ -17,4 +17,12 @@ export default async function setup() {
     await admin.end()
   }
   await migrate(testDatabaseUrl())
+  // очередь от прошлых прогонов: тесты читают её как «отправленное»
+  const db = new pg.Client({ connectionString: testDatabaseUrl() })
+  await db.connect()
+  try {
+    await db.query('delete from outbox')
+  } finally {
+    await db.end()
+  }
 }

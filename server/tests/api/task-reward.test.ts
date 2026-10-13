@@ -7,7 +7,7 @@ vi.mock('web-push', () => ({
 import { buildApp } from '../../src/app.js'
 import { pool } from '../../src/db.js'
 import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
-import { sendNotification, sentTo, subscribe } from '../webpush.js'
+import { resetSent, sentTo, subscribe } from '../webpush.js'
 
 let app: Awaited<ReturnType<typeof buildApp>>
 let fam: TestFamily
@@ -20,8 +20,8 @@ beforeAll(async () => {
   outsider = await createFamily()
   kidEndpoint = await subscribe(fam.kid.id)
 })
-beforeEach(() => {
-  sendNotification.mockClear()
+beforeEach(async () => {
+  await resetSent()
 })
 afterAll(async () => {
   await removeFamilies(fam.id, outsider.id)
@@ -319,13 +319,13 @@ describe('ребёнок отправляет на проверку, родит�
       try {
         const eps = { mom: await subscribe(f.mom.id), dad: await subscribe(f.dad.id), kid: await subscribe(f.kid.id) }
         const id = (await api(app, f.mom.token, 'POST', '/api/tasks', task({ assigneeId: f.kid.id, title: 'Уборка' }))).body.task.id
-        sendNotification.mockClear()
+        await resetSent()
         await complete(f.kid.token, id)
         await new Promise((r) => setTimeout(r, 200))
-        const to = (ep: string) => sentTo([ep]).map((x) => x.payload)
-        expect(to(eps.mom)).toContainEqual({ title: 'Задание на проверку', body: 'Ребёнок: Уборка', url: `/tasks/${id}`, tag: `review-${id}` })
-        expect(to(eps.dad).map((x) => x.title)).toContain('Задание на проверку')
-        expect(to(eps.kid).map((x) => x.title)).not.toContain('Задание на проверку')
+        const to = async (ep: string) => (await sentTo([ep])).map((x) => x.payload)
+        expect(await to(eps.mom)).toContainEqual({ title: 'Задание на проверку', body: 'Ребёнок: Уборка', url: `/tasks/${id}`, tag: `review-${id}` })
+        expect((await to(eps.dad)).map((x) => x.title)).toContain('Задание на проверку')
+        expect((await to(eps.kid)).map((x) => x.title)).not.toContain('Задание на проверку')
       } finally {
         await removeFamilies(f.id)
       }
@@ -337,11 +337,11 @@ describe('ребёнок отправляет на проверку, родит�
         const eps = { mom: await subscribe(f.mom.id), kid: await subscribe(f.kid.id) }
         const id = (await api(app, f.mom.token, 'POST', '/api/tasks', task({ assigneeId: f.kid.id, title: 'Полить' }))).body.task.id
         await complete(f.kid.token, id)
-        sendNotification.mockClear()
+        await resetSent()
         await confirm(f.dad.token, id)
         await new Promise((r) => setTimeout(r, 200))
-        expect(sentTo([eps.kid]).map((x) => x.payload.title)).toContain('Награда')
-        expect(sentTo([eps.mom]).map((x) => x.payload.title)).toContain('Задание выполнено')
+        expect((await sentTo([eps.kid])).map((x) => x.payload.title)).toContain('Награда')
+        expect((await sentTo([eps.mom])).map((x) => x.payload.title)).toContain('Задание выполнено')
       } finally {
         await removeFamilies(f.id)
       }
@@ -378,11 +378,11 @@ describe('выдача награды', () => {
   it('родитель отметил: ребёнку приходит уведомление о награде', async () => {
     const id = (await create(fam.mom.token, { title: 'Уборка', reward: 30 })).body.task.id
     const before = await balance()
-    sendNotification.mockClear()
+    await resetSent()
     await complete(fam.dad.token, id)
     expect(await balance()).toBe(before + 30)
     await new Promise((r) => setTimeout(r, 150))
-    expect(sentTo([kidEndpoint]).map((s) => s.payload)).toContainEqual({ title: 'Награда', body: '+30 монет за «Уборка»', url: '/coins', tag: `reward-${id}` })
+    expect((await sentTo([kidEndpoint])).map((s) => s.payload)).toContainEqual({ title: 'Награда', body: '+30 монет за «Уборка»', url: '/coins', tag: `reward-${id}` })
   })
 
   it('без награды монеты не начисляются', async () => {

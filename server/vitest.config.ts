@@ -14,6 +14,8 @@ export default defineConfig({
       VAPID_PUBLIC_KEY: vapid.publicKey,
       VAPID_PRIVATE_KEY: vapid.privateKey,
       VAPID_SUBJECT: 'mailto:test@example.com',
+      // письма и push ставятся в очередь outbox (как в проде), отправку проверяет notifier; ветка без очереди: outbox.test.ts
+      QUEUE_ENABLED: 'true',
       // в тестах push-сервисом выступает подставной адрес
       PUSH_ALLOWED_HOSTS: 'push.test',
       // администратор в тестах: почта, которую тесты выдают нужному участнику

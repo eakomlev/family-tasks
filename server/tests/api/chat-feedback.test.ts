@@ -8,7 +8,7 @@ import { buildApp } from '../../src/app.js'
 import { REACTIONS } from '../../src/chat.js'
 import { pool } from '../../src/db.js'
 import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
-import { sendNotification, sentTo, subscribe } from '../webpush.js'
+import { resetSent, sentTo, subscribe } from '../webpush.js'
 
 let app: Awaited<ReturnType<typeof buildApp>>
 let fam: TestFamily
@@ -22,8 +22,8 @@ beforeAll(async () => {
   await pool.query(`update members set name = 'Лена' where id = $1`, [fam.mom.id])
   kidEndpoint = await subscribe(fam.kid.id)
 })
-beforeEach(() => {
-  sendNotification.mockClear()
+beforeEach(async () => {
+  await resetSent()
 })
 afterAll(async () => {
   await removeFamilies(fam.id, outsider.id)
@@ -39,7 +39,7 @@ const messageOf = async (token: string, chat: string, id: string) =>
 const balance = async () => (await api(app, fam.kid.token, 'GET', '/api/me')).body.member.coins as number
 const kidPushes = async () => {
   await new Promise((r) => setTimeout(r, 150))
-  return sentTo([kidEndpoint]).map((s) => s.payload)
+  return (await sentTo([kidEndpoint])).map((s) => s.payload)
 }
 
 describe('реакции на сообщения детей', () => {
@@ -73,7 +73,7 @@ describe('реакции на сообщения детей', () => {
   it('только реакция: монеты не начисляются и уведомления ребёнку нет', async () => {
     const msg = await send(fam.kid.token, 'family', 'без монет')
     const before = await balance()
-    sendNotification.mockClear()
+    await resetSent()
     await feedback(fam.mom.token, 'family', msg.id, { emoji: '🎉' })
     expect(await balance()).toBe(before)
     expect(await kidPushes()).toEqual([])
@@ -136,13 +136,13 @@ describe('монеты за сообщение', () => {
 
   it('ребёнку приходит уведомление о начислении: от «Мамы», сколько, за что, с реакцией', async () => {
     const msg = await send(fam.kid.token, 'family', 'уведомление')
-    sendNotification.mockClear()
+    await resetSent()
     await feedback(fam.mom.token, 'family', msg.id, { coins: 20 })
     expect(await kidPushes()).toEqual([
       { title: 'Мама', body: '+20 монет за ваше сообщение', url: '/chat/family', tag: `award-${msg.id}` },
     ])
 
-    sendNotification.mockClear()
+    await resetSent()
     await feedback(fam.dad.token, 'family', msg.id, { coins: 5, emoji: '👍' })
     const [push] = await kidPushes()
     expect(push.title).toBe('Папа')
@@ -151,7 +151,7 @@ describe('монеты за сообщение', () => {
 
   it('в личном чате ссылка в уведомлении ведёт в чат с родителем', async () => {
     const msg = await send(fam.kid.token, fam.mom.id, 'мам, смотри')
-    sendNotification.mockClear()
+    await resetSent()
     await feedback(fam.mom.token, fam.kid.id, msg.id, { coins: 10 })
     const [push] = await kidPushes()
     expect(push.url).toBe(`/chat/${fam.mom.id}`)

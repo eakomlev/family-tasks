@@ -8,7 +8,7 @@ import { buildApp } from '../../src/app.js'
 import { directKey } from '../../src/chat.js'
 import { pool } from '../../src/db.js'
 import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
-import { sendNotification, sentTo, subscribe } from '../webpush.js'
+import { resetSent, sentTo, subscribe } from '../webpush.js'
 
 let app: Awaited<ReturnType<typeof buildApp>>
 let fam: TestFamily
@@ -27,8 +27,8 @@ beforeAll(async () => {
     sis: await subscribe(fam.sis.id),
   }
 })
-beforeEach(() => {
-  sendNotification.mockClear()
+beforeEach(async () => {
+  await resetSent()
 })
 afterAll(async () => {
   await removeFamilies(fam.id, outsider.id)
@@ -42,7 +42,7 @@ const list = async (token: string) => (await api(app, token, 'GET', '/api/chats'
 // уведомления уходят в фоне, после ответа
 const pushes = async (...who: (keyof typeof endpoints)[]) => {
   await new Promise((r) => setTimeout(r, 150))
-  return sentTo(who.map((w) => endpoints[w]))
+  return (await sentTo(who.map((w) => endpoints[w])))
 }
 
 describe('directKey', () => {
@@ -386,7 +386,7 @@ describe('уведомления', () => {
       const ep = { dad: await subscribe(f.dad.id), kid: await subscribe(f.kid.id), mom: await subscribe(f.mom.id) }
       const titles = async (...who: (keyof typeof ep)[]) => {
         await new Promise((r) => setTimeout(r, 150))
-        return Object.fromEntries(who.map((w) => [w, sentTo([ep[w]]).map((s) => s.payload.title)]))
+        return Object.fromEntries(await Promise.all(who.map(async (w) => [w, (await sentTo([ep[w]])).map((s) => s.payload.title)])))
       }
 
       // мама пишет в общий чат: ребёнок видит «Мама · Общий чат», папа «Лена · Общий чат»
@@ -394,15 +394,15 @@ describe('уведомления', () => {
       expect(await titles('dad', 'kid')).toEqual({ dad: ['Лена · Общий чат'], kid: ['Мама · Общий чат'] })
 
       // папа пишет ребёнку лично: «Папа»; ребёнок пишет папе: «Ребёнок» (дети друг для друга и для родителей по именам)
-      sendNotification.mockClear()
+      await resetSent()
       await send(f.dad.token, f.kid.id, 'привет')
       expect(await titles('kid')).toEqual({ kid: ['Папа'] })
-      sendNotification.mockClear()
+      await resetSent()
       await send(f.kid.token, f.dad.id, 'привет!')
       expect(await titles('dad')).toEqual({ dad: ['Ребёнок'] })
 
       // родитель родителю: по имени
-      sendNotification.mockClear()
+      await resetSent()
       await send(f.mom.token, f.dad.id, 'купи хлеб')
       expect(await titles('dad')).toEqual({ dad: ['Лена'] })
     } finally {

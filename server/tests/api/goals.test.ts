@@ -7,7 +7,7 @@ vi.mock('web-push', () => ({
 import { buildApp } from '../../src/app.js'
 import { pool } from '../../src/db.js'
 import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
-import { sendNotification, sentTo, subscribe } from '../webpush.js'
+import { resetSent, sentTo, subscribe } from '../webpush.js'
 
 let app: Awaited<ReturnType<typeof buildApp>>
 let fam: TestFamily
@@ -25,8 +25,8 @@ beforeAll(async () => {
   dadEp = await subscribe(fam.dad.id)
   kidEp = await subscribe(fam.kid.id)
 })
-beforeEach(() => {
-  sendNotification.mockClear()
+beforeEach(async () => {
+  await resetSent()
 })
 afterAll(async () => {
   await removeFamilies(fam.id, other.id)
@@ -40,7 +40,7 @@ const balance = async (token: string) => (await api(app, token, 'GET', '/api/me'
 const create = (token: string, memberId: string, body: object) => api(app, token, 'POST', `/api/members/${memberId}/goals`, body)
 const pushes = async (...eps: string[]) => {
   await new Promise((r) => setTimeout(r, 150))
-  return sentTo(eps)
+  return (await sentTo(eps))
 }
 const png = 'data:image/png;base64,iVBORw0KGgo='
 

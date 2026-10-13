@@ -4,6 +4,7 @@ import { authenticate } from './auth.js'
 import { pool } from './db.js'
 import type { PushMessage } from './notifications/messages.js'
 import { isValidTimeZone } from './notifications/time.js'
+import { enqueue, PRIORITY } from './outbox/index.js'
 
 const publicKey = process.env.VAPID_PUBLIC_KEY
 const privateKey = process.env.VAPID_PRIVATE_KEY
@@ -155,16 +156,23 @@ export async function pushRoutes(app: FastifyInstance) {
     )
     if (rows.length === 0) return reply.code(404).send({ error: 'no_subscriptions' })
 
-    const results = await Promise.all(
-      rows.map((sub) =>
-        sendPush(sub, {
-          title: 'Проверка уведомлений',
-          body: 'Если вы это видите, уведомления работают ✅',
-          url: '/profile/notifications',
-          tag: 'test',
-        }),
-      ),
-    )
+    const message = {
+      title: 'Проверка уведомлений',
+      body: 'Если вы это видите, уведомления работают ✅',
+      url: '/profile/notifications',
+      tag: 'test',
+    }
+
+    // Очередь: отправляет notifier, итог сразу неизвестен. Считаем принятые в очередь; поля sent/failed оставлены,
+    // чтобы клиент прежней версии показал «Отправили».
+    if (process.env.QUEUE_ENABLED === 'true') {
+      await Promise.all(
+        rows.map((sub) => enqueue(pool, { channel: 'push', priority: PRIORITY.event, payload: { v: 1, subscriptionId: sub.id, message } })),
+      )
+      return { queued: rows.length, sent: rows.length, failed: 0 }
+    }
+
+    const results = await Promise.all(rows.map((sub) => sendPush(sub, message)))
     return { sent: results.filter((r) => r === 'sent').length, failed: results.filter((r) => r !== 'sent').length }
   })
 }

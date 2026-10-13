@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import pg from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('web-push', () => ({
@@ -10,7 +11,15 @@ import { pool } from '../../src/db.js'
 import { sendCode } from '../../src/mail.js'
 import { enqueue, enqueueToMember, PRIORITY } from '../../src/outbox/index.js'
 import { createFamily, removeFamilies, type TestFamily } from '../helpers.js'
-import { sendNotification, sentTo, subscribe } from '../webpush.js'
+import webpush from 'web-push'
+import { subscribe } from '../webpush.js'
+
+const sendNotification = vi.mocked(webpush.sendNotification)
+// отправленное напрямую (без очереди): адреса из вызовов подменённого web-push
+const sentVia = (endpoints: string[]) =>
+  sendNotification.mock.calls
+    .filter(([sub]) => endpoints.includes((sub as { endpoint: string }).endpoint))
+    .map(([sub, payload]) => ({ endpoint: (sub as { endpoint: string }).endpoint, payload: JSON.parse(String(payload)) }))
 
 let fam: TestFamily
 
@@ -18,6 +27,8 @@ beforeAll(async () => {
   fam = await createFamily()
 })
 beforeEach(() => {
+  // по умолчанию в тестах очередь включена; здесь сначала проверяем прямую отправку
+  vi.stubEnv('QUEUE_ENABLED', 'false')
   sendNotification.mockReset().mockResolvedValue({ statusCode: 201 } as never)
   vi.mocked(sendCode).mockReset().mockResolvedValue(undefined)
 })
@@ -54,7 +65,7 @@ describe('push', () => {
       payload: { v: 1, subscriptionId: await subscriptionId(endpoint), message },
     })
     expect(result).toBe('sent')
-    expect(sentTo([endpoint]).map((s) => s.payload)).toEqual([message])
+    expect(sentVia([endpoint]).map((s) => s.payload)).toEqual([message])
   })
 
   it('подписки уже нет: ничего не уходит, итог gone', async () => {
@@ -80,8 +91,8 @@ describe('enqueueToMember', () => {
 
     await enqueueToMember(pool, fam.mom.id, message)
 
-    expect(sentTo([own, second]).length).toBe(2)
-    expect(sentTo([other])).toEqual([])
+    expect(sentVia([own, second]).length).toBe(2)
+    expect(sentVia([other])).toEqual([])
   })
 
   it('у участника нет подписок: тихо ничего не делает', async () => {
@@ -154,6 +165,21 @@ describe('очередь (QUEUE_ENABLED=true)', () => {
     const rows = (await pool.query(`select id, payload from outbox where payload->>'subscriptionId' = any($1)`, [ids])).rows
     expect(rows.map((r) => r.payload.subscriptionId).sort()).toEqual([...ids].sort())
     await pool.query('delete from outbox where id = any($1)', [rows.map((r) => r.id)])
+  })
+
+  it('будит notifier: сигнал outbox с id строки приходит после вставки', async () => {
+    const listener = new pg.Client({ connectionString: process.env.DATABASE_URL })
+    await listener.connect()
+    try {
+      await listener.query('listen outbox')
+      const got = new Promise<string>((resolve) => listener.once('notification', (n) => resolve(n.payload ?? '')))
+      await enqueue(pool, { channel: 'email', priority: PRIORITY.code, payload: { ...emailPayload, to: 'notify@test.local' } as never })
+      const row = await rowFor('notify@test.local')
+      expect(await Promise.race([got, new Promise<string>((r) => setTimeout(() => r('timeout'), 3000))])).toBe(String(row.id))
+      await pool.query('delete from outbox where id = $1', [row.id])
+    } finally {
+      await listener.end()
+    }
   })
 
   it('внутри транзакции: откат убирает и строку очереди', async () => {

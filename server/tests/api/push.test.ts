@@ -7,7 +7,10 @@ vi.mock('web-push', () => ({
 import { buildApp } from '../../src/app.js'
 import { pool } from '../../src/db.js'
 import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
-import { sendNotification } from '../webpush.js'
+import webpush from 'web-push'
+import { sentTo } from '../webpush.js'
+
+const sendNotification = vi.mocked(webpush.sendNotification)
 
 let app: Awaited<ReturnType<typeof buildApp>>
 let fam: TestFamily
@@ -102,7 +105,35 @@ describe('подписка и устройства', () => {
   })
 })
 
-describe('проверочное уведомление', () => {
+describe('проверочное уведомление: очередь (QUEUE_ENABLED=true)', () => {
+  it('без подписок 404', async () => {
+    expect((await api(app, fam.sis.token, 'POST', '/api/push/test')).body).toEqual({ error: 'no_subscriptions' })
+  })
+
+  it('ставит по сообщению на каждое устройство участника; sent и failed оставлены для клиента прежней версии', async () => {
+    const a = 'https://push.test/dad-a'
+    const b = 'https://push.test/dad-b'
+    await subscribe(fam.dad.token, a)
+    await subscribe(fam.dad.token, b)
+    const res = await api(app, fam.dad.token, 'POST', '/api/push/test')
+
+    expect(res.body).toEqual({ queued: 2, sent: 2, failed: 0 })
+    // напрямую в push-сервис server не ходит: это делает notifier
+    expect(sendNotification).not.toHaveBeenCalled()
+    const queued = await sentTo([a, b])
+    expect(queued).toHaveLength(2)
+    expect(queued[0].payload).toMatchObject({ title: 'Проверка уведомлений', url: '/profile/notifications', tag: 'test' })
+  })
+})
+
+describe('проверочное уведомление: прямая отправка (QUEUE_ENABLED=false)', () => {
+  beforeEach(() => {
+    vi.stubEnv('QUEUE_ENABLED', 'false')
+  })
+  afterAll(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('без подписок 404', async () => {
     expect((await api(app, fam.sis.token, 'POST', '/api/push/test')).body).toEqual({ error: 'no_subscriptions' })
   })
