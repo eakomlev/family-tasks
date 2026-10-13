@@ -2,17 +2,19 @@
   "name": "family-tasks",
   "private": true,
   "version": "0.0.0",
-  "description": "Скрипты для локальной разработки; у web/ и server/ свои package.json",
+  "description": "Скрипты для локальной разработки; у web/, server/ и notifier/ свои package.json",
   "scripts": {
-    "setup": "npm install && npm --prefix server install && npm --prefix web install",
-    "dev": "npm run dev:infra && concurrently --kill-others-on-fail -n server,web -c blue,green \"npm:dev:server\" \"npm:dev:web\"",
+    "setup": "npm install && npm --prefix server install && npm --prefix notifier install && npm --prefix web install",
+    "dev": "npm run dev:infra && concurrently --kill-others-on-fail -n server,notifier,web -c blue,magenta,green \"npm:dev:server\" \"npm:dev:notifier\" \"npm:dev:web\"",
     "dev:infra": "[ -f .env ] || cp .env.example .env; docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait db mailpit",
     "dev:server": "npm --prefix server run dev",
+    "dev:notifier": "npm --prefix notifier run dev",
     "dev:web": "npm --prefix web run dev",
     "dev:stop": "docker compose -f docker-compose.yml -f docker-compose.dev.yml stop db mailpit",
     "seed": "npm --prefix server run seed --",
-    "test": "npm --prefix server test && npm --prefix web test",
+    "test": "npm --prefix server test && npm --prefix notifier test && npm --prefix web test",
     "test:server": "npm --prefix server test",
+    "test:notifier": "npm --prefix notifier test",
     "test:web": "npm --prefix web test"
   },
   "devDependencies": {

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/eakomlev/family-tasks/actions/workflows/ci.yml/badge.svg)](https://github.com/eakomlev/family-tasks/actions/workflows/ci.yml)
 
-PWA для семьи: общие задания, расписание уроков и тренировок детей, дни рождения и уведомления. React + Vite (`web/`), Node + Fastify (`server/`), PostgreSQL, всё упаковано в Docker.
+PWA для семьи: общие задания, расписание уроков и тренировок детей, дни рождения и уведомления. React + Vite (`web/`), Node + Fastify (`server/`), отдельный сервис отправки писем и push (`notifier/`), PostgreSQL, всё упаковано в Docker.
 
 ## Что умеет
 
@@ -40,7 +40,7 @@ docker compose up --build
 Одна команда поднимает всё, фронтенд обновляется в браузере при каждом сохранении файла (HMR), сервер перезапускается сам:
 
 ```bash
-npm run setup   # один раз: зависимости корня, server/ и web/
+npm run setup   # один раз: зависимости корня, server/, notifier/ и web/
 npm run dev
 ```
 
@@ -54,7 +54,7 @@ Service worker в dev выключен, PWA проверяйте на сборк
 
 | Команда | Что делает |
 |---|---|
-| `npm run setup` | один раз: ставит зависимости корня, `server/` и `web/` |
+| `npm run setup` | один раз: ставит зависимости корня, `server/`, `notifier/` и `web/` |
 | `npm run dev` | БД и Mailpit в Docker, сервер и фронтенд с автообновлением |
 | `npm run dev:infra` / `npm run dev:stop` | только БД и Mailpit: запустить / остановить |
 | `npm run seed` | демо-семья (подробнее выше), режимы `-- --snippet Миша`, `-- --json` |

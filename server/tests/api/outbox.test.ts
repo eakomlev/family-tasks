@@ -97,3 +97,74 @@ describe('enqueueToMember', () => {
     log.mockRestore()
   })
 })
+
+describe('очередь (QUEUE_ENABLED=true)', () => {
+  beforeEach(() => {
+    vi.stubEnv('QUEUE_ENABLED', 'true')
+  })
+  afterAll(() => {
+    vi.unstubAllEnvs()
+  })
+
+  // payload читает сервис notifier: тот же пример проверяет его контракт (notifier/tests/unit/contract.test.ts)
+  const emailPayload = { v: 1, kind: 'code', to: 'q@test.local', code: '123456', ttlMinutes: 10 }
+  const rowFor = async (match: string) =>
+    (await pool.query(`select * from outbox where payload::text like $1 order by id desc limit 1`, [`%${match}%`])).rows[0]
+
+  it('письмо: строка в очереди, прямой отправки нет', async () => {
+    const result = await enqueue(pool, { channel: 'email', priority: PRIORITY.code, payload: emailPayload as never })
+    expect(result).toBe('queued')
+    expect(sendCode).not.toHaveBeenCalled()
+
+    const row = await rowFor('q@test.local')
+    expect(row).toMatchObject({ channel: 'email', priority: 0, attempts: 0, last_error: null })
+    expect(row.payload).toEqual(emailPayload)
+    // срок жизни равен сроку кода: 10 минут
+    const ttl = (new Date(row.expires_at).getTime() - new Date(row.created_at).getTime()) / 1000
+    expect(ttl).toBeGreaterThan(590)
+    expect(ttl).toBeLessThan(610)
+    await pool.query('delete from outbox where id = $1', [row.id])
+  })
+
+  it('push: строка с сообщением и подпиской, срок 6 часов', async () => {
+    const endpoint = await subscribe(fam.kid.id)
+    const id = await subscriptionId(endpoint)
+    const result = await enqueue(pool, { channel: 'push', priority: PRIORITY.planned, payload: { v: 1, subscriptionId: id, message } })
+    expect(result).toBe('queued')
+    expect(sendNotification).not.toHaveBeenCalled()
+
+    const row = await rowFor(id)
+    expect(row).toMatchObject({ channel: 'push', priority: 2 })
+    expect(row.payload).toEqual({ v: 1, subscriptionId: id, message })
+    const ttl = (new Date(row.expires_at).getTime() - new Date(row.created_at).getTime()) / 1000
+    expect(Math.round(ttl / 3600)).toBe(6)
+    await pool.query('delete from outbox where id = $1', [row.id])
+  })
+
+  it('enqueueToMember: по строке на каждую подписку участника', async () => {
+    await subscribe(fam.dad.id)
+    await pool.query(
+      `insert into push_subscriptions (member_id, endpoint, p256dh, auth, time_zone) values ($1, $2, 'p', 'a', 'UTC')`,
+      [fam.dad.id, `https://push.test/${fam.dad.id}-second`],
+    )
+    const ids = (await pool.query('select id from push_subscriptions where member_id = $1', [fam.dad.id])).rows.map((r) => r.id)
+
+    await enqueueToMember(pool, fam.dad.id, message)
+
+    const rows = (await pool.query(`select id, payload from outbox where payload->>'subscriptionId' = any($1)`, [ids])).rows
+    expect(rows.map((r) => r.payload.subscriptionId).sort()).toEqual([...ids].sort())
+    await pool.query('delete from outbox where id = any($1)', [rows.map((r) => r.id)])
+  })
+
+  it('внутри транзакции: откат убирает и строку очереди', async () => {
+    const client = await pool.connect()
+    try {
+      await client.query('begin')
+      await enqueue(client, { channel: 'email', priority: PRIORITY.code, payload: { ...emailPayload, to: 'rollback@test.local' } as never })
+      await client.query('rollback')
+    } finally {
+      client.release()
+    }
+    expect(await rowFor('rollback@test.local')).toBeUndefined()
+  })
+})

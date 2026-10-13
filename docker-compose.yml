@@ -32,6 +32,34 @@ services:
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@family-tasks.local}
       # администраторы сервиса (раздел «Сервис» в профиле), email через запятую
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # true: письма и push кладутся в очередь outbox, отправляет сервис notifier (docs/notification-queue-plan.md)
+      QUEUE_ENABLED: ${QUEUE_ENABLED:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # отправка писем и push из очереди outbox; портов нет, живость проверяется по метке в БД
+  notifier:
+    build: ./notifier
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-Моя Семья <noreply@family-tasks.local>}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@family-tasks.local}
+    healthcheck:
+      test: ["CMD", "node", "dist/healthcheck.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    # схему очереди создаёт миграция server; если notifier стартует раньше, он ждёт и пробует снова
     depends_on:
       db:
         condition: service_healthy
