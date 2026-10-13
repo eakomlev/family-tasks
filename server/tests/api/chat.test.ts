@@ -303,15 +303,21 @@ describe('отметки «прочитано»', () => {
     }
   })
 
-  it('общий чат: «прочитано», только когда прочитали все остальные', async () => {
+  it('общий чат: «прочитано», как только прочёл хотя бы один из остальных; своё прочтение не считается', async () => {
     const f = await createFamily()
     try {
       const sent = (await send(f.mom.token, 'family', 'всем')).body.message
-      await api(app, f.dad.token, 'POST', '/api/chats/family/read')
-      await api(app, f.kid.token, 'POST', '/api/chats/family/read')
       expect(isRead(await readUpTo(f.mom.token, 'family'), sent.createdAt)).toBe(false)
-      await api(app, f.sis.token, 'POST', '/api/chats/family/read')
+      // автор сам открыл чат: его сообщение от этого не «прочитано»
+      await api(app, f.mom.token, 'POST', '/api/chats/family/read')
+      expect(isRead(await readUpTo(f.mom.token, 'family'), sent.createdAt)).toBe(false)
+      // прочёл один из троих остальных: этого достаточно, остальные могут и не открывать
+      await api(app, f.dad.token, 'POST', '/api/chats/family/read')
       expect(isRead(await readUpTo(f.mom.token, 'family'), sent.createdAt)).toBe(true)
+      // сообщение после прочтения снова «отправлено», пока его никто не открыл
+      await new Promise((r) => setTimeout(r, 15))
+      const next = (await send(f.mom.token, 'family', 'ещё')).body.message
+      expect(isRead(await readUpTo(f.mom.token, 'family'), next.createdAt)).toBe(false)
     } finally {
       await removeFamilies(f.id)
     }

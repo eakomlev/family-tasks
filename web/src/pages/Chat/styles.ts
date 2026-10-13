@@ -61,7 +61,18 @@ export const FamilyIcon = styled.span`
   height: 3.4rem;
   border-radius: 50%;
   background: color-mix(in srgb, var(--accent) 16%, transparent);
-  font-size: 1.7rem;
+  color: var(--accent);
+
+  /* контурный значок в стиле иконок табов: цвет текста, линия 1,8, круглые окончания */
+  svg {
+    width: 56%;
+    height: 56%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
 `
 
 export const Body = styled.div`

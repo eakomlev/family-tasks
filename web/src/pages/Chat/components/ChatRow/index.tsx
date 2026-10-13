@@ -1,4 +1,5 @@
 import { Avatar } from '@/components/Avatar'
+import { TabIcon } from '@/components/TabBar/TabIcon'
 import { MoodMark } from '@/components/MoodMark'
 import { Body, Bottom, Count, FamilyIcon, Name, Preview, Prefix, Row, Time, Top } from '../../styles'
 import type { ChatRowProps } from '../../types'
@@ -12,7 +13,7 @@ export function ChatRow({ chat, member, members, me, viewerRole, now }: ChatRowP
 
   return (
     <Row to={`/chat/${chat.id}`}>
-      {member ? <Avatar name={memberLabel(member, viewerRole)} seed={member.id} src={member.avatar} size="3.4rem" /> : <FamilyIcon aria-hidden>👨‍👩‍👧</FamilyIcon>}
+      {member ? <Avatar name={memberLabel(member, viewerRole)} seed={member.id} src={member.avatar} size="3.4rem" /> : <FamilyIcon aria-hidden><TabIcon name="family" /></FamilyIcon>}
       <Body>
         <Top>
           <Name $unread={unread}>{chatTitle(chat.id, members, viewerRole)}{member && <> <MoodMark mood={member.mood} now={now} /></>}</Name>

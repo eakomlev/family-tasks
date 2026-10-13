@@ -255,10 +255,12 @@ export async function chatRoutes(app: FastifyInstance) {
       const hasMore = rows.length > limit
 
       // До какого момента прочитали остальные участники чата: свои сообщения не позже этого времени отмечаются как прочитанные.
-      // В общем чате это самый «отстающий» участник (прочитали все), у тех, кто чат не открывал, отсчёт с момента появления в семье.
+      // В общем чате это самое позднее прочтение среди остальных (как в группах Telegram: «прочитано», когда прочёл хотя бы один;
+      // иначе один неактивный участник навсегда оставлял бы все сообщения «отправленными»). Тот, кто чат не открывал, считается
+      // прочитавшим с момента появления в семье.
       const peers = chat.participants.filter((id) => id !== member.id)
       const { rows: read } = await pool.query(
-        `select min(coalesce(r.last_read_at, m.created_at)) as "readUpTo"
+        `select max(coalesce(r.last_read_at, m.created_at)) as "readUpTo"
          from members m left join chat_reads r on r.member_id = m.id and r.chat_key = $1
          where m.id = any($2)`,
         [chat.key, peers],

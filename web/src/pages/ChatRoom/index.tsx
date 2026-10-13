@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Navigate, useParams } from 'react-router-dom'
 import { FAMILY_CHAT, listMessages, type ChatMessage, type MessageFeedback } from '@/api'
 import { Avatar } from '@/components/Avatar'
+import { TabIcon } from '@/components/TabBar/TabIcon'
 import { MoodMark } from '@/components/MoodMark'
 import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
@@ -173,7 +174,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
             <path d="M15 5l-7 7 7 7" />
           </svg>
         </BackButton>
-        {other ? <Avatar name={memberLabel(other, identity.role)} seed={other.id} src={other.avatar} size="2.25rem" /> : <FamilyIcon aria-hidden>👨‍👩‍👧</FamilyIcon>}
+        {other ? <Avatar name={memberLabel(other, identity.role)} seed={other.id} src={other.avatar} size="2.25rem" /> : <FamilyIcon aria-hidden><TabIcon name="family" /></FamilyIcon>}
         <Title>
           <h1>{chatTitle(chat, members, identity.role)}{other && <> <MoodMark mood={other.mood} now={now} /></>}</h1>
           {/* под заголовком: в общем чате число участников, в личном когда собеседник был в чате */}
