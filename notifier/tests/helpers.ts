@@ -33,6 +33,13 @@ export async function clearOutbox() {
   await pool.query('delete from outbox')
 }
 
+export async function clearStats() {
+  await pool.query('delete from delivery_stats')
+}
+
+export const statsFor = async () =>
+  (await pool.query('select channel, day::text, sent, failed from delivery_stats order by day, channel')).rows
+
 export interface NewRow {
   channel?: 'email' | 'push'
   priority?: number

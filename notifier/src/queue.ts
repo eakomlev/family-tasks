@@ -75,6 +75,33 @@ export async function reap(db: Db, now: Date): Promise<Reaped[]> {
   }))
 }
 
+export interface ChannelCounts {
+  sent: number
+  failed: number
+}
+export type DeliveryCounts = Record<'email' | 'push', ChannelCounts>
+
+// Добавляет итоги прохода в дневные счётчики (сутки по UTC). Нулевые каналы пропускает: пустой проход ничего не пишет.
+export async function recordDelivery(db: Db, now: Date, counts: DeliveryCounts): Promise<void> {
+  for (const channel of ['email', 'push'] as const) {
+    const { sent, failed } = counts[channel]
+    if (sent === 0 && failed === 0) continue
+    await db.query(
+      `insert into delivery_stats (channel, day, sent, failed)
+       values ($1, (($2::timestamptz) at time zone 'UTC')::date, $3, $4)
+       on conflict (channel, day) do update
+         set sent = delivery_stats.sent + excluded.sent, failed = delivery_stats.failed + excluded.failed`,
+      [channel, now, sent, failed],
+    )
+  }
+}
+
+// Старые служебные записи не копим: счётчики отправки и бюджета нужны на ближайшие дни.
+export async function housekeeping(db: Db, now: Date): Promise<void> {
+  await db.query(`delete from delivery_stats where day < (($1::timestamptz) at time zone 'UTC')::date - 30`, [now])
+  await db.query(`delete from provider_usage where day < (($1::timestamptz) at time zone 'UTC')::date - 7`, [now])
+}
+
 export async function beat(db: Db, instance: string, now: Date): Promise<void> {
   await db.query(
     `insert into notifier_heartbeat (instance, beat_at) values ($1, $2)

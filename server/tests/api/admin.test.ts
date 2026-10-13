@@ -1,7 +1,9 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { randomBytes } from 'node:crypto'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildApp } from '../../src/app.js'
-import { isAdminEmail, type ServiceStats } from '../../src/admin.js'
+import { isAdminEmail, type QueueStats, type ServiceStats } from '../../src/admin.js'
 import { pool } from '../../src/db.js'
+import { mailBudgetExhausted } from '../../src/outbox/budget.js'
 import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
 
 let app: Awaited<ReturnType<typeof buildApp>>
@@ -98,6 +100,102 @@ describe('GET /api/admin/stats', () => {
   it('без since или с мусором 400', async () => {
     expect((await api(app, fam.mom.token, 'GET', '/api/admin/stats')).status).toBe(400)
     expect((await api(app, fam.mom.token, 'GET', '/api/admin/stats?since=вчера')).status).toBe(400)
+  })
+})
+
+describe('GET /api/admin/queue', () => {
+  const queue = async (token: string | null = fam.mom.token) => {
+    const res = await api(app, token, 'GET', '/api/admin/queue')
+    return { status: res.status, body: res.body as QueueStats }
+  }
+  const created: { outbox: string[]; beats: string[] } = { outbox: [], beats: [] }
+  const insertRow = async (channel: 'email' | 'push', attempts = 0, ageSeconds = 0) => {
+    const { rows } = await pool.query(
+      `insert into outbox (channel, priority, payload, attempts, created_at, expires_at)
+       values ($1, 1, '{"v":1}', $2, now() - make_interval(secs => $3), now() + interval '1 hour') returning id`,
+      [channel, attempts, ageSeconds],
+    )
+    created.outbox.push(rows[0].id)
+  }
+
+  afterEach(async () => {
+    vi.unstubAllEnvs()
+    await pool.query('delete from outbox where id = any($1)', [created.outbox])
+    await pool.query('delete from notifier_heartbeat where instance = any($1)', [created.beats])
+    await pool.query(`delete from provider_usage where provider = 'mail'`)
+    await pool.query(`delete from delivery_stats where channel in ('email', 'push')`)
+    created.outbox = []
+    created.beats = []
+  })
+
+  it('не администратору раздела нет (404), без токена 401', async () => {
+    expect((await queue(fam.kid.token)).status).toBe(404)
+    expect((await queue(null)).status).toBe(401)
+  })
+
+  it('отдаёт состояние: что ждёт, что в повторах, возраст старшей строки', async () => {
+    await insertRow('email')
+    await insertRow('push')
+    await insertRow('push')
+    await insertRow('push', 1, 600) // уже пробовалась, лежит десять минут
+
+    // таблица общая с параллельными тестами (они ставят и убирают свои письма), поэтому проверяем нижние границы:
+    // свои строки на месте, пока идёт запрос
+    const { waiting, retrying, oldestSeconds, enabled } = (await queue()).body
+    expect(waiting.email).toBeGreaterThanOrEqual(1)
+    expect(waiting.push).toBeGreaterThanOrEqual(2)
+    expect(retrying).toBeGreaterThanOrEqual(1)
+    expect(oldestSeconds).toBeGreaterThanOrEqual(600)
+    expect(enabled).toBe(true)
+  })
+
+  it('состояние notifier: свежая метка это живой экземпляр, старая нет', async () => {
+    // метки пишет только notifier, а его тесты работают в другой базе: здесь можно проверять точно
+    const fresh = `test-${randomBytes(3).toString('hex')}`
+    const stale = `test-${randomBytes(3).toString('hex')}`
+    created.beats.push(fresh, stale)
+
+    await pool.query(`insert into notifier_heartbeat (instance, beat_at) values ($1, now() - interval '10 minutes')`, [stale])
+    expect((await queue()).body.notifier).toMatchObject({ alive: false, instances: 0 })
+    expect((await queue()).body.notifier.lastBeatSeconds).toBeGreaterThanOrEqual(600)
+
+    await pool.query(`insert into notifier_heartbeat (instance, beat_at) values ($1, now() - interval '5 seconds')`, [fresh])
+    const { notifier } = (await queue()).body
+    expect(notifier).toMatchObject({ alive: true, instances: 1 })
+    expect(notifier.lastBeatSeconds).toBeLessThan(60)
+  })
+
+  it('расход дневного бюджета почты и лимит', async () => {
+    await pool.query(`insert into provider_usage (provider, day, count) values ('mail', (now() at time zone 'UTC')::date, 1240)
+                      on conflict (provider, day) do update set count = 1240`)
+    vi.stubEnv('MAIL_DAILY_LIMIT', '3000')
+    expect((await queue()).body.mail).toEqual({ usedToday: 1240, limit: 3000 })
+    vi.stubEnv('MAIL_DAILY_LIMIT', '0')
+    expect((await queue()).body.mail.limit).toBe(0)
+  })
+
+  it('итоги отправки за сегодня по UTC', async () => {
+    await pool.query(`insert into delivery_stats (channel, day, sent, failed) values
+      ('email', (now() at time zone 'UTC')::date, 7, 2), ('push', (now() at time zone 'UTC')::date, 40, 1),
+      ('push', (now() at time zone 'UTC')::date - 1, 999, 999)`)
+    expect((await queue()).body.today).toEqual({ email: { sent: 7, failed: 2 }, push: { sent: 40, failed: 1 } })
+  })
+
+  it('нагрузка на бюджет: отправленное сегодня плюс ждущее в очереди (mailBudgetExhausted)', async () => {
+    await pool.query(`insert into provider_usage (provider, day, count) values ('mail', (now() at time zone 'UTC')::date, 1240)
+                      on conflict (provider, day) do update set count = 1240`)
+    // нагрузка не меньше 1240, что бы ни лежало в общей очереди
+    vi.stubEnv('MAIL_DAILY_LIMIT', '1240')
+    expect(await mailBudgetExhausted(pool)).toBe(true)
+    vi.stubEnv('MAIL_DAILY_LIMIT', '1000000')
+    expect(await mailBudgetExhausted(pool)).toBe(false)
+    vi.stubEnv('MAIL_DAILY_LIMIT', '0')
+    expect(await mailBudgetExhausted(pool)).toBe(false)
+  })
+
+  it('очередь выключена: enabled false', async () => {
+    vi.stubEnv('QUEUE_ENABLED', 'false')
+    expect((await queue()).body.enabled).toBe(false)
   })
 })
 

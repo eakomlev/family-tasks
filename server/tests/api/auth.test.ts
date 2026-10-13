@@ -52,28 +52,29 @@ afterAll(async () => {
 })
 
 // Бюджет писем (MAIL_DAILY_LIMIT): когда он исчерпан, API честно отказывает, пока код всё равно не дошёл бы.
+// Файлы тестов идут параллельно и делят таблицы, поэтому здесь не пишем в provider_usage (его читает admin.test.ts):
+// бюджет исчерпываем собственной строкой в очереди и лимитом 1 (нагрузка не меньше 1, что бы ни делали соседи).
 describe('бюджет писем', () => {
-  const usageRow = (count: number) =>
-    pool.query(
-      `insert into provider_usage (provider, day, count) values ('mail', (now() at time zone 'UTC')::date, $1)
-       on conflict (provider, day) do update set count = excluded.count`,
-      [count],
+  const filler: string[] = []
+  const fillQueue = async () => {
+    const { rows } = await pool.query(
+      `insert into outbox (channel, priority, payload, expires_at)
+       values ('email', 0, $1, now() + interval '10 minutes') returning id`,
+      [JSON.stringify({ v: 1, kind: 'code', to: `filler@${domain}`, code: '000000', ttlMinutes: 10 })],
     )
-  // та же нагрузка, что считает сервер: отправленное сегодня плюс ждущее в очереди
-  const load = async () =>
-    Number((await pool.query(`select coalesce((select count from provider_usage where provider = 'mail' and day = (now() at time zone 'UTC')::date), 0)
-      + (select count(*) from outbox where channel = 'email') as load`)).rows[0].load)
+    filler.push(rows[0].id)
+  }
   const codesFor = async (to: string) => (await pool.query('select 1 from email_codes where email = $1', [to])).rowCount
   const queuedFor = async (to: string) => (await pool.query(`select 1 from outbox where payload->>'to' = $1`, [to])).rowCount
 
   afterEach(async () => {
     vi.unstubAllEnvs()
-    await pool.query(`delete from provider_usage where provider = 'mail'`)
+    await pool.query('delete from outbox where id = any($1)', [filler.splice(0)])
   })
 
   it('бюджет исчерпан: 503 mail_busy, письмо не ставится, код и пауза не создаются', async () => {
-    await usageRow(50)
-    vi.stubEnv('MAIL_DAILY_LIMIT', String(await load()))
+    await fillQueue()
+    vi.stubEnv('MAIL_DAILY_LIMIT', '1')
     const to = email('busy')
 
     const res = await requestCode(to, 'signup')
@@ -83,15 +84,15 @@ describe('бюджет писем', () => {
     expect(await queuedFor(to)).toBe(0)
     expect(await codesFor(to)).toBe(0)
     // бюджет освободился: повтор проходит сразу, без паузы «раз в минуту»
-    vi.stubEnv('MAIL_DAILY_LIMIT', String((await load()) + 1000))
+    vi.stubEnv('MAIL_DAILY_LIMIT', '1000000')
     expect((await requestCode(to, 'signup')).status).toBe(204)
   })
 
   it('ответ одинаков для известного и неизвестного адреса: по нему нельзя перебирать email', async () => {
     const known = email('known-busy')
     await registerFamily('Известный', known)
-    await usageRow(50)
-    vi.stubEnv('MAIL_DAILY_LIMIT', String(await load()))
+    await fillQueue()
+    vi.stubEnv('MAIL_DAILY_LIMIT', '1')
 
     const forKnown = await requestCode(known, 'login')
     const forUnknown = await requestCode(email('unknown-busy'), 'login')
@@ -101,36 +102,22 @@ describe('бюджет писем', () => {
     expect(forKnown.body).toEqual(forUnknown.body)
   })
 
-  it('ждущие в очереди письма тоже занимают бюджет', async () => {
-    const queued = (await pool.query(
-      `insert into outbox (channel, priority, payload, expires_at)
-       values ('email', 0, '{"v":1,"kind":"code","to":"backlog@x.test","code":"1","ttlMinutes":10}', now() + interval '10 minutes') returning id`,
-    )).rows[0].id
-    try {
-      // отправленного сегодня нет, но очередь уже заполняет лимит
-      vi.stubEnv('MAIL_DAILY_LIMIT', String(await load()))
-      expect((await requestCode(email('backlog'), 'signup')).status).toBe(503)
-    } finally {
-      await pool.query('delete from outbox where id = $1', [queued])
-    }
-  })
-
   it('пока бюджет не исчерпан, письма ставятся как обычно', async () => {
-    await usageRow(10)
-    vi.stubEnv('MAIL_DAILY_LIMIT', String((await load()) + 1000))
+    await fillQueue()
+    vi.stubEnv('MAIL_DAILY_LIMIT', '1000000')
     expect((await requestCode(email('has-budget'), 'signup')).status).toBe(204)
   })
 
   it('лимит 0 отключает проверку', async () => {
-    await usageRow(100_000)
+    await fillQueue()
     vi.stubEnv('MAIL_DAILY_LIMIT', '0')
     expect((await requestCode(email('unlimited'), 'signup')).status).toBe(204)
   })
 
   it('прямая отправка (без очереди) бюджет не проверяет: он нужен только очереди', async () => {
-    await usageRow(50)
+    await fillQueue()
     vi.stubEnv('QUEUE_ENABLED', 'false')
-    vi.stubEnv('MAIL_DAILY_LIMIT', String(await load()))
+    vi.stubEnv('MAIL_DAILY_LIMIT', '1')
     // неизвестному адресу при входе письмо не уходит, поэтому настоящая отправка не нужна
     expect((await requestCode(email('direct'), 'login')).status).toBe(204)
   })

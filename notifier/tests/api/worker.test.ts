@@ -2,7 +2,9 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EmailPayload, PushPayload } from '../../src/contract.js'
 import type { Outcome } from '../../src/outcome.js'
 import { processBatch, type Providers } from '../../src/worker.js'
-import { clearOutbox, emailPayload, insertRow, pool, rowById } from '../helpers.js'
+import type { Db } from '../../src/db.js'
+import { housekeeping } from '../../src/queue.js'
+import { clearOutbox, clearStats, emailPayload, insertRow, pool, rowById, statsFor } from '../helpers.js'
 
 const NOW = new Date('2026-10-13T10:00:00Z')
 const at = (seconds: number) => new Date(NOW.getTime() + seconds * 1000)
@@ -19,6 +21,7 @@ const run = (p: Providers, extra = {}) => processBatch(pool, p, { now: NOW, log:
 beforeEach(async () => {
   noLog.mockClear()
   await clearOutbox()
+  await clearStats()
 })
 afterAll(async () => {
   await clearOutbox()
@@ -228,5 +231,86 @@ describe('срок жизни', () => {
     const stats = await run(providers())
     expect(stats.reaped).toBe(0)
     expect(await rowById(id)).toBeDefined()
+  })
+})
+
+const pushPayload = { v: 1, subscriptionId: 's1', message: { title: 't', body: 'b', url: '/', tag: 'x' } }
+
+describe('счётчики отправки для страницы «Сервис»', () => {
+  it('отправленное записывается по каналам за сутки по UTC', async () => {
+    await insertRow({ channel: 'email' })
+    await insertRow({ channel: 'push', payload: pushPayload })
+    await insertRow({ channel: 'push', payload: pushPayload })
+    await run(providers())
+    expect(await statsFor()).toEqual([
+      { channel: 'email', day: '2026-10-13', sent: 1, failed: 0 },
+      { channel: 'push', day: '2026-10-13', sent: 2, failed: 0 },
+    ])
+  })
+
+  it('окончательные неудачи, просроченное и исчерпавшее попытки считаются как failed', async () => {
+    await insertRow({ payload: { v: 1, kind: 'code' } }) // битый payload
+    await insertRow({ channel: 'push', payload: pushPayload, expiresAt: at(-1) }) // просрочено
+    await insertRow({ attempts: 3, nextAttemptAt: at(-1) }) // исчерпало попытки
+    await insertRow({ payload: emailPayload('fail@test.local') })
+    await run(providers(() => ({ kind: 'fail', error: '550' })))
+    expect(await statsFor()).toEqual([
+      { channel: 'email', day: '2026-10-13', sent: 0, failed: 3 },
+      { channel: 'push', day: '2026-10-13', sent: 0, failed: 1 },
+    ])
+  })
+
+  it('пропуск, откладывание и повтор в счётчики не попадают', async () => {
+    await insertRow({ payload: emailPayload('skip@test.local') })
+    await insertRow({ payload: emailPayload('defer@test.local') })
+    await insertRow({ payload: emailPayload('retry@test.local') })
+    const email = vi.fn(async (p: EmailPayload): Promise<Outcome> =>
+      p.to.startsWith('skip') ? { kind: 'skip', reason: 'gone' } : p.to.startsWith('defer') ? { kind: 'defer', seconds: 5, reason: 'x' } : { kind: 'retry', error: 'e' })
+    await run({ email, push: vi.fn(async () => ({ kind: 'sent' as const })) })
+    expect(await statsFor()).toEqual([])
+  })
+
+  it('проходы складываются, а смена суток по UTC начинает новую строку', async () => {
+    await insertRow()
+    await run(providers(), { now: new Date('2026-10-13T23:59:00Z') })
+    await insertRow()
+    await run(providers(), { now: new Date('2026-10-13T23:59:30Z') })
+    await insertRow()
+    await run(providers(), { now: new Date('2026-10-14T00:00:01Z') })
+    expect(await statsFor()).toEqual([
+      { channel: 'email', day: '2026-10-13', sent: 2, failed: 0 },
+      { channel: 'email', day: '2026-10-14', sent: 1, failed: 0 },
+    ])
+  })
+
+  it('сбой записи счётчиков не мешает отправке: строка удалена, предупреждение в журнале', async () => {
+    const id = await insertRow()
+    const broken = {
+      query: (sql: string, params?: unknown[]) =>
+        sql.includes('delivery_stats') ? Promise.reject(new Error('таблица недоступна')) : pool.query(sql, params),
+    } as unknown as Db
+    const stats = await processBatch(broken, providers(), { now: NOW, log: noLog })
+    expect(stats.sent).toBe(1)
+    expect(await rowById(id)).toBeUndefined()
+    expect(noLog).toHaveBeenCalledWith('warn', 'delivery_stats_failed', { error: 'таблица недоступна' })
+  })
+})
+
+describe('уборка служебных записей', () => {
+  it('счётчики старше 30 суток и расход бюджета старше 7 суток удаляются, свежее остаётся', async () => {
+    await pool.query(`delete from provider_usage where provider = 'mail'`)
+    await pool.query(
+      `insert into delivery_stats (channel, day, sent, failed) values
+         ('email', '2026-09-01', 1, 0), ('email', '2026-09-13', 1, 0), ('email', '2026-10-12', 1, 0)`,
+    )
+    await pool.query(
+      `insert into provider_usage (provider, day, count) values ('mail', '2026-10-01', 5), ('mail', '2026-10-06', 5), ('mail', '2026-10-13', 5)`,
+    )
+
+    await housekeeping(pool, NOW)
+
+    expect((await statsFor()).map((r) => r.day)).toEqual(['2026-09-13', '2026-10-12'])
+    expect((await pool.query(`select day::text from provider_usage where provider = 'mail' order by day`)).rows.map((r) => r.day)).toEqual(['2026-10-06', '2026-10-13'])
+    await pool.query(`delete from provider_usage where provider = 'mail'`)
   })
 })

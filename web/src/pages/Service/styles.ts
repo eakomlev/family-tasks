@@ -18,7 +18,7 @@ export const Cards = styled.div`
   gap: 0.6rem;
 `
 
-export const Card = styled.div`
+export const Card = styled.div<{ $small?: boolean }>`
   display: grid;
   gap: 0.2rem;
   padding: 0.8rem 0.9rem;
@@ -32,8 +32,8 @@ export const Card = styled.div`
   }
 
   strong {
-    font-size: 1.6rem;
+    font-size: ${({ $small }) => ($small ? '1.05rem' : '1.6rem')};
     font-variant-numeric: tabular-nums;
-    line-height: 1.1;
+    line-height: 1.2;
   }
 `

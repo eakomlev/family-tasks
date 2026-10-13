@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -13,6 +13,22 @@ import { setSession } from '@/store/session'
 
 const me: Member = { id: 'me', name: 'Евгений', role: 'papa', avatar: null, isOwner: true }
 const stats = { accounts: { total: 1234, today: 3 }, families: { total: 400, today: 1 }, messages: { total: 56789, today: 120 } }
+const queue = {
+  enabled: true,
+  notifier: { alive: true, instances: 1, lastBeatSeconds: 3 },
+  waiting: { email: 4, push: 17 },
+  retrying: 2,
+  oldestSeconds: 95,
+  mail: { usedToday: 1240, limit: 3000 },
+  today: { email: { sent: 80, failed: 0 }, push: { sent: 400, failed: 0 } },
+}
+// ответы по адресам: статистика и очередь; остальное ошибка
+const serve = (over: { queue?: unknown } = {}) =>
+  vi.fn(async (url: string) => {
+    if (String(url).startsWith('/api/admin/stats')) return new Response(JSON.stringify(stats))
+    if (String(url) === '/api/admin/queue') return new Response(JSON.stringify(over.queue ?? queue))
+    return new Response('{}', { status: 500 })
+  })
 
 function renderAt(path: string, isAdmin: boolean) {
   const identity = { familyCode: 'c', memberId: 'me', name: 'Евгений', role: 'papa' as const, token: 'tok' }
@@ -70,5 +86,48 @@ describe('раздел «Сервис»', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 500 })))
     renderAt('/profile/service', true)
     expect(await screen.findByText(/Не удалось загрузить статистику/)).toBeInTheDocument()
+  })
+
+  describe('очередь отправки', () => {
+    it('показаны числа очереди, расход бюджета и итоги за сегодня; всё в порядке: предупреждений нет', async () => {
+      vi.stubGlobal('fetch', serve())
+      renderAt('/profile/service', true)
+      const region = await screen.findByRole('region', { name: 'Очередь отправки' })
+      expect(await within(region).findByText('1 240 из 3 000')).toBeInTheDocument()
+      expect(region).toHaveTextContent('Писем ждут4')
+      expect(region).toHaveTextContent('Push ждут17')
+      expect(region).toHaveTextContent('Ждут повтора2')
+      expect(region).toHaveTextContent('Самое старое1 мин')
+      expect(region).toHaveTextContent('Сервис отправкиработает')
+      expect(region).toHaveTextContent('Отправлено сегодняписьма 80 · push 400')
+      expect(region.querySelector('p')).toBeNull()
+    })
+
+    it('notifier не отвечает и бюджет исчерпан: два предупреждения', async () => {
+      vi.stubGlobal('fetch', serve({
+        queue: { ...queue, notifier: { alive: false, instances: 0, lastBeatSeconds: 900 }, mail: { usedToday: 3000, limit: 3000 }, oldestSeconds: 700 },
+      }))
+      renderAt('/profile/service', true)
+      const region = await screen.findByRole('region', { name: 'Очередь отправки' })
+      expect(await within(region).findByText(/не отвечает, письма и push копятся/)).toBeInTheDocument()
+      expect(region).toHaveTextContent('Дневной лимит писем исчерпан')
+      expect(region).toHaveTextContent('Самое старое сообщение ждёт 11 мин')
+      expect(region).toHaveTextContent('Сервис отправкине отвечает')
+    })
+
+    it('очередь выключена: так и сказано', async () => {
+      vi.stubGlobal('fetch', serve({ queue: { ...queue, enabled: false, notifier: { alive: false, instances: 0, lastBeatSeconds: null } } }))
+      renderAt('/profile/service', true)
+      const region = await screen.findByRole('region', { name: 'Очередь отправки' })
+      expect(await within(region).findByText(/QUEUE_ENABLED=false/)).toBeInTheDocument()
+      expect(region).toHaveTextContent('Сервис отправкиочередь выключена')
+    })
+
+    it('ошибка загрузки очереди не ломает статистику выше', async () => {
+      vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).startsWith('/api/admin/stats') ? new Response(JSON.stringify(stats)) : new Response('{}', { status: 500 }))))
+      renderAt('/profile/service', true)
+      expect(await screen.findByText('1 234')).toBeInTheDocument()
+      expect(await screen.findByText('Не удалось загрузить состояние очереди.')).toBeInTheDocument()
+    })
   })
 })

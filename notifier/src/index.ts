@@ -5,7 +5,7 @@ import { startListener } from './listener.js'
 import { log } from './log.js'
 import { mailProviderFromEnv } from './providers/mail.js'
 import { pushProviderFromEnv } from './providers/webpush.js'
-import { beat } from './queue.js'
+import { beat, housekeeping } from './queue.js'
 import { processBatch } from './worker.js'
 
 const num = (name: string, fallback: number) => {
@@ -72,7 +72,10 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 const listener = startListener(databaseUrl, () => wake?.(), log)
 
 const beatTimer = setInterval(() => {
-  beat(pool, instance, new Date()).catch((err) => log('warn', 'heartbeat_failed', { error: (err as Error).message }))
+  const now = new Date()
+  beat(pool, instance, now)
+    .then(() => housekeeping(pool, now))
+    .catch((err) => log('warn', 'heartbeat_failed', { error: (err as Error).message }))
 }, BEAT_MS)
 void beat(pool, instance, new Date()).catch(() => {})
 

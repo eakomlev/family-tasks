@@ -4,20 +4,23 @@ import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
-import { useGetServiceStatsQuery } from '@/store/admin'
+import { useGetQueueStatsQuery, useGetServiceStatsQuery } from '@/store/admin'
 import { startOfDayIso } from '../MyDay/utils'
 import { Card, Cards, Section } from './styles'
+import { formatAge, queueAlerts } from './utils'
 
 const format = (n: number) => n.toLocaleString('ru-RU')
 
-// «Сервис»: сводка для администратора (адреса в ADMIN_EMAILS на сервере): аккаунты, семьи и сообщения, всего и за сегодня.
-// Для остальных страницы нет.
+// «Сервис»: сводка для администратора (адреса в ADMIN_EMAILS на сервере): аккаунты, семьи и сообщения, всего и за сегодня,
+// и состояние очереди отправки писем и push. Для остальных страницы нет.
 export default function Service() {
   const { data } = useProfile()
   const now = useNow()
   const isAdmin = !!data?.me.isAdmin
   // из кэша сразу, свежее приходит следом; пока страница открыта, обновляется раз в полминуты
   const { data: stats, isError } = useGetServiceStatsQuery(startOfDayIso(now), { skip: !isAdmin, pollingInterval: 30_000 })
+
+  const { data: queue, isError: queueFailed } = useGetQueueStatsQuery(undefined, { skip: !isAdmin, pollingInterval: 30_000 })
 
   if (data && !isAdmin) return <Navigate to="/profile" replace />
 
@@ -47,6 +50,39 @@ export default function Service() {
           </Section>
         </>
       )}
+      <Section aria-label="Очередь отправки">
+        <h2>Очередь отправки</h2>
+        {queueFailed && !queue && <Notice $tone="error">Не удалось загрузить состояние очереди.</Notice>}
+        {queue && (
+          <>
+            {queueAlerts(queue, now).map((alert) => (
+              <Notice key={alert.text} $tone={alert.tone === 'error' ? 'error' : alert.tone === 'warning' ? 'warning' : 'muted'}>{alert.text}</Notice>
+            ))}
+            <Cards>
+              <Card><span>Писем ждут</span><strong>{format(queue.waiting.email)}</strong></Card>
+              <Card><span>Push ждут</span><strong>{format(queue.waiting.push)}</strong></Card>
+              <Card><span>Ждут повтора</span><strong>{format(queue.retrying)}</strong></Card>
+              <Card><span>Самое старое</span><strong>{queue.oldestSeconds === null ? '—' : formatAge(queue.oldestSeconds)}</strong></Card>
+              <Card $small>
+                <span>Сервис отправки</span>
+                <strong>{!queue.enabled ? 'очередь выключена' : queue.notifier.alive ? 'работает' : 'не отвечает'}</strong>
+              </Card>
+              <Card $small>
+                <span>Писем за сутки (UTC)</span>
+                <strong>{queue.mail.limit > 0 ? `${format(queue.mail.usedToday)} из ${format(queue.mail.limit)}` : format(queue.mail.usedToday)}</strong>
+              </Card>
+              <Card $small>
+                <span>Отправлено сегодня</span>
+                <strong>письма {format(queue.today.email.sent)} · push {format(queue.today.push.sent)}</strong>
+              </Card>
+              <Card $small>
+                <span>Не удалось сегодня</span>
+                <strong>письма {format(queue.today.email.failed)} · push {format(queue.today.push.failed)}</strong>
+              </Card>
+            </Cards>
+          </>
+        )}
+      </Section>
     </Page>
   )
 }

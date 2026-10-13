@@ -2,7 +2,7 @@ import { parsePayload, type EmailPayload, type PushPayload } from './contract.js
 import type { Db } from './db.js'
 import { log as defaultLog, type Log } from './log.js'
 import type { Outcome } from './outcome.js'
-import { claim, complete, defer, reap, reschedule, type Row } from './queue.js'
+import { claim, complete, defer, reap, recordDelivery, reschedule, type DeliveryCounts, type Row } from './queue.js'
 import { backoffSeconds, MAX_ATTEMPTS } from './retry.js'
 
 export interface Providers {
@@ -26,6 +26,8 @@ export interface BatchStats {
   skipped: number
   deferred: number
   reaped: number
+  // итоги по каналам: попадают в дневные счётчики для страницы «Сервис»
+  byChannel: DeliveryCounts
 }
 
 // Через сколько секунд снова предложить строку, формат которой этот notifier не понимает.
@@ -35,10 +37,21 @@ const DEFER_SECONDS = 60
 // now передаётся параметром, чтобы проход можно было проверить на любом времени.
 export async function processBatch(db: Db, providers: Providers, options: BatchOptions = {}): Promise<BatchStats> {
   const { now = new Date(), limit = 20, concurrency = 5, leaseSeconds = 60, log = defaultLog } = options
-  const stats: BatchStats = { claimed: 0, sent: 0, retried: 0, failed: 0, skipped: 0, deferred: 0, reaped: 0 }
+  const stats: BatchStats = {
+    claimed: 0,
+    sent: 0,
+    retried: 0,
+    failed: 0,
+    skipped: 0,
+    deferred: 0,
+    reaped: 0,
+    byChannel: { email: { sent: 0, failed: 0 }, push: { sent: 0, failed: 0 } },
+  }
 
   for (const gone of await reap(db, now)) {
     stats.reaped++
+    // просроченное и исчерпавшее попытки тоже не ушло
+    if (gone.channel === 'email' || gone.channel === 'push') stats.byChannel[gone.channel].failed++
     log('error', gone.reason === 'expired' ? 'outbox_expired' : 'outbox_failed', {
       id: gone.id,
       channel: gone.channel,
@@ -56,6 +69,8 @@ export async function processBatch(db: Db, providers: Providers, options: BatchO
     for (let row = queue.shift(); row; row = queue.shift()) await handle(row)
   })
   await Promise.all(workers)
+  // счётчики для страницы «Сервис»; их сбой не должен останавливать отправку
+  await recordDelivery(db, now, stats.byChannel).catch((err) => log('warn', 'delivery_stats_failed', { error: (err as Error).message }))
   return stats
 
   async function handle(row: Row) {
@@ -80,6 +95,7 @@ export async function processBatch(db: Db, providers: Providers, options: BatchO
     switch (outcome.kind) {
       case 'sent':
         stats.sent++
+        stats.byChannel[row.channel].sent++
         await complete(db, row.id)
         return
       case 'skip':
@@ -105,6 +121,7 @@ export async function processBatch(db: Db, providers: Providers, options: BatchO
   // Окончательная неудача: строку не храним, причина остаётся только в журнале.
   async function fail(row: Row, error: string) {
     stats.failed++
+    stats.byChannel[row.channel].failed++
     log('error', 'outbox_failed', { id: row.id, channel: row.channel, attempts: row.attempts, error })
     await complete(db, row.id)
   }
