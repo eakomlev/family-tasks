@@ -65,20 +65,6 @@ export async function sendPush(sub: StoredSubscription, message: PushMessage): P
   }
 }
 
-// Отправляет уведомление на все устройства участника; ошибки не пробрасываем, чтобы они не ломали основное действие.
-export async function notifyMember(memberId: string, message: PushMessage): Promise<void> {
-  if (!pushEnabled) return
-  try {
-    const { rows } = await pool.query(
-      'select id, endpoint, p256dh, auth from push_subscriptions where member_id = $1',
-      [memberId],
-    )
-    await Promise.all(rows.map((sub) => sendPush(sub, message)))
-  } catch (err) {
-    console.error('notify failed', (err as Error).message)
-  }
-}
-
 const strictLimit = { rateLimit: { max: 10, timeWindow: '1 minute' } }
 
 const subscribeSchema = {

@@ -15,7 +15,7 @@ import {
 import { familyCode, hashToken, inviteCode } from './codes.js'
 import { pool } from './db.js'
 import { coinBalance } from './coins.js'
-import { sendCode } from './mail.js'
+import { enqueue, PRIORITY } from './outbox/index.js'
 import { closeSession, publish } from './realtime.js'
 
 const INVITE_TTL_DAYS = 7
@@ -180,7 +180,7 @@ export async function routes(app: FastifyInstance) {
       }
 
       try {
-        await sendCode(email, code, CODE_TTL)
+        await enqueue(pool, { channel: 'email', priority: PRIORITY.code, payload: { v: 1, kind: 'code', to: email, code, ttlMinutes: CODE_TTL } })
       } catch (err) {
         app.log.error(err, 'failed to send email code')
         // при входе тоже молчим, иначе ошибка выдала бы, что email известен

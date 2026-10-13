@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import { authenticate } from '../auth.js'
 import { pool } from '../db.js'
-import { notifyMember } from '../push.js'
+import { enqueueToMember } from '../outbox/index.js'
 import { publish } from '../realtime.js'
 import { addDays, isRealDate, NO_DATE, occursOn, occurrencesBetween, previousOccurrence, type RepeatType, type Schedule } from './recurrence.js'
 import { completedMessage, createdMessage, reviewMessage, rewardMessage, updatedMessage, type TaskDto } from './text.js'
@@ -371,7 +371,7 @@ export async function taskRoutes(app: FastifyInstance) {
 
     publish(member.family_id, { type: 'tasks' })
     // исполнителю сообщаем о новом задании, если его дал не он сам
-    if (task.assigneeId !== member.id) void notifyMember(task.assigneeId, createdMessage(task, member.name))
+    if (task.assigneeId !== member.id) void enqueueToMember(pool, task.assigneeId, createdMessage(task, member.name))
     return reply.code(201).send({ task })
   })
 
@@ -417,7 +417,7 @@ export async function taskRoutes(app: FastifyInstance) {
     publish(member.family_id, { type: 'tasks' })
     // баланс детей изменился
     if (revoked) publish(member.family_id, { type: 'members' })
-    if (task.assigneeId !== member.id) void notifyMember(task.assigneeId, updatedMessage(task, member.name))
+    if (task.assigneeId !== member.id) void enqueueToMember(pool, task.assigneeId, updatedMessage(task, member.name))
     return { task }
   })
 
@@ -435,7 +435,7 @@ export async function taskRoutes(app: FastifyInstance) {
   // Родителям семьи (мама, папа): например, что ребёнок отправил задание на проверку.
   async function notifyParents(familyId: string, message: ReturnType<typeof reviewMessage>) {
     const { rows } = await pool.query<{ id: string }>(`select id from members where family_id = $1 and role in ('mama', 'papa')`, [familyId])
-    await Promise.all(rows.map((p) => notifyMember(p.id, message)))
+    await Promise.all(rows.map((p) => enqueueToMember(pool, p.id, message)))
   }
 
   // Общая часть отметки и подтверждения. Что происходит:
@@ -507,11 +507,11 @@ export async function taskRoutes(app: FastifyInstance) {
     if ((outcome === 'done' || outcome === 'confirmed') && row.reward > 0) {
       // баланс исполнителя изменился; сообщаем ему, если подтвердил или отметил не он сам
       publish(member.family_id, { type: 'members' })
-      if (row.assigneeId !== member.id) void notifyMember(row.assigneeId, rewardMessage(dto))
+      if (row.assigneeId !== member.id) void enqueueToMember(pool, row.assigneeId, rewardMessage(dto))
     }
     // автору сообщаем один раз, когда задание выполнено (подтверждено), и если это сделал не он сам
     if ((outcome === 'done' || outcome === 'confirmed') && row.authorId !== member.id) {
-      void notifyMember(row.authorId, completedMessage(dto, member.name))
+      void enqueueToMember(pool, row.authorId, completedMessage(dto, member.name))
     }
     return outcome
   }

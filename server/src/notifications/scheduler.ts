@@ -1,5 +1,6 @@
 import { pool } from '../db.js'
-import { pushEnabled, sendPush } from '../push.js'
+import { enqueue, PRIORITY } from '../outbox/index.js'
+import { pushEnabled } from '../push.js'
 import {
   birthdayMessages,
   lessonsMessage,
@@ -13,9 +14,6 @@ import { isDue, localTime, SLOTS, type LocalTime } from './time.js'
 
 interface SubscriptionRow {
   id: string
-  endpoint: string
-  p256dh: string
-  auth: string
   time_zone: string
   member_id: string
   role: string
@@ -65,7 +63,7 @@ export async function runTick(now = new Date()): Promise<{ sent: number }> {
   if (!pushEnabled) return { sent: 0 }
 
   const { rows: subs } = await pool.query<SubscriptionRow>(
-    `select s.id, s.endpoint, s.p256dh, s.auth, s.time_zone, m.id as member_id, m.role, m.family_id
+    `select s.id, s.time_zone, m.id as member_id, m.role, m.family_id
      from push_subscriptions s join members m on m.id = s.member_id`,
   )
 
@@ -103,7 +101,12 @@ export async function runTick(now = new Date()): Promise<{ sent: number }> {
 
     for (const { kind, message, day } of planned) {
       if (!(await claim(sub.id, kind, day ?? local.date))) continue
-      if ((await sendPush(sub, message)) === 'sent') sent++
+      const result = await enqueue(pool, {
+        channel: 'push',
+        priority: PRIORITY.planned,
+        payload: { v: 1, subscriptionId: sub.id, message },
+      })
+      if (result === 'sent' || result === 'queued') sent++
     }
   }
 

@@ -4,7 +4,7 @@ import { authenticate } from './auth.js'
 import { coinBalance } from './coins.js'
 import { pool } from './db.js'
 import type { PushMessage } from './notifications/messages.js'
-import { notifyMember } from './push.js'
+import { enqueueToMember } from './outbox/index.js'
 import { publish } from './realtime.js'
 import { coinsWord } from './tasks/text.js'
 
@@ -178,7 +178,7 @@ export async function goalRoutes(app: FastifyInstance) {
       publish(me.family_id, { type: 'goals', memberId: me.id })
       publish(me.family_id, { type: 'members' })
       const { rows: parents } = await pool.query<{ id: string }>(`select id from members where family_id = $1 and role in ('mama', 'papa')`, [me.family_id])
-      for (const p of parents) void notifyMember(p.id, goalPurchasedMessage(updated[0], me.name))
+      for (const p of parents) void enqueueToMember(pool, p.id, goalPurchasedMessage(updated[0], me.name))
       return { goal: updated[0], balance: balance - current.price }
     } catch (err) {
       await db.query('rollback').catch(() => {})

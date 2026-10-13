@@ -5,7 +5,7 @@ import { directKey } from './chatKey.js'
 import { pool } from './db.js'
 import type { PushMessage } from './notifications/messages.js'
 import { coinsWord } from './tasks/text.js'
-import { notifyMember } from './push.js'
+import { enqueueToMember } from './outbox/index.js'
 import { isViewingChat, publish, publishTo } from './realtime.js'
 
 const MAX_TEXT = 2000
@@ -308,7 +308,7 @@ export async function chatRoutes(app: FastifyInstance) {
         const view = chat.otherId === null ? FAMILY_CHAT : id === member.id ? chat.otherId : member.id
         publishTo(id, { type: 'chat', chat: view })
         // если получатель прямо сейчас смотрит этот чат, пуш не нужен: сообщение появится на экране
-        if (id !== member.id && !isViewingChat(id, view)) void notifyMember(id, chatPushMessage(senderLabel(member, roleOf.get(id) ?? ''), view, text))
+        if (id !== member.id && !isViewingChat(id, view)) void enqueueToMember(pool, id, chatPushMessage(senderLabel(member, roleOf.get(id) ?? ''), view, text))
       }
       return reply.code(201).send({ message })
     },
@@ -402,7 +402,7 @@ export async function chatRoutes(app: FastifyInstance) {
         // баланс ребёнка изменился; ему приходит уведомление о начислении
         publish(member.family_id, { type: 'members' })
         const view = chat.otherId === null ? FAMILY_CHAT : member.id
-        void notifyMember(row.senderId, awardPushMessage(senderLabel(member, 'child'), view, row.id, coins, emoji ?? undefined))
+        void enqueueToMember(pool, row.senderId, awardPushMessage(senderLabel(member, 'child'), view, row.id, coins, emoji ?? undefined))
       }
 
       const [message] = await decorate(pool, [toMessage(row)])
