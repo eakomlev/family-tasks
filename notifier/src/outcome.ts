@@ -7,3 +7,5 @@ export type Outcome =
   | { kind: 'fail'; error: string }
   // отправлять уже некому (подписка удалена): строка удаляется без шума
   | { kind: 'skip'; reason: string }
+  // лимит (скорость или дневной бюджет): вернуть строку без траты попытки и предложить снова через seconds
+  | { kind: 'defer'; seconds: number; reason: string }

@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPushGate } from '../../src/limits.js'
 import { createPushProvider, type SendNotification } from '../../src/providers/webpush.js'
 import { createMember, pool, removeFamily, subscribe } from '../helpers.js'
 
@@ -78,5 +79,53 @@ describe('ошибки провайдера', () => {
     const result = await provider(failWith(status))(payload(sub.id))
     expect(result.kind).toBe('retry')
     expect(await exists(sub.id)).toBe(true)
+  })
+})
+
+describe('ограничение скорости', () => {
+  const clock = { t: 0 }
+  const provider = (send: SendNotification, rate: number, sleep = vi.fn(async () => {}), log = vi.fn()) => ({
+    run: createPushProvider(pool, send, true, { gate: createPushGate(rate, () => clock.t), sleep, log }),
+    sleep,
+    log,
+  })
+
+  it('короткую паузу ждёт, затем отправляет', async () => {
+    clock.t = 0
+    const send = vi.fn(async () => ({}))
+    const { run, sleep } = provider(send, 1)
+    expect(await run(payload(sub.id))).toEqual({ kind: 'sent' })
+    expect(await run(payload(sub.id))).toEqual({ kind: 'sent' })
+    expect(sleep).toHaveBeenCalledWith(1000)
+  })
+
+  it('долгую паузу не ждёт: строка откладывается, запрос не делается', async () => {
+    clock.t = 0
+    const send = vi.fn(async () => ({}))
+    const { run } = provider(send, 0.1)
+    await run(payload(sub.id))
+    expect(await run(payload(sub.id))).toEqual({ kind: 'defer', seconds: 10, reason: 'rate_limited' })
+    expect(send).toHaveBeenCalledTimes(1)
+  })
+
+  it('429 с Retry-After притормаживает всю группу сервиса, другие группы не задеты', async () => {
+    clock.t = 0
+    const { run, log } = provider(failWith(429, { 'retry-after': '120' }), 100)
+    const other = await subscribe(memberId, 'https://push.test/other-device')
+    // первое устройство получает 429 и просит подождать 2 минуты
+    expect(await run(payload(sub.id))).toMatchObject({ kind: 'retry', retryAfterSeconds: 120 })
+    expect(log).toHaveBeenCalledWith('warn', 'provider_throttled', { provider: 'push', group: 'other', seconds: 120 })
+    // другое устройство той же группы откладывается, не дожидаясь ответа сервиса
+    expect(await run(payload(other.id))).toEqual({ kind: 'defer', seconds: 120, reason: 'rate_limited' })
+    // после паузы работа возобновляется
+    clock.t = 121_000
+    expect((await run(payload(other.id))).kind).toBe('retry')
+  })
+
+  it('429 без Retry-After не включает паузу для группы', async () => {
+    clock.t = 0
+    const { run } = provider(failWith(429), 100)
+    expect((await run(payload(sub.id))).kind).toBe('retry')
+    expect((await run(payload(sub.id))).kind).toBe('retry')
   })
 })

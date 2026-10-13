@@ -167,6 +167,79 @@ describe('очередь (QUEUE_ENABLED=true)', () => {
     await pool.query('delete from outbox where id = any($1)', [rows.map((r) => r.id)])
   })
 
+  describe('склейка по tag', () => {
+    const pushTo = async (subscription: string, tag: string, body = 'Текст') =>
+      enqueue(pool, { channel: 'push', priority: PRIORITY.event, payload: { v: 1, subscriptionId: subscription, message: { ...message, tag, body } } })
+    const bodiesFor = async (subscription: string, tag: string) =>
+      (await pool.query(
+        `select payload->'message'->>'body' as body from outbox where payload->>'subscriptionId' = $1 and payload->'message'->>'tag' = $2 order by id`,
+        [subscription, tag],
+      )).rows.map((r) => r.body)
+    const cleanup = (...subs: string[]) => pool.query(`delete from outbox where payload->>'subscriptionId' = any($1)`, [subs])
+
+    it('непосланное сообщение с тем же tag для той же подписки заменяется новым', async () => {
+      const sub = await subscriptionId(await subscribe(fam.mom.id))
+      await pushTo(sub, 'chat-family', 'первое')
+      await pushTo(sub, 'chat-family', 'второе')
+      await pushTo(sub, 'chat-family', 'третье')
+      expect(await bodiesFor(sub, 'chat-family')).toEqual(['третье'])
+      await cleanup(sub)
+    })
+
+    it('другой tag или другая подписка не затрагиваются', async () => {
+      const mom = await subscriptionId(await subscribe(fam.mom.id))
+      const dad = await subscriptionId(await subscribe(fam.dad.id))
+      await pushTo(mom, 'chat-family', 'маме в чат')
+      await pushTo(mom, 'task-1', 'маме задание')
+      await pushTo(dad, 'chat-family', 'папе в чат')
+      await pushTo(mom, 'chat-family', 'маме в чат, новое')
+      expect(await bodiesFor(mom, 'chat-family')).toEqual(['маме в чат, новое'])
+      expect(await bodiesFor(mom, 'task-1')).toEqual(['маме задание'])
+      expect(await bodiesFor(dad, 'chat-family')).toEqual(['папе в чат'])
+      await cleanup(mom, dad)
+    })
+
+    it('строка, которую notifier уже взял в работу (attempts > 0), остаётся: заменять поздно', async () => {
+      const sub = await subscriptionId(await subscribe(fam.mom.id))
+      await pushTo(sub, 'chat-family', 'в работе')
+      await pool.query(`update outbox set attempts = 1 where payload->>'subscriptionId' = $1`, [sub])
+      await pushTo(sub, 'chat-family', 'новое')
+      expect(await bodiesFor(sub, 'chat-family')).toEqual(['в работе', 'новое'])
+      await cleanup(sub)
+    })
+
+    it('гонка с notifier: замена, начатая в момент взятия строки в работу, её не удаляет', async () => {
+      const sub = await subscriptionId(await subscribe(fam.mom.id))
+      await pushTo(sub, 'chat-family', 'старое')
+      const taker = await pool.connect()
+      try {
+        // notifier взял строку (attempts стал 1), но ещё не зафиксировал
+        await taker.query('begin')
+        await taker.query(`update outbox set attempts = attempts + 1 where payload->>'subscriptionId' = $1`, [sub])
+        // замена ждёт блокировку строки
+        const replacing = pushTo(sub, 'chat-family', 'новое')
+        await new Promise((r) => setTimeout(r, 300))
+        await taker.query('commit')
+        await replacing
+      } finally {
+        taker.release()
+      }
+      // после фиксации строка уже «в работе», и её нельзя заменять: остались обе
+      expect(await bodiesFor(sub, 'chat-family')).toEqual(['старое', 'новое'])
+      await cleanup(sub)
+    })
+
+    it('письма не склеиваются: два кода на один адрес остаются оба', async () => {
+      const send = (code: string) =>
+        enqueue(pool, { channel: 'email', priority: PRIORITY.code, payload: { ...emailPayload, to: 'twice@test.local', code } as never })
+      await send('111111')
+      await send('222222')
+      const rows = (await pool.query(`select payload->>'code' as code from outbox where payload->>'to' = 'twice@test.local' order by id`)).rows
+      expect(rows.map((r) => r.code)).toEqual(['111111', '222222'])
+      await pool.query(`delete from outbox where payload->>'to' = 'twice@test.local'`)
+    })
+  })
+
   it('будит notifier: сигнал outbox с id строки приходит после вставки', async () => {
     const listener = new pg.Client({ connectionString: process.env.DATABASE_URL })
     await listener.connect()

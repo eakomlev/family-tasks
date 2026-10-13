@@ -53,6 +53,10 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@family-tasks.local}
+      # лимиты провайдеров (подробности в .env.example)
+      MAIL_DAILY_LIMIT: ${MAIL_DAILY_LIMIT:-2800}
+      MAIL_RATE_PER_SECOND: ${MAIL_RATE_PER_SECOND:-2}
+      PUSH_RATE_PER_SECOND: ${PUSH_RATE_PER_SECOND:-50}
     healthcheck:
       test: ["CMD", "node", "dist/healthcheck.js"]
       interval: 30s

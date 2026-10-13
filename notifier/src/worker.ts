@@ -86,6 +86,11 @@ export async function processBatch(db: Db, providers: Providers, options: BatchO
         stats.skipped++
         await complete(db, row.id)
         return
+      case 'defer':
+        // упёрлись в лимит: попытку не тратим, строку предложим снова позже
+        stats.deferred++
+        await defer(db, row.id, now, outcome.seconds)
+        return
       case 'fail':
         return fail(row, outcome.error)
       case 'retry':

@@ -178,6 +178,29 @@ describe('окончательные исходы', () => {
   })
 })
 
+describe('лимиты', () => {
+  it('defer: строка возвращается без траты попытки и предлагается снова позже', async () => {
+    const id = await insertRow()
+    const stats = await run(providers(() => ({ kind: 'defer', seconds: 90, reason: 'daily_budget' })))
+
+    expect(stats).toMatchObject({ claimed: 1, deferred: 1, sent: 0, failed: 0, retried: 0 })
+    const row = await rowById(id)
+    expect(row.attempts).toBe(0)
+    expect((new Date(row.next_attempt_at).getTime() - NOW.getTime()) / 1000).toBe(90)
+    expect(noLog).not.toHaveBeenCalled()
+    // до срока строку не трогают, после срока забирают снова
+    expect((await run(providers(), { now: at(60) })).claimed).toBe(0)
+    expect((await run(providers(), { now: at(91) })).sent).toBe(1)
+  })
+
+  it('сколько бы раз ни откладывали, попытки не кончаются (только срок жизни)', async () => {
+    const id = await insertRow()
+    const p = providers(() => ({ kind: 'defer', seconds: 10, reason: 'rate_limited' }))
+    for (let i = 0; i < 6; i++) await run(p, { now: at(i * 20) })
+    expect((await rowById(id)).attempts).toBe(0)
+  })
+})
+
 describe('срок жизни', () => {
   it('просроченное не отправляется и убирается с записью в журнал', async () => {
     const id = await insertRow({ expiresAt: at(-1) })

@@ -2,6 +2,8 @@ import webpush from 'web-push'
 import { isAllowedEndpoint } from '../allowlist.js'
 import type { PushPayload } from '../contract.js'
 import type { Db } from '../db.js'
+import { hostGroup, MAX_SLEEP_MS, type PushGate } from '../limits.js'
+import type { Log } from '../log.js'
 import { parseRetryAfter } from '../retry.js'
 import type { Outcome } from '../outcome.js'
 
@@ -20,7 +22,17 @@ interface PushError {
   message?: string
 }
 
-export function createPushProvider(db: Db, send: SendNotification, enabled: boolean) {
+export interface PushProviderOptions {
+  // ограничение скорости по группам push-сервисов; без него отправка без пауз
+  gate?: PushGate
+  log?: Log
+  sleep?: (ms: number) => Promise<void>
+}
+
+const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+export function createPushProvider(db: Db, send: SendNotification, enabled: boolean, options: PushProviderOptions = {}) {
+  const { gate, log, sleep = defaultSleep } = options
   return async (payload: PushPayload): Promise<Outcome> => {
     if (!enabled) return { kind: 'fail', error: 'push_not_configured' }
 
@@ -32,6 +44,15 @@ export function createPushProvider(db: Db, send: SendNotification, enabled: bool
     // подписку успели удалить
     if (!sub) return { kind: 'skip', reason: 'subscription_gone' }
     if (!isAllowedEndpoint(sub.endpoint)) return { kind: 'fail', error: 'endpoint_not_allowed' }
+
+    if (gate) {
+      const wait = gate.waitMs(sub.endpoint)
+      if (wait > MAX_SLEEP_MS) {
+        gate.refund(sub.endpoint)
+        return { kind: 'defer', seconds: Math.ceil(wait / 1000), reason: 'rate_limited' }
+      }
+      if (wait > 0) await sleep(wait)
+    }
 
     try {
       await send({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload.message), {
@@ -49,18 +70,24 @@ export function createPushProvider(db: Db, send: SendNotification, enabled: bool
       const error = `${status ?? 'network'} ${e.message ?? ''}`.trim()
       // запрос отклонён из-за самого запроса или ключей: повтор не поможет
       if (status === 400 || status === 401 || status === 403 || status === 413) return { kind: 'fail', error }
-      return { kind: 'retry', error, retryAfterSeconds: parseRetryAfter(e.headers?.['retry-after']) }
+      const retryAfterSeconds = parseRetryAfter(e.headers?.['retry-after'])
+      // сервис просит подождать: притормаживаем всю его группу, а не только эту строку
+      if (gate && retryAfterSeconds) {
+        gate.pause(sub.endpoint, retryAfterSeconds)
+        log?.('warn', 'provider_throttled', { provider: 'push', group: hostGroup(sub.endpoint), seconds: retryAfterSeconds })
+      }
+      return { kind: 'retry', error, retryAfterSeconds }
     }
   }
 }
 
 // Реальная отправка через web-push; ключи VAPID берутся из окружения. Без них push выключен.
-export function pushProviderFromEnv(db: Db) {
+export function pushProviderFromEnv(db: Db, options: PushProviderOptions = {}) {
   const publicKey = process.env.VAPID_PUBLIC_KEY
   const privateKey = process.env.VAPID_PRIVATE_KEY
   const enabled = Boolean(publicKey && privateKey)
   if (enabled) {
     webpush.setVapidDetails(process.env.VAPID_SUBJECT ?? 'mailto:admin@family-tasks.local', publicKey!, privateKey!)
   }
-  return createPushProvider(db, (sub, body, options) => webpush.sendNotification(sub, body, options), enabled)
+  return createPushProvider(db, (sub, body, opts) => webpush.sendNotification(sub, body, opts), enabled, options)
 }
