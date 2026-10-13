@@ -82,6 +82,44 @@ services:
       db:
         condition: service_healthy
 
+  # хранилище файлов (S3-совместимое, SeaweedFS одним контейнером): фото из чатов; портов наружу нет, ходит к нему только media.
+  # Ключи доступа берутся из .env при каждом запуске. После перезапуска хранилищу нужно до получаса, чтение в это время даёт 500,
+  # поэтому media при старте создаёт бакет с повторами (docs/chat-photos-plan.md)
+  s3:
+    image: chrislusf/seaweedfs:latest
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        printf '{"identities":[{"name":"media","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List"]}]}' "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" > /tmp/s3.json
+        exec weed server -s3 -s3.config=/tmp/s3.json -dir=/data -volume.max=100
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-mediakey}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-mediasecret}
+    volumes:
+      - s3data:/data
+
+  # обработка и выдача фото: принимает от server, перекодирует, хранит в s3, отдаёт по подписанным ссылкам (/media/ через nginx)
+  media:
+    build: ./media
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      MEDIA_SECRET: ${MEDIA_SECRET:-}
+      MEDIA_INTERNAL_TOKEN: ${MEDIA_INTERNAL_TOKEN:-}
+      S3_ENDPOINT: http://s3:8333
+      S3_BUCKET: ${S3_BUCKET:-media}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-mediakey}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-mediasecret}
+    healthcheck:
+      test: ["CMD", "node", "dist/healthcheck.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      - s3
+
   # локальный SMTP-приёмник, письма смотрим на http://localhost:8025
   mailpit:
     image: axllent/mailpit:latest
@@ -100,3 +138,4 @@ services:
 
 volumes:
   pgdata:
+  s3data:

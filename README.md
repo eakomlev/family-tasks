@@ -54,7 +54,7 @@ Service worker в dev выключен, PWA проверяйте на сборк
 
 | Команда | Что делает |
 |---|---|
-| `npm run setup` | один раз: ставит зависимости корня, `server/`, `notifier/`, `scheduler/` и `web/` |
+| `npm run setup` | один раз: ставит зависимости корня, `server/`, `notifier/`, `scheduler/`, `media/` и `web/` |
 | `npm run dev` | БД и Mailpit в Docker, сервер и фронтенд с автообновлением |
 | `npm run dev:infra` / `npm run dev:stop` | только БД и Mailpit: запустить / остановить |
 | `npm run seed` | демо-семья (подробнее выше), режимы `-- --snippet Миша`, `-- --json` |

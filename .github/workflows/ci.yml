@@ -120,6 +120,29 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  media:
+    name: "Медиа: типы и тесты"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: media
+    steps:
+      - uses: actions/checkout@v4
+      # S3-совместимое хранилище для тестов (SeaweedFS одним контейнером, ключи как у тестов по умолчанию)
+      - name: Запуск S3-хранилища
+        run: |
+          printf '{"identities":[{"name":"media","credentials":[{"accessKey":"mediakey","secretKey":"mediasecret"}],"actions":["Admin","Read","Write","List"]}]}' > "$RUNNER_TEMP/s3.json"
+          docker run -d --name s3 -p 8333:8333 -v "$RUNNER_TEMP/s3.json:/etc/s3.json" chrislusf/seaweedfs server -s3 -s3.config=/etc/s3.json -dir=/data -volume.max=10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: media/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
   web:
     name: "Фронтенд: типы, линтер, тесты, сборка"
     runs-on: ubuntu-latest

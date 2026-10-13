@@ -144,6 +144,24 @@ if [ "$scheduler_ok" -ne 1 ]; then
 fi
 echo 'Планировщик работает.'
 
+# Хранилище фото и сервис media: media ждёт хранилище (после перезапуска SeaweedFS просыпается до получаса) и создаёт бакет.
+media_ok=0
+for _ in $(seq 1 $((HEALTH_ATTEMPTS * 3))); do
+  if docker compose exec -T media node dist/healthcheck.js >/dev/null 2>&1; then
+    media_ok=1
+    break
+  fi
+  sleep 2
+done
+if [ "$media_ok" -ne 1 ]; then
+  printf '\nСервис фото (media) не отозвался за %s секунд. Последние строки логов media и s3:\n\n' $((HEALTH_ATTEMPTS * 6)) >&2
+  docker compose logs --tail 40 media >&2 || true
+  docker compose logs --tail 20 s3 >&2 || true
+  rollback_help
+  exit 1
+fi
+echo 'Сервис фото работает.'
+
 # Если задан домен, проверяем ещё и снаружи (HTTPS через Caddy); сертификат может выпускаться не сразу.
 DOMAIN_VALUE=$(grep -E '^DOMAIN=' .env | tail -1 | cut -d= -f2- | tr -d '"' || true)
 if [ -n "$DOMAIN_VALUE" ] && command -v curl >/dev/null 2>&1; then

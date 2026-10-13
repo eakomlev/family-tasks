@@ -1,0 +1,19 @@
+{
+  "comment": "Образец контракта server <-> media версии 1. Его проверяют тесты server и media. Менять только обратно совместимо.",
+  "sign": {
+    "comment": "sig = hex(HMAC-SHA256(secret, family + '/' + id + '/' + exp)), exp в секундах Unix",
+    "secret": "contract-test-secret",
+    "family": "11111111-1111-4111-8111-111111111111",
+    "id": "22222222-2222-4222-8222-222222222222",
+    "exp": 1800000000,
+    "sig": "b07588018c7417aafcada011a7c0cd40b5040c68f5e941d8ec630891a26efcf6"
+  },
+  "internal": {
+    "comment": "Внутренний API, заголовок x-internal-token. PUT /internal/media/:family/:id (тело image/jpeg) -> upload; DELETE /internal/media/:family/:id -> 204; GET /internal/media/:family -> list; DELETE /internal/families/:family -> 204",
+    "upload": { "width": 1600, "height": 1200, "size": 250000, "thumbSize": 24000 },
+    "list": { "items": [{ "id": "22222222-2222-4222-8222-222222222222", "size": 250000 }] }
+  },
+  "public": {
+    "comment": "GET /media/:family/:id/(full|thumb)?exp=&sig= -> image/jpeg; любая ошибка подписи, срока или отсутствие файла -> 404"
+  }
+}
