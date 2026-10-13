@@ -89,6 +89,16 @@ cd web && npx vitest run tests/components/TaskEditor.test.tsx
 - **`POST /api/push/test`** ставит проверочное сообщение в очередь и отвечает `{queued, sent: queued, failed: 0}`: итог доставки сразу неизвестен, поля `sent`/`failed` оставлены, чтобы клиент прежней версии показал «Отправили» (сообщение «Не удалось доставить» не появляется; отозванную подписку снимает `notifier`).
 - **Фаза 2 доведена** (`docs/notification-queue-plan.md`): из `server` удалены синхронный драйвер, `mail.ts`, `sendPush`, зависимости `nodemailer` и `web-push`, `SMTP_*`, приватный ключ VAPID и `VAPID_SUBJECT`. `pushEnabled` в `push.ts` теперь означает «задан публичный ключ VAPID» (от него зависят `startScheduler`, `runTick`, `enqueueToMember` и маршруты `/api/push/*`): если на `server` пропадёт `VAPID_PUBLIC_KEY`, уведомления перестанут ставиться.
 
+## Планировщик (`scheduler/`)
+
+Фаза 1 плана `docs/scheduler-service-plan.md`: отдельный пакет и контейнер, который раз в минуту решает, кому что напомнить (день рождения 10:00, уроки следующего дня 17:00, тренировка за 2 часа), и ставит push в очередь `outbox`; отправляет их `notifier`. Код `server`, `notifier` и `scheduler` друг друга не импортируют: контракт это таблицы БД и payload версии `v: 1` (копия типов в `scheduler/src/contract.ts`, общий образец `contracts/outbox-v1.json` проверяют тесты всех пакетов). Пока идёт выкладка, в `server` ещё живёт прежний планировщик (`server/src/notifications/`): дублей нет, потому что у обоих один ключ блокировки лидера (`SCHEDULER_LOCK_KEY` = 7301001, тест на совпадение) и общий журнал `notification_log`. Фаза 2 удалит прежний.
+
+- **Читает** `push_subscriptions`, `members` (роль, семья, имя, дата рождения), `schedule_lessons`, `training_sessions`; **пишет** `outbox` (`src/outbox.ts`, без склейки по `tag`: у плановых он уникален), `notification_log` и `scheduler_state`. Переименование этих колонок в `server` ломает планировщик: тесты идут на настоящей схеме из `../server/migrations`.
+- **Файлы:** `tick.ts` (`runTick(pool, now)`, `runTickAsLeader`: запись в журнал и постановка в одной транзакции, лидер через `pg_try_advisory_lock`), `messages.ts` и `time.ts` (копии чистой логики из `server`), `state.ts` (метка живости и итог прохода в `scheduler_state`), `index.ts` (первый проход через 5 секунд, затем раз в минуту; метка раз в 15 секунд; завершение по SIGTERM дожидается прохода), `healthcheck.ts` (метка свежее минуты, порта нет; `update.sh` ждёт её). Без `VAPID_PUBLIC_KEY` ничего не планируется (как у `server`).
+- **Ручной проход:** `cd scheduler && npm run notify:tick -- 10:05 [--reset]`.
+- **Тесты** (`scheduler/tests/`, Vitest, нужна БД `npm run dev:infra`): своя база `family_tasks_scheduler_test` с миграциями из `../server/migrations`, файлы идут по очереди. `npm run test:scheduler` из корня или `npm test` в `scheduler/`; типы: `npm run typecheck`. CI: задание `scheduler`.
+- **Состояние:** таблица `scheduler_state` (миграция `server`), блок на странице «Сервис» появится в фазе 3.
+
 ## Миграции БД
 
 `node-pg-migrate`, SQL-файлы в `server/migrations/` с маркерами `-- Up Migration` / `-- Down Migration`. Сервер применяет их сам при старте (`server/src/migrate.ts`), поэтому в Docker отдельного шага нет. Применённые миграции не редактируем, любое изменение схемы — новый файл:

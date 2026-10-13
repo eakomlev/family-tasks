@@ -127,6 +127,23 @@ if [ "$notifier_ok" -ne 1 ]; then
 fi
 echo 'Сервис отправки работает.'
 
+# Планировщик уведомлений: раз в 15 секунд он обновляет метку живости в БД.
+scheduler_ok=0
+for _ in $(seq 1 "$HEALTH_ATTEMPTS"); do
+  if docker compose exec -T scheduler node dist/healthcheck.js >/dev/null 2>&1; then
+    scheduler_ok=1
+    break
+  fi
+  sleep 2
+done
+if [ "$scheduler_ok" -ne 1 ]; then
+  printf '\nПланировщик (scheduler) не отозвался за %s секунд. Последние строки лога:\n\n' $((HEALTH_ATTEMPTS * 2)) >&2
+  docker compose logs --tail 40 scheduler >&2 || true
+  rollback_help
+  exit 1
+fi
+echo 'Планировщик работает.'
+
 # Если задан домен, проверяем ещё и снаружи (HTTPS через Caddy); сертификат может выпускаться не сразу.
 DOMAIN_VALUE=$(grep -E '^DOMAIN=' .env | tail -1 | cut -d= -f2- | tr -d '"' || true)
 if [ -n "$DOMAIN_VALUE" ] && command -v curl >/dev/null 2>&1; then

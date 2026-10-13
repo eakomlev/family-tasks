@@ -54,13 +54,13 @@ Service worker в dev выключен, PWA проверяйте на сборк
 
 | Команда | Что делает |
 |---|---|
-| `npm run setup` | один раз: ставит зависимости корня, `server/`, `notifier/` и `web/` |
+| `npm run setup` | один раз: ставит зависимости корня, `server/`, `notifier/`, `scheduler/` и `web/` |
 | `npm run dev` | БД и Mailpit в Docker, сервер и фронтенд с автообновлением |
 | `npm run dev:infra` / `npm run dev:stop` | только БД и Mailpit: запустить / остановить |
 | `npm run seed` | демо-семья (подробнее выше), режимы `-- --snippet Миша`, `-- --json` |
 | `npm test` | все тесты: сервер (нужна БД) и фронтенд; по отдельности `npm run test:server`, `npm run test:web` |
 | `cd server && npm run typecheck` | типы приложения и тестов |
-| `cd server && npm run notify:tick -- 10:05 --reset` | принудительный проход планировщика уведомлений (см. раздел про push) |
+| `cd scheduler && npm run notify:tick -- 10:05 --reset` | принудительный проход планировщика уведомлений (см. раздел про push; такая же команда пока есть и в `server/`) |
 | `cd notifier && npm run vapid` | создать ключи VAPID для push |
 | `cd server && npm run migrate:create -- имя` | новая миграция БД |
 | `cd web && npx tsc -b && npm run lint && npm test && npm run build` | проверки, тесты и сборка фронтенда |

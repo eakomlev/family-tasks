@@ -85,6 +85,41 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  scheduler:
+    name: "Планировщик: типы и тесты"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: family
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: family_tasks
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U family"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # тесты сами создают отдельную базу и применяют в ней миграции из server/migrations
+      DATABASE_URL: postgres://family:ci@localhost:5432/family_tasks
+    defaults:
+      run:
+        working-directory: scheduler
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scheduler/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
   web:
     name: "Фронтенд: типы, линтер, тесты, сборка"
     runs-on: ubuntu-latest
