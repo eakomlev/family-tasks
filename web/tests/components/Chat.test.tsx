@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -417,6 +417,17 @@ describe('переписка', () => {
     expect(screen.getAllByRole('img', { name: 'Прочитано' })).toHaveLength(1)
     expect(screen.getAllByRole('img', { name: 'Отправлено' })).toHaveLength(1)
     expect(screen.getByText('от собеседника').closest('div')?.parentElement?.querySelector('[role=img]')).toBeNull()
+  })
+
+  it('общий чат: под заголовком число участников, в личном его нет', async () => {
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'привет')], hasMore: false, readUpTo: null, peer: null })
+    renderRoom('family')
+    await screen.findByText('привет')
+    expect(screen.getByText('2 участника')).toBeInTheDocument()
+    cleanup()
+    renderRoom('m2')
+    await screen.findByText('привет')
+    expect(screen.queryByText(/участник/)).not.toBeInTheDocument()
   })
 
   it('личный чат: заголовок по собеседнику, имён над сообщениями нет', async () => {

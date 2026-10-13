@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ChatMessage, ChatSummary, Member } from '@/api'
 import { memberLabel } from '@/lib/roles'
 import { chatPreview, chatPreviewParts, chatTitle, formatChatTime } from '@/pages/Chat/utils'
-import { appendMessage, canSend, dayLabel, groupByDay, mergeLatest, messageStatus, visitLabel } from '@/pages/ChatRoom/utils'
+import { appendMessage, canSend, dayLabel, groupByDay, mergeLatest, messageStatus, participantsLabel, visitLabel } from '@/pages/ChatRoom/utils'
 
 const msg = (id: string, createdAt = '2026-10-11T10:00:00Z', senderId = 'm1', text = id): ChatMessage => ({ id, senderId, text, createdAt, reactions: [], awards: [] })
 
@@ -176,5 +176,18 @@ describe('visitLabel', () => {
     expect(visitLabel({ viewing: false, lastVisitAt: '2026-10-12T09:05:00' }, now)).toBe('Последний визит: сегодня в 09:05')
     expect(visitLabel({ viewing: false, lastVisitAt: '2026-10-11T18:30:00' }, now)).toBe('Последний визит: вчера в 18:30')
     expect(visitLabel({ viewing: false, lastVisitAt: '2026-10-05T07:00:00' }, now)).toBe('Последний визит: 5 октября в 07:00')
+  })
+})
+
+describe('participantsLabel: число участников под заголовком общего чата', () => {
+  it('склонение: 1 участник, 2-4 участника, 5 и 11-14 участников; пусто, пока состав не загружен', () => {
+    expect(participantsLabel(0)).toBeNull()
+    expect(participantsLabel(1)).toBe('1 участник')
+    expect(participantsLabel(2)).toBe('2 участника')
+    expect(participantsLabel(4)).toBe('4 участника')
+    expect(participantsLabel(5)).toBe('5 участников')
+    expect(participantsLabel(11)).toBe('11 участников')
+    expect(participantsLabel(21)).toBe('21 участник')
+    expect(participantsLabel(112)).toBe('112 участников')
   })
 })

@@ -82,6 +82,17 @@ export const totalCoins = (awards: { amount: number }[]) => awards.reduce((sum, 
 export const replaceMessage = (list: ChatMessage[], message: ChatMessage): ChatMessage[] =>
   list.map((m) => (m.id === message.id ? message : m))
 
+// «1 участник», «2 участника», «5 участников» (подпись под заголовком общего чата); пусто, пока состав семьи не загружен
+export function participantsLabel(count: number): string | null {
+  if (count <= 0) return null
+  const lastTwo = count % 100
+  const last = count % 10
+  if (lastTwo >= 11 && lastTwo <= 14) return `${count} участников`
+  if (last === 1) return `${count} участник`
+  if (last >= 2 && last <= 4) return `${count} участника`
+  return `${count} участников`
+}
+
 // Подпись шапки личного чата: «сейчас в чате» или «был(а) сегодня в 14:05, вчера в 09:30, 12 октября в 18:00».
 export function visitLabel(peer: { viewing: boolean; lastVisitAt: string | null } | null, now: Date): string | null {
   if (!peer) return null

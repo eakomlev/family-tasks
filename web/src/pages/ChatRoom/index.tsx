@@ -20,7 +20,7 @@ import { FeedbackDialog } from './components/FeedbackDialog'
 import { MessageBubble } from './components/MessageBubble'
 import { MessagesSkeleton } from './components/MessagesSkeleton'
 import { BackButton, DayLabel, Title, Empty, Feed, FamilyIcon, Header, Room } from './styles'
-import { appendMessage, groupByDay, mergeLatest, messageStatus, replaceMessage, visitLabel } from './utils'
+import { appendMessage, groupByDay, mergeLatest, messageStatus, participantsLabel, replaceMessage, visitLabel } from './utils'
 
 // «рядом с низом»: тогда новое сообщение прокручивает переписку само, а не сбивает чтение старых
 const NEAR_BOTTOM_PX = 160
@@ -176,7 +176,8 @@ function Conversation({ chat }: { chat: string | undefined }) {
         {other ? <Avatar name={memberLabel(other, identity.role)} seed={other.id} src={other.avatar} size="2.25rem" /> : <FamilyIcon aria-hidden>👨‍👩‍👧</FamilyIcon>}
         <Title>
           <h1>{chatTitle(chat, members, identity.role)}{other && <> <MoodMark mood={other.mood} now={now} /></>}</h1>
-          {visitLabel(peer, now) && <small>{visitLabel(peer, now)}</small>}
+          {/* под заголовком: в общем чате число участников, в личном когда собеседник был в чате */}
+          {chat === FAMILY_CHAT ? participantsLabel(members.length) && <small>{participantsLabel(members.length)}</small> : visitLabel(peer, now) && <small>{visitLabel(peer, now)}</small>}
         </Title>
       </Header>
 

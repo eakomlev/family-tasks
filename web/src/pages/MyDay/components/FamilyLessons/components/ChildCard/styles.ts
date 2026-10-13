@@ -39,6 +39,7 @@ export const Top = styled.div`
 
 export const Name = styled.strong`
   min-width: 0;
+  font-size: 1.2rem;
   overflow-wrap: anywhere;
 `
 
@@ -52,6 +53,45 @@ export const Subjects = styled.p`
   grid-column: 2;
   font-size: 0.95rem;
   overflow-wrap: anywhere;
+`
+
+// уроки столбиком: номер, предмет и (если указан) кабинет справа
+export const Lessons = styled.ol`
+  grid-column: 2;
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    min-width: 0;
+    font-size: 0.95rem;
+  }
+
+  li > span:nth-child(2) {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+`
+
+export const LessonNumber = styled.span`
+  flex: none;
+  width: 1rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+`
+
+export const Room = styled.span`
+  flex: none;
+  color: var(--muted);
+  font-size: 0.8rem;
 `
 
 export const Meta = styled.p`

@@ -19,11 +19,11 @@ describe('ChildTasks', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('без заданий: «Заданий нет.»', () => {
-    renderTasks([])
-    expect(screen.getByText('Задания на сегодня')).toBeInTheDocument()
-    expect(screen.getByText('Заданий нет.')).toBeInTheDocument()
-    expect(screen.queryByText(/выполнено \d/)).not.toBeInTheDocument()
+  it('без заданий блока нет совсем: ни заголовка, ни «Заданий нет»', () => {
+    const { container } = renderTasks([])
+    expect(container).toBeEmptyDOMElement()
+    expect(screen.queryByText('Задания на сегодня')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Заданий нет/)).not.toBeInTheDocument()
   })
 
   it('показывает и невыполненные, и выполненные, со счётчиком', () => {
@@ -72,7 +72,7 @@ describe('ChildCard с заданиями', () => {
       </MemoryRouter>,
     )
     const schedule = screen.getByRole('link', { name: /Миша/ })
-    expect(schedule).toHaveAttribute('href', '/family/c1/schedule')
+    expect(schedule).toHaveAttribute('href', '/family/c1')
     expect(schedule).not.toContainElement(screen.getByRole('link', { name: /Собрать портфель/ }))
     expect(screen.getByRole('link', { name: /Собрать портфель/ })).toHaveAttribute('href', '/tasks/a?date=2026-10-11')
   })
@@ -95,12 +95,18 @@ describe('ChildCard: кабинеты уроков', () => {
     { weekday: 1, subject: 'Физика', startsAt: null, endsAt: null, room: null },
   ]
 
-  it('у предмета с кабинетом он указан в скобках, у остальных нет', () => {
+  it('уроки в столбик, у предмета с кабинетом он указан рядом, у остальных нет', () => {
     render(
       <MemoryRouter>
         <ChildCard child={child} lessons={lessons} now={new Date(2026, 9, 11, 10)} />
       </MemoryRouter>,
     )
-    expect(screen.getByText('Химия (каб. 12а) · Физика')).toBeInTheDocument()
+    // уроки столбиком: у каждого своя строка, кабинет рядом с предметом
+    const rows = within(screen.getByRole('list', { name: 'Уроки: Миша' })).getAllByRole('listitem')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toHaveTextContent('1Химия')
+    expect(rows[0]).toHaveTextContent('каб. 12а')
+    expect(rows[1]).toHaveTextContent('2Физика')
+    expect(rows[1]).not.toHaveTextContent('каб.')
   })
 })

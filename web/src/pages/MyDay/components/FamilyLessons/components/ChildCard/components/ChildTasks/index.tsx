@@ -22,24 +22,23 @@ function TaskRow({ task, occurrence }: TaskEntry) {
 }
 
 // Задания ребёнка для родителя одним списком: на сегодня (выполненные зачёркнуты и остаются) и затем без срока.
+// Заданий нет: блока нет совсем, ничего про них не пишем.
 export function ChildTasks({ tasks }: ChildTasksProps) {
   if (tasks === undefined) return null
 
   const all = [...tasks.today, ...tasks.undated]
+  if (all.length === 0) return null
   const done = all.filter((e) => e.occurrence.done !== null).length
 
   return (
     <Section>
       <Heading>
         <span>Задания на сегодня</span>
-        {all.length > 0 && <span>выполнено {done} из {all.length}</span>}
+        <span>выполнено {done} из {all.length}</span>
       </Heading>
-      {all.length === 0 && <Heading>Заданий нет.</Heading>}
-      {all.length > 0 && (
-        <List>
-          {all.map((entry) => <TaskRow key={`${entry.task.id}|${entry.occurrence.date ?? 'none'}`} {...entry} />)}
-        </List>
-      )}
+      <List>
+        {all.map((entry) => <TaskRow key={`${entry.task.id}|${entry.occurrence.date ?? 'none'}`} {...entry} />)}
+      </List>
     </Section>
   )
 }

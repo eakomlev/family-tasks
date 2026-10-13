@@ -1,7 +1,7 @@
 import { Avatar } from '@/components/Avatar'
 import { capitalize, lessonsForDay, pickLessonDay, pickTrainingDay, trainingSummary } from '../../../../utils'
 import { ChildTasks } from './components/ChildTasks'
-import { Card, Meta, Schedule, Name, Subjects, Top, Training, When } from './styles'
+import { Card, LessonNumber, Lessons, Meta, Name, Room, Schedule, Subjects, Top, Training, When } from './styles'
 import type { ChildCardProps } from './types'
 import { dayRange, pluralLessons } from './utils'
 
@@ -12,27 +12,35 @@ export function ChildCard({ child, lessons, trainings, tasks, now }: ChildCardPr
   const range = dayRange(dayLessons)
   const training = trainings ? pickTrainingDay(now, trainings) : null
 
-  let subjects: string | undefined
+  // либо пояснение (загрузка, ошибка, уроков нет), либо уроки столбиком
+  let message: string | undefined
   let meta: string | undefined
-  if (lessons === undefined) subjects = 'Загрузка…'
-  else if (lessons === null) subjects = 'Не удалось загрузить расписание.'
-  else if (lessons.length === 0) subjects = 'Расписание не составлено.'
-  else if (dayLessons.length === 0) subjects = `${capitalize(day?.label ?? '')} уроков нет.`
-  else {
-    // кабинет в скобках после предмета, если указан
-    subjects = dayLessons.map((l) => (l.room ? `${l.subject} (каб. ${l.room})` : l.subject)).join(' · ')
-    meta = [pluralLessons(dayLessons.length), range].filter(Boolean).join(' · ')
-  }
+  if (lessons === undefined) message = 'Загрузка…'
+  else if (lessons === null) message = 'Не удалось загрузить расписание.'
+  else if (lessons.length === 0) message = 'Расписание не составлено.'
+  else if (dayLessons.length === 0) message = `${capitalize(day?.label ?? '')} уроков нет.`
+  else meta = [pluralLessons(dayLessons.length), range].filter(Boolean).join(' · ')
 
   return (
     <Card>
-      <Schedule to={`/family/${child.id}/schedule`}>
-      <Avatar name={child.name} seed={child.id} src={child.avatar} size="2rem" />
+      <Schedule to={`/family/${child.id}`}>
+      <Avatar name={child.name} seed={child.id} src={child.avatar} size="3rem" />
       <Top>
         <Name>{child.name}</Name>
         {day && dayLessons.length > 0 && <When>{day.label}</When>}
       </Top>
-      <Subjects>{subjects}</Subjects>
+      {message && <Subjects>{message}</Subjects>}
+      {!message && (
+        <Lessons aria-label={`Уроки: ${child.name}`}>
+          {dayLessons.map((lesson, index) => (
+            <li key={lesson.key}>
+              <LessonNumber aria-hidden>{index + 1}</LessonNumber>
+              <span>{lesson.subject}</span>
+              {lesson.room && <Room>каб. {lesson.room}</Room>}
+            </li>
+          ))}
+        </Lessons>
+      )}
       {meta && <Meta>{meta}</Meta>}
       {training && (
         <Training>
