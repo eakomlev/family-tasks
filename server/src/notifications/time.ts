@@ -24,15 +24,6 @@ export const TRAINING_WINDOW_MINUTES = 15
 
 export type Slot = { hour: number; windowMinutes: number }
 
-export function isValidTimeZone(timeZone: string): boolean {
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone })
-    return true
-  } catch {
-    return false
-  }
-}
-
 // Какое сейчас время и дата в часовом поясе устройства (выбросит RangeError, если пояс неизвестен).
 export function localTime(at: Date, timeZone: string): LocalTime {
   const parts = new Intl.DateTimeFormat('en-US', {

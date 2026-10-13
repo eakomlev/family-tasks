@@ -1,13 +1,5 @@
+import type { PushMessage } from '../outbox/contract.js'
 import { addDays, TRAINING_LEAD_MINUTES, TRAINING_WINDOW_MINUTES, type LocalTime } from './time.js'
-
-export interface PushMessage {
-  title: string
-  body: string
-  // куда ведёт нажатие на уведомление
-  url: string
-  // уведомления с одним tag заменяют друг друга
-  tag: string
-}
 
 export interface MemberInfo {
   id: string

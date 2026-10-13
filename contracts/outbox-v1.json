@@ -1,0 +1,10 @@
+{
+  "comment": "Образец payload очереди outbox версии 1. Его проверяют тесты server, notifier (и scheduler): так копии контракта не расходятся. Менять только обратно совместимо.",
+  "message": { "title": "Заголовок", "body": "Текст", "url": "/tasks", "tag": "test" },
+  "email": { "v": 1, "kind": "code", "to": "q@test.local", "code": "123456", "ttlMinutes": 10 },
+  "push": {
+    "v": 1,
+    "subscriptionId": "b5d1c1de-0000-4000-8000-000000000000",
+    "message": { "title": "Заголовок", "body": "Текст", "url": "/tasks", "tag": "test" }
+  }
+}

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { authenticate } from './auth.js'
 import { pool } from './db.js'
-import { isValidTimeZone } from './notifications/time.js'
+import { isValidTimeZone } from './lib/timeZone.js'
 import { enqueue, PRIORITY } from './outbox/index.js'
 
 // Серверу нужен только публичный ключ (его просит браузер для подписки). Приватный ключ и отправка у сервиса notifier.

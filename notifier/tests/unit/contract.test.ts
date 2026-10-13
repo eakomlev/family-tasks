@@ -1,10 +1,10 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { parsePayload } from '../../src/contract.js'
 
-// Те же примеры payload проверяет server (server/tests/api/outbox.test.ts): так контракт не расходится.
-const email = { v: 1, kind: 'code', to: 'q@test.local', code: '123456', ttlMinutes: 10 }
-const message = { title: 'Заголовок', body: 'Текст', url: '/tasks', tag: 'test' }
-const push = { v: 1, subscriptionId: 'b5d1c1de-0000-4000-8000-000000000000', message }
+// Общий образец (contracts/outbox-v1.json) проверяет и server (server/tests/api/outbox.test.ts): так контракт не расходится.
+const sample = JSON.parse(readFileSync(new URL('../../../contracts/outbox-v1.json', import.meta.url), 'utf8'))
+const { email, push, message } = sample
 
 describe('parsePayload', () => {
   it('принимает письмо с кодом и push из server', () => {

@@ -1,4 +1,4 @@
-import type { PushMessage } from '../notifications/messages.js'
+import type { PushMessage } from '../outbox/contract.js'
 import type { RepeatType } from './recurrence.js'
 
 export interface TaskDto {

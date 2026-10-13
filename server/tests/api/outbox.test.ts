@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -17,7 +18,9 @@ afterAll(async () => {
   await pool.end()
 })
 
-const message = { title: 'Заголовок', body: 'Текст', url: '/tasks', tag: 'test' }
+// общий образец payload очереди (его проверяет и notifier)
+const sample = JSON.parse(readFileSync(new URL('../../../contracts/outbox-v1.json', import.meta.url), 'utf8'))
+const message = sample.message
 const subscriptionId = async (endpoint: string) =>
   (await pool.query('select id from push_subscriptions where endpoint = $1', [endpoint])).rows[0].id as string
 
@@ -53,8 +56,8 @@ describe('enqueueToMember', () => {
 })
 
 describe('очередь', () => {
-  // payload читает сервис notifier: тот же пример проверяет его контракт (notifier/tests/unit/contract.test.ts)
-  const emailPayload = { v: 1, kind: 'code', to: 'q@test.local', code: '123456', ttlMinutes: 10 }
+  // payload читает сервис notifier: тот же образец (contracts/outbox-v1.json) проверяет notifier/tests/unit/contract.test.ts
+  const emailPayload = sample.email
   const rowFor = async (match: string) =>
     (await pool.query(`select * from outbox where payload::text like $1 order by id desc limit 1`, [`%${match}%`])).rows[0]
 

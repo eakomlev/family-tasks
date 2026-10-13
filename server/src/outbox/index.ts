@@ -1,7 +1,6 @@
 import type pg from 'pg'
-import type { PushMessage } from '../notifications/messages.js'
 import { pushEnabled } from '../push.js'
-import { PRIORITY, type OutboxItem, type Priority } from './contract.js'
+import { PRIORITY, type OutboxItem, type Priority, type PushMessage } from './contract.js'
 import { enqueueRow } from './queueDriver.js'
 
 export type Db = pg.Pool | pg.PoolClient

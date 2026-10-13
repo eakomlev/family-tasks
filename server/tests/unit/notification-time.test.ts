@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, isDue, isValidTimeZone, localTime, SLOTS } from '../../src/notifications/time.js'
+import { isValidTimeZone } from '../../src/lib/timeZone.js'
+import { addDays, isDue, localTime, SLOTS } from '../../src/notifications/time.js'
 
 describe('localTime', () => {
   it('один момент по-разному в разных часовых поясах', () => {

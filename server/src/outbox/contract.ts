@@ -1,7 +1,15 @@
-import type { PushMessage } from '../notifications/messages.js'
 
 // Контракт между server и будущим сервисом notifier (docs/notification-queue-plan.md).
 // Менять можно только обратно совместимо: несовместимое изменение требует новой версии `v`.
+
+export interface PushMessage {
+  title: string
+  body: string
+  // куда ведёт нажатие на уведомление
+  url: string
+  // уведомления с одним tag заменяют друг друга
+  tag: string
+}
 
 export const PAYLOAD_VERSION = 1
 
