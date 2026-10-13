@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ApiError } from '@/api'
 import { CodeStep } from '@/components/CodeStep'
 
 function setup(over: Partial<Parameters<typeof CodeStep>[0]> = {}) {
@@ -87,6 +88,26 @@ describe('CodeStep', () => {
     expect(props.onResend).toHaveBeenCalled()
     expect(screen.getByText(/Не удалось отправить код/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Отправить код ещё раз' })).toBeEnabled()
+  })
+
+  it('повторная отправка при исчерпанном лимите писем: понятное сообщение, кнопка остаётся доступной', async () => {
+    const props = setup({ onResend: vi.fn().mockRejectedValue(new ApiError(503, 'mail_busy')) })
+    await tick(60)
+    await act(async () => click('Отправить код ещё раз'))
+    expect(props.onResend).toHaveBeenCalled()
+    expect(screen.getByText('Сервис отправки писем сейчас перегружен. Попробуйте позже.')).toBeInTheDocument()
+    expect(screen.queryByText(/Не удалось отправить код/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Отправить код ещё раз' })).toBeEnabled()
+  })
+
+  it('ошибка повторной отправки пропадает при следующей попытке', async () => {
+    const onResend = vi.fn().mockRejectedValueOnce(new ApiError(503, 'mail_busy')).mockResolvedValue(undefined)
+    setup({ onResend })
+    await tick(60)
+    await act(async () => click('Отправить код ещё раз'))
+    expect(screen.getByText(/перегружен/)).toBeInTheDocument()
+    await act(async () => click('Отправить код ещё раз'))
+    expect(screen.queryByText(/перегружен/)).not.toBeInTheDocument()
   })
 
   it('показывает ошибку, переданную сверху, и «Изменить email»', async () => {

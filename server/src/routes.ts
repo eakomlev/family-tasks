@@ -15,7 +15,8 @@ import {
 import { familyCode, hashToken, inviteCode } from './codes.js'
 import { pool } from './db.js'
 import { coinBalance } from './coins.js'
-import { enqueue, PRIORITY } from './outbox/index.js'
+import { mailBudgetExhausted } from './outbox/budget.js'
+import { enqueue, PRIORITY, queueEnabled } from './outbox/index.js'
 import { closeSession, publish } from './realtime.js'
 
 const INVITE_TTL_DAYS = 7
@@ -170,6 +171,11 @@ export async function routes(app: FastifyInstance) {
     async (req, reply) => {
       const email = normalizeEmail(req.body.email)
       const { purpose } = req.body
+
+      // Очередь: письма отправляет notifier в пределах дневного бюджета. Если он исчерпан, код не дойдёт до истечения
+      // (10 минут), поэтому честно отказываем сразу. Проверка первая и не зависит от адреса, так что ответ ничего
+      // не раскрывает, а код и пауза «раз в минуту» не создаются: после освобождения бюджета можно сразу повторить.
+      if (queueEnabled() && (await mailBudgetExhausted(pool))) return reply.code(503).send({ error: 'mail_busy' })
 
       const code = await issueEmailCode(email, purpose)
       if (!code) return reply.code(429).send({ error: 'too_soon' })

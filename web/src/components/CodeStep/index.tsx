@@ -4,6 +4,7 @@ import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
+import { describeResendError } from '@/lib/errors'
 import type { CodeStepProps } from './types'
 import { isCompleteCode, RESEND_SECONDS, sanitizeCode } from './utils'
 
@@ -11,7 +12,7 @@ import { isCompleteCode, RESEND_SECONDS, sanitizeCode } from './utils'
 export function CodeStep({ email, busy, error, submitLabel, onSubmit, onResend, onChangeEmail }: CodeStepProps) {
   const [code, setCode] = useState('')
   const [wait, setWait] = useState(RESEND_SECONDS)
-  const [resendError, setResendError] = useState(false)
+  const [resendError, setResendError] = useState<string>()
 
   useEffect(() => {
     if (wait <= 0) return
@@ -27,12 +28,12 @@ export function CodeStep({ email, busy, error, submitLabel, onSubmit, onResend, 
   }
 
   async function resend() {
-    setResendError(false)
+    setResendError(undefined)
     try {
       await onResend()
       setWait(RESEND_SECONDS)
-    } catch {
-      setResendError(true)
+    } catch (err) {
+      setResendError(describeResendError(err))
     }
   }
 
@@ -52,7 +53,7 @@ export function CodeStep({ email, busy, error, submitLabel, onSubmit, onResend, 
       </Field>
 
       {error && <Notice $tone="error">{error}</Notice>}
-      {resendError && <Notice $tone="error">Не удалось отправить код. Попробуйте позже.</Notice>}
+      {resendError && <Notice $tone="error">{resendError}</Notice>}
 
       <Button $variant="primary" type="submit" disabled={!ready}>
         {busy ? 'Подождите…' : submitLabel}

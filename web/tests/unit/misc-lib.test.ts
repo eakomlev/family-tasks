@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/api'
-import { describeCodeError, isTooSoon } from '@/lib/errors'
+import { describeCodeError, describeResendError, isTooSoon } from '@/lib/errors'
 import { isValidEmail } from '@/lib/validation'
 import { isoWeekday, WEEK_DAYS } from '@/lib/weekdays'
 import { describeDue, describeRepeat } from '@/lib/taskText'
@@ -59,6 +59,16 @@ describe('тексты ошибок', () => {
     expect(describeCodeError(new ApiError(429, 'too_soon'))).toMatch(/Подождите минуту/)
     expect(describeCodeError(new ApiError(0, 'network'))).toMatch(/Нет связи/)
     expect(describeCodeError(new Error('x'))).toMatch(/Не удалось отправить код/)
+  })
+  it('describeCodeError: лимит писем исчерпан', () => {
+    expect(describeCodeError(new ApiError(503, 'mail_busy'))).toBe('Сервис отправки писем сейчас перегружен. Попробуйте позже.')
+  })
+  it('describeResendError: понятные причины как есть, остальное общим текстом', () => {
+    expect(describeResendError(new ApiError(503, 'mail_busy'))).toMatch(/перегружен/)
+    expect(describeResendError(new ApiError(429, 'too_soon'))).toMatch(/Подождите минуту/)
+    expect(describeResendError(new ApiError(0, 'network'))).toMatch(/Нет связи/)
+    expect(describeResendError(new ApiError(500, 'internal_error'))).toBe('Не удалось отправить код. Попробуйте позже.')
+    expect(describeResendError(new Error('x'))).toBe('Не удалось отправить код. Попробуйте позже.')
   })
   it('isTooSoon', () => {
     expect(isTooSoon(new ApiError(429, 'too_soon'))).toBe(true)

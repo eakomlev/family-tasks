@@ -1,5 +1,5 @@
 import { pool } from '../db.js'
-import { enqueue, PRIORITY, type Db } from '../outbox/index.js'
+import { enqueue, PRIORITY, queueEnabled, type Db } from '../outbox/index.js'
 import { pushEnabled } from '../push.js'
 import {
   birthdayMessages,
@@ -76,7 +76,7 @@ export async function runTick(now = new Date()): Promise<{ sent: number }> {
   // и следующий проход (в пределах окна догона) попробует снова, а не потеряет напоминание за день.
   // Без очереди (прямая отправка) транзакция запрещена: ответ 410 удаляет подписку другим соединением, а удаление ждёт
   // блокировку, которую держит эта же транзакция (журнал ссылается на подписку), и проход завис бы.
-  const transactional = process.env.QUEUE_ENABLED === 'true'
+  const transactional = queueEnabled()
   const tx = transactional ? await pool.connect() : undefined
   try {
     for (const sub of subs) {

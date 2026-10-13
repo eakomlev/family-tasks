@@ -4,7 +4,7 @@ import { authenticate } from './auth.js'
 import { pool } from './db.js'
 import type { PushMessage } from './notifications/messages.js'
 import { isValidTimeZone } from './notifications/time.js'
-import { enqueue, PRIORITY } from './outbox/index.js'
+import { enqueue, PRIORITY, queueEnabled } from './outbox/index.js'
 
 const publicKey = process.env.VAPID_PUBLIC_KEY
 const privateKey = process.env.VAPID_PRIVATE_KEY
@@ -165,7 +165,7 @@ export async function pushRoutes(app: FastifyInstance) {
 
     // Очередь: отправляет notifier, итог сразу неизвестен. Считаем принятые в очередь; поля sent/failed оставлены,
     // чтобы клиент прежней версии показал «Отправили».
-    if (process.env.QUEUE_ENABLED === 'true') {
+    if (queueEnabled()) {
       await Promise.all(
         rows.map((sub) => enqueue(pool, { channel: 'push', priority: PRIORITY.event, payload: { v: 1, subscriptionId: sub.id, message } })),
       )
