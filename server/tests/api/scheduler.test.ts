@@ -1,11 +1,14 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import pg from 'pg'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('web-push', () => ({
   default: { setVapidDetails: vi.fn(), sendNotification: vi.fn(async () => ({ statusCode: 201 })) },
 }))
 
 import { pool } from '../../src/db.js'
-import { runTick } from '../../src/notifications/scheduler.js'
+import webpush from 'web-push'
+import { runTick, runTickAsLeader, SCHEDULER_LOCK_KEY } from '../../src/notifications/scheduler.js'
+import * as outbox from '../../src/outbox/index.js'
 import { createFamily, removeFamilies, type TestFamily } from '../helpers.js'
 import { resetSent, sentTo, subscribe } from '../webpush.js'
 
@@ -113,5 +116,92 @@ describe('устойчивость', () => {
     await pool.query(`update push_subscriptions set time_zone = 'Mars/Base' where endpoint = $1`, [endpoints.mom])
     await expect(runTick(at('01:07'))).resolves.toBeDefined()
     await pool.query(`update push_subscriptions set time_zone = 'Asia/Tokyo' where endpoint = $1`, [endpoints.mom])
+  })
+})
+
+// Папа в этом файле не подписан: на его подписке проверяем сбои, каждый раз заводя её заново (новый id, чистый журнал).
+describe('надёжность постановки', () => {
+  const bday = 'Сегодня день рождения 🎂'
+  const freshDad = async () => {
+    await pool.query('delete from push_subscriptions where member_id = $1', [fam.dad.id])
+    return subscribe(fam.dad.id, 'Asia/Tokyo')
+  }
+  const loggedFor = async (endpoint: string) =>
+    (await pool.query(
+      `select count(*)::int as n from notification_log l join push_subscriptions s on s.id = l.subscription_id where s.endpoint = $1`,
+      [endpoint],
+    )).rows[0].n as number
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllEnvs()
+  })
+
+  it('прямая отправка (без очереди): ответ 410 удаляет подписку, а проход не зависает', async () => {
+    vi.stubEnv('QUEUE_ENABLED', 'false')
+    const endpoint = await freshDad()
+    vi.mocked(webpush.sendNotification).mockImplementation((async () => { throw { statusCode: 410, message: 'gone' } }) as never)
+
+    await runTick(at('01:08'))
+
+    expect((await pool.query('select 1 from push_subscriptions where endpoint = $1', [endpoint])).rowCount).toBe(0)
+  })
+
+  it('сбой постановки откатывает и запись в журнал: напоминание не теряется, а уходит со следующим проходом', async () => {
+    const endpoint = await freshDad()
+    const failing = vi.spyOn(outbox, 'enqueue').mockRejectedValueOnce(new Error('очередь недоступна'))
+
+    await expect(runTick(at('01:08'))).rejects.toThrow('очередь недоступна')
+    expect(failing).toHaveBeenCalled()
+    expect(await loggedFor(endpoint)).toBe(0)
+    expect(await sentTo([endpoint])).toEqual([])
+
+    vi.restoreAllMocks()
+    await runTick(at('01:09'))
+    expect((await sentTo([endpoint])).map((m) => m.payload.title)).toEqual([bday])
+    expect(await loggedFor(endpoint)).toBe(1)
+  })
+
+  describe('лидер планировщика (advisory lock)', () => {
+    const lockHolder = async () => {
+      const client = new pg.Client({ connectionString: process.env.DATABASE_URL })
+      await client.connect()
+      return client
+    }
+    const tryLock = async () => {
+      const client = await lockHolder()
+      try {
+        const { rows } = await client.query('select pg_try_advisory_lock($1) as locked', [SCHEDULER_LOCK_KEY])
+        return rows[0].locked as boolean
+      } finally {
+        await client.end()
+      }
+    }
+
+    it('пока другой экземпляр ведёт планировщик, проход пропускается и ничего не ставится', async () => {
+      const endpoint = await freshDad()
+      const other = await lockHolder()
+      try {
+        await other.query('select pg_advisory_lock($1)', [SCHEDULER_LOCK_KEY])
+        expect(await runTickAsLeader(at('01:08'))).toEqual({ sent: 0, leader: false })
+        expect(await sentTo([endpoint])).toEqual([])
+      } finally {
+        await other.end()
+      }
+      // лидер пропал (соединение закрыто): блокировка свободна, проход выполняется
+      const result = await runTickAsLeader(at('01:08'))
+      expect(result.leader).toBe(true)
+      expect((await sentTo([endpoint])).map((m) => m.payload.title)).toEqual([bday])
+    })
+
+    it('после прохода блокировка снята, в том числе если проход упал', async () => {
+      expect((await runTickAsLeader(at('01:08'))).leader).toBe(true)
+      expect(await tryLock()).toBe(true)
+
+      await freshDad()
+      vi.spyOn(outbox, 'enqueue').mockRejectedValueOnce(new Error('сбой'))
+      await expect(runTickAsLeader(at('01:08'))).rejects.toThrow('сбой')
+      expect(await tryLock()).toBe(true)
+    })
   })
 })
