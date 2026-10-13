@@ -12,7 +12,10 @@ const KEYBOARD_MIN_PX = 150
 //   --keyboard-inset: на сколько нижний край видимой области выше нижнего края слоя раскладки (0 без клавиатуры) —
 //     этим отступом, а не sticky/fixed к слою раскладки, прижимают элемент к видимому низу экрана;
 //   data-keyboard: атрибут, пока клавиатура открыта (стили прячут панель табов и прижимают поле ввода к низу).
-// onChange вызывается при каждом изменении видимой области (например, чтобы прокрутить переписку вниз).
+// onChange вызывается только при открытии или закрытии клавиатуры (например, чтобы прокрутить переписку вниз), а не
+// на каждое микро-изменение видимой области: на мобильных браузерах resize visualViewport сыплется и от самого скролла
+// страницы (сворачивается адресная строка), и вызов callback на каждый такой тик без разбора откатывал бы к низу любую
+// ручную попытку прокрутки — независимо от того, открыта клавиатура или нет.
 export function useKeyboardViewport(onChange?: () => void) {
   const callback = useRef(onChange)
   useEffect(() => {
@@ -23,21 +26,22 @@ export function useKeyboardViewport(onChange?: () => void) {
     const vv = window.visualViewport
     if (!vv) return
     const root = document.documentElement
+    let open = false
 
     const apply = () => {
       root.style.setProperty('--vvh', `${vv.height}px`)
       root.style.setProperty('--keyboard-inset', `${Math.max(0, window.innerHeight - vv.height - vv.offsetTop)}px`)
-      if (window.innerHeight - vv.height > KEYBOARD_MIN_PX) root.dataset.keyboard = ''
+      const next = window.innerHeight - vv.height > KEYBOARD_MIN_PX
+      if (next === open) return
+      open = next
+      if (open) root.dataset.keyboard = ''
       else delete root.dataset.keyboard
       callback.current?.()
     }
     apply()
-    // scroll видимой области (а не страницы): при наборе клавиатура может подрастать (панель подсказок), сдвигая offsetTop
     vv.addEventListener('resize', apply)
-    vv.addEventListener('scroll', apply)
     return () => {
       vv.removeEventListener('resize', apply)
-      vv.removeEventListener('scroll', apply)
       root.style.removeProperty('--vvh')
       root.style.removeProperty('--keyboard-inset')
       delete root.dataset.keyboard
