@@ -77,6 +77,16 @@ function Conversation({ chat }: { chat: string | undefined }) {
     if (stick.current) scrollToBottom()
   })
 
+  // открытая клавиатура на iOS шлёт resize видимой области на каждое изменение (например, панель подсказок при наборе),
+  // и без этого ручная прокрутка вверх сразу откатывалась бы к прежнему stick.current из последней загрузки сообщений
+  useEffect(() => {
+    const onScroll = () => {
+      stick.current = isNearBottom()
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   // пока чат открыт, пуши о его сообщениях не нужны
   useViewingChat(chat)
 
