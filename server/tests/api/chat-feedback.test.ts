@@ -1,8 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-
-vi.mock('web-push', () => ({
-  default: { setVapidDetails: vi.fn(), sendNotification: vi.fn(async () => ({ statusCode: 201 })) },
-}))
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { buildApp } from '../../src/app.js'
 import { REACTIONS } from '../../src/chat.js'

@@ -16,7 +16,7 @@ import { familyCode, hashToken, inviteCode } from './codes.js'
 import { pool } from './db.js'
 import { coinBalance } from './coins.js'
 import { mailBudgetExhausted } from './outbox/budget.js'
-import { enqueue, PRIORITY, queueEnabled } from './outbox/index.js'
+import { enqueue, PRIORITY } from './outbox/index.js'
 import { closeSession, publish } from './realtime.js'
 
 const INVITE_TTL_DAYS = 7
@@ -172,30 +172,43 @@ export async function routes(app: FastifyInstance) {
       const email = normalizeEmail(req.body.email)
       const { purpose } = req.body
 
-      // Очередь: письма отправляет notifier в пределах дневного бюджета. Если он исчерпан, код не дойдёт до истечения
-      // (10 минут), поэтому честно отказываем сразу. Проверка первая и не зависит от адреса, так что ответ ничего
-      // не раскрывает, а код и пауза «раз в минуту» не создаются: после освобождения бюджета можно сразу повторить.
-      if (queueEnabled() && (await mailBudgetExhausted(pool))) return reply.code(503).send({ error: 'mail_busy' })
+      // Письма отправляет notifier в пределах дневного бюджета. Если он исчерпан, код не дойдёт до истечения (10 минут),
+      // поэтому честно отказываем сразу. Проверка первая и не зависит от адреса, так что ответ ничего не раскрывает,
+      // а код и пауза «раз в минуту» не создаются: после освобождения бюджета можно сразу повторить.
+      if (await mailBudgetExhausted(pool)) return reply.code(503).send({ error: 'mail_busy' })
 
-      const code = await issueEmailCode(email, purpose)
-      if (!code) return reply.code(429).send({ error: 'too_soon' })
-
-      if (purpose === 'login') {
-        const known = await pool.query('select 1 from members where email = $1 limit 1', [email])
-        if (!known.rows[0]) return reply.code(204).send()
-      }
-
+      // Код и письмо в очереди фиксируются вместе: сбой очереди не оставит «код есть, письма нет» и не включит паузу.
+      const tx = await pool.connect()
       try {
-        await enqueue(pool, { channel: 'email', priority: PRIORITY.code, payload: { v: 1, kind: 'code', to: email, code, ttlMinutes: CODE_TTL } })
-      } catch (err) {
-        app.log.error(err, 'failed to send email code')
-        // при входе тоже молчим, иначе ошибка выдала бы, что email известен
-        if (purpose === 'signup') {
-          await discardEmailCode(pool, email, purpose)
-          return reply.code(502).send({ error: 'mail_failed' })
+        await tx.query('begin')
+        const code = await issueEmailCode(email, purpose, tx)
+        if (!code) {
+          await tx.query('rollback')
+          return reply.code(429).send({ error: 'too_soon' })
         }
+
+        // при входе письмо уходит только известному адресу, а ответ одинаков для любого
+        const send =
+          purpose === 'signup' || (await tx.query('select 1 from members where email = $1 limit 1', [email])).rows.length > 0
+        if (send) {
+          try {
+            await enqueue(tx, { channel: 'email', priority: PRIORITY.code, payload: { v: 1, kind: 'code', to: email, code, ttlMinutes: CODE_TTL } })
+          } catch (err) {
+            await tx.query('rollback').catch(() => {})
+            app.log.error(err, 'failed to queue email code')
+            // при входе молчим, иначе ошибка выдала бы, что email известен; при регистрации честный сбой
+            if (purpose === 'login') return reply.code(204).send()
+            throw err
+          }
+        }
+        await tx.query('commit')
+        return reply.code(204).send()
+      } catch (err) {
+        await tx.query('rollback').catch(() => {})
+        throw err
+      } finally {
+        tx.release()
       }
-      return reply.code(204).send()
     },
   )
 

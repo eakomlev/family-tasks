@@ -31,6 +31,3 @@ export interface PushPayload {
 export type OutboxItem =
   | { channel: 'email'; priority: Priority; payload: EmailPayload }
   | { channel: 'push'; priority: Priority; payload: PushPayload }
-
-// 'queued' вернёт драйвер очереди; пока драйвер синхронный, возвращается итог отправки.
-export type EnqueueResult = 'queued' | 'sent' | 'gone' | 'failed'

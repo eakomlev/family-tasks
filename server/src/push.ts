@@ -1,23 +1,14 @@
 import type { FastifyInstance } from 'fastify'
-import webpush from 'web-push'
 import { authenticate } from './auth.js'
 import { pool } from './db.js'
-import type { PushMessage } from './notifications/messages.js'
 import { isValidTimeZone } from './notifications/time.js'
-import { enqueue, PRIORITY, queueEnabled } from './outbox/index.js'
+import { enqueue, PRIORITY } from './outbox/index.js'
 
+// Серверу нужен только публичный ключ (его просит браузер для подписки). Приватный ключ и отправка у сервиса notifier.
+// Без публичного ключа push выключен: маршруты отвечают 503, уведомления не ставятся в очередь.
 const publicKey = process.env.VAPID_PUBLIC_KEY
-const privateKey = process.env.VAPID_PRIVATE_KEY
 
-export const pushEnabled = Boolean(publicKey && privateKey)
-
-if (pushEnabled) {
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT ?? 'mailto:admin@family-tasks.local',
-    publicKey!,
-    privateKey!,
-  )
-}
+export const pushEnabled = Boolean(publicKey)
 
 // Сервер сам делает запрос на адрес из подписки, поэтому принимаем только адреса известных push-сервисов:
 // иначе любой участник мог бы заставить сервер обращаться к произвольным https-адресам (SSRF).
@@ -34,36 +25,6 @@ export function isAllowedEndpoint(endpoint: string): boolean {
   if (url.protocol !== 'https:') return false
   const extra = (process.env.PUSH_ALLOWED_HOSTS ?? '').split(',').map((h) => h.trim()).filter(Boolean)
   return extra.includes(url.hostname) || ALLOWED_SUFFIXES.some((suffix) => url.hostname.endsWith(suffix))
-}
-
-export interface StoredSubscription {
-  id: string
-  endpoint: string
-  p256dh: string
-  auth: string
-}
-
-export type SendResult = 'sent' | 'gone' | 'failed'
-
-export async function sendPush(sub: StoredSubscription, message: PushMessage): Promise<SendResult> {
-  try {
-    await webpush.sendNotification(
-      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-      JSON.stringify(message),
-      // если устройство долго недоступно, уведомление уже не нужно
-      { TTL: 6 * 60 * 60 },
-    )
-    return 'sent'
-  } catch (err) {
-    const status = (err as { statusCode?: number }).statusCode
-    // подписка отозвана или устарела: удаляем, чтобы не слать впустую
-    if (status === 404 || status === 410) {
-      await pool.query('delete from push_subscriptions where id = $1', [sub.id])
-      return 'gone'
-    }
-    console.error('push failed', status ?? '', (err as Error).message)
-    return 'failed'
-  }
 }
 
 const strictLimit = { rateLimit: { max: 10, timeWindow: '1 minute' } }
@@ -150,10 +111,7 @@ export async function pushRoutes(app: FastifyInstance) {
     if (!me) return reply.code(401).send({ error: 'unauthorized' })
     if (!pushEnabled) return reply.code(503).send({ error: 'push_not_configured' })
 
-    const { rows } = await pool.query(
-      'select id, endpoint, p256dh, auth from push_subscriptions where member_id = $1',
-      [me.id],
-    )
+    const { rows } = await pool.query<{ id: string }>('select id from push_subscriptions where member_id = $1', [me.id])
     if (rows.length === 0) return reply.code(404).send({ error: 'no_subscriptions' })
 
     const message = {
@@ -163,16 +121,11 @@ export async function pushRoutes(app: FastifyInstance) {
       tag: 'test',
     }
 
-    // Очередь: отправляет notifier, итог сразу неизвестен. Считаем принятые в очередь; поля sent/failed оставлены,
-    // чтобы клиент прежней версии показал «Отправили».
-    if (queueEnabled()) {
-      await Promise.all(
-        rows.map((sub) => enqueue(pool, { channel: 'push', priority: PRIORITY.event, payload: { v: 1, subscriptionId: sub.id, message } })),
-      )
-      return { queued: rows.length, sent: rows.length, failed: 0 }
-    }
-
-    const results = await Promise.all(rows.map((sub) => sendPush(sub, message)))
-    return { sent: results.filter((r) => r === 'sent').length, failed: results.filter((r) => r !== 'sent').length }
+    // Отправляет notifier, итог сразу неизвестен: считаем принятые в очередь. Поля sent и failed оставлены, чтобы клиент
+    // прежней версии показал «Отправили».
+    await Promise.all(
+      rows.map((sub) => enqueue(pool, { channel: 'push', priority: PRIORITY.event, payload: { v: 1, subscriptionId: sub.id, message } })),
+    )
+    return { queued: rows.length, sent: rows.length, failed: 0 }
   })
 }

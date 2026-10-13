@@ -1,5 +1,5 @@
 import { pool } from '../db.js'
-import { enqueue, PRIORITY, queueEnabled, type Db } from '../outbox/index.js'
+import { enqueue, PRIORITY, type Db } from '../outbox/index.js'
 import { pushEnabled } from '../push.js'
 import {
   birthdayMessages,
@@ -72,12 +72,9 @@ export async function runTick(now = new Date()): Promise<{ sent: number }> {
   const trainings = new Map<string, TrainingInfo[]>()
   let sent = 0
 
-  // С очередью запись в журнал и постановка идут в одной транзакции: если очередь недоступна, журнал откатывается,
+  // Запись в журнал и постановка в очередь идут в одной транзакции: если очередь недоступна, журнал откатывается,
   // и следующий проход (в пределах окна догона) попробует снова, а не потеряет напоминание за день.
-  // Без очереди (прямая отправка) транзакция запрещена: ответ 410 удаляет подписку другим соединением, а удаление ждёт
-  // блокировку, которую держит эта же транзакция (журнал ссылается на подписку), и проход завис бы.
-  const transactional = queueEnabled()
-  const tx = transactional ? await pool.connect() : undefined
+  const tx = await pool.connect()
   try {
     for (const sub of subs) {
       let local: LocalTime
@@ -107,22 +104,16 @@ export async function runTick(now = new Date()): Promise<{ sent: number }> {
       }
 
       for (const { kind, message, day } of planned) {
-        const send = async (db: Db) => {
-          if (!(await claim(db, sub.id, kind, day ?? local.date))) return
-          const result = await enqueue(db, {
-            channel: 'push',
-            priority: PRIORITY.planned,
-            payload: { v: 1, subscriptionId: sub.id, message },
-          })
-          if (result === 'sent' || result === 'queued') sent++
-        }
-        if (!tx) {
-          await send(pool)
-          continue
-        }
         await tx.query('begin')
         try {
-          await send(tx)
+          if (await claim(tx, sub.id, kind, day ?? local.date)) {
+            await enqueue(tx, {
+              channel: 'push',
+              priority: PRIORITY.planned,
+              payload: { v: 1, subscriptionId: sub.id, message },
+            })
+            sent++
+          }
           await tx.query('commit')
         } catch (err) {
           await tx.query('rollback').catch(() => {})
@@ -131,7 +122,7 @@ export async function runTick(now = new Date()): Promise<{ sent: number }> {
       }
     }
   } finally {
-    tx?.release()
+    tx.release()
   }
 
   // журнал нужен только на ближайшие дни

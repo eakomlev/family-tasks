@@ -2,7 +2,6 @@ import type { FastifyInstance } from 'fastify'
 import { authenticate } from './auth.js'
 import { pool } from './db.js'
 import { mailDailyLimit } from './outbox/budget.js'
-import { queueEnabled } from './outbox/index.js'
 
 // Адреса администраторов сервиса: переменная ADMIN_EMAILS (через запятую, регистр не важен). Читается при каждой проверке,
 // поэтому в тестах её можно задать до запроса. Пусто: администраторов нет, раздел «Сервис» недоступен никому.
@@ -31,8 +30,6 @@ export interface ServiceStats {
 
 // Состояние очереди отправки для страницы «Сервис». Сутки по UTC (как у дневного бюджета почты).
 export interface QueueStats {
-  // включена ли очередь на этом server (QUEUE_ENABLED); иначе письма и push отправляет сам server
-  enabled: boolean
   // экземпляры notifier, подавшие признак жизни за последнюю минуту
   notifier: { alive: boolean; instances: number; lastBeatSeconds: number | null }
   // ещё не бравшиеся в работу (attempts = 0, в том числе отложенные из-за лимита)
@@ -70,7 +67,6 @@ export async function adminRoutes(app: FastifyInstance) {
     const count = (channel: 'email' | 'push') => delivery.find((d) => d.channel === channel) ?? { sent: 0, failed: 0 }
 
     const queue: QueueStats = {
-      enabled: queueEnabled(),
       notifier: { alive: r.instances > 0, instances: r.instances, lastBeatSeconds: r.last_beat },
       waiting: { email: r.waiting_email, push: r.waiting_push },
       retrying: r.retrying,

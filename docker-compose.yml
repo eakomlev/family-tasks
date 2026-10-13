@@ -20,27 +20,19 @@ services:
     environment:
       PORT: 3000
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      # по умолчанию письма уходят в Mailpit (профиль dev-mail); в проде задайте SMTP_* в .env
-      SMTP_HOST: ${SMTP_HOST:-mailpit}
-      SMTP_PORT: ${SMTP_PORT:-1025}
-      SMTP_SECURE: ${SMTP_SECURE:-false}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_FROM: ${SMTP_FROM:-Моя Семья <noreply@family-tasks.local>}
+      # Письма и push server только ставит в очередь outbox, отправляет сервис notifier: SMTP и приватный ключ VAPID
+      # есть только у него (docs/notification-queue-plan.md). Серверу нужен публичный ключ: браузер просит его для подписки.
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
-      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
-      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@family-tasks.local}
       # администраторы сервиса (раздел «Сервис» в профиле), email через запятую
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
-      # true: письма и push кладутся в очередь outbox, отправляет сервис notifier (docs/notification-queue-plan.md)
-      QUEUE_ENABLED: ${QUEUE_ENABLED:-false}
       # дневной лимит писем: тот же, что у notifier (по нему API отказывает, когда бюджет исчерпан)
       MAIL_DAILY_LIMIT: ${MAIL_DAILY_LIMIT:-2800}
     depends_on:
       db:
         condition: service_healthy
 
-  # отправка писем и push из очереди outbox; портов нет, живость проверяется по метке в БД
+  # отправка писем (SMTP, по умолчанию Mailpit из профиля dev-mail) и push из очереди outbox; портов нет,
+  # живость проверяется по метке в БД
   notifier:
     build: ./notifier
     restart: unless-stopped

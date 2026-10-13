@@ -1,12 +1,7 @@
 import pg from 'pg'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('web-push', () => ({
-  default: { setVapidDetails: vi.fn(), sendNotification: vi.fn(async () => ({ statusCode: 201 })) },
-}))
-
 import { pool } from '../../src/db.js'
-import webpush from 'web-push'
 import { runTick, runTickAsLeader, SCHEDULER_LOCK_KEY } from '../../src/notifications/scheduler.js'
 import * as outbox from '../../src/outbox/index.js'
 import { createFamily, removeFamilies, type TestFamily } from '../helpers.js'
@@ -135,16 +130,6 @@ describe('надёжность постановки', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
-  })
-
-  it('прямая отправка (без очереди): ответ 410 удаляет подписку, а проход не зависает', async () => {
-    vi.stubEnv('QUEUE_ENABLED', 'false')
-    const endpoint = await freshDad()
-    vi.mocked(webpush.sendNotification).mockImplementation((async () => { throw { statusCode: 410, message: 'gone' } }) as never)
-
-    await runTick(at('01:08'))
-
-    expect((await pool.query('select 1 from push_subscriptions where endpoint = $1', [endpoint])).rowCount).toBe(0)
   })
 
   it('сбой постановки откатывает и запись в журнал: напоминание не теряется, а уходит со следующим проходом', async () => {

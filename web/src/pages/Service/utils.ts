@@ -29,9 +29,6 @@ export interface QueueAlert {
 
 // Что стоит сказать администратору про очередь. Пустой список: всё в порядке.
 export function queueAlerts(queue: QueueStats, now: Date): QueueAlert[] {
-  if (!queue.enabled) {
-    return [{ tone: 'muted', text: 'Очередь выключена (QUEUE_ENABLED=false): письма и push отправляет сам server.' }]
-  }
   const alerts: QueueAlert[] = []
 
   if (!queue.notifier.alive) {

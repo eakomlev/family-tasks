@@ -20,8 +20,9 @@ const hashCode = (email: string, purpose: Purpose, code: string) =>
 
 // Возвращает код или null, если предыдущий выдан меньше минуты назад.
 // Строка пишется для любого email (даже неизвестного), чтобы поведение не выдавало, есть ли он в системе.
-export async function issueEmailCode(email: string, purpose: Purpose): Promise<string | null> {
-  const recent = await pool.query(
+// db: клиент транзакции, чтобы код и постановка письма в очередь фиксировались вместе.
+export async function issueEmailCode(email: string, purpose: Purpose, db: Db = pool): Promise<string | null> {
+  const recent = await db.query(
     `select 1 from email_codes
      where email = $1 and purpose = $2 and created_at > now() - make_interval(secs => $3)`,
     [email, purpose, RESEND_COOLDOWN_SECONDS],
@@ -29,7 +30,7 @@ export async function issueEmailCode(email: string, purpose: Purpose): Promise<s
   if (recent.rows[0]) return null
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
-  await pool.query(
+  await db.query(
     `insert into email_codes (email, purpose, code_hash, expires_at)
      values ($1, $2, $3, now() + make_interval(mins => $4))
      on conflict (email, purpose) do update

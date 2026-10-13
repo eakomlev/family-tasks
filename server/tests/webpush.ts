@@ -1,7 +1,7 @@
 import { pool } from '../src/db.js'
 
 // Отправку push делает отдельный сервис notifier, server только ставит сообщения в очередь outbox
-// (в тестах включён QUEUE_ENABLED=true, vitest.config.ts). Поэтому «отправленное» здесь это строки очереди.
+// Поэтому «отправленное» здесь это строки очереди.
 export interface Sent {
   endpoint: string
   payload: { title: string; body: string; url: string; tag: string }

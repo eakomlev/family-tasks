@@ -1,16 +1,9 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-
-vi.mock('web-push', () => ({
-  default: { setVapidDetails: vi.fn(), sendNotification: vi.fn(async () => ({ statusCode: 201 })) },
-}))
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { buildApp } from '../../src/app.js'
 import { pool } from '../../src/db.js'
 import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
-import webpush from 'web-push'
 import { sentTo } from '../webpush.js'
-
-const sendNotification = vi.mocked(webpush.sendNotification)
 
 let app: Awaited<ReturnType<typeof buildApp>>
 let fam: TestFamily
@@ -18,9 +11,6 @@ let fam: TestFamily
 beforeAll(async () => {
   app = await buildApp({ logger: false, rateLimit: false })
   fam = await createFamily()
-})
-beforeEach(() => {
-  sendNotification.mockReset().mockResolvedValue({ statusCode: 201 } as never)
 })
 afterAll(async () => {
   await removeFamilies(fam.id)
@@ -105,7 +95,7 @@ describe('подписка и устройства', () => {
   })
 })
 
-describe('проверочное уведомление: очередь (QUEUE_ENABLED=true)', () => {
+describe('проверочное уведомление', () => {
   it('без подписок 404', async () => {
     expect((await api(app, fam.sis.token, 'POST', '/api/push/test')).body).toEqual({ error: 'no_subscriptions' })
   })
@@ -118,51 +108,8 @@ describe('проверочное уведомление: очередь (QUEUE_E
     const res = await api(app, fam.dad.token, 'POST', '/api/push/test')
 
     expect(res.body).toEqual({ queued: 2, sent: 2, failed: 0 })
-    // напрямую в push-сервис server не ходит: это делает notifier
-    expect(sendNotification).not.toHaveBeenCalled()
     const queued = await sentTo([a, b])
     expect(queued).toHaveLength(2)
     expect(queued[0].payload).toMatchObject({ title: 'Проверка уведомлений', url: '/profile/notifications', tag: 'test' })
-  })
-})
-
-describe('проверочное уведомление: прямая отправка (QUEUE_ENABLED=false)', () => {
-  beforeEach(() => {
-    vi.stubEnv('QUEUE_ENABLED', 'false')
-  })
-  afterAll(() => {
-    vi.unstubAllEnvs()
-  })
-
-  it('без подписок 404', async () => {
-    expect((await api(app, fam.sis.token, 'POST', '/api/push/test')).body).toEqual({ error: 'no_subscriptions' })
-  })
-
-  it('отправляет на все устройства участника', async () => {
-    await subscribe(fam.dad.token, 'https://push.test/dad-a')
-    await subscribe(fam.dad.token, 'https://push.test/dad-b')
-    const res = await api(app, fam.dad.token, 'POST', '/api/push/test')
-    expect(res.body).toEqual({ sent: 2, failed: 0 })
-    expect(sendNotification).toHaveBeenCalledTimes(2)
-    const [sub, payload, options] = sendNotification.mock.calls[0]
-    expect((sub as { keys: unknown }).keys).toEqual(keys)
-    expect(JSON.parse(String(payload))).toMatchObject({ title: 'Проверка уведомлений', url: '/profile/notifications' })
-    expect(options).toMatchObject({ TTL: 21_600 })
-  })
-
-  it('подписка, которую push-сервис считает отозванной (404/410), удаляется', async () => {
-    const endpoint = 'https://push.test/gone'
-    await subscribe(fam.sis.token, endpoint)
-    sendNotification.mockImplementation((async () => { throw { statusCode: 410, message: 'gone' } }) as never)
-    expect((await api(app, fam.sis.token, 'POST', '/api/push/test')).body).toEqual({ sent: 0, failed: 1 })
-    expect(await stored(endpoint)).toEqual([])
-  })
-
-  it('временная ошибка сервиса подписку сохраняет', async () => {
-    const endpoint = 'https://push.test/flaky'
-    await subscribe(fam.sis.token, endpoint)
-    sendNotification.mockImplementation((async () => { throw { statusCode: 503, message: 'unavailable' } }) as never)
-    expect((await api(app, fam.sis.token, 'POST', '/api/push/test')).body).toEqual({ sent: 0, failed: 1 })
-    expect(await stored(endpoint)).toHaveLength(1)
   })
 })

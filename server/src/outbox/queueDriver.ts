@@ -1,5 +1,5 @@
 import type { Db } from './index.js'
-import type { EnqueueResult, OutboxItem } from './contract.js'
+import type { OutboxItem } from './contract.js'
 
 // Сколько push остаётся актуальным (как TTL при отправке); письмо с кодом живёт столько же, сколько сам код.
 const PUSH_TTL_SECONDS = 6 * 60 * 60
@@ -10,7 +10,7 @@ const PUSH_TTL_SECONDS = 6 * 60 * 60
 // Склейка: ещё не отправленное (attempts = 0) push-сообщение с тем же tag для той же подписки заменяется новым.
 // Устройство делает то же самое (уведомление с таким tag заменяет прежнее), так что человек ничего не теряет,
 // а провайдеру уходит меньше запросов. Строка, которую notifier уже взял в работу, имеет attempts > 0 и не трогается.
-export async function enqueueRow(db: Db, item: OutboxItem): Promise<EnqueueResult> {
+export async function enqueueRow(db: Db, item: OutboxItem): Promise<void> {
   const ttlSeconds = item.channel === 'email' ? item.payload.ttlMinutes * 60 : PUSH_TTL_SECONDS
   const tag = item.channel === 'push' ? item.payload.message.tag : ''
   const subscriptionId = item.channel === 'push' ? item.payload.subscriptionId : null
@@ -28,5 +28,4 @@ export async function enqueueRow(db: Db, item: OutboxItem): Promise<EnqueueResul
      select pg_notify('outbox', id::text) from ins`,
     [item.channel, item.priority, JSON.stringify(item.payload), ttlSeconds, tag, subscriptionId],
   )
-  return 'queued'
 }

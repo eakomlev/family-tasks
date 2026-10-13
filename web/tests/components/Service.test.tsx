@@ -14,7 +14,6 @@ import { setSession } from '@/store/session'
 const me: Member = { id: 'me', name: 'Евгений', role: 'papa', avatar: null, isOwner: true }
 const stats = { accounts: { total: 1234, today: 3 }, families: { total: 400, today: 1 }, messages: { total: 56789, today: 120 } }
 const queue = {
-  enabled: true,
   notifier: { alive: true, instances: 1, lastBeatSeconds: 3 },
   waiting: { email: 4, push: 17 },
   retrying: 2,
@@ -113,14 +112,6 @@ describe('раздел «Сервис»', () => {
       expect(region).toHaveTextContent('Дневной лимит писем исчерпан')
       expect(region).toHaveTextContent('Самое старое сообщение ждёт 11 мин')
       expect(region).toHaveTextContent('Сервис отправкине отвечает')
-    })
-
-    it('очередь выключена: так и сказано', async () => {
-      vi.stubGlobal('fetch', serve({ queue: { ...queue, enabled: false, notifier: { alive: false, instances: 0, lastBeatSeconds: null } } }))
-      renderAt('/profile/service', true)
-      const region = await screen.findByRole('region', { name: 'Очередь отправки' })
-      expect(await within(region).findByText(/QUEUE_ENABLED=false/)).toBeInTheDocument()
-      expect(region).toHaveTextContent('Сервис отправкиочередь выключена')
     })
 
     it('ошибка загрузки очереди не ломает статистику выше', async () => {

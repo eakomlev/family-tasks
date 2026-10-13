@@ -7,6 +7,7 @@
     "dev": "tsx watch --env-file-if-exists=../.env src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "vapid": "web-push generate-vapid-keys",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json"

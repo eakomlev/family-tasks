@@ -8,8 +8,6 @@ export interface ServiceStats {
 
 // Состояние очереди отправки писем и push (сутки по UTC, как у дневного бюджета почты).
 export interface QueueStats {
-  // включена ли очередь на сервере (QUEUE_ENABLED); иначе письма и push отправляет сам server
-  enabled: boolean
   notifier: { alive: boolean; instances: number; lastBeatSeconds: number | null }
   // ещё не бравшиеся в работу
   waiting: { email: number; push: number }

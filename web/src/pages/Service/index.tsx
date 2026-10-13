@@ -65,7 +65,7 @@ export default function Service() {
               <Card><span>Самое старое</span><strong>{queue.oldestSeconds === null ? '—' : formatAge(queue.oldestSeconds)}</strong></Card>
               <Card $small>
                 <span>Сервис отправки</span>
-                <strong>{!queue.enabled ? 'очередь выключена' : queue.notifier.alive ? 'работает' : 'не отвечает'}</strong>
+                <strong>{queue.notifier.alive ? 'работает' : 'не отвечает'}</strong>
               </Card>
               <Card $small>
                 <span>Писем за сутки (UTC)</span>

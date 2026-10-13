@@ -1,14 +1,21 @@
-import { expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 
-vi.mock('web-push', () => ({
-  default: { setVapidDetails: vi.fn(), sendNotification: vi.fn() },
-}))
-
-// Отдельный файл: перезагрузка модулей мешала бы остальным тестам push.
-it('при загрузке модуля библиотеке передаются контакт и оба ключа', async () => {
-  // вызов происходит один раз при загрузке модуля, поэтому загружаем его заново
+// Отдельный файл: перезагрузка модуля нужна, потому что признак читается один раз при его загрузке.
+afterEach(() => {
+  vi.unstubAllEnvs()
   vi.resetModules()
-  await import('../../src/push.js')
-  const fresh = (await import('web-push')).default
-  expect(fresh.setVapidDetails).toHaveBeenCalledWith('mailto:test@example.com', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY)
+})
+
+it('push включён, когда задан публичный ключ VAPID: серверу приватный ключ не нужен', async () => {
+  vi.stubEnv('VAPID_PUBLIC_KEY', 'public-key')
+  vi.stubEnv('VAPID_PRIVATE_KEY', '')
+  vi.resetModules()
+  expect((await import('../../src/push.js')).pushEnabled).toBe(true)
+})
+
+it('без публичного ключа push выключен, даже если приватный задан', async () => {
+  vi.stubEnv('VAPID_PUBLIC_KEY', '')
+  vi.stubEnv('VAPID_PRIVATE_KEY', 'private-key')
+  vi.resetModules()
+  expect((await import('../../src/push.js')).pushEnabled).toBe(false)
 })

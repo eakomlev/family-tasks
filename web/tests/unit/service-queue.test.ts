@@ -6,7 +6,6 @@ import type { QueueStats } from '@/store/admin'
 const NOW = new Date('2026-10-13T07:00:00Z')
 
 const healthy = (over: Partial<QueueStats> = {}): QueueStats => ({
-  enabled: true,
   notifier: { alive: true, instances: 1, lastBeatSeconds: 4 },
   waiting: { email: 0, push: 0 },
   retrying: 0,
@@ -42,13 +41,6 @@ describe('nextUtcMidnightLabel', () => {
 describe('queueAlerts', () => {
   it('всё в порядке: предупреждений нет', () => {
     expect(queueAlerts(healthy(), NOW)).toEqual([])
-  })
-
-  it('очередь выключена: только пояснение, остальное не оценивается', () => {
-    const alerts = queueAlerts(healthy({ enabled: false, notifier: { alive: false, instances: 0, lastBeatSeconds: null }, oldestSeconds: 9999 }), NOW)
-    expect(alerts).toHaveLength(1)
-    expect(alerts[0]).toMatchObject({ tone: 'muted' })
-    expect(alerts[0].text).toMatch(/QUEUE_ENABLED=false/)
   })
 
   it('notifier не отвечает: ошибка с давностью последнего сигнала', () => {

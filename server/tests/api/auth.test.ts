@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 import { buildApp } from '../../src/app.js'
 import { pool } from '../../src/db.js'
+import * as outbox from '../../src/outbox/index.js'
 import { api } from '../helpers.js'
 
 type App = Awaited<ReturnType<typeof buildApp>>
@@ -113,13 +114,70 @@ describe('бюджет писем', () => {
     vi.stubEnv('MAIL_DAILY_LIMIT', '0')
     expect((await requestCode(email('unlimited'), 'signup')).status).toBe(204)
   })
+})
 
-  it('прямая отправка (без очереди) бюджет не проверяет: он нужен только очереди', async () => {
-    await fillQueue()
-    vi.stubEnv('QUEUE_ENABLED', 'false')
-    vi.stubEnv('MAIL_DAILY_LIMIT', '1')
-    // неизвестному адресу при входе письмо не уходит, поэтому настоящая отправка не нужна
-    expect((await requestCode(email('direct'), 'login')).status).toBe(204)
+// Код и письмо в очереди фиксируются одной транзакцией: либо есть и то и другое, либо ничего.
+describe('код и письмо вместе', () => {
+  const codeRow = async (to: string, purpose: string) =>
+    (await pool.query('select 1 from email_codes where email = $1 and purpose = $2', [to, purpose])).rowCount
+  const queued = async (to: string) => (await pool.query(`select 1 from outbox where payload->>'to' = $1`, [to])).rowCount
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('успех: код записан и письмо стоит в очереди', async () => {
+    const to = email('atomic-ok')
+    expect((await requestCode(to, 'signup')).status).toBe(204)
+    expect(await codeRow(to, 'signup')).toBe(1)
+    expect(await queued(to)).toBe(1)
+  })
+
+  it('регистрация: сбой очереди откатывает код, ответ 500, пауза не включается', async () => {
+    const to = email('atomic-signup')
+    vi.spyOn(outbox, 'enqueue').mockRejectedValueOnce(new Error('очередь недоступна'))
+
+    const res = await requestCode(to, 'signup')
+
+    expect(res.status).toBe(500)
+    expect(res.body).toEqual({ error: 'internal_error' })
+    expect(await codeRow(to, 'signup')).toBe(0)
+    expect(await queued(to)).toBe(0)
+    // очередь снова работает: повтор проходит сразу, без «раз в минуту»
+    vi.restoreAllMocks()
+    expect((await requestCode(to, 'signup')).status).toBe(204)
+    expect(await queued(to)).toBe(1)
+  })
+
+  it('вход: сбой очереди для известного адреса не заметен снаружи (204, как у неизвестного), код не остаётся', async () => {
+    const known = email('atomic-login')
+    await registerFamily('Известный', known)
+    await pool.query('delete from outbox where payload->>\'to\' = $1', [known])
+    await pool.query('delete from email_codes where email = $1', [known])
+    vi.spyOn(outbox, 'enqueue').mockRejectedValueOnce(new Error('очередь недоступна'))
+
+    const forKnown = await requestCode(known, 'login')
+    const forUnknown = await requestCode(email('atomic-nobody'), 'login')
+
+    expect(forKnown.status).toBe(204)
+    expect(forKnown.status).toBe(forUnknown.status)
+    expect(forKnown.body).toEqual(forUnknown.body)
+    expect(await codeRow(known, 'login')).toBe(0)
+    expect(await queued(known)).toBe(0)
+  })
+
+  it('вход неизвестному адресу: код записан (чтобы пауза не выдавала адрес), письма нет', async () => {
+    const to = email('atomic-unknown')
+    expect((await requestCode(to, 'login')).status).toBe(204)
+    expect(await codeRow(to, 'login')).toBe(1)
+    expect(await queued(to)).toBe(0)
+  })
+
+  it('пауза «раз в минуту» не создаёт лишней строки в очереди', async () => {
+    const to = email('atomic-cooldown')
+    await requestCode(to, 'signup')
+    expect((await requestCode(to, 'signup')).status).toBe(429)
+    expect(await queued(to)).toBe(1)
   })
 })
 

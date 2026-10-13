@@ -141,12 +141,11 @@ describe('GET /api/admin/queue', () => {
 
     // таблица общая с параллельными тестами (они ставят и убирают свои письма), поэтому проверяем нижние границы:
     // свои строки на месте, пока идёт запрос
-    const { waiting, retrying, oldestSeconds, enabled } = (await queue()).body
+    const { waiting, retrying, oldestSeconds } = (await queue()).body
     expect(waiting.email).toBeGreaterThanOrEqual(1)
     expect(waiting.push).toBeGreaterThanOrEqual(2)
     expect(retrying).toBeGreaterThanOrEqual(1)
     expect(oldestSeconds).toBeGreaterThanOrEqual(600)
-    expect(enabled).toBe(true)
   })
 
   it('состояние notifier: свежая метка это живой экземпляр, старая нет', async () => {
@@ -191,11 +190,6 @@ describe('GET /api/admin/queue', () => {
     expect(await mailBudgetExhausted(pool)).toBe(false)
     vi.stubEnv('MAIL_DAILY_LIMIT', '0')
     expect(await mailBudgetExhausted(pool)).toBe(false)
-  })
-
-  it('очередь выключена: enabled false', async () => {
-    vi.stubEnv('QUEUE_ENABLED', 'false')
-    expect((await queue()).body.enabled).toBe(false)
   })
 })
 

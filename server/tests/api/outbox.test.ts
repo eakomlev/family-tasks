@@ -1,38 +1,18 @@
-import { randomUUID } from 'node:crypto'
 import pg from 'pg'
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-
-vi.mock('web-push', () => ({
-  default: { setVapidDetails: vi.fn(), sendNotification: vi.fn(async () => ({ statusCode: 201 })) },
-}))
-vi.mock('../../src/mail.js', () => ({ sendCode: vi.fn(async () => {}) }))
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { pool } from '../../src/db.js'
-import { sendCode } from '../../src/mail.js'
 import { enqueue, enqueueToMember, PRIORITY } from '../../src/outbox/index.js'
 import { createFamily, removeFamilies, type TestFamily } from '../helpers.js'
-import webpush from 'web-push'
-import { subscribe } from '../webpush.js'
-
-const sendNotification = vi.mocked(webpush.sendNotification)
-// отправленное напрямую (без очереди): адреса из вызовов подменённого web-push
-const sentVia = (endpoints: string[]) =>
-  sendNotification.mock.calls
-    .filter(([sub]) => endpoints.includes((sub as { endpoint: string }).endpoint))
-    .map(([sub, payload]) => ({ endpoint: (sub as { endpoint: string }).endpoint, payload: JSON.parse(String(payload)) }))
+import { resetSent, sentTo, subscribe } from '../webpush.js'
 
 let fam: TestFamily
 
 beforeAll(async () => {
   fam = await createFamily()
 })
-beforeEach(() => {
-  // по умолчанию в тестах очередь включена; здесь сначала проверяем прямую отправку
-  vi.stubEnv('QUEUE_ENABLED', 'false')
-  sendNotification.mockReset().mockResolvedValue({ statusCode: 201 } as never)
-  vi.mocked(sendCode).mockReset().mockResolvedValue(undefined)
-})
 afterAll(async () => {
+  await resetSent()
   await removeFamilies(fam.id)
   await pool.end()
 })
@@ -41,46 +21,8 @@ const message = { title: 'Заголовок', body: 'Текст', url: '/tasks'
 const subscriptionId = async (endpoint: string) =>
   (await pool.query('select id from push_subscriptions where endpoint = $1', [endpoint])).rows[0].id as string
 
-describe('письмо', () => {
-  const item = (to: string) =>
-    ({ channel: 'email', priority: PRIORITY.code, payload: { v: 1, kind: 'code', to, code: '123456', ttlMinutes: 10 } }) as const
-
-  it('отправляет код на адрес', async () => {
-    expect(await enqueue(pool, item('a@test.local'))).toBe('sent')
-    expect(sendCode).toHaveBeenCalledWith('a@test.local', '123456', 10)
-  })
-
-  it('ошибку отправки пробрасывает: при регистрации по ней отвечают 502', async () => {
-    vi.mocked(sendCode).mockRejectedValueOnce(new Error('smtp down'))
-    await expect(enqueue(pool, item('b@test.local'))).rejects.toThrow('smtp down')
-  })
-})
-
-describe('push', () => {
-  it('отправляет сообщение на подписку', async () => {
-    const endpoint = await subscribe(fam.kid.id)
-    const result = await enqueue(pool, {
-      channel: 'push',
-      priority: PRIORITY.event,
-      payload: { v: 1, subscriptionId: await subscriptionId(endpoint), message },
-    })
-    expect(result).toBe('sent')
-    expect(sentVia([endpoint]).map((s) => s.payload)).toEqual([message])
-  })
-
-  it('подписки уже нет: ничего не уходит, итог gone', async () => {
-    const result = await enqueue(pool, {
-      channel: 'push',
-      priority: PRIORITY.event,
-      payload: { v: 1, subscriptionId: randomUUID(), message },
-    })
-    expect(result).toBe('gone')
-    expect(sendNotification).not.toHaveBeenCalled()
-  })
-})
-
 describe('enqueueToMember', () => {
-  it('отправляет на все устройства участника и не трогает чужие', async () => {
+  it('ставит по сообщению на каждое устройство участника и не трогает чужие', async () => {
     const own = await subscribe(fam.mom.id)
     const second = `https://push.test/${fam.mom.id}-second`
     await pool.query(
@@ -91,13 +33,14 @@ describe('enqueueToMember', () => {
 
     await enqueueToMember(pool, fam.mom.id, message)
 
-    expect(sentVia([own, second]).length).toBe(2)
-    expect(sentVia([other])).toEqual([])
+    expect((await sentTo([own, second])).length).toBe(2)
+    expect(await sentTo([other])).toEqual([])
+    await pool.query('delete from outbox where payload->>\'subscriptionId\' in (select id::text from push_subscriptions where endpoint = $1)', [second])
   })
 
   it('у участника нет подписок: тихо ничего не делает', async () => {
     await expect(enqueueToMember(pool, fam.sis.id, message)).resolves.toBeUndefined()
-    expect(sendNotification).not.toHaveBeenCalled()
+    expect(await sentTo([`https://push.test/${fam.sis.id}`])).toEqual([])
   })
 
   it('ошибка базы не пробрасывается: основное действие не ломается', async () => {
@@ -109,23 +52,14 @@ describe('enqueueToMember', () => {
   })
 })
 
-describe('очередь (QUEUE_ENABLED=true)', () => {
-  beforeEach(() => {
-    vi.stubEnv('QUEUE_ENABLED', 'true')
-  })
-  afterAll(() => {
-    vi.unstubAllEnvs()
-  })
-
+describe('очередь', () => {
   // payload читает сервис notifier: тот же пример проверяет его контракт (notifier/tests/unit/contract.test.ts)
   const emailPayload = { v: 1, kind: 'code', to: 'q@test.local', code: '123456', ttlMinutes: 10 }
   const rowFor = async (match: string) =>
     (await pool.query(`select * from outbox where payload::text like $1 order by id desc limit 1`, [`%${match}%`])).rows[0]
 
-  it('письмо: строка в очереди, прямой отправки нет', async () => {
-    const result = await enqueue(pool, { channel: 'email', priority: PRIORITY.code, payload: emailPayload as never })
-    expect(result).toBe('queued')
-    expect(sendCode).not.toHaveBeenCalled()
+  it('письмо: строка в очереди', async () => {
+    await enqueue(pool, { channel: 'email', priority: PRIORITY.code, payload: emailPayload as never })
 
     const row = await rowFor('q@test.local')
     expect(row).toMatchObject({ channel: 'email', priority: 0, attempts: 0, last_error: null })
@@ -140,9 +74,7 @@ describe('очередь (QUEUE_ENABLED=true)', () => {
   it('push: строка с сообщением и подпиской, срок 6 часов', async () => {
     const endpoint = await subscribe(fam.kid.id)
     const id = await subscriptionId(endpoint)
-    const result = await enqueue(pool, { channel: 'push', priority: PRIORITY.planned, payload: { v: 1, subscriptionId: id, message } })
-    expect(result).toBe('queued')
-    expect(sendNotification).not.toHaveBeenCalled()
+    await enqueue(pool, { channel: 'push', priority: PRIORITY.planned, payload: { v: 1, subscriptionId: id, message } })
 
     const row = await rowFor(id)
     expect(row).toMatchObject({ channel: 'push', priority: 2 })
