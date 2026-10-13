@@ -14,17 +14,23 @@ export function formatChatTime(iso: string, now: Date): string {
   return at.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
 }
 
-// Строка под названием чата: «Вы: …» для своих сообщений, в общем чате «Имя: …» для чужих, в личном просто текст.
-export function chatPreview(chat: ChatSummary, me: string, members: Member[], viewerRole: Role): string {
-  if (!chat.last) return 'Сообщений пока нет'
+// Превью последнего сообщения по частям: подпись («Вы:», имя автора в общем чате) и текст.
+export function chatPreviewParts(chat: ChatSummary, me: string, members: Member[], viewerRole: Role): { prefix?: string; mine: boolean; text: string } {
+  if (!chat.last) return { text: 'Сообщений пока нет', mine: false }
   const text = chat.last.text.replace(/\s+/g, ' ').trim()
-  if (chat.last.senderId === me) return `Вы: ${text}`
+  if (chat.last.senderId === me) return { prefix: 'Вы:', mine: true, text }
   if (chat.id === 'family') {
     const sender = members.find((m) => m.id === chat.last!.senderId)
     const name = sender && memberLabel(sender, viewerRole)
-    return name ? `${name}: ${text}` : text
+    return name ? { prefix: `${name}:`, mine: false, text } : { mine: false, text }
   }
-  return text
+  return { mine: false, text }
+}
+
+// Строка под названием чата одной строкой: «Вы: …» для своих сообщений, в общем чате «Имя: …» для чужих, в личном просто текст.
+export function chatPreview(chat: ChatSummary, me: string, members: Member[], viewerRole: Role): string {
+  const { prefix, text } = chatPreviewParts(chat, me, members, viewerRole)
+  return prefix ? `${prefix} ${text}` : text
 }
 
 // Названия чатов: общий и по имени собеседника.

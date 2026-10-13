@@ -18,6 +18,7 @@ import { chatTitle } from '../Chat/utils'
 import { Composer } from './components/Composer'
 import { FeedbackDialog } from './components/FeedbackDialog'
 import { MessageBubble } from './components/MessageBubble'
+import { MessagesSkeleton } from './components/MessagesSkeleton'
 import { BackButton, DayLabel, Title, Empty, Feed, FamilyIcon, Header, Room } from './styles'
 import { appendMessage, groupByDay, mergeLatest, messageStatus, replaceMessage, visitLabel } from './utils'
 
@@ -179,36 +180,38 @@ function Conversation({ chat }: { chat: string | undefined }) {
         </Title>
       </Header>
 
-      {failed && <Notice $tone="error">Не удалось загрузить сообщения. Проверьте соединение.</Notice>}
-      {!messages && !failed && <p>Загрузка…</p>}
-
-      {messages && (
-        <Feed>
-          {hasMore && (
-            <Button $variant="text" type="button" disabled={loadingOlder} onClick={loadOlder}>
-              {loadingOlder ? 'Загрузка…' : 'Показать более ранние'}
-            </Button>
-          )}
-          {messages.length === 0 && <Empty>Сообщений пока нет. Напишите первым.</Empty>}
-          {groups.map((group) => (
-            <section key={group.key} aria-label={group.label}>
-              <DayLabel>{group.label}</DayLabel>
-              {group.messages.map((message) => (
-                <MessageBubble
-                  key={message.id}
-                  message={message}
-                  mine={message.senderId === me}
-                  senderName={sender(message.senderId)}
-                  senderMood={currentMood(members.find((m) => m.id === message.senderId)?.mood, now)?.emoji}
-                  showSender={chat === FAMILY_CHAT}
-                  status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
-                  onFeedback={() => setFeedbackFor(message)}
-                />
-              ))}
-            </section>
-          ))}
-        </Feed>
-      )}
+      {/* лента всегда на месте (растягивается между шапкой и полем ввода): пока грузится, в ней серые пузыри, при ошибке сообщение */}
+      <Feed>
+        {failed && <Notice $tone="error">Не удалось загрузить сообщения. Проверьте соединение.</Notice>}
+        {!messages && !failed && <MessagesSkeleton />}
+        {messages && (
+          <>
+            {hasMore && (
+              <Button $variant="text" type="button" disabled={loadingOlder} onClick={loadOlder}>
+                {loadingOlder ? 'Загрузка…' : 'Показать более ранние'}
+              </Button>
+            )}
+            {messages.length === 0 && <Empty>Сообщений пока нет. Напишите первым.</Empty>}
+            {groups.map((group) => (
+              <section key={group.key} aria-label={group.label}>
+                <DayLabel>{group.label}</DayLabel>
+                {group.messages.map((message) => (
+                  <MessageBubble
+                    key={message.id}
+                    message={message}
+                    mine={message.senderId === me}
+                    senderName={sender(message.senderId)}
+                    senderMood={currentMood(members.find((m) => m.id === message.senderId)?.mood, now)?.emoji}
+                    showSender={chat === FAMILY_CHAT}
+                    status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
+                    onFeedback={() => setFeedbackFor(message)}
+                  />
+                ))}
+              </section>
+            ))}
+          </>
+        )}
+      </Feed>
 
       <Composer onSend={handleSend} />
 

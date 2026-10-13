@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage, ChatSummary, Member } from '@/api'
 import { memberLabel } from '@/lib/roles'
-import { chatPreview, chatTitle, formatChatTime } from '@/pages/Chat/utils'
+import { chatPreview, chatPreviewParts, chatTitle, formatChatTime } from '@/pages/Chat/utils'
 import { appendMessage, canSend, dayLabel, groupByDay, mergeLatest, messageStatus, visitLabel } from '@/pages/ChatRoom/utils'
 
 const msg = (id: string, createdAt = '2026-10-11T10:00:00Z', senderId = 'm1', text = id): ChatMessage => ({ id, senderId, text, createdAt, reactions: [], awards: [] })
@@ -135,6 +135,13 @@ describe('список чатов', () => {
     expect(chatPreview(chat('m2', msg('x', undefined, 'm2', 'как\nдела')), 'me', members, 'mama')).toBe('как дела')
     expect(chatPreview(chat('family', msg('x', undefined, 'm2', 'ужин')), 'me', members, 'mama')).toBe('Миша: ужин')
     expect(chatPreview(chat('family', msg('x', undefined, 'me', 'ужин')), 'me', members, 'mama')).toBe('Вы: ужин')
+  })
+
+  it('chatPreviewParts: подпись и текст отдельно (подпись выделяется цветом)', () => {
+    expect(chatPreviewParts(chat('m2', msg('x', undefined, 'me', 'привет')), 'me', members, 'mama')).toEqual({ prefix: 'Вы:', mine: true, text: 'привет' })
+    expect(chatPreviewParts(chat('family', msg('x', undefined, 'm2', 'ужин')), 'me', members, 'mama')).toEqual({ prefix: 'Миша:', mine: false, text: 'ужин' })
+    expect(chatPreviewParts(chat('m2', msg('x', undefined, 'm2', 'как\nдела')), 'me', members, 'mama')).toEqual({ mine: false, text: 'как дела' })
+    expect(chatPreviewParts(chat('m2', null), 'me', members, 'mama')).toEqual({ mine: false, text: 'Сообщений пока нет' })
   })
 
   it('chatPreview для ребёнка: в общем чате родитель подписан как «Мама»', () => {

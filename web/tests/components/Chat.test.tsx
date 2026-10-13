@@ -57,6 +57,31 @@ beforeEach(() => {
   vi.mocked(api.markChatRead).mockReset().mockResolvedValue(undefined)
 })
 
+describe('список чатов: загрузка', () => {
+  it('пока список грузится, вместо него серые строки, а не пустой экран', () => {
+    render(
+      <Provider store={makeStore({ hydrate: false })}>
+        <IdentityContext.Provider value={{ identity: { familyCode: 'c', memberId: 'me', name: 'Лена', role: 'mama', token: 'tok' }, save: async () => {}, clear: async () => {} }}>
+          <ProfileContext.Provider value={{ data: { me: { ...members[0], email: 'l@x.y' }, members }, failed: false }}>
+            <ChatsContext.Provider value={{ chats: undefined, unread: 0 }}>
+              <MemoryRouter><Chat /></MemoryRouter>
+            </ChatsContext.Provider>
+          </ProfileContext.Provider>
+        </IdentityContext.Provider>
+      </Provider>,
+    )
+    expect(screen.getByRole('status', { name: 'Загрузка чатов' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Чат' })).toBeInTheDocument()
+  })
+
+  it('«Вы:» и имя автора в общем чате выделены отдельно от текста', () => {
+    const chats: ChatSummary[] = [{ id: 'family', last: m('1', 'm2', 'ужин'), unread: 0 }]
+    render(providers(<MemoryRouter><Chat /></MemoryRouter>, { chats }))
+    expect(screen.getByText('Миша:')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Общий чат/ })).toHaveTextContent('Миша: ужин')
+  })
+})
+
 describe('список чатов', () => {
   const chats: ChatSummary[] = [
     { id: 'm2', last: m('1', 'm2', 'мам, привет'), unread: 2 },
@@ -328,6 +353,24 @@ describe('Composer', () => {
     await user.type(screen.getByLabelText('Сообщение'), 'привет{Enter}')
     expect(await screen.findByText(/Не удалось отправить сообщение/)).toBeInTheDocument()
     expect(screen.getByLabelText('Сообщение')).toHaveValue('привет')
+  })
+})
+
+describe('переписка: загрузка', () => {
+  it('пока сообщения грузятся, шапка, лента с заглушкой и поле ввода уже на месте', async () => {
+    vi.mocked(api.listMessages).mockImplementation(() => new Promise(() => {}))
+    window.scrollTo = vi.fn() as unknown as typeof window.scrollTo
+    render(
+      providers(
+        <MemoryRouter initialEntries={['/chat/m2']}>
+          <Routes><Route path="/chat/:chat" element={<ChatRoom />} /></Routes>
+        </MemoryRouter>,
+      ),
+    )
+    expect(screen.getByRole('heading', { name: 'Миша' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Загрузка…')
+    expect(screen.getByLabelText('Сообщение')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'К списку чатов' })).toBeInTheDocument()
   })
 })
 
