@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { getInvite, type Link } from '@/api'
+import { AuthPage } from '@/components/AuthPage'
 import { Button } from '@/components/Button'
 import { LinkBox } from '@/components/LinkBox'
-import { Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { inviteLink } from '@/lib/links'
 import { Celebration } from './styles'
@@ -26,7 +26,7 @@ export default function FamilyCreated() {
   if (!identity || failed) return <Navigate to="/family" replace />
 
   return (
-    <Page>
+    <AuthPage>
       <Celebration aria-hidden>🎉</Celebration>
       <h1>Семья создана!</h1>
       <p>Отправьте эту ссылку тем, кого хотите пригласить.</p>
@@ -36,6 +36,6 @@ export default function FamilyCreated() {
       <Button $variant="primary" type="button" onClick={() => navigate(START_PATH, { replace: true })}>
         ОК
       </Button>
-    </Page>
+    </AuthPage>
   )
 }

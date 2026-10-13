@@ -18,6 +18,12 @@ const lightColors = css`
   --glass-edge: rgb(255 255 255 / 0.9);
   --glass-shade: rgb(79 70 229 / 0.18);
   --glass-ring: rgb(79 70 229 / 0.22);
+  /* фон экранов входа */
+  --auth-a: #d6d1ff;
+  --auth-b: #ebcdff;
+  --auth-c: #ffd2c2;
+  --auth-blob: rgb(255 255 255 / 0.55);
+  --auth-card: rgb(255 255 255 / 0.74);
   color-scheme: light;
 `
 
@@ -38,6 +44,11 @@ const darkColors = css`
   --glass-edge: rgb(255 255 255 / 0.28);
   --glass-shade: rgb(0 0 0 / 0.45);
   --glass-ring: rgb(255 255 255 / 0.14);
+  --auth-a: #1b1747;
+  --auth-b: #3a1a63;
+  --auth-c: #5a1d4f;
+  --auth-blob: rgb(124 117 240 / 0.3);
+  --auth-card: rgb(30 29 46 / 0.72);
   color-scheme: dark;
 `
 

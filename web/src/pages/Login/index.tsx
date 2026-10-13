@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError, login, requestEmailCode, type LoginOption } from '@/api'
+import { AppLogo, AuthCard, AuthPage } from '@/components/AuthPage'
 import { BackLink } from '@/components/BackLink'
 import { CodeStep } from '@/components/CodeStep'
-import { Page } from '@/components/Page'
 import { ReplaceGuard } from '@/components/ReplaceGuard'
 import { useIdentity } from '@/identity/context'
 import { toIdentity } from '@/identity/utils'
@@ -13,6 +13,7 @@ import { EmailStep } from './components/EmailStep'
 import type { Step } from './types'
 import { START_PATH } from '@/lib/routes'
 import { useInFlight } from '@/lib/useInFlight'
+import { Header } from './styles'
 
 function LoginFlow() {
   const guard = useInFlight()
@@ -86,12 +87,17 @@ function LoginFlow() {
 
 export default function Login() {
   return (
-    <Page>
+    <AuthPage>
       <BackLink to="/">← Назад</BackLink>
-      <h1>Вход</h1>
+      <Header>
+        <AppLogo />
+        <h1>С возвращением!</h1>
+      </Header>
       <ReplaceGuard>
-        <LoginFlow />
+        <AuthCard>
+          <LoginFlow />
+        </AuthCard>
       </ReplaceGuard>
-    </Page>
+    </AuthPage>
   )
 }

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { createFamily, type SignupData } from '@/api'
+import { AuthCard, AuthPage } from '@/components/AuthPage'
 import { BackLink } from '@/components/BackLink'
-import { Page } from '@/components/Page'
 import { RoleForm } from '@/components/RoleForm'
 import { useIdentity } from '@/identity/context'
 import { toIdentity } from '@/identity/utils'
@@ -18,10 +18,12 @@ export default function CreateFamily() {
   }
 
   return (
-    <Page>
+    <AuthPage>
       <BackLink to="/">← Назад</BackLink>
       <h1>Создаём семью</h1>
-      <RoleForm roles={CREATOR_ROLES} submitLabel="Создать семью" onSubmit={handleSubmit} />
-    </Page>
+      <AuthCard>
+        <RoleForm roles={CREATOR_ROLES} submitLabel="Создать семью" onSubmit={handleSubmit} />
+      </AuthCard>
+    </AuthPage>
   )
 }

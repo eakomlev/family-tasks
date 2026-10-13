@@ -15,7 +15,7 @@ export function EmailStep({ email, busy, error, onEmailChange, onSubmit }: Email
 
   return (
     <Stack as="form" onSubmit={handleSubmit}>
-      <p>Укажите email, который вы использовали при создании семьи или присоединении. Мы отправим на него код.</p>
+      <p>Введите email, с которым вы создали семью или присоединились к ней. Мы отправим на него одноразовый код.</p>
       <Field label="Email">
         <Input
           type="email"

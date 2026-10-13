@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom'
+import { AuthCard, AuthPage } from '@/components/AuthPage'
 import { BackLink } from '@/components/BackLink'
-import { Page } from '@/components/Page'
 import { EnterCode } from './components/EnterCode'
 import { JoinWithCode } from './components/JoinWithCode'
 
@@ -9,10 +9,12 @@ export default function Join() {
   const code = params.get('code')
 
   return (
-    <Page>
+    <AuthPage>
       <BackLink to="/">← Назад</BackLink>
       <h1>Присоединиться к семье</h1>
-      {code ? <JoinWithCode key={code} code={code} /> : <EnterCode />}
-    </Page>
+      <AuthCard>
+        {code ? <JoinWithCode key={code} code={code} /> : <EnterCode />}
+      </AuthCard>
+    </AuthPage>
   )
 }
