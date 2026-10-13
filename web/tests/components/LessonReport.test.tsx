@@ -36,7 +36,7 @@ const send = () => screen.getByRole('button', { name: 'Отправить в о�
 beforeEach(() => {
   setSession({ token: 'tok', memberId: 'kid' })
   vi.mocked(api.sendMessage).mockReset().mockResolvedValue({
-    message: { id: 'x', senderId: 'kid', text: '', createdAt: '2026-10-11T10:00:00Z', reactions: [], awards: [] },
+    message: { id: 'x', senderId: 'kid', text: '', caption: '', media: [], createdAt: '2026-10-11T10:00:00Z', reactions: [], awards: [] },
   })
 })
 

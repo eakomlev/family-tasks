@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --env-file-if-exists=../.env src/index.ts",
+    "dev": "PORT=${MEDIA_PORT:-3001} tsx watch --env-file-if-exists=../.env src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",

@@ -17,7 +17,11 @@ export function formatChatTime(iso: string, now: Date): string {
 // Превью последнего сообщения по частям: подпись («Вы:», имя автора в общем чате) и текст.
 export function chatPreviewParts(chat: ChatSummary, me: string, members: Member[], viewerRole: Role): { prefix?: string; mine: boolean; text: string } {
   if (!chat.last) return { text: 'Сообщений пока нет', mine: false }
-  const text = chat.last.text.replace(/\s+/g, ' ').trim()
+  const last = chat.last
+  const count = last.media?.length ?? 0
+  // сообщение с фото: «📷 Фото», «📷 3 фото» или «📷 подпись»
+  const caption = (last.caption ?? '').replace(/\s+/g, ' ').trim()
+  const text = count > 0 ? `📷 ${caption || (count === 1 ? 'Фото' : `${count} фото`)}` : last.text.replace(/\s+/g, ' ').trim()
   if (chat.last.senderId === me) return { prefix: 'Вы:', mine: true, text }
   if (chat.id === 'family') {
     const sender = members.find((m) => m.id === chat.last!.senderId)

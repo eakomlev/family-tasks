@@ -15,8 +15,8 @@ export const chatApi = api.injectEndpoints({
     }),
 
     // Своё сообщение сразу ложится в кэш переписки, список чатов обновляется после
-    sendMessage: build.mutation<{ message: ChatMessage }, { chat: string; text: string }>({
-      queryFn: fromApi((token, { chat, text }: { chat: string; text: string }) => sendMessage(token, chat, text)),
+    sendMessage: build.mutation<{ message: ChatMessage }, { chat: string; text: string; mediaIds?: string[] }>({
+      queryFn: fromApi((token, { chat, text, mediaIds }: { chat: string; text: string; mediaIds?: string[] }) => (mediaIds?.length ? sendMessage(token, chat, text, mediaIds) : sendMessage(token, chat, text))),
       async onQueryStarted({ chat }, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled

@@ -10,10 +10,23 @@ export interface Award {
   by: string | null
 }
 
+// Фото в сообщении: размеры известны заранее (лента не прыгает), адреса подписаны сервером и действуют не меньше суток
+export interface ChatMedia {
+  id: string
+  width: number
+  height: number
+  thumbUrl: string
+  fullUrl: string
+}
+
 export interface ChatMessage {
   id: string
   senderId: string
+  // как лежит на сервере: подпись или, у сообщения только с фото, заглушка «📷 Фото» (для старых версий приложения)
   text: string
+  // подпись к фото; у сообщения без фото равна text, у сообщения только с фото пустая
+  caption: string
+  media: ChatMedia[]
   // ISO-время
   createdAt: string
   reactions: Reaction[]

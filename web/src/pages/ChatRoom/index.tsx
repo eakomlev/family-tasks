@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
-import { FAMILY_CHAT, listMessages, type ChatMessage, type MessageFeedback } from '@/api'
+import { FAMILY_CHAT, listMessages, uploadChatPhoto, type ChatMessage, type MessageFeedback } from '@/api'
 import { Avatar } from '@/components/Avatar'
 import { TabIcon } from '@/components/TabBar/TabIcon'
 import { MoodMark } from '@/components/MoodMark'
@@ -20,6 +20,8 @@ import { Composer } from './components/Composer'
 import { FeedbackDialog } from './components/FeedbackDialog'
 import { MessageBubble } from './components/MessageBubble'
 import { MessagesSkeleton } from './components/MessagesSkeleton'
+import { PhotoViewer } from './components/PhotoViewer'
+import type { OutgoingMessage } from './components/Composer/types'
 import { BackButton, DayLabel, Title, Empty, Feed, FamilyIcon, Header, Room } from './styles'
 import { appendMessage, groupByDay, mergeLatest, messageStatus, participantsLabel, replaceMessage, visitLabel } from './utils'
 
@@ -63,6 +65,8 @@ function Conversation({ chat }: { chat: string | undefined }) {
   const [loadingOlder, setLoadingOlder] = useState(false)
   // сообщение ребёнка, над которым родитель открыл окно реакции и монет
   const [feedbackFor, setFeedbackFor] = useState<ChatMessage>()
+  // открытый просмотр фото: сообщение и номер фото в нём
+  const [viewing, setViewing] = useState<{ message: ChatMessage; index: number }>()
   const stick = useRef(true)
   const loadedOnce = useRef(false)
   // чужое сообщение, до которого уже отметили прочитанное: без этого отметка вызывает событие, событие новый запрос, и так по кругу
@@ -155,8 +159,14 @@ function Conversation({ chat }: { chat: string | undefined }) {
     }
   }
 
-  async function handleSend(text: string) {
-    const { message } = await sendMessage({ chat: chat!, text }).unwrap().catch(toApiError)
+  // загрузка одного фото для сообщения: уходит сразу после выбора, к сообщению прикрепляется при отправке
+  async function handleUpload(photo: Blob) {
+    const { mediaId } = await uploadChatPhoto(token!, chat!, photo)
+    return mediaId
+  }
+
+  async function handleSend({ text, mediaIds }: OutgoingMessage) {
+    const { message } = await sendMessage({ chat: chat!, text, mediaIds }).unwrap().catch(toApiError)
     stick.current = true
     setThread((current) => ({ messages: appendMessage(current?.messages ?? [], message), hasMore: current?.hasMore ?? false, readUpTo: current?.readUpTo ?? null }))
   }
@@ -217,6 +227,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
                     showSender={chat === FAMILY_CHAT}
                     status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
                     onFeedback={() => setFeedbackFor(message)}
+                    onOpenPhoto={(index) => setViewing({ message, index })}
                   />
                 ))}
               </section>
@@ -225,7 +236,16 @@ function Conversation({ chat }: { chat: string | undefined }) {
         )}
       </Feed>
 
-      <Composer onSend={handleSend} />
+      <Composer onSend={handleSend} onUpload={handleUpload} />
+
+      {viewing && (
+        <PhotoViewer
+          photos={viewing.message.media}
+          index={viewing.index}
+          onIndexChange={(index) => setViewing({ message: viewing.message, index })}
+          onClose={() => setViewing(undefined)}
+        />
+      )}
 
       {feedbackFor && (
         <FeedbackDialog

@@ -59,3 +59,52 @@ export async function resizeToAvatar(file: File, size = 128, quality = 0.8): Pro
     bitmap.close()
   }
 }
+
+// Фото для чата: длинная сторона до 1600 px, JPEG. Размер файла ограничен сервером (3 МБ): если он не помещается, снижаем качество.
+export const PHOTO_MAX_SIDE = 1600
+export const PHOTO_MAX_BYTES = 3 * 1024 * 1024 - 64 * 1024
+
+export interface ResizedPhoto {
+  blob: Blob
+  width: number
+  height: number
+}
+
+const canvasToBlob = (canvas: HTMLCanvasElement, quality: number) =>
+  new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality))
+
+// Уменьшает фото (без обрезки) и перекодирует в JPEG: заодно пропадает метка геопозиции, а поворот камеры применяется к пикселям.
+export async function resizeToPhoto(file: File, maxSide = PHOTO_MAX_SIDE, quality = 0.82): Promise<ResizedPhoto> {
+  if (!file.type.startsWith('image/')) throw new ImageError('not_image')
+  if (file.size > MAX_SOURCE_BYTES) throw new ImageError('too_large')
+
+  let bitmap: ImageBitmap
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+  } catch {
+    throw new ImageError('decode_failed')
+  }
+
+  try {
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
+    const width = Math.max(1, Math.round(bitmap.width * scale))
+    const height = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new ImageError('decode_failed')
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(bitmap, 0, 0, width, height)
+
+    // обычно хватает первой попытки; очень «шумное» фото повторяем с меньшим качеством
+    for (let q = quality; q >= 0.4; q -= 0.14) {
+      const blob = await canvasToBlob(canvas, q)
+      if (!blob) throw new ImageError('decode_failed')
+      if (blob.size <= PHOTO_MAX_BYTES) return { blob, width, height }
+    }
+    throw new ImageError('too_large')
+  } finally {
+    bitmap.close()
+  }
+}

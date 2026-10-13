@@ -24,7 +24,8 @@ function retryDelay(res: Response, attempt: number): number {
 
 export async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(init.headers)
-  if (init.body) headers.set('Content-Type', 'application/json')
+  // тело по умолчанию JSON; загрузка файла задаёт свой тип сама
+  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `Bearer ${token}`)
   // повторять можно только чтение: изменяющие запросы при 429 не выполнялись, но повтор решает пользователь
   const isRead = !init.method || init.method.toUpperCase() === 'GET'

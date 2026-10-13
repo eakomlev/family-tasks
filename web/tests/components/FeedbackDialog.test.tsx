@@ -8,6 +8,8 @@ const message: ChatMessage = {
   id: 'm1',
   senderId: 'kid',
   text: 'Сдал контрольную по математике',
+  caption: 'Сдал контрольную по математике',
+  media: [],
   createdAt: '2026-10-11T10:00:00Z',
   reactions: [],
   awards: [],

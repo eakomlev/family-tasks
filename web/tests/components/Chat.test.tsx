@@ -23,14 +23,19 @@ vi.mock('@/api', async (importOriginal) => ({
   giveFeedback: vi.fn(),
   listMessages: vi.fn(),
   sendMessage: vi.fn(),
+  uploadChatPhoto: vi.fn(),
   markChatRead: vi.fn(),
+}))
+vi.mock('@/lib/image', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/image')>()),
+  resizeToPhoto: vi.fn(async () => ({ blob: new Blob(['x'], { type: 'image/jpeg' }), width: 800, height: 600 })),
 }))
 
 const members: Member[] = [
   { id: 'me', name: 'Лена', role: 'mama', avatar: null, isOwner: true },
   { id: 'm2', name: 'Миша', role: 'child', avatar: null, isOwner: false },
 ]
-const m = (id: string, senderId: string, text: string, createdAt = '2026-10-11T10:00:00Z'): ChatMessage => ({ id, senderId, text, createdAt, reactions: [], awards: [] })
+const m = (id: string, senderId: string, text: string, createdAt = '2026-10-11T10:00:00Z'): ChatMessage => ({ id, senderId, text, caption: text, media: [], createdAt, reactions: [], awards: [] })
 
 function providers(children: React.ReactNode, opts: { chats?: ChatSummary[]; as?: 'me' | 'm2' } = {}) {
   // по умолчанию смотрит мама (me), опционально ребёнок (m2)
@@ -328,19 +333,19 @@ describe('Composer', () => {
   it('Enter отправляет, поле очищается; Shift+Enter переносит строку', async () => {
     const onSend = vi.fn().mockResolvedValue(undefined)
     const user = userEvent.setup()
-    render(<Composer onSend={onSend} />)
+    render(<Composer onSend={onSend} onUpload={vi.fn()} />)
     const field = screen.getByLabelText('Сообщение')
     await user.type(field, 'первая{Shift>}{Enter}{/Shift}вторая')
     expect(onSend).not.toHaveBeenCalled()
     await user.keyboard('{Enter}')
-    expect(onSend).toHaveBeenCalledWith('первая\nвторая')
+    expect(onSend).toHaveBeenCalledWith({ text: 'первая\nвторая', mediaIds: [] })
     await waitFor(() => expect(field).toHaveValue(''))
   })
 
   it('пока пусто, отправить нельзя', async () => {
     const onSend = vi.fn()
     const user = userEvent.setup()
-    render(<Composer onSend={onSend} />)
+    render(<Composer onSend={onSend} onUpload={vi.fn()} />)
     expect(screen.getByRole('button', { name: 'Отправить' })).toBeDisabled()
     await user.type(screen.getByLabelText('Сообщение'), '   {Enter}')
     expect(onSend).not.toHaveBeenCalled()
@@ -349,7 +354,7 @@ describe('Composer', () => {
   it('при ошибке текст остаётся и показано сообщение', async () => {
     const onSend = vi.fn().mockRejectedValue(new Error('x'))
     const user = userEvent.setup()
-    render(<Composer onSend={onSend} />)
+    render(<Composer onSend={onSend} onUpload={vi.fn()} />)
     await user.type(screen.getByLabelText('Сообщение'), 'привет{Enter}')
     expect(await screen.findByText(/Не удалось отправить сообщение/)).toBeInTheDocument()
     expect(screen.getByLabelText('Сообщение')).toHaveValue('привет')
@@ -502,6 +507,32 @@ describe('переписка', () => {
     await user.type(await screen.findByLabelText('Сообщение'), 'всем привет{Enter}')
     expect(api.sendMessage).toHaveBeenCalledWith('tok', 'family', 'всем привет')
     expect(await screen.findByText('всем привет')).toBeInTheDocument()
+  })
+
+  it('фото: выбрано, загружено, отправлено сообщением, видно в переписке и открывается на весь экран', async () => {
+    URL.createObjectURL = vi.fn(() => 'blob:preview')
+    URL.revokeObjectURL = vi.fn()
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [], hasMore: false, readUpTo: null, peer: null })
+    vi.mocked(api.uploadChatPhoto).mockResolvedValue({ mediaId: 'media-1', width: 800, height: 600 })
+    const photo = { id: 'media-1', width: 800, height: 600, thumbUrl: '/media/f/media-1/thumb?exp=1&sig=a', fullUrl: '/media/f/media-1/full?exp=1&sig=a' }
+    vi.mocked(api.sendMessage).mockResolvedValue({ message: { ...m('9', 'me', '📷 Фото'), caption: '', media: [photo] } })
+    renderRoom('family')
+    const user = userEvent.setup()
+    await screen.findByLabelText('Сообщение')
+    fireEvent.change(screen.getByLabelText('Выбрать фото'), { target: { files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })] } })
+    await waitFor(() => expect(api.uploadChatPhoto).toHaveBeenCalledWith('tok', 'family', expect.any(Blob)))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled())
+    await user.click(screen.getByRole('button', { name: 'Отправить' }))
+    expect(api.sendMessage).toHaveBeenCalledWith('tok', 'family', '', ['media-1'])
+
+    // в ленте фото, а не заглушка «📷 Фото»
+    const open = await screen.findByRole('button', { name: 'Открыть фото' })
+    expect(screen.queryByText('📷 Фото')).toBeNull()
+    await user.click(open)
+    expect(screen.getByRole('dialog', { name: 'Просмотр фото' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Фото 1' })).toHaveAttribute('src', photo.fullUrl)
+    await user.click(screen.getByRole('button', { name: 'Закрыть' }))
+    expect(screen.queryByRole('dialog', { name: 'Просмотр фото' })).toBeNull()
   })
 
   it('более ранние сообщения подгружаются по кнопке и встают сверху', async () => {

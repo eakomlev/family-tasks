@@ -4,7 +4,7 @@ import { memberLabel } from '@/lib/roles'
 import { chatPreview, chatPreviewParts, chatTitle, formatChatTime } from '@/pages/Chat/utils'
 import { appendMessage, canSend, dayLabel, groupByDay, mergeLatest, messageStatus, participantsLabel, visitLabel } from '@/pages/ChatRoom/utils'
 
-const msg = (id: string, createdAt = '2026-10-11T10:00:00Z', senderId = 'm1', text = id): ChatMessage => ({ id, senderId, text, createdAt, reactions: [], awards: [] })
+const msg = (id: string, createdAt = '2026-10-11T10:00:00Z', senderId = 'm1', text = id): ChatMessage => ({ id, senderId, text, caption: text, media: [], createdAt, reactions: [], awards: [] })
 
 describe('mergeLatest', () => {
   it('свежая страница пересекается с загруженным: старые подгруженные остаются, hasMore прежний', () => {

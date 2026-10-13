@@ -133,3 +133,36 @@ describe('request: ответ 429 («слишком часто»)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('фото в чате', () => {
+  it('uploadChatPhoto: POST тела как есть, тип image/jpeg (не JSON), токен, ответ разобран', async () => {
+    const { uploadChatPhoto } = await import('@/api')
+    const fetchMock = mockFetch(json({ mediaId: 'id-1', width: 800, height: 600 }, 201))
+    const photo = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' })
+    await expect(uploadChatPhoto('tok', 'family', photo)).resolves.toEqual({ mediaId: 'id-1', width: 800, height: 600 })
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/chats/family/media')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(photo)
+    const headers = new Headers(init.headers)
+    expect(headers.get('Content-Type')).toBe('image/jpeg')
+    expect(headers.get('Authorization')).toBe('Bearer tok')
+  })
+
+  it('uploadChatPhoto: код ошибки сервера доходит до вызывающего', async () => {
+    const { uploadChatPhoto } = await import('@/api')
+    mockFetch(json({ error: 'media_quota' }, 413))
+    await expect(uploadChatPhoto('tok', 'family', new Blob(['x']))).rejects.toMatchObject({ status: 413, code: 'media_quota' })
+  })
+
+  it('sendMessage: без фото тело прежнее {text}, с фото добавляется mediaIds', async () => {
+    const { sendMessage } = await import('@/api')
+    const fetchMock = mockFetch(() => json({ message: {} }, 201))
+    await sendMessage('tok', 'family', 'привет')
+    await sendMessage('tok', 'family', '', ['a', 'b'])
+    await sendMessage('tok', 'family', 'подпись', [])
+    const bodies = fetchMock.mock.calls.map((c) => JSON.parse((c[1] as RequestInit).body as string))
+    expect(bodies).toEqual([{ text: 'привет' }, { text: '', mediaIds: ['a', 'b'] }, { text: 'подпись' }])
+    expect(new Headers((fetchMock.mock.calls[1][1] as RequestInit).headers).get('Content-Type')).toBe('application/json')
+  })
+})

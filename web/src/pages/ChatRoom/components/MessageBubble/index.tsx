@@ -1,14 +1,25 @@
+import { useRef } from 'react'
 import { CoinIcon } from '@/components/CoinBalance'
 import { useLongPress } from '../../useLongPress'
-import { formatMessageTime, groupReactions, totalCoins } from '../../utils'
-import { Bubble, CoinPill, Extras, Footer, ReactionChip, Sender, Text, Tick, Time, Wrap } from './styles'
+import { bubbleText, formatMessageTime, groupReactions, photoColumns, totalCoins } from '../../utils'
+import { Bubble, CoinPill, Extras, Footer, PhotoButton, Photos, ReactionChip, Sender, Text, Tick, Time, Wrap } from './styles'
 import type { MessageBubbleProps } from './types'
 
-export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, onFeedback }: MessageBubbleProps) {
+export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, onFeedback, onOpenPhoto }: MessageBubbleProps) {
   const reactions = groupReactions(message.reactions)
   const coins = totalCoins(message.awards)
 
-  const press = useLongPress(onFeedback)
+  // после долгого нажатия палец отпускается над фото и даёт «клик»: просмотр от него открываться не должен
+  const lastLong = useRef(0)
+  const press = useLongPress(
+    onFeedback &&
+      (() => {
+        lastLong.current = Date.now()
+        onFeedback()
+      }),
+  )
+  const photos = message.media ?? []
+  const text = bubbleText(message)
 
   // долгое нажатие (палец), удержание мыши или правая кнопка открывают окно реакции; с клавиатуры Enter и пробел
   const interactive = onFeedback
@@ -29,9 +40,25 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
 
   return (
     <Wrap $mine={mine}>
-      <Bubble $mine={mine} $interactive={!!onFeedback} {...interactive}>
+      <Bubble $mine={mine} $interactive={!!onFeedback} $photoColumns={photos.length > 0 ? photoColumns(photos.length) : undefined} {...interactive}>
         {showSender && !mine && <Sender>{senderName ?? 'Участник'}{senderMood && <span aria-hidden> {senderMood}</span>}</Sender>}
-        <Text>{message.text}</Text>
+        {photos.length > 0 && (
+          <Photos $columns={photoColumns(photos.length)}>
+            {photos.map((photo, i) => (
+              <PhotoButton
+                key={photo.id}
+                type="button"
+                // одно фото показываем по его пропорциям (не выше предела), несколько квадратными плитками
+                $ratio={photos.length === 1 ? Math.max(0.6, photo.width / photo.height) : undefined}
+                aria-label={photos.length === 1 ? 'Открыть фото' : `Открыть фото ${i + 1} из ${photos.length}`}
+                onClick={() => Date.now() - lastLong.current > 700 && onOpenPhoto?.(i)}
+              >
+                <img src={photos.length === 1 ? photo.fullUrl : photo.thumbUrl} alt="" width={photo.width} height={photo.height} loading="lazy" draggable={false} />
+              </PhotoButton>
+            ))}
+          </Photos>
+        )}
+        {text && <Text>{text}</Text>}
         <Footer>
           <Time>{formatMessageTime(message.createdAt)}</Time>
           {mine && status && (

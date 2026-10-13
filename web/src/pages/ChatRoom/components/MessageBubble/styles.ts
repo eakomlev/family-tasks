@@ -10,8 +10,10 @@ export const Wrap = styled.div<{ $mine: boolean }>`
   align-items: ${({ $mine }) => ($mine ? 'flex-end' : 'flex-start')};
 `
 
-export const Bubble = styled.div<{ $mine: boolean; $interactive?: boolean }>`
+export const Bubble = styled.div<{ $mine: boolean; $interactive?: boolean; $photoColumns?: number }>`
   max-width: 82%;
+  /* с фото ширина задана, а не определяется содержимым: плитки занимают всю ширину пузыря и не вылезают за него */
+  ${({ $photoColumns }) => ($photoColumns ? `width: min(82%, ${$photoColumns === 1 ? '17rem' : '21rem'});` : '')}
   padding: 0.3rem 0.6rem;
   border-radius: 1rem;
   ${({ $mine }) => ($mine ? 'border-bottom-right-radius: 0.3rem;' : 'border-bottom-left-radius: 0.3rem;')}
@@ -36,6 +38,41 @@ export const Sender = styled.div`
   color: var(--accent);
   font-size: 0.8rem;
   font-weight: 600;
+`
+
+// Фото сообщения. Одно показывается по своим пропорциям, несколько плитками. Ширина пузыря задаётся фото, поэтому у него есть минимум.
+export const Photos = styled.div<{ $columns: number }>`
+  display: grid;
+  grid-template-columns: repeat(${({ $columns }) => $columns}, minmax(0, 1fr));
+  gap: 0.2rem;
+  margin: 0.1rem -0.35rem 0.25rem;
+`
+
+export const PhotoButton = styled.button<{ $ratio?: number }>`
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0.7rem;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  aspect-ratio: ${({ $ratio }) => $ratio ?? 1};
+  max-height: 22rem;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 `
 
 // переносы строк из сообщения сохраняются

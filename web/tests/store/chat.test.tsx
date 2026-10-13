@@ -27,7 +27,7 @@ vi.mock('@/api', async (importOriginal) => ({
 const mama: Member = { id: 'me', name: 'Лена', role: 'mama', avatar: null, isOwner: true }
 const kid: Member = { id: 'm2', name: 'Миша', role: 'child', avatar: null, isOwner: false }
 const identity = { familyCode: 'c', memberId: 'me', name: 'Лена', role: 'mama' as const, token: 'tok' }
-const msg = (id: string, senderId: string, text: string): ChatMessage => ({ id, senderId, text, createdAt: '2026-10-11T10:00:00Z', reactions: [], awards: [] })
+const msg = (id: string, senderId: string, text: string): ChatMessage => ({ id, senderId, text, caption: text, media: [], createdAt: '2026-10-11T10:00:00Z', reactions: [], awards: [] })
 const page = (messages: ChatMessage[]) => ({ messages, hasMore: false, readUpTo: null, peer: null })
 
 function Unread() {

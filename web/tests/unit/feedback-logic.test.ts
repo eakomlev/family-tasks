@@ -25,7 +25,7 @@ describe('totalCoins', () => {
 })
 
 describe('replaceMessage', () => {
-  const msg = (id: string, text = id): ChatMessage => ({ id, senderId: 's', text, createdAt: '2026-10-11T10:00:00Z', reactions: [], awards: [] })
+  const msg = (id: string, text = id): ChatMessage => ({ id, senderId: 's', text, caption: text, media: [], createdAt: '2026-10-11T10:00:00Z', reactions: [], awards: [] })
   it('заменяет только сообщение с тем же id, порядок сохраняется', () => {
     const updated = { ...msg('b', 'b'), reactions: [{ memberId: 'm', emoji: '👍' }] }
     const result = replaceMessage([msg('a'), msg('b'), msg('c')], updated)

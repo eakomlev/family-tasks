@@ -13,4 +13,6 @@ export interface MessageBubbleProps {
   status?: MessageStatus
   // родитель может нажать на сообщение ребёнка, чтобы поставить реакцию или начислить монеты
   onFeedback?: () => void
+  // нажатие на фото: открыть просмотр с этим номером
+  onOpenPhoto?: (index: number) => void
 }
