@@ -3,7 +3,7 @@
 #
 # Что делает:
 #   1. забирает свежий код (git pull без слияний: если на сервере есть свои правки кода, остановится);
-#   2. делает резервную копию БД в backups/ (хранятся последние 14);
+#   2. делает резервную копию БД и фото (том s3) в backups/ (хранятся последние 14 и 7);
 #   3. пересобирает и перезапускает контейнеры (миграции БД сервер применяет сам при старте);
 #   4. проверяет, что приложение ответило, и при ошибке показывает логи и как откатиться;
 #   5. удаляет устаревшие образы Docker.
@@ -16,6 +16,8 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 KEEP_BACKUPS=14
+# копии фото (том хранилища s3) весят больше базы, поэтому их храним меньше
+KEEP_MEDIA_BACKUPS=7
 HEALTH_ATTEMPTS=30   # проверок по 2 секунды, то есть до минуты ожидания
 
 usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; }
@@ -87,6 +89,20 @@ else
   else
     rm -f -- "$BACKUP_FILE"
     fail 'Не удалось сделать резервную копию БД, обновление остановлено. Повторите или запустите с --no-backup, если копия не нужна.'
+  fi
+fi
+
+# Фото из чатов лежат в хранилище s3 (отдельный том), в копию БД они не входят. Копия фото не останавливает обновление
+# (том обновление не трогает), но об ошибке сказано громко. Снимается на ходу: файлы хранилища только дописываются.
+if [ "$BACKUP" -eq 1 ] && docker compose ps --status running --services 2>/dev/null | grep -qx s3; then
+  mkdir -p backups
+  MEDIA_BACKUP_FILE="backups/s3-$(date +%Y%m%d-%H%M%S).tar.gz"
+  if docker compose exec -T s3 tar czf - -C /data . > "$MEDIA_BACKUP_FILE" && gzip -t "$MEDIA_BACKUP_FILE" && [ "$(wc -c < "$MEDIA_BACKUP_FILE")" -gt 200 ]; then
+    echo "Фото сохранены: $MEDIA_BACKUP_FILE ($(du -h "$MEDIA_BACKUP_FILE" | cut -f1))"
+    ls -1t backups/s3-*.tar.gz 2>/dev/null | tail -n +$((KEEP_MEDIA_BACKUPS + 1)) | while read -r old; do rm -f -- "$old"; done
+  else
+    rm -f -- "$MEDIA_BACKUP_FILE"
+    printf '\nВНИМАНИЕ: не удалось сделать копию фото (том s3). Обновление продолжается, но сделайте копию вручную, см. README.\n' >&2
   fi
 fi
 

@@ -1,4 +1,4 @@
-import type { QueueStats } from '@/store/admin'
+import type { MediaStats, QueueStats } from '@/store/admin'
 
 // Сколько может ждать самое старое сообщение, прежде чем это считается проблемой.
 export const STALE_SECONDS = 300
@@ -71,6 +71,41 @@ export function queueAlerts(queue: QueueStats, now: Date): QueueAlert[] {
     alerts.push({
       tone: 'warning',
       text: `Сегодня не удалось отправить: письма ${failedMail}, push ${failedPush}. Причины в журнале notifier.`,
+    })
+  }
+  return alerts
+}
+
+// С какой доли квоты у самой «тяжёлой» семьи предупреждаем.
+export const QUOTA_WARN_SHARE = 0.8
+
+// «850 КБ», «1,2 МБ», «3,4 ГБ»
+export function formatBytes(bytes: number): string {
+  const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ']
+  let value = Math.max(0, bytes)
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit++
+  }
+  const digits = unit === 0 || value >= 100 ? 0 : 1
+  return `${value.toLocaleString('ru-RU', { minimumFractionDigits: digits, maximumFractionDigits: digits })} ${units[unit]}`
+}
+
+// Что стоит сказать администратору про фото. Пустой список: всё в порядке.
+export function mediaAlerts(media: MediaStats): QueueAlert[] {
+  if (!media.configured) {
+    return [{ tone: 'muted', text: 'Отправка фото выключена: на сервере не заданы MEDIA_SECRET и MEDIA_INTERNAL_TOKEN.' }]
+  }
+  const alerts: QueueAlert[] = []
+  if (!media.alive) {
+    alerts.push({ tone: 'error', text: 'Сервис фото (media) или его хранилище не отвечает: фото не отправляются и не открываются.' })
+  }
+  if (media.quotaBytes > 0 && media.busiestFamilyBytes >= media.quotaBytes * QUOTA_WARN_SHARE) {
+    const share = Math.floor((media.busiestFamilyBytes / media.quotaBytes) * 100)
+    alerts.push({
+      tone: media.busiestFamilyBytes >= media.quotaBytes ? 'error' : 'warning',
+      text: `Одна из семей заняла ${share}% своей квоты на фото (${formatBytes(media.busiestFamilyBytes)} из ${formatBytes(media.quotaBytes)}).`,
     })
   }
   return alerts

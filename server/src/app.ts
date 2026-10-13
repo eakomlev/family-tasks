@@ -82,6 +82,6 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
   await app.register(coinRoutes)
   await app.register(robloxRoutes)
   await app.register(goalRoutes)
-  await app.register(adminRoutes)
+  await app.register(adminRoutes, { media })
   return app
 }

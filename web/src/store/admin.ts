@@ -31,6 +31,20 @@ export interface QueueStats {
   }
 }
 
+// Фото в чатах: жив ли сервис media и сколько места занято.
+export interface MediaStats {
+  // настроены ли фото на сервере; если нет, остальное нули
+  configured: boolean
+  alive: boolean
+  photos: number
+  bytes: number
+  // загружено, но не прикреплено к сообщению (через сутки уборка их удалит)
+  unattached: { photos: number; bytes: number }
+  quotaBytes: number
+  // сколько места занимает самая «тяжёлая» семья
+  busiestFamilyBytes: number
+}
+
 // Статистика сервиса для администратора. Аргумент: начало сегодняшнего дня в ISO (часовой пояс знает только клиент).
 export const adminApi = api.injectEndpoints({
   endpoints: (build) => ({
@@ -40,7 +54,10 @@ export const adminApi = api.injectEndpoints({
     getQueueStats: build.query<QueueStats, void>({
       query: () => ({ path: '/admin/queue' }),
     }),
+    getMediaStats: build.query<MediaStats, void>({
+      query: () => ({ path: '/admin/media' }),
+    }),
   }),
 })
 
-export const { useGetServiceStatsQuery, useGetQueueStatsQuery } = adminApi
+export const { useGetServiceStatsQuery, useGetQueueStatsQuery, useGetMediaStatsQuery } = adminApi

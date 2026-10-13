@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { buildApp } from '../../src/app.js'
-import { isAdminEmail, type QueueStats, type ServiceStats } from '../../src/admin.js'
+import { isAdminEmail, type MediaStats, type QueueStats, type ServiceStats } from '../../src/admin.js'
+import type { MediaClient } from '../../src/media/client.js'
 import { pool } from '../../src/db.js'
 import { mailBudgetExhausted } from '../../src/outbox/budget.js'
 import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
@@ -226,5 +227,69 @@ describe('признак администратора в /api/me', () => {
   it('isAdmin только у администратора', async () => {
     expect((await api(app, fam.mom.token, 'GET', '/api/me')).body.member.isAdmin).toBe(true)
     expect((await api(app, fam.dad.token, 'GET', '/api/me')).body.member.isAdmin).toBe(false)
+  })
+})
+
+describe('GET /api/admin/media', () => {
+  let healthy = true
+  const client: MediaClient = { upload: async () => ({ width: 1, height: 1, size: 1, thumbSize: 1 }), delete: async () => {}, health: async () => healthy }
+  let withMedia: Awaited<ReturnType<typeof buildApp>>
+  beforeAll(async () => {
+    withMedia = await buildApp({ logger: false, rateLimit: false, media: { client, secret: 's' } })
+    await withMedia.ready()
+  })
+  afterAll(async () => {
+    await withMedia.close()
+  })
+  afterEach(async () => {
+    vi.unstubAllEnvs()
+    healthy = true
+    await pool.query('delete from media where family_id = $1', [fam.id])
+  })
+
+  const media = async (token: string | null = fam.mom.token, target = withMedia) => {
+    const res = await api(target, token, 'GET', '/api/admin/media')
+    return { status: res.status, body: res.body as MediaStats }
+  }
+  const insert = (size: number, attached: boolean) =>
+    pool.query(
+      `insert into media (family_id, uploader_id, width, height, size, attached_at) values ($1, $2, 100, 100, $3, $4)`,
+      [fam.id, fam.kid.id, size, attached ? new Date() : null],
+    )
+
+  it('не администратору раздела нет (404), без токена 401', async () => {
+    expect((await media(fam.kid.token)).status).toBe(404)
+    expect((await media(null)).status).toBe(401)
+  })
+
+  it('фото не настроены: configured false, сервис не опрашивается', async () => {
+    const res = await media(fam.mom.token, app)
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ configured: false, alive: false })
+  })
+
+  it('настроены и сервис отвечает: alive true; не отвечает: alive false', async () => {
+    expect((await media()).body).toMatchObject({ configured: true, alive: true })
+    healthy = false
+    expect((await media()).body).toMatchObject({ configured: true, alive: false })
+  })
+
+  it('считает фото и занятое место; не прикреплённые отдельно; самая тяжёлая семья', async () => {
+    await insert(1_000_000, true)
+    await insert(2_000_000, true)
+    await insert(500_000, false)
+    // таблица общая с параллельными тестами, поэтому нижние границы
+    const { body } = await media()
+    expect(body.photos).toBeGreaterThanOrEqual(3)
+    expect(body.bytes).toBeGreaterThanOrEqual(3_500_000)
+    expect(body.unattached.photos).toBeGreaterThanOrEqual(1)
+    expect(body.unattached.bytes).toBeGreaterThanOrEqual(500_000)
+    expect(body.busiestFamilyBytes).toBeGreaterThanOrEqual(3_500_000)
+  })
+
+  it('квота семьи берётся из MEDIA_QUOTA_BYTES, по умолчанию 2 ГБ', async () => {
+    expect((await media()).body.quotaBytes).toBe(2 * 1024 * 1024 * 1024)
+    vi.stubEnv('MEDIA_QUOTA_BYTES', '1000000')
+    expect((await media()).body.quotaBytes).toBe(1_000_000)
   })
 })

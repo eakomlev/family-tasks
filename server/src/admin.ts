@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify'
 import { authenticate } from './auth.js'
 import { pool } from './db.js'
+import type { MediaClient } from './media/client.js'
+import { mediaQuotaBytes } from './media/index.js'
 import { mailDailyLimit } from './outbox/budget.js'
 
 // Адреса администраторов сервиса: переменная ADMIN_EMAILS (через запятую, регистр не важен). Читается при каждой проверке,
@@ -54,7 +56,54 @@ export interface QueueStats {
   }
 }
 
-export async function adminRoutes(app: FastifyInstance) {
+// Фото в чатах для страницы «Сервис»: что сохранено и занимает место, жив ли сервис media.
+export interface MediaStats {
+  // настроены ли фото (MEDIA_SECRET и MEDIA_INTERNAL_TOKEN); если нет, остальное нули и alive false
+  configured: boolean
+  // отвечает ли сервис media вместе с хранилищем
+  alive: boolean
+  photos: number
+  bytes: number
+  // загружено, но не прикреплено к сообщению (через сутки их убирает уборка)
+  unattached: { photos: number; bytes: number }
+  // квота одной семьи и сколько занимает самая «тяжёлая» семья
+  quotaBytes: number
+  busiestFamilyBytes: number
+}
+
+export interface AdminOptions {
+  media: { client: MediaClient; secret: string } | null
+}
+
+export async function adminRoutes(app: FastifyInstance, { media = null }: Partial<AdminOptions> = {}) {
+  // Фото в чатах. Права те же, что у остальных страниц «Сервиса».
+  app.get('/api/admin/media', async (req, reply) => {
+    const me = await authenticate(req)
+    if (!me) return reply.code(401).send({ error: 'unauthorized' })
+    if (!isAdminEmail(me.email)) return reply.code(404).send({ error: 'not_found' })
+
+    const { rows } = await pool.query(
+      `select
+         count(*)::int as photos,
+         coalesce(sum(size), 0)::float8 as bytes,
+         (count(*) filter (where attached_at is null))::int as loose_photos,
+         coalesce(sum(size) filter (where attached_at is null), 0)::float8 as loose_bytes,
+         coalesce((select max(total) from (select sum(size) as total from media group by family_id) f), 0)::float8 as busiest
+       from media`,
+    )
+    const r = rows[0]
+    const stats: MediaStats = {
+      configured: media !== null,
+      alive: media ? await media.client.health() : false,
+      photos: r.photos,
+      bytes: r.bytes,
+      unattached: { photos: r.loose_photos, bytes: r.loose_bytes },
+      quotaBytes: mediaQuotaBytes(),
+      busiestFamilyBytes: r.busiest,
+    }
+    return stats
+  })
+
   // Очередь отправки. Права те же, что у статистики: не администратору раздела нет.
   app.get('/api/admin/queue', async (req, reply) => {
     const me = await authenticate(req)

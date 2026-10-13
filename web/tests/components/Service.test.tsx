@@ -23,10 +23,15 @@ const queue = {
   scheduler: { alive: true, instances: 1, lastBeatSeconds: 5, lastTickSeconds: 42, lastSent: 6, lastError: null },
 }
 // ответы по адресам: статистика и очередь; остальное ошибка
-const serve = (over: { queue?: unknown } = {}) =>
+const mediaStats = {
+  configured: true, alive: true, photos: 1234, bytes: 3 * 1024 * 1024 * 1024, unattached: { photos: 3, bytes: 4 * 1024 * 1024 },
+  quotaBytes: 2 * 1024 * 1024 * 1024, busiestFamilyBytes: 512 * 1024 * 1024,
+}
+const serve = (over: { queue?: unknown; media?: unknown } = {}) =>
   vi.fn(async (url: string) => {
     if (String(url).startsWith('/api/admin/stats')) return new Response(JSON.stringify(stats))
     if (String(url) === '/api/admin/queue') return new Response(JSON.stringify(over.queue ?? queue))
+    if (String(url) === '/api/admin/media') return new Response(JSON.stringify(over.media ?? mediaStats))
     return new Response('{}', { status: 500 })
   })
 
@@ -137,6 +142,34 @@ describe('раздел «Сервис»', () => {
       const region = await screen.findByRole('region', { name: 'Планировщик' })
       expect(region).toHaveTextContent('Состояниене отвечает')
       expect(await screen.findByText(/Планировщик \(scheduler\) не отвечает/)).toBeInTheDocument()
+    })
+
+    it('фото: сервис, число фото, занятое место, не прикреплённое и самая тяжёлая семья', async () => {
+      vi.stubGlobal('fetch', serve())
+      renderAt('/profile/service', true)
+      const region = await screen.findByRole('region', { name: 'Фото' })
+      expect(region).toHaveTextContent('Сервис фотоработает')
+      expect(region).toHaveTextContent('Фото всего1 234')
+      expect(region).toHaveTextContent('Занято места3,0 ГБ')
+      expect(region).toHaveTextContent('3 · 4,0 МБ')
+      expect(region).toHaveTextContent('512 МБ из 2,0 ГБ')
+      expect(region.querySelector('p')).toBeNull()
+    })
+
+    it('сервис фото не отвечает: ошибка в блоке', async () => {
+      vi.stubGlobal('fetch', serve({ media: { ...mediaStats, alive: false } }))
+      renderAt('/profile/service', true)
+      const region = await screen.findByRole('region', { name: 'Фото' })
+      expect(await within(region).findByText(/фото не отправляются и не открываются/)).toBeInTheDocument()
+      expect(region).toHaveTextContent('Сервис фотоне отвечает')
+    })
+
+    it('фото не настроены: пояснение вместо карточек', async () => {
+      vi.stubGlobal('fetch', serve({ media: { ...mediaStats, configured: false, alive: false } }))
+      renderAt('/profile/service', true)
+      const region = await screen.findByRole('region', { name: 'Фото' })
+      expect(within(region).getByText(/Отправка фото выключена/)).toBeInTheDocument()
+      expect(within(region).queryByText('Фото всего')).toBeNull()
     })
 
     it('ошибка загрузки очереди не ломает статистику выше', async () => {

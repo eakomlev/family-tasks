@@ -4,10 +4,10 @@ import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
-import { useGetQueueStatsQuery, useGetServiceStatsQuery } from '@/store/admin'
+import { useGetMediaStatsQuery, useGetQueueStatsQuery, useGetServiceStatsQuery } from '@/store/admin'
 import { startOfDayIso } from '../MyDay/utils'
 import { Card, Cards, Section } from './styles'
-import { formatAge, queueAlerts } from './utils'
+import { formatAge, formatBytes, mediaAlerts, queueAlerts } from './utils'
 
 const format = (n: number) => n.toLocaleString('ru-RU')
 
@@ -21,6 +21,8 @@ export default function Service() {
   const { data: stats, isError } = useGetServiceStatsQuery(startOfDayIso(now), { skip: !isAdmin, pollingInterval: 30_000 })
 
   const { data: queue, isError: queueFailed } = useGetQueueStatsQuery(undefined, { skip: !isAdmin, pollingInterval: 30_000 })
+
+  const { data: media } = useGetMediaStatsQuery(undefined, { skip: !isAdmin, pollingInterval: 30_000 })
 
   if (data && !isAdmin) return <Navigate to="/profile" replace />
 
@@ -100,6 +102,32 @@ export default function Service() {
               <strong>{queue.scheduler.lastSent === null ? '—' : format(queue.scheduler.lastSent)}</strong>
             </Card>
           </Cards>
+        </Section>
+      )}
+      {media && (
+        <Section aria-label="Фото">
+          <h2>Фото в чатах</h2>
+          {mediaAlerts(media).map((alert) => (
+            <Notice key={alert.text} $tone={alert.tone === 'error' ? 'error' : alert.tone === 'warning' ? 'warning' : 'muted'}>{alert.text}</Notice>
+          ))}
+          {media.configured && (
+            <Cards>
+              <Card $small>
+                <span>Сервис фото</span>
+                <strong>{media.alive ? 'работает' : 'не отвечает'}</strong>
+              </Card>
+              <Card><span>Фото всего</span><strong>{format(media.photos)}</strong></Card>
+              <Card><span>Занято места</span><strong>{formatBytes(media.bytes)}</strong></Card>
+              <Card $small>
+                <span>Не прикреплено к сообщениям</span>
+                <strong>{format(media.unattached.photos)} · {formatBytes(media.unattached.bytes)}</strong>
+              </Card>
+              <Card $small>
+                <span>Больше всего у семьи</span>
+                <strong>{formatBytes(media.busiestFamilyBytes)} из {formatBytes(media.quotaBytes)}</strong>
+              </Card>
+            </Cards>
+          )}
         </Section>
       )}
     </Page>

@@ -32,6 +32,9 @@ class FakeMedia implements MediaClient {
     if (this.failWith) throw this.failWith
     this.deleted.push(id)
   }
+  async health() {
+    return !this.failWith
+  }
 }
 
 let fam: TestFamily
@@ -391,6 +394,14 @@ describe('клиент сервиса media', () => {
     await expect(client.delete('f', 'i')).resolves.toBeUndefined()
     status = 500
     await expect(client.delete('f', 'i')).rejects.toThrow('500')
+  })
+
+  it('health: сервис отвечает 200 это true, ошибка и недоступность false, исключений нет', async () => {
+    expect(await client.health()).toBe(true)
+    expect(seen[0]).toMatchObject({ method: 'GET', url: '/health' })
+    status = 503
+    expect(await client.health()).toBe(false)
+    expect(await createMediaClient({ url: 'http://127.0.0.1:1', internalToken: 'x' }, 500).health()).toBe(false)
   })
 
   it('сервис не отвечает: ошибка, а не зависание', async () => {

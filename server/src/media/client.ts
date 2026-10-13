@@ -11,6 +11,8 @@ export interface MediaClient {
   upload(family: string, id: string, body: Buffer): Promise<UploadResult>
   // удаляет файл (повтор безопасен)
   delete(family: string, id: string): Promise<void>
+  // отвечает ли сервис и доступно ли его хранилище (для страницы «Сервис»); не бросает ошибок
+  health(): Promise<boolean>
 }
 
 // Сервис media отклонил файл (не JPEG, битый): это ошибка клиента, а не сбой.
@@ -48,6 +50,15 @@ export function createMediaClient(config: Pick<MediaEnv, 'url' | 'internalToken'
       if (res.status === 422) throw new MediaRejected()
       if (!res.ok) throw new Error(`media upload failed: ${res.status}`)
       return (await res.json()) as UploadResult
+    },
+    async health() {
+      try {
+        // короткий срок: страница «Сервис» не должна ждать зависший сервис
+        const res = await fetch(`${config.url}/health`, { signal: AbortSignal.timeout(Math.min(timeoutMs, 3000)) })
+        return res.ok
+      } catch {
+        return false
+      }
     },
     async delete(family, id) {
       const res = await call(`/internal/media/${family}/${id}`, { method: 'DELETE' })
