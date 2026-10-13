@@ -6,6 +6,7 @@ import { adminRoutes } from './admin.js'
 import { chatRoutes } from './chat.js'
 import { coinRoutes } from './coins.js'
 import { goalRoutes } from './goals.js'
+import { createMediaClient, mediaEnv, type MediaClient } from './media/client.js'
 import { robloxRoutes } from './roblox.js'
 import { pushRoutes } from './push.js'
 import { MAX_PAYLOAD, realtimeRoutes } from './realtime.js'
@@ -30,10 +31,16 @@ interface Options {
   onRoute?: (route: RouteOptions) => void
   // общий лимит запросов; в тестах выключаем, чтобы они не упирались в лимиты
   rateLimit?: boolean
+  // фото в чатах: клиент сервиса media и секрет подписи ссылок; по умолчанию из окружения, null отключает фото
+  media?: { client: MediaClient; secret: string } | null
 }
 
 // Собирает приложение, но не запускает его: запуск и планировщик в index.ts, тесты работают через app.inject.
-export async function buildApp({ logger = true, rateLimit: limit = true, onRoute }: Options = {}) {
+export async function buildApp({ logger = true, rateLimit: limit = true, onRoute, media }: Options = {}) {
+  if (media === undefined) {
+    const env = mediaEnv()
+    media = env ? { client: createMediaClient(env), secret: env.secret } : null
+  }
   const app = Fastify({
     logger,
     // сервер доступен только через nginx, берём реальный IP клиента из X-Forwarded-For
@@ -41,6 +48,9 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
   })
 
   if (onRoute) app.addHook('onRoute', onRoute)
+
+  // фото приходит сырым JPEG (загрузка в чат); предел размера задан у самого маршрута
+  app.addContentTypeParser('image/jpeg', { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
 
   // Авторизация по умолчанию: без токена отвечаем 401 раньше проверки тела и параметров (иначе схему можно «прощупать» без входа).
   app.addHook('onRequest', async (req, reply) => {
@@ -68,7 +78,7 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
   await app.register(trainingRoutes)
   await app.register(taskRoutes)
   await app.register(pushRoutes)
-  await app.register(chatRoutes)
+  await app.register(chatRoutes, { media })
   await app.register(coinRoutes)
   await app.register(robloxRoutes)
   await app.register(goalRoutes)

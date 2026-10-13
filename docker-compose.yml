@@ -27,6 +27,11 @@ services:
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       # дневной лимит писем: тот же, что у notifier (по нему API отказывает, когда бюджет исчерпан)
       MAIL_DAILY_LIMIT: ${MAIL_DAILY_LIMIT:-2800}
+      # фото в чатах: без обоих секретов отправка фото выключена (текст работает); подробности в docs/chat-photos-plan.md
+      MEDIA_URL: http://media:3000
+      MEDIA_SECRET: ${MEDIA_SECRET:-}
+      MEDIA_INTERNAL_TOKEN: ${MEDIA_INTERNAL_TOKEN:-}
+      MEDIA_QUOTA_BYTES: ${MEDIA_QUOTA_BYTES:-}
     depends_on:
       db:
         condition: service_healthy
