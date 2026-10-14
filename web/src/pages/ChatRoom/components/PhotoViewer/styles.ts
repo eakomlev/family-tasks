@@ -7,9 +7,8 @@ export const Overlay = styled.div`
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  background: rgb(0 0 0 / 0.97);
+  background: #050505;
   color: #fff;
-  touch-action: pan-y;
   -webkit-user-select: none;
   user-select: none;
 `
@@ -62,8 +61,22 @@ export const IconButton = styled.button`
   ${control}
 `
 
-export const SaveLink = styled.a`
+export const SaveButton = styled.button`
   ${control}
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: progress;
+  }
+`
+
+export const Status = styled.p`
+  margin: 0;
+  padding: 0.4rem 0.9rem;
+  background: rgb(198 40 40 / 0.85);
+  color: #fff;
+  font-size: 0.85rem;
+  text-align: center;
 `
 
 export const Stage = styled.div`
@@ -71,14 +84,41 @@ export const Stage = styled.div`
   flex: 1;
   min-height: 0;
   margin-bottom: env(safe-area-inset-bottom);
+`
 
-  /* фото целиком в границах области, без обрезки и прокрутки: процентные высоты внутри flex-области ненадёжны, поэтому абсолютно */
+// Лента слайдов: свой горизонтальный скролл с привязкой к краям, палец тянет фото за собой, как слайдер
+export const Track = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+`
+
+export const Slide = styled.div`
+  flex: 0 0 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: center;
+  /* быстрый жест не пролистывает несколько фото сразу */
+  scroll-snap-stop: always;
+
+  /* фото целиком в границах слайда, без обрезки; пустое место вокруг фото закрывает просмотр */
   img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
     object-fit: contain;
+    -webkit-user-drag: none;
   }
 `
 

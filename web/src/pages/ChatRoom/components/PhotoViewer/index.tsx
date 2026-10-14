@@ -1,18 +1,50 @@
-import { useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type UIEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { useInFlight } from '@/lib/useInFlight'
 import { nextIndex, prevIndex } from '../../utils'
-import { Arrow, IconButton, Overlay, SaveLink, Stage, TopBar } from './styles'
+import { Arrow, IconButton, Overlay, SaveButton, Slide, Stage, Status, Track, TopBar } from './styles'
 import type { PhotoViewerProps } from './types'
 
-// на сколько нужно сдвинуть палец по горизонтали, чтобы это считалось листанием
-const SWIPE_PX = 50
+// Сколько длится плавная прокрутка кнопкой (запас к настоящей: браузеры анимируют 300–500 мс)
+const SMOOTH_SCROLL_MS = 700
 
-// Просмотр фото сообщения на весь экран: листание кнопками, стрелками клавиатуры и жестом, «Сохранить», закрытие нажатием на фон или Escape.
+// Сохранение фото без ухода со страницы: на телефоне ссылка с download открывала саму картинку в этом же окне приложения,
+// а выйти оттуда было нечем (у установленного приложения нет кнопки «назад»). Поэтому файл берём запросом (он идёт через кэш
+// фото) и отдаём системе: меню «Поделиться» (на iPhone там «Сохранить изображение») или скачивание из памяти.
+async function savePhoto(url: string, name: string): Promise<void> {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('download_failed')
+  const blob = await res.blob()
+  const file = new File([blob], name, { type: blob.type || 'image/jpeg' })
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] })
+      return
+    } catch (err) {
+      // человек закрыл меню: это не ошибка
+      if ((err as Error).name === 'AbortError') return
+    }
+  }
+  const href = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = href
+  link.download = name
+  document.body.append(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(href), 10_000)
+}
+
+// Просмотр фото сообщения на весь экран. Фото лежат в одной горизонтальной ленте с привязкой к краям (scroll-snap): листается
+// пальцем, как слайдер, следом за пальцем; есть кнопки и стрелки клавиатуры. «Сохранить» не уходит со страницы, закрыть можно
+// крестиком, Escape и нажатием на фон.
 export function PhotoViewer({ photos, index, onIndexChange, onClose }: PhotoViewerProps) {
+  const guard = useInFlight()
   const close = useRef<HTMLButtonElement>(null)
-  const swipe = useRef<{ x: number; y: number }>(undefined)
+  const track = useRef<HTMLDivElement>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveFailed, setSaveFailed] = useState(false)
   const count = photos.length
-  const photo = photos[index]
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
@@ -25,8 +57,45 @@ export function PhotoViewer({ photos, index, onIndexChange, onClose }: PhotoView
     }
   }, [])
 
-  if (!photo) return null
-  const go = (to: number) => onIndexChange(to)
+  // Открыли на нужном фото без анимации; позже кнопки и клавиши прокручивают ленту плавно, а палец уже сам её сдвинул.
+  // Пока идёт наша плавная прокрутка, события прокрутки не читаем: на полпути лента «стоит» над соседним фото, и без этого
+  // номер откатывался бы назад (кнопка «вперёд» и лента спорили бы друг с другом).
+  const opened = useRef(false)
+  const animating = useRef(false)
+  const animationEnd = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useLayoutEffect(() => {
+    const el = track.current
+    if (!el || !el.clientWidth) return
+    const left = index * el.clientWidth
+    if (Math.abs(el.scrollLeft - left) < 1) return
+    const smooth = opened.current
+    if (smooth) {
+      animating.current = true
+      clearTimeout(animationEnd.current)
+      animationEnd.current = setTimeout(() => (animating.current = false), SMOOTH_SCROLL_MS)
+    }
+    el.scrollTo({ left, behavior: smooth ? 'smooth' : 'instant' })
+    opened.current = true
+  }, [index])
+  useEffect(() => () => clearTimeout(animationEnd.current), [])
+
+  if (!photos[index]) return null
+
+  // лента остановилась на другом фото: сообщаем номер (во время прокрутки число меняется на полпути между фото)
+  function onScroll(e: UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    if (!el.clientWidth || animating.current) return
+    const at = Math.round(el.scrollLeft / el.clientWidth)
+    if (at !== index && at >= 0 && at < count) onIndexChange(at)
+  }
+
+  function go(to: number) {
+    // с последнего на первое (и обратно) лента проматывается через все фото, поэтому там без анимации
+    const far = Math.abs(to - index) > 1
+    const el = track.current
+    if (far && el) el.scrollTo({ left: to * el.clientWidth, behavior: 'instant' })
+    onIndexChange(to)
+  }
 
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === 'Escape') onClose()
@@ -34,38 +103,51 @@ export function PhotoViewer({ photos, index, onIndexChange, onClose }: PhotoView
     else if (count > 1 && e.key === 'ArrowLeft') go(prevIndex(index, count))
   }
 
-  function onPointerUp(e: PointerEvent) {
-    const from = swipe.current
-    swipe.current = undefined
-    if (!from || count < 2) return
-    const dx = e.clientX - from.x
-    // горизонтальное движение заметно больше вертикального: иначе это обычная прокрутка или нажатие
-    if (Math.abs(dx) >= SWIPE_PX && Math.abs(dx) > Math.abs(e.clientY - from.y) * 1.5) go(dx < 0 ? nextIndex(index, count) : prevIndex(index, count))
-  }
+  // два нажатия подряд до перерисовки запрашивают файл один раз
+  const save = guard(async () => {
+    setSaving(true)
+    setSaveFailed(false)
+    try {
+      await savePhoto(photos[index].fullUrl, `foto-${index + 1}.jpg`)
+    } catch {
+      setSaveFailed(true)
+    } finally {
+      setSaving(false)
+    }
+  })
 
   // в корень страницы: переписка лежит в слое с анимацией, из-за чего угол оболочки (баланс монет) оказывался бы поверх просмотра
   return createPortal(
-    <Overlay
-      role="dialog"
-      aria-modal="true"
-      aria-label="Просмотр фото"
-      onKeyDown={onKeyDown}
-      onPointerDown={(e) => (swipe.current = { x: e.clientX, y: e.clientY })}
-      onPointerUp={onPointerUp}
-    >
+    <Overlay role="dialog" aria-modal="true" aria-label="Просмотр фото" onKeyDown={onKeyDown}>
       <TopBar>
         <span aria-live="polite">{count > 1 ? `${index + 1} из ${count}` : ''}</span>
-        <SaveLink href={photo.fullUrl} download aria-label="Сохранить фото">
-          Сохранить
-        </SaveLink>
+        <SaveButton type="button" aria-label="Сохранить фото" disabled={saving} onClick={() => void save()}>
+          {saving ? 'Сохраняю…' : 'Сохранить'}
+        </SaveButton>
         <IconButton ref={close} type="button" aria-label="Закрыть" onClick={onClose}>
           <svg viewBox="0 0 24 24" aria-hidden>
             <path d="M6 6l12 12M18 6 6 18" />
           </svg>
         </IconButton>
       </TopBar>
-      <Stage onClick={(e) => e.target === e.currentTarget && onClose()}>
-        <img key={photo.id} src={photo.fullUrl} alt={`Фото ${index + 1}`} width={photo.width} height={photo.height} draggable={false} />
+      {saveFailed && <Status role="alert">Не удалось сохранить фото. Попробуйте ещё раз.</Status>}
+      <Stage>
+        <Track ref={track} role="group" aria-roledescription="карусель" aria-label="Фото" onScroll={onScroll}>
+          {photos.map((photo, i) => (
+            // нажатие на пустое место рядом с фото закрывает просмотр
+            <Slide key={photo.id} onClick={(e) => e.target === e.currentTarget && onClose()}>
+              {/* рядом с открытым грузим сразу, остальные по мере приближения */}
+              <img
+                src={photo.fullUrl}
+                alt={`Фото ${i + 1}`}
+                width={photo.width}
+                height={photo.height}
+                draggable={false}
+                loading={Math.abs(i - index) <= 1 ? 'eager' : 'lazy'}
+              />
+            </Slide>
+          ))}
+        </Track>
         {count > 1 && (
           <>
             <Arrow $side="left" type="button" aria-label="Предыдущее фото" onClick={() => go(prevIndex(index, count))}>

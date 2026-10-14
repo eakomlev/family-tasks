@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, type ChatMedia, type ChatMessage } from '@/api'
 import { ImageError } from '@/lib/image'
 import { Composer } from '@/pages/ChatRoom/components/Composer'
@@ -20,6 +20,8 @@ const jpeg = (name = 'a.jpg') => new File([new Uint8Array(10)], name, { type: 'i
 
 let counter = 0
 beforeEach(() => {
+  // jsdom не умеет прокручивать: лента вызывает scrollTo
+  Element.prototype.scrollTo = vi.fn() as unknown as typeof Element.prototype.scrollTo
   counter = 0
   URL.createObjectURL = vi.fn(() => `blob:preview-${++counter}`)
   URL.revokeObjectURL = vi.fn()
@@ -238,25 +240,89 @@ describe('MessageBubble: фото', () => {
 
 describe('PhotoViewer', () => {
   const photos = [media('a'), media('b'), media('c')]
-  const open = (index = 0) => {
+  const open = (index = 0, list = photos) => {
     const onClose = vi.fn()
     const onIndexChange = vi.fn<(i: number) => void>()
-    render(<PhotoViewer photos={photos} index={index} onIndexChange={onIndexChange} onClose={onClose} />)
-    return { onClose, onIndexChange }
+    const view = render(<PhotoViewer photos={list} index={index} onIndexChange={onIndexChange} onClose={onClose} />)
+    return { onClose, onIndexChange, ...view }
+  }
+  // jsdom не раскладывает элементы: ширину ленты и прокрутку задаём сами
+  const track = () => {
+    const el = screen.getByRole('group', { name: 'Фото' })
+    Object.defineProperty(el, 'clientWidth', { configurable: true, value: 300 })
+    el.scrollTo = vi.fn() as unknown as typeof el.scrollTo
+    return el
+  }
+  const scrollTo = (el: HTMLElement, left: number) => {
+    el.scrollLeft = left
+    fireEvent.scroll(el)
   }
 
-  it('показывает полный вариант, номер и ссылку «Сохранить»', () => {
+  it('все фото лежат в одной ленте-слайдере, показан номер и кнопка «Сохранить»', () => {
     open(1)
     expect(screen.getByRole('dialog', { name: 'Просмотр фото' })).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: 'Фото 2' })).toHaveAttribute('src', media('b').fullUrl)
+    const images = screen.getAllByRole('img')
+    expect(images.map((i) => i.getAttribute('src'))).toEqual(photos.map((p) => p.fullUrl))
     expect(screen.getByText('2 из 3')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Сохранить фото' })).toHaveAttribute('href', media('b').fullUrl)
+    expect(screen.getByRole('button', { name: 'Сохранить фото' })).toBeInTheDocument()
+    // ссылки на картинку нет: нажатие на неё уводило бы со страницы приложения
+    expect(screen.queryByRole('link')).toBeNull()
   })
 
-  it('кнопки листают по кругу', async () => {
+  it('открывается сразу на нужном фото, без анимации', () => {
+    const { rerender } = open(0)
+    const el = track()
+    const spy = el.scrollTo as unknown as ReturnType<typeof vi.fn>
+    rerender(<PhotoViewer photos={photos} index={2} onIndexChange={vi.fn()} onClose={vi.fn()} />)
+    expect(spy).toHaveBeenCalledWith({ left: 600, behavior: 'instant' })
+  })
+
+  it('палец листает ленту: когда она остановилась на другом фото, сообщается его номер', () => {
+    const { onIndexChange } = open(0)
+    const el = track()
+    scrollTo(el, 150) // ровно на полпути
+    scrollTo(el, 300)
+    expect(onIndexChange).toHaveBeenLastCalledWith(1)
+    scrollTo(el, 610)
+    expect(onIndexChange).toHaveBeenLastCalledWith(2)
+    // на том же фото повторно не сообщает
+    onIndexChange.mockClear()
+    scrollTo(el, 10)
+    expect(onIndexChange).not.toHaveBeenCalled()
+  })
+
+  it('пока лента плавно едет по кнопке, события прокрутки номер не откатывают (на полпути лента стоит над соседним фото)', () => {
+    vi.useFakeTimers()
+    try {
+      const onIndexChange = vi.fn<(i: number) => void>()
+      const { rerender } = render(<PhotoViewer photos={photos} index={0} onIndexChange={onIndexChange} onClose={vi.fn()} />)
+      const el = track()
+      // первая прокрутка мгновенная, следующая (кнопкой) плавная
+      rerender(<PhotoViewer photos={photos} index={1} onIndexChange={onIndexChange} onClose={vi.fn()} />)
+      rerender(<PhotoViewer photos={photos} index={2} onIndexChange={onIndexChange} onClose={vi.fn()} />)
+      expect(el.scrollTo).toHaveBeenLastCalledWith({ left: 600, behavior: 'smooth' })
+      el.scrollLeft = 310
+      fireEvent.scroll(el)
+      expect(onIndexChange).not.toHaveBeenCalled()
+      // анимация закончилась: прокрутка пальцем снова читается
+      act(() => {
+        vi.advanceTimersByTime(800)
+      })
+      el.scrollLeft = 300
+      fireEvent.scroll(el)
+      expect(onIndexChange).toHaveBeenLastCalledWith(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('кнопки листают по кругу; на соседнее фото плавно, через край сразу', async () => {
     const { onIndexChange } = open(2)
+    const el = track()
+    const spy = el.scrollTo as unknown as ReturnType<typeof vi.fn>
     await userEvent.click(screen.getByRole('button', { name: 'Следующее фото' }))
     expect(onIndexChange).toHaveBeenLastCalledWith(0)
+    expect(spy).toHaveBeenLastCalledWith({ left: 0, behavior: 'instant' })
     await userEvent.click(screen.getByRole('button', { name: 'Предыдущее фото' }))
     expect(onIndexChange).toHaveBeenLastCalledWith(1)
   })
@@ -272,24 +338,7 @@ describe('PhotoViewer', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('жест влево — следующее, вправо — предыдущее; короткий или вертикальный не листает', () => {
-    const { onIndexChange } = open(1)
-    const dialog = screen.getByRole('dialog')
-    const swipe = (from: [number, number], to: [number, number]) => {
-      fireEvent.pointerDown(dialog, { clientX: from[0], clientY: from[1] })
-      fireEvent.pointerUp(dialog, { clientX: to[0], clientY: to[1] })
-    }
-    swipe([200, 100], [100, 105])
-    expect(onIndexChange).toHaveBeenLastCalledWith(2)
-    swipe([100, 100], [200, 100])
-    expect(onIndexChange).toHaveBeenLastCalledWith(0)
-    onIndexChange.mockClear()
-    swipe([100, 100], [130, 100])
-    swipe([100, 100], [180, 300])
-    expect(onIndexChange).not.toHaveBeenCalled()
-  })
-
-  it('закрытие: кнопка и нажатие на фон, но не на само фото', async () => {
+  it('закрытие: крестик и нажатие на пустое место рядом с фото, но не на само фото', async () => {
     const { onClose } = open(0)
     await userEvent.click(screen.getByRole('img', { name: 'Фото 1' }))
     expect(onClose).not.toHaveBeenCalled()
@@ -301,11 +350,93 @@ describe('PhotoViewer', () => {
 
   it('одно фото: ни номера, ни стрелок; прокрутка страницы блокируется, пока просмотр открыт', () => {
     document.body.style.overflow = ''
-    const { unmount } = render(<PhotoViewer photos={[media('a')]} index={0} onIndexChange={vi.fn()} onClose={vi.fn()} />)
+    const { unmount } = open(0, [media('a')])
     expect(screen.queryByRole('button', { name: 'Следующее фото' })).toBeNull()
     expect(screen.queryByText(/из/)).toBeNull()
     expect(document.body.style.overflow).toBe('hidden')
     unmount()
     expect(document.body.style.overflow).toBe('')
+  })
+
+  describe('сохранение', () => {
+    const blob = new Blob(['x'], { type: 'image/jpeg' })
+    // ответ-заглушка: Response из Node не дружит с Blob из jsdom
+    const reply = (ok = true) => ({ ok, status: ok ? 200 : 404, blob: async () => blob }) as unknown as Response
+    beforeEach(() => {
+      vi.stubGlobal('fetch', vi.fn(async () => reply()))
+      URL.createObjectURL = vi.fn(() => 'blob:saved')
+      URL.revokeObjectURL = vi.fn()
+    })
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      Object.defineProperty(navigator, 'canShare', { configurable: true, value: undefined })
+      Object.defineProperty(navigator, 'share', { configurable: true, value: undefined })
+    })
+
+    it('если есть меню «Поделиться» с файлами, фото уходит в него и страница остаётся на месте', async () => {
+      const share = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true })
+      Object.defineProperty(navigator, 'share', { configurable: true, value: share })
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+      open(1)
+      await userEvent.click(screen.getByRole('button', { name: 'Сохранить фото' }))
+      await waitFor(() => expect(share).toHaveBeenCalledTimes(1))
+      expect(fetch).toHaveBeenCalledWith(media('b').fullUrl)
+      const { files } = share.mock.calls[0][0]
+      expect(files[0]).toBeInstanceOf(File)
+      expect(files[0].name).toBe('foto-2.jpg')
+      expect(click).not.toHaveBeenCalled()
+      // просмотр по-прежнему открыт, и в нём есть чем закрыть
+      expect(screen.getByRole('dialog', { name: 'Просмотр фото' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Закрыть' })).toBeInTheDocument()
+    })
+
+    it('без меню «Поделиться»: скачивание из памяти (ссылка blob:, без перехода на картинку)', async () => {
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+        expect(this.href).toBe('blob:saved')
+        expect(this.download).toBe('foto-1.jpg')
+      })
+      open(0)
+      await userEvent.click(screen.getByRole('button', { name: 'Сохранить фото' }))
+      await waitFor(() => expect(click).toHaveBeenCalledTimes(1))
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(screen.queryByRole('alert')).toBeNull()
+    })
+
+    it('человек закрыл меню «Поделиться»: это не ошибка и скачивания нет', async () => {
+      const share = vi.fn().mockRejectedValue(Object.assign(new Error('x'), { name: 'AbortError' }))
+      Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true })
+      Object.defineProperty(navigator, 'share', { configurable: true, value: share })
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+      open(0)
+      await userEvent.click(screen.getByRole('button', { name: 'Сохранить фото' }))
+      await waitFor(() => expect(share).toHaveBeenCalled())
+      expect(click).not.toHaveBeenCalled()
+      expect(screen.queryByRole('alert')).toBeNull()
+    })
+
+    it('не удалось получить файл: сказано об ошибке, просмотр остаётся и закрывается', async () => {
+      vi.stubGlobal('fetch', vi.fn(async () => reply(false)))
+      const { onClose } = open(0)
+      await userEvent.click(screen.getByRole('button', { name: 'Сохранить фото' }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось сохранить фото')
+      expect(screen.getByRole('button', { name: 'Сохранить фото' })).toBeEnabled()
+      await userEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
+      expect(onClose).toHaveBeenCalled()
+    })
+
+    it('двойное нажатие «Сохранить» запрашивает файл один раз', async () => {
+      let finish!: () => void
+      vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((r) => (finish = () => r(reply())))))
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+      open(0)
+      const save = screen.getByRole('button', { name: 'Сохранить фото' })
+      act(() => {
+        fireEvent.click(save)
+        fireEvent.click(save)
+      })
+      expect(fetch).toHaveBeenCalledTimes(1)
+      await act(async () => finish())
+    })
   })
 })
