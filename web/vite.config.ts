@@ -30,7 +30,7 @@ export default defineConfig({
         description: 'Задания, расписание, чат и дела всей семьи',
         lang: 'ru',
         theme_color: '#4f46e5',
-        background_color: '#ffffff',
+        background_color: '#14131f',
         display: 'standalone',
         icons: [
           { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },

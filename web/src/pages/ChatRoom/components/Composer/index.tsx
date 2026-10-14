@@ -49,6 +49,8 @@ export function Composer({ onSend, onUpload }: ComposerProps) {
     // scrollHeight без рамки (border-box): без неё не хватает пикселя и появляется полоса прокрутки
     const border = el.offsetHeight - el.clientHeight
     el.style.height = `${el.scrollHeight + border}px`
+    // полоса прокрутки только когда текст не помещается в max-height: дробная высота строки иначе давала лишнюю полосу справа от поля
+    el.style.overflowY = el.scrollHeight + border > el.offsetHeight + 1 ? 'auto' : 'hidden'
   }, [text])
 
   const patch = (key: string, change: Partial<Attachment>) =>
