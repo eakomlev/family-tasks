@@ -22,14 +22,17 @@ import { MessageBubble } from './components/MessageBubble'
 import { MessagesSkeleton } from './components/MessagesSkeleton'
 import { PhotoViewer } from './components/PhotoViewer'
 import type { OutgoingMessage } from './components/Composer/types'
-import { BackButton, DayLabel, Title, Empty, Feed, FamilyIcon, Header, Room } from './styles'
+import { BackButton, DayLabel, Title, Empty, Feed, FeedContent, FamilyIcon, Header, Room } from './styles'
 import { appendMessage, groupByDay, mergeLatest, messageStatus, participantsLabel, replaceMessage, visitLabel } from './utils'
 
 // «рядом с низом»: тогда новое сообщение прокручивает переписку само, а не сбивает чтение старых
 const NEAR_BOTTOM_PX = 160
 
-const scrollToBottom = () => window.scrollTo({ top: document.documentElement.scrollHeight })
-const isNearBottom = () => document.documentElement.scrollHeight - window.scrollY - window.innerHeight < NEAR_BOTTOM_PX
+// прокручивается не страница, а лента (Feed): так открытая клавиатура не уводит поле ввода с экрана
+const scrollToBottom = (feed: HTMLElement | null) => {
+  if (feed) feed.scrollTop = feed.scrollHeight
+}
+const isNearBottom = (feed: HTMLElement | null) => !feed || feed.scrollHeight - feed.scrollTop - feed.clientHeight < NEAR_BOTTOM_PX
 
 // Переписка: /chat/family или /chat/<id собеседника>. У каждого чата своё состояние (подгруженные страницы, прокрутка).
 export default function ChatRoom() {
@@ -68,6 +71,10 @@ function Conversation({ chat }: { chat: string | undefined }) {
   // открытый просмотр фото: сообщение и номер фото в нём
   const [viewing, setViewing] = useState<{ message: ChatMessage; index: number }>()
   const stick = useRef(true)
+  const feedRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  // подгрузили более ранние: сколько было от текущего места до низа, чтобы после вставки сверху остаться на месте
+  const keepFromBottom = useRef<number | undefined>(undefined)
   const loadedOnce = useRef(false)
   // чужое сообщение, до которого уже отметили прочитанное: без этого отметка вызывает событие, событие новый запрос, и так по кругу
   const markedRef = useRef<string | undefined>(undefined)
@@ -76,19 +83,27 @@ function Conversation({ chat }: { chat: string | undefined }) {
   const missing = !!queryError && 'status' in queryError && (queryError.status === 404 || queryError.status === 400)
   const failed = olderFailed || (!!queryError && !missing && !thread)
 
-  // клавиатура телефона меняет видимую область: переписка остаётся прижатой к низу, если читатель и так внизу
-  useKeyboardViewport(() => {
-    if (stick.current) scrollToBottom()
-  })
+  // экран переписки встаёт на видимую область (клавиатура телефона её уменьшает)
+  useKeyboardViewport()
 
-  // открытая клавиатура на iOS шлёт resize видимой области на каждое изменение (например, панель подсказок при наборе),
-  // и без этого ручная прокрутка вверх сразу откатывалась бы к прежнему stick.current из последней загрузки сообщений
+  // Прижатость к низу помнит прокрутка самой ленты. Любое изменение размеров (клавиатура выезжает постепенно, за
+  // несколько кадров; поле ввода выросло; догрузилось фото; пришло сообщение) у прижатой ленты снова ведёт к низу:
+  // одной прокрутки в момент открытия клавиатуры мало, её недовыехавшая часть потом закрывала конец переписки.
   useEffect(() => {
+    const feed = feedRef.current
+    const content = contentRef.current
+    if (!feed || !content) return
     const onScroll = () => {
-      stick.current = isNearBottom()
+      stick.current = isNearBottom(feed)
     }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    feed.addEventListener('scroll', onScroll, { passive: true })
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(() => stick.current && scrollToBottom(feed))
+    observer?.observe(feed)
+    observer?.observe(content)
+    return () => {
+      feed.removeEventListener('scroll', onScroll)
+      observer?.disconnect()
+    }
   }, [])
 
   // пока чат открыт, пуши о его сообщениях не нужны
@@ -107,7 +122,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
   // пришла первая страница (из сети или после сигнала сокета): сливаем с уже подгруженными старыми сообщениями
   useEffect(() => {
     if (!page || !chat) return
-    stick.current = isNearBottom() || !loadedOnce.current
+    stick.current = isNearBottom(feedRef.current) || !loadedOnce.current
     loadedOnce.current = true
     // oxlint-disable-next-line react/set-state-in-effect -- сливаем пришедшую страницу с уже подгруженными старыми сообщениями
     setThread((current) => ({
@@ -132,7 +147,12 @@ function Conversation({ chat }: { chat: string | undefined }) {
 
   // новые сообщения: к низу, если читатель и так был внизу (или только что открыл чат)
   useLayoutEffect(() => {
-    if (messages && stick.current) scrollToBottom()
+    const feed = feedRef.current
+    if (!messages || !feed) return
+    if (keepFromBottom.current !== undefined) {
+      feed.scrollTop = feed.scrollHeight - keepFromBottom.current
+      keepFromBottom.current = undefined
+    } else if (stick.current) scrollToBottom(feed)
   }, [messages])
 
   if (!chat || !identity || !me) return null
@@ -151,6 +171,8 @@ function Conversation({ chat }: { chat: string | undefined }) {
     try {
       const page = await listMessages(token, chat, messages[0].id)
       stick.current = false
+      const feed = feedRef.current
+      if (feed) keepFromBottom.current = feed.scrollHeight - feed.scrollTop
       setThread((current) => ({ messages: [...page.messages, ...(current?.messages ?? [])], hasMore: page.hasMore, readUpTo: current?.readUpTo ?? null }))
     } catch {
       setOlderFailed(true)
@@ -203,37 +225,39 @@ function Conversation({ chat }: { chat: string | undefined }) {
       </Header>
 
       {/* лента всегда на месте (растягивается между шапкой и полем ввода): пока грузится, в ней серые пузыри, при ошибке сообщение */}
-      <Feed>
-        {failed && <Notice $tone="error">Не удалось загрузить сообщения. Проверьте соединение.</Notice>}
-        {!messages && !failed && <MessagesSkeleton />}
-        {messages && (
-          <>
-            {hasMore && (
-              <Button $variant="text" type="button" disabled={loadingOlder} onClick={loadOlder}>
-                {loadingOlder ? 'Загрузка…' : 'Показать более ранние'}
-              </Button>
-            )}
-            {messages.length === 0 && <Empty>Сообщений пока нет. Напишите первым.</Empty>}
-            {groups.map((group) => (
-              <section key={group.key} aria-label={group.label}>
-                <DayLabel>{group.label}</DayLabel>
-                {group.messages.map((message) => (
-                  <MessageBubble
-                    key={message.id}
-                    message={message}
-                    mine={message.senderId === me}
-                    senderName={sender(message.senderId)}
-                    senderMood={currentMood(members.find((m) => m.id === message.senderId)?.mood, now)?.emoji}
-                    showSender={chat === FAMILY_CHAT}
-                    status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
-                    onFeedback={() => setFeedbackFor(message)}
-                    onOpenPhoto={(index) => setViewing({ message, index })}
-                  />
-                ))}
-              </section>
-            ))}
-          </>
-        )}
+      <Feed ref={feedRef}>
+        <FeedContent ref={contentRef}>
+          {failed && <Notice $tone="error">Не удалось загрузить сообщения. Проверьте соединение.</Notice>}
+          {!messages && !failed && <MessagesSkeleton />}
+          {messages && (
+            <>
+              {hasMore && (
+                <Button $variant="text" type="button" disabled={loadingOlder} onClick={loadOlder}>
+                  {loadingOlder ? 'Загрузка…' : 'Показать более ранние'}
+                </Button>
+              )}
+              {messages.length === 0 && <Empty>Сообщений пока нет. Напишите первым.</Empty>}
+              {groups.map((group) => (
+                <section key={group.key} aria-label={group.label}>
+                  <DayLabel>{group.label}</DayLabel>
+                  {group.messages.map((message) => (
+                    <MessageBubble
+                      key={message.id}
+                      message={message}
+                      mine={message.senderId === me}
+                      senderName={sender(message.senderId)}
+                      senderMood={currentMood(members.find((m) => m.id === message.senderId)?.mood, now)?.emoji}
+                      showSender={chat === FAMILY_CHAT}
+                      status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
+                      onFeedback={() => setFeedbackFor(message)}
+                      onOpenPhoto={(index) => setViewing({ message, index })}
+                    />
+                  ))}
+                </section>
+              ))}
+            </>
+          )}
+        </FeedContent>
       </Feed>
 
       <Composer onSend={handleSend} onUpload={handleUpload} />

@@ -574,3 +574,61 @@ describe('длинное последнее сообщение в списке �
     expect(getComputedStyle(preview).textOverflow).toBe('ellipsis')
   })
 })
+
+describe('прокрутка переписки', () => {
+  // подставной ResizeObserver: тест сам сообщает, что размеры ленты изменились (клавиатура, фото, поле ввода)
+  let resized: (() => void) | undefined
+  class FakeObserver {
+    constructor(cb: () => void) {
+      resized = cb
+    }
+    observe() {}
+    disconnect() {}
+  }
+
+  // размеры ленты в jsdom нулевые: задаём их сами
+  function sizeFeed(feed: HTMLElement, scrollHeight: number, clientHeight: number) {
+    Object.defineProperty(feed, 'scrollHeight', { configurable: true, get: () => scrollHeight })
+    Object.defineProperty(feed, 'clientHeight', { configurable: true, get: () => clientHeight })
+  }
+
+  async function renderRoom() {
+    vi.stubGlobal('ResizeObserver', FakeObserver)
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [m('1', 'm2', 'последнее')], hasMore: false, readUpTo: null, peer: null })
+    render(
+      providers(
+        <MemoryRouter initialEntries={['/chat/family']}>
+          <Routes><Route path="/chat/:chat" element={<ChatRoom />} /></Routes>
+        </MemoryRouter>,
+      ),
+    )
+    await screen.findByText('последнее')
+    return screen.getByText('последнее').closest('main')!.querySelector<HTMLElement>('[class]:has(> [class] > section)')!
+  }
+
+  it('прижатая к низу лента после изменения размеров снова у низа (клавиатура выезжает постепенно, фото догрузилось)', async () => {
+    const feed = await renderRoom()
+    sizeFeed(feed, 2000, 600)
+    feed.scrollTop = 1400
+    fireEvent.scroll(feed)
+    // клавиатура уменьшила ленту на 300px, потом ещё на 100px: каждый раз обратно к низу
+    sizeFeed(feed, 2000, 300)
+    act(() => resized?.())
+    expect(feed.scrollTop).toBe(2000)
+    sizeFeed(feed, 2400, 200)
+    act(() => resized?.())
+    expect(feed.scrollTop).toBe(2400)
+    vi.unstubAllGlobals()
+  })
+
+  it('прокрученную вверх ленту изменение размеров не трогает', async () => {
+    const feed = await renderRoom()
+    sizeFeed(feed, 2000, 600)
+    feed.scrollTop = 200
+    fireEvent.scroll(feed)
+    sizeFeed(feed, 2000, 300)
+    act(() => resized?.())
+    expect(feed.scrollTop).toBe(200)
+    vi.unstubAllGlobals()
+  })
+})

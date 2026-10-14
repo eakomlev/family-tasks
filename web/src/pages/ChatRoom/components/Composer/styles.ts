@@ -1,9 +1,9 @@
 import styled from 'styled-components'
 
-// прижата к панели табов, остаётся на виду при прокрутке переписки
+// внизу экрана переписки (Room стоит на видимой области, поэтому поле ввода всегда над клавиатурой)
 export const Bar = styled.form`
-  position: sticky;
-  bottom: var(--tabbar-height);
+  flex: none;
+  position: relative;
   z-index: 5;
   display: flex;
   flex-direction: column;
@@ -14,21 +14,6 @@ export const Bar = styled.form`
   background: var(--glass-bar);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
-
-  /* Клавиатура открыта: sticky больше не годится — он мерит отступ от низа слоя раскладки, а iOS не ужимает этот слой
-     под клавиатуру, только видимую область. Поэтому fixed и свой отступ --keyboard-inset (хук useKeyboardViewport) —
-     без этого поле ввода прячется под клавиатурой, и попытка прокрутить переписку превращается в борьбу с Safari,
-     который тащит страницу назад, чтобы вернуть «видимое» поле в кадр (выглядит как дрожание на месте). */
-  :root[data-keyboard] & {
-    position: fixed;
-    left: 50%;
-    bottom: var(--keyboard-inset, 0px);
-    transform: translateX(-50%);
-    width: 100%;
-    max-width: 28rem;
-    margin: 0;
-    padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom));
-  }
 `
 
 // поле, кнопки вложения и отправки в одну строку

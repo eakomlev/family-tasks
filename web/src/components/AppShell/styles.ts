@@ -23,11 +23,6 @@ export const Content = styled.div`
   > main {
     min-height: calc(100dvh - var(--tabbar-height));
   }
-
-  /* открыта экранная клавиатура (чат): панели табов нет */
-  :root[data-keyboard] & {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
 `
 
 // правый верхний угол: баланс монет (у детей) слева от значка профиля
@@ -35,7 +30,8 @@ export const TopRight = styled.div<{ $fixed: boolean }>`
   /* в переписке шапка закреплена, значок с монетами тоже не уезжает при прокрутке */
   position: ${({ $fixed }) => ($fixed ? 'fixed' : 'absolute')};
   /* по центру строки с заголовком страницы: заголовок начинается на 1.5rem, его высота около 31px, значок 40px */
-  top: calc(1.2rem + env(safe-area-inset-top));
+  /* в переписке экран стоит на видимой области, которую клавиатура может сдвинуть вниз (--vv-top), значок едет с ней */
+  top: calc(1.2rem + env(safe-area-inset-top) + ${({ $fixed }) => ($fixed ? 'var(--vv-top, 0px)' : '0px')});
   right: 0.75rem;
   z-index: 11;
   display: flex;

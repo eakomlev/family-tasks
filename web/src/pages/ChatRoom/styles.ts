@@ -12,17 +12,21 @@ const slideIn = keyframes`
   }
 `
 
-// страница чата: переписка растягивается, поле ввода прижато к панели табов
+// Экран переписки стоит ровно на видимой области (useKeyboardViewport: --vv-top и --vvh), а прокручивается только
+// лента внутри него. Страница сама не прокручивается: так открытая клавиатура не уводит поле ввода под себя и браузеру
+// нечего «подтягивать» в кадр. Шапка сверху, поле ввода снизу, между ними лента.
 export const Room = styled.main`
+  position: fixed;
+  top: var(--vv-top, 0px);
+  left: 0;
+  right: 0;
+  height: var(--vvh, 100dvh);
   max-width: 28rem;
-  min-height: calc(100dvh - var(--tabbar-height));
   margin: 0 auto;
-  padding: calc(1rem + env(safe-area-inset-top)) 1rem 0;
+  padding: 0 1rem var(--tabbar-height);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
 
-  /* клавиатура открыта: панели табов нет, страница по высоте равна видимой области, поэтому поле ввода сидит над клавиатурой */
   /* фон на весь экран: мягкий цветной градиент и узор из значков, рисуется цветом акцента (подходит обеим темам) */
   isolation: isolate;
   animation: ${slideIn} 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -55,17 +59,18 @@ export const Room = styled.main`
     mask-size: 140px 140px;
   }
 
+  /* клавиатура открыта: индикатор «Домой» закрыт клавиатурой, отступ под него не нужен */
   :root[data-keyboard] && {
-    min-height: var(--vvh, 100dvh);
+    padding-bottom: 0;
   }
 `
 
-// закреплена сверху: при прокрутке переписки не уезжает (фон закрывает сообщения под ней)
+// сверху экрана, прокручивается только лента под ней
 export const Header = styled.header`
-  position: sticky;
-  top: 0;
+  flex: none;
+  position: relative;
   z-index: 6;
-  margin: calc(-1rem - env(safe-area-inset-top)) -1rem 0;
+  margin: 0 -1rem;
   padding: calc(1rem + env(safe-area-inset-top)) 1rem 0.6rem;
   border-bottom: 1px solid var(--border);
   background: var(--glass-bar);
@@ -144,26 +149,33 @@ export const FamilyIcon = styled.span`
   }
 `
 
-// Сообщения прижаты к низу, к полю ввода: когда их мало (или открыта клавиатура), они остаются на виду рядом с ним.
+// Лента: своя прокрутка между шапкой и полем ввода (на всю ширину экрана, чтобы прокручивать можно было и у краёв).
 export const Feed = styled.div`
   flex: 1;
+  min-height: 0;
+  margin: 0 -1rem;
+  padding: 0 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+`
+
+// Сообщения прижаты к низу, к полю ввода: когда их мало (или открыта клавиатура), они остаются на виду рядом с ним.
+// justify-content: flex-end стоит на внутреннем блоке высотой не меньше ленты, а не на самой прокручиваемой ленте:
+// там он делает недоступной для прокрутки ту часть, что выше верха.
+export const FeedContent = styled.div`
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   gap: 0.25rem;
-  padding-bottom: 0.5rem;
+  padding: 0.75rem 0 0.5rem;
 
   /* сообщения одного дня: между ними заметный промежуток */
   section {
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
-  }
-
-  /* клавиатура открыта: поле ввода встаёт как fixed и уходит из потока (--composer-h в Composer), иначе последние
-     сообщения легли бы под него */
-  :root[data-keyboard] & {
-    padding-bottom: var(--composer-h, 4rem);
   }
 `
 

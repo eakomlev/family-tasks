@@ -3,6 +3,7 @@ import { useStore } from 'react-redux'
 import { useIdentity } from '@/identity/context'
 import { api } from './api'
 import { ownerChanged, reset } from './cache'
+import { clearPhotoCache } from '@/lib/photoCache'
 import { clearCache } from './persist'
 import { setSession } from './session'
 import type { AppStore } from './index'
@@ -24,6 +25,7 @@ export function SessionSync() {
         store.dispatch(api.util.resetApiState())
         store.dispatch(reset())
         clearCache()
+        clearPhotoCache()
       }
       store.dispatch(ownerChanged(memberId))
       return
@@ -33,6 +35,7 @@ export function SessionSync() {
     store.dispatch(api.util.resetApiState())
     store.dispatch(reset())
     clearCache()
+    clearPhotoCache()
   }, [store, token, memberId])
 
   return null

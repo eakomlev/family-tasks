@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage, ChatSummary, Member } from '@/api'
+import { photoCacheKey } from '@/lib/photoCache'
 import { chatPreviewParts } from '@/pages/Chat/utils'
 import { bubbleText, canSendMessage, MAX_LENGTH, MAX_PHOTOS, nextIndex, photoColumns, prevIndex } from '@/pages/ChatRoom/utils'
 
@@ -88,5 +89,25 @@ describe('превью последнего сообщения в списке �
   it('обычный текст как раньше; кэш прежней версии без media не ломает', () => {
     expect(preview(msg({ senderId: 'm2', text: 'привет' })).text).toBe('привет')
     expect(preview({ id: 'x', senderId: 'm2', text: 'старое', createdAt: 'x', reactions: [], awards: [] } as unknown as ChatMessage).text).toBe('старое')
+  })
+})
+
+describe('photoCacheKey', () => {
+  const origin = 'https://family.example'
+  const path = '/media/11111111-2222-3333-4444-555555555555/66666666-7777-8888-9999-aaaaaaaaaaaa'
+
+  it('ключ без подписи: смена срока и подписи не меняет ключ', () => {
+    const a = photoCacheKey(new URL(`${origin}${path}/thumb?exp=1&sig=aa`), origin)
+    const b = photoCacheKey(new URL(`${origin}${path}/thumb?exp=2&sig=bb`), origin)
+    expect(a).toBe(`${origin}${path}/thumb`)
+    expect(b).toBe(a)
+    expect(photoCacheKey(new URL(`${origin}${path}/full?exp=1&sig=aa`), origin)).toBe(`${origin}${path}/full`)
+  })
+
+  it('не фото из чата и чужой адрес не кэшируются', () => {
+    expect(photoCacheKey(new URL(`https://other.example${path}/thumb`), origin)).toBeNull()
+    expect(photoCacheKey(new URL(`${origin}${path}/other`), origin)).toBeNull()
+    expect(photoCacheKey(new URL(`${origin}/api/chats`), origin)).toBeNull()
+    expect(photoCacheKey(new URL(`${origin}/media/../api/x/thumb`), origin)).toBeNull()
   })
 })
