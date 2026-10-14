@@ -154,6 +154,7 @@ export const Field = styled.textarea`
   color: var(--text);
   font: inherit;
   resize: none;
+  scrollbar-width: thin;
 
   &:focus-visible {
     outline: 2px solid var(--accent);

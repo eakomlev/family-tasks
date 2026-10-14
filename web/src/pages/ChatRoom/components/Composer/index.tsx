@@ -46,7 +46,9 @@ export function Composer({ onSend, onUpload }: ComposerProps) {
     const el = field.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
+    // scrollHeight без рамки (border-box): без неё не хватает пикселя и появляется полоса прокрутки
+    const border = el.offsetHeight - el.clientHeight
+    el.style.height = `${el.scrollHeight + border}px`
   }, [text])
 
   const patch = (key: string, change: Partial<Attachment>) =>
