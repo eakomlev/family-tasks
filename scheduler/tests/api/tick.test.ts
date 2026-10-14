@@ -116,6 +116,26 @@ describe('тренировки (за 2 часа)', () => {
   })
 })
 
+describe('чистка журнала', () => {
+  const logDays = async () =>
+    (await pool.query(
+      `select l.day::text from notification_log l join push_subscriptions s on s.id = l.subscription_id where s.endpoint = $1 and l.kind = 'test-cleanup' order by l.day`,
+      [endpoints.sis],
+    )).rows.map((r) => r.day)
+
+  it('записи старше семи суток от времени прохода удаляются, свежие остаются (а не от часов базы)', async () => {
+    const { rows: [sub] } = await pool.query('select id from push_subscriptions where endpoint = $1', [endpoints.sis])
+    // «сейчас» прохода 6 октября 2026: 28 сентября старее 7 суток, 30 сентября и позже нет
+    await pool.query(
+      `insert into notification_log (subscription_id, kind, day) values ($1, 'test-cleanup', '2026-09-28'), ($1, 'test-cleanup', '2026-09-29'), ($1, 'test-cleanup', '2026-10-03')`,
+      [sub.id],
+    )
+    await runTick(at('12:00'))
+    expect(await logDays()).toEqual(['2026-09-29', '2026-10-03'])
+    await pool.query(`delete from notification_log where kind = 'test-cleanup'`)
+  })
+})
+
 describe('устойчивость', () => {
   // 410 от push-сервиса и удаление подписки это дело notifier (notifier/tests/api/webpush.test.ts):
   // планировщик только ставит сообщения в очередь и от провайдеров не зависит.

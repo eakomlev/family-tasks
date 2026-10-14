@@ -120,7 +120,8 @@ export async function runTick(pool: pg.Pool, now = new Date()): Promise<{ sent: 
   }
 
   // журнал нужен только на ближайшие дни
-  await pool.query(`delete from notification_log where day < current_date - 7`)
+  // (отсчёт от переданного времени, а не от часов базы: проход можно выполнить на любую дату, и тест не стареет вместе с календарём)
+  await pool.query(`delete from notification_log where day < ($1::timestamptz at time zone 'UTC')::date - 7`, [now])
   return { sent }
 }
 
