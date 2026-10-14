@@ -45,6 +45,8 @@ export interface ChatSummary {
   // null — сообщений ещё нет
   last: ChatMessage | null
   unread: number
+  // уведомления этого чата отключены у меня (в ответе прежней версии сервера поля нет)
+  muted?: boolean
 }
 
 export interface MessagePage {

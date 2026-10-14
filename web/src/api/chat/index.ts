@@ -28,4 +28,10 @@ export const giveFeedback = (token: string, chat: string, messageId: string, fee
 
 export const markChatRead = (token: string, chat: string) => request<void>(`/chats/${chat}/read`, send('POST'), token)
 
+// Уведомления чата: отключить или включить (только для себя, на всех своих устройствах)
+export const setChatMuted = (token: string, chat: string, muted: boolean) => request<void>(`/chats/${chat}/mute`, send('PUT', { muted }), token)
+
+// Очистка чата: удаляет все сообщения и фото у всех участников, безвозвратно (только родитель)
+export const clearChat = (token: string, chat: string) => request<void>(`/chats/${chat}/messages`, { method: 'DELETE' }, token)
+
 export type * from './types'

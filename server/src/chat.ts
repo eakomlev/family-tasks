@@ -241,13 +241,15 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
        group by m.chat_key`,
       [member.family_id, member.id, keys, member.created_at],
     )
+    const { rows: mutes } = await pool.query<{ chatKey: string }>('select chat_key as "chatKey" from chat_mutes where member_id = $1 and chat_key = any($2)', [member.id, keys])
+    const mutedKeys = new Set(mutes.map((m) => m.chatKey))
     const lastMedia = await loadMedia(pool, secret, lasts.map((l) => l.id))
     const lastBy = new Map(lasts.map((l) => [l.chatKey, { ...toMessage(l), media: lastMedia.get(l.id) ?? [] }]))
     const unreadBy = new Map(unreads.map((u) => [u.chatKey, Number(u.count)]))
 
     const list = chats.map((c) => {
       const last = lastBy.get(c.key)
-      return { id: c.id, last: last ?? null, unread: unreadBy.get(c.key) ?? 0 }
+      return { id: c.id, last: last ?? null, unread: unreadBy.get(c.key) ?? 0, muted: mutedKeys.has(c.key) }
     })
     // порядок по времени последнего сообщения; без сообщений: порядок исходного списка (общий, затем по имени)
     const order = new Map(list.map((c, i) => [c.id, i]))
@@ -400,15 +402,82 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       // каждому участнику (и другим устройствам автора) сигнал с чатом, каким он виден ему: общий или собеседник
       const { rows: roles } = await pool.query<{ id: string; role: string }>('select id, role from members where id = any($1)', [chat.participants])
       const roleOf = new Map(roles.map((r) => [r.id, r.role]))
+      const { rows: muted } = await pool.query<{ id: string }>('select member_id as id from chat_mutes where chat_key = $1 and member_id = any($2)', [chat.key, chat.participants])
+      const mutedIds = new Set(muted.map((m) => m.id))
       for (const id of chat.participants) {
         const view = chat.otherId === null ? FAMILY_CHAT : id === member.id ? chat.otherId : member.id
         publishTo(id, { type: 'chat', chat: view })
         // если получатель прямо сейчас смотрит этот чат, пуш не нужен: сообщение появится на экране
-        if (id !== member.id && !isViewingChat(id, view)) void enqueueToMember(pool, id, chatPushMessage(senderLabel(member, roleOf.get(id) ?? ''), view, pushText))
+        if (id !== member.id && !mutedIds.has(id) && !isViewingChat(id, view)) void enqueueToMember(pool, id, chatPushMessage(senderLabel(member, roleOf.get(id) ?? ''), view, pushText))
       }
       return reply.code(201).send({ message })
     },
   )
+
+  // Отключить или включить уведомления чата (только для себя, на всех своих устройствах). Счётчик непрочитанного остаётся.
+  app.put<{ Params: { chat: string }; Body: { muted: boolean } }>(
+    '/api/chats/:chat/mute',
+    { schema: { params: chatParams, body: { type: 'object', required: ['muted'], additionalProperties: false, properties: { muted: { type: 'boolean' } } } } },
+    async (req, reply) => {
+      const member = await me(req, reply)
+      if (!member) return
+      const chat = await resolveChat(member, req.params.chat, reply)
+      if (!chat) return
+      if (req.body.muted) {
+        await pool.query('insert into chat_mutes (member_id, chat_key) values ($1, $2) on conflict do nothing', [member.id, chat.key])
+      } else {
+        await pool.query('delete from chat_mutes where member_id = $1 and chat_key = $2', [member.id, chat.key])
+      }
+      // другие устройства этого же участника обновят список чатов
+      publishTo(member.id, { type: 'chat', chat: req.params.chat })
+      return reply.code(204).send()
+    },
+  )
+
+  // Очистка чата: удаляет все сообщения (и их фото) у всех участников, безвозвратно. Только родитель; в личном чате он должен быть
+  // участником (чужие личные чаты недоступны, как и их чтение). Реакции пропадают вместе с сообщениями, монеты остаются.
+  app.delete<{ Params: { chat: string } }>('/api/chats/:chat/messages', { schema: { params: chatParams } }, async (req, reply) => {
+    const member = await me(req, reply)
+    if (!member) return
+    if (member.role !== 'mama' && member.role !== 'papa') return reply.code(403).send({ error: 'parents_only' })
+    const chat = await resolveChat(member, req.params.chat, reply)
+    if (!chat) return
+
+    const client = await pool.connect()
+    let files: { id: string }[]
+    try {
+      await client.query('begin')
+      const { rows } = await client.query<{ id: string }>(
+        `select mm.media_id as id from message_media mm join messages m on m.id = mm.message_id where m.family_id = $1 and m.chat_key = $2`,
+        [member.family_id, chat.key],
+      )
+      files = rows
+      await client.query('delete from messages where family_id = $1 and chat_key = $2', [member.family_id, chat.key])
+      if (files.length > 0) await client.query('delete from media where id = any($1)', [files.map((f) => f.id)])
+      await client.query('commit')
+    } catch (err) {
+      await client.query('rollback').catch(() => {})
+      throw err
+    } finally {
+      client.release()
+    }
+
+    // файлы убираем после фиксации; недоступное хранилище оставляет файл без записи, это лишь занятое место
+    if (media) {
+      for (const f of files) {
+        try {
+          await media.client.delete(member.family_id, f.id)
+        } catch (err) {
+          req.log.warn(err)
+        }
+      }
+    }
+    // каждый участник обновит чат и список (чат глазами получателя)
+    for (const id of chat.participants) {
+      publishTo(id, { type: 'chat', chat: chat.otherId === null ? FAMILY_CHAT : id === member.id ? chat.otherId : member.id })
+    }
+    return reply.code(204).send()
+  })
 
   // Отметить чат прочитанным до этого момента.
   app.post<{ Params: { chat: string } }>('/api/chats/:chat/read', { schema: { params: chatParams } }, async (req, reply) => {

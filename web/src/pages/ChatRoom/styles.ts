@@ -201,3 +201,34 @@ export const Empty = styled.p`
   color: var(--muted);
   text-align: center;
 `
+
+// три точки справа в шапке: меню чата (уведомления, очистка)
+export const MenuButton = styled.button`
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  svg {
+    width: 1.4rem;
+    height: 1.4rem;
+    fill: currentColor;
+  }
+
+  &:active {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+  }
+`

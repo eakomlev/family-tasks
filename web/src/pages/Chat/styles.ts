@@ -34,6 +34,10 @@ export const Row = styled(Link)`
   color: inherit;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
+  /* долгое нажатие открывает меню: текст не выделяется, системное меню ссылки не показывается */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
   transition: background 0.12s ease;
 
   &:active {
@@ -130,13 +134,13 @@ export const Prefix = styled.span<{ $mine: boolean }>`
   font-weight: 600;
 `
 
-export const Count = styled.span`
+export const Count = styled.span<{ $muted?: boolean }>`
   flex: none;
   min-width: 1.45rem;
   height: 1.45rem;
   padding: 0 0.45rem;
   border-radius: 999px;
-  background: var(--accent);
+  background: ${({ $muted }) => ($muted ? 'var(--muted)' : 'var(--accent)')};
   color: var(--accent-text);
   font-size: 0.78rem;
   font-weight: 700;
@@ -198,4 +202,16 @@ export const Ghost = styled.li`
       animation: none;
     }
   }
+`
+
+// значок «уведомления отключены» (перечёркнутый колокольчик) после названия чата
+export const MutedMark = styled.span`
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  margin-left: 0.35em;
+  vertical-align: -0.1em;
+  background: var(--muted);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 8a6 6 0 0 1 9.3-5M18 8c0 4 1 6 2 7H4c1-1 2-3 2-7M10 20a2 2 0 0 0 4 0M3 3l18 18%22/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 8a6 6 0 0 1 9.3-5M18 8c0 4 1 6 2 7H4c1-1 2-3 2-7M10 20a2 2 0 0 0 4 0M3 3l18 18%22/%3E%3C/svg%3E") center / contain no-repeat;
 `

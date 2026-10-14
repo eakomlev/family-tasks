@@ -1,4 +1,4 @@
-import { giveFeedback, listChats, listMessages, markChatRead, sendMessage, type ChatMessage, type ChatSummary, type MessageFeedback, type MessagePage } from '@/api'
+import { clearChat, giveFeedback, listChats, listMessages, markChatRead, sendMessage, setChatMuted, type ChatMessage, type ChatSummary, type MessageFeedback, type MessagePage } from '@/api'
 import { api, fromApi } from './api'
 
 // Чаты. Список чатов (с непрочитанным и последним сообщением) и свежая первая страница переписки лежат в кэше:
@@ -55,7 +55,42 @@ export const chatApi = api.injectEndpoints({
       queryFn: fromApi((token, chat: string) => markChatRead(token, chat)),
       invalidatesTags: ['Chats'],
     }),
+    // Уведомления чата: переключатель в списке меняется сразу, при ошибке возвращается
+    setChatMuted: build.mutation<void, { chat: string; muted: boolean }>({
+      queryFn: fromApi((token, { chat, muted }: { chat: string; muted: boolean }) => setChatMuted(token, chat, muted)),
+      async onQueryStarted({ chat, muted }, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          chatApi.util.updateQueryData('listChats', undefined, (draft) => {
+            const item = draft.chats.find((c) => c.id === chat)
+            if (item) item.muted = muted
+          }),
+        )
+        try {
+          await queryFulfilled
+        } catch {
+          patch.undo()
+        }
+      },
+    }),
+    // Очистка чата: переписка в кэше пустеет сразу, список чатов запрашивается заново
+    clearChat: build.mutation<void, string>({
+      queryFn: fromApi((token, chat: string) => clearChat(token, chat)),
+      async onQueryStarted(chat, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled
+          dispatch(
+            chatApi.util.updateQueryData('getMessages', chat, (draft) => {
+              draft.messages = []
+              draft.hasMore = false
+            }),
+          )
+        } catch {
+          /* ошибку показывает меню */
+        }
+      },
+      invalidatesTags: (_result, error, chat) => (error ? [] : ['Chats', { type: 'Messages', id: chat }]),
+    }),
   }),
 })
 
-export const { useListChatsQuery, useGetMessagesQuery, useSendMessageMutation, useGiveFeedbackMutation, useMarkChatReadMutation } = chatApi
+export const { useListChatsQuery, useGetMessagesQuery, useSendMessageMutation, useGiveFeedbackMutation, useMarkChatReadMutation, useSetChatMutedMutation, useClearChatMutation } = chatApi

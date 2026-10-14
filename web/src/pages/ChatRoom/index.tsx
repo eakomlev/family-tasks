@@ -6,6 +6,7 @@ import { TabIcon } from '@/components/TabBar/TabIcon'
 import { MoodMark } from '@/components/MoodMark'
 import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
+import { useChats } from '@/chat/context'
 import { useIdentity } from '@/identity/context'
 import { useKeyboardViewport } from '@/lib/useKeyboardViewport'
 import { useNow } from '@/lib/useNow'
@@ -16,13 +17,15 @@ import { useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, 
 import { currentMood } from '@/lib/mood'
 import { memberLabel } from '@/lib/roles'
 import { chatTitle } from '../Chat/utils'
+import { ChatMenu } from '../Chat/components/ChatMenu'
+import { MutedMark } from '../Chat/styles'
 import { Composer } from './components/Composer'
 import { FeedbackDialog } from './components/FeedbackDialog'
 import { MessageBubble } from './components/MessageBubble'
 import { MessagesSkeleton } from './components/MessagesSkeleton'
 import { PhotoViewer } from './components/PhotoViewer'
 import type { OutgoingMessage } from './components/Composer/types'
-import { BackButton, DayLabel, Title, Empty, Feed, FeedContent, FamilyIcon, Header, Room } from './styles'
+import { BackButton, DayLabel, Title, Empty, Feed, FeedContent, FamilyIcon, Header, MenuButton, Room } from './styles'
 import { appendMessage, groupByDay, mergeLatest, messageStatus, participantsLabel, replaceMessage, visitLabel } from './utils'
 
 // «рядом с низом»: тогда новое сообщение прокручивает переписку само, а не сбивает чтение старых
@@ -44,6 +47,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
   const { identity } = useIdentity()
   const { data } = useProfile()
   const now = useNow()
+  const { chats } = useChats()
 
   const token = identity?.token
   const me = identity?.memberId
@@ -68,6 +72,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
   const [loadingOlder, setLoadingOlder] = useState(false)
   // сообщение ребёнка, над которым родитель открыл окно реакции и монет
   const [feedbackFor, setFeedbackFor] = useState<ChatMessage>()
+  const [menuOpen, setMenuOpen] = useState(false)
   // открытый просмотр фото: сообщение и номер фото в нём
   const [viewing, setViewing] = useState<{ message: ChatMessage; index: number }>()
   const stick = useRef(true)
@@ -218,10 +223,17 @@ function Conversation({ chat }: { chat: string | undefined }) {
         </BackButton>
         {other ? <Avatar name={memberLabel(other, identity.role)} seed={other.id} src={other.avatar} size="2.25rem" /> : <FamilyIcon aria-hidden><TabIcon name="family" /></FamilyIcon>}
         <Title>
-          <h1>{chatTitle(chat, members, identity.role)}{other && <> <MoodMark mood={other.mood} now={now} /></>}</h1>
+          <h1>{chatTitle(chat, members, identity.role)}{chats?.find((c) => c.id === chat)?.muted && <MutedMark aria-label="Уведомления отключены" />}{other && <> <MoodMark mood={other.mood} now={now} /></>}</h1>
           {/* под заголовком: в общем чате число участников, в личном когда собеседник был в чате */}
           {chat === FAMILY_CHAT ? participantsLabel(members.length) && <small>{participantsLabel(members.length)}</small> : visitLabel(peer, now) && <small>{visitLabel(peer, now)}</small>}
         </Title>
+        <MenuButton type="button" aria-label="Меню чата" aria-haspopup="dialog" onClick={() => setMenuOpen(true)}>
+          <svg viewBox="0 0 24 24" aria-hidden>
+            <circle cx="12" cy="5" r="1.9" />
+            <circle cx="12" cy="12" r="1.9" />
+            <circle cx="12" cy="19" r="1.9" />
+          </svg>
+        </MenuButton>
       </Header>
 
       {/* лента всегда на месте (растягивается между шапкой и полем ввода): пока грузится, в ней серые пузыри, при ошибке сообщение */}
@@ -270,6 +282,8 @@ function Conversation({ chat }: { chat: string | undefined }) {
           onClose={() => setViewing(undefined)}
         />
       )}
+
+      {menuOpen && <ChatMenu chat={chat} onClose={() => setMenuOpen(false)} />}
 
       {feedbackFor && (
         <FeedbackDialog
