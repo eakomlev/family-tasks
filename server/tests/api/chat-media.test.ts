@@ -28,6 +28,12 @@ class FakeMedia implements MediaClient {
     this.uploads.push({ family, id, size: body.length })
     return this.next
   }
+  files: { family: string; id: string; size: number }[] = []
+  async uploadFile(family: string, id: string, body: Buffer) {
+    if (this.failWith) throw this.failWith
+    this.files.push({ family, id, size: body.length })
+    return { size: body.length }
+  }
   async delete(_family: string, id: string) {
     if (this.failWith) throw this.failWith
     this.deleted.push(id)

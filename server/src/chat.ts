@@ -4,7 +4,21 @@ import type { Pool } from 'pg'
 import { authenticate } from './auth.js'
 import { directKey } from './chatKey.js'
 import { MediaRejected, type MediaClient } from './media/client.js'
-import { loadMedia, mediaUrls, MAX_PHOTO_BYTES, MAX_PHOTOS, mediaQuotaBytes, photoPlaceholder, type MediaDto } from './media/index.js'
+import {
+  attachmentPlaceholder,
+  cleanFileName,
+  isBlockedFile,
+  loadFiles,
+  loadMedia,
+  maxFileBytes,
+  mediaUrls,
+  MAX_FILES,
+  MAX_PHOTO_BYTES,
+  MAX_PHOTOS,
+  mediaQuotaBytes,
+  type FileDto,
+  type MediaDto,
+} from './media/index.js'
 import { pool } from './db.js'
 import type { PushMessage } from './outbox/contract.js'
 import { coinsWord } from './tasks/text.js'
@@ -60,6 +74,8 @@ const sendSchema = {
       text: { type: 'string', maxLength: MAX_TEXT + 2000 },
       // фото, загруженные через POST /api/chats/:chat/media, в порядке показа
       mediaIds: { type: 'array', items: { type: 'string', format: 'uuid' }, maxItems: MAX_PHOTOS, uniqueItems: true },
+      // файлы, загруженные через POST /api/chats/:chat/files, в порядке показа (после фото)
+      fileIds: { type: 'array', items: { type: 'string', format: 'uuid' }, maxItems: MAX_FILES, uniqueItems: true },
     },
   },
 }
@@ -103,6 +119,8 @@ export interface MessageDto {
   // подпись к фото; у сообщения без фото равна text, у сообщения только с фото пустая
   caption: string
   media: MediaDto[]
+  // обычные файлы (документы, архивы…); у сообщений без файлов пусто
+  files: FileDto[]
   reactions: Reaction[]
   awards: Award[]
 }
@@ -114,6 +132,7 @@ const toMessage = (row: MessageRow): MessageDto => ({
   createdAt: row.createdAt,
   caption: row.photoOnly ? '' : row.text,
   media: [],
+  files: [],
   reactions: [],
   awards: [],
 })
@@ -123,6 +142,7 @@ async function decorate(db: Pick<Pool, 'query'>, messages: MessageDto[], secret:
   if (messages.length === 0) return messages
   const ids = messages.map((m) => m.id)
   const media = await loadMedia(db, secret, ids)
+  const files = await loadFiles(db, secret, ids)
   const { rows: reactions } = await db.query<{ messageId: string; memberId: string; emoji: string }>(
     `select message_id as "messageId", member_id as "memberId", emoji from message_reactions where message_id = any($1) order by created_at`,
     [ids],
@@ -134,6 +154,7 @@ async function decorate(db: Pick<Pool, 'query'>, messages: MessageDto[], secret:
   return messages.map((m) => ({
     ...m,
     media: media.get(m.id) ?? [],
+    files: files.get(m.id) ?? [],
     reactions: reactions.filter((x) => x.messageId === m.id).map(({ memberId, emoji }) => ({ memberId, emoji })),
     awards: awards.filter((x) => x.messageId === m.id).map(({ amount, by }) => ({ amount, by })),
   }))
@@ -273,7 +294,8 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       return best
     }
     const lastMedia = await loadMedia(pool, secret, lasts.map((l) => l.id))
-    const lastBy = new Map(lasts.map((l) => [l.chatKey, { ...toMessage(l), media: lastMedia.get(l.id) ?? [] }]))
+    const lastFiles = await loadFiles(pool, secret, lasts.map((l) => l.id))
+    const lastBy = new Map(lasts.map((l) => [l.chatKey, { ...toMessage(l), media: lastMedia.get(l.id) ?? [], files: lastFiles.get(l.id) ?? [] }]))
     const unreadBy = new Map(unreads.map((u) => [u.chatKey, Number(u.count)]))
 
     const list = chats.map((c) => {
@@ -309,7 +331,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
          from message_media mm
          join media md on md.id = mm.media_id
          join messages ms on ms.id = mm.message_id
-         where ms.family_id = $1 and ms.chat_key = $2
+         where ms.family_id = $1 and ms.chat_key = $2 and md.kind = 'image'
            and ($3::uuid is null or (ms.created_at, ms.id, -mm.position) < (
              select ms2.created_at, ms2.id, -mm2.position from message_media mm2 join messages ms2 on ms2.id = mm2.message_id
              where mm2.media_id = $3 and ms2.chat_key = $2))
@@ -408,7 +430,49 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     },
   )
 
-  app.post<{ Params: { chat: string }; Body: { text?: string; mediaIds?: string[] } }>(
+  // Загрузка одного файла (документ, архив…) для будущего сообщения. Тело: сырые байты, имя в заголовке x-file-name (в процентной
+  // записи UTF-8). Содержимое не разбирается и не исполняется: сервис media отдаёт файл только как скачиваемый бинарный. Исполняемое,
+  // сценарии и страницы не принимаются. Квота семьи общая с фото; к сообщению файл прикрепляется через fileIds.
+  app.post<{ Params: { chat: string }; Body: Buffer }>(
+    '/api/chats/:chat/files',
+    { schema: { params: chatParams }, bodyLimit: maxFileBytes(), config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (req, reply) => {
+      const member = await me(req, reply)
+      if (!member) return
+      if (!media) return reply.code(503).send({ error: 'media_disabled' })
+      const chat = await resolveChat(member, req.params.chat, reply)
+      if (!chat) return
+      if (!Buffer.isBuffer(req.body) || req.body.length === 0) return reply.code(400).send({ error: 'invalid_file' })
+
+      let decoded = ''
+      try {
+        decoded = decodeURIComponent(String(req.headers['x-file-name'] ?? ''))
+      } catch {
+        return reply.code(400).send({ error: 'invalid_file' })
+      }
+      const name = cleanFileName(decoded)
+      if (!name) return reply.code(400).send({ error: 'invalid_file' })
+      if (isBlockedFile(name)) return reply.code(415).send({ error: 'file_type_blocked' })
+
+      const { rows: used } = await pool.query<{ total: string }>('select coalesce(sum(size), 0) as total from media where family_id = $1', [member.family_id])
+      if (Number(used[0].total) + req.body.length > mediaQuotaBytes()) return reply.code(413).send({ error: 'media_quota' })
+
+      const id = randomUUID()
+      try {
+        await media.client.uploadFile(member.family_id, id, req.body)
+      } catch (err) {
+        req.log.error(err)
+        return reply.code(502).send({ error: 'media_unavailable' })
+      }
+      await pool.query(
+        "insert into media (id, family_id, uploader_id, kind, file_name, size) values ($1, $2, $3, 'file', $4, $5)",
+        [id, member.family_id, member.id, name, req.body.length],
+      )
+      return reply.code(201).send({ fileId: id, name, size: req.body.length })
+    },
+  )
+
+  app.post<{ Params: { chat: string }; Body: { text?: string; mediaIds?: string[]; fileIds?: string[] } }>(
     '/api/chats/:chat/messages',
     { schema: sendSchema },
     async (req, reply) => {
@@ -418,12 +482,15 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       if (!chat) return
 
       const caption = (req.body.text ?? '').trim()
-      const mediaIds = req.body.mediaIds ?? []
+      const photoIds = req.body.mediaIds ?? []
+      const fileIds = req.body.fileIds ?? []
+      const mediaIds = [...photoIds, ...fileIds]
       if (caption.length > MAX_TEXT || (caption.length === 0 && mediaIds.length === 0)) return reply.code(400).send({ error: 'invalid_text' })
       if (mediaIds.length > 0 && !media) return reply.code(503).send({ error: 'media_disabled' })
-      // сообщение только с фото хранит заглушку (для старых клиентов), подпись пуста
+      // сообщение только с вложениями хранит заглушку (для старых клиентов), подпись пуста
       const photoOnly = mediaIds.length > 0 && caption.length === 0
-      const text = photoOnly ? photoPlaceholder(mediaIds.length) : caption
+      let text = caption
+      let fileNames: { name: string }[] = []
 
       const tx = await pool.connect()
       let message: MessageDto
@@ -431,14 +498,18 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
         await tx.query('begin')
         if (mediaIds.length > 0) {
           // фото должны быть загружены этим же участником в его семье и ещё не прикреплены; блокировка защищает от двух сообщений с одним файлом
-          const { rows: owned } = await tx.query(
-            'select id from media where id = any($1) and family_id = $2 and uploader_id = $3 and attached_at is null for update',
+          const { rows: owned } = await tx.query<{ id: string; kind: string; fileName: string | null }>(
+            'select id, kind, file_name as "fileName" from media where id = any($1) and family_id = $2 and uploader_id = $3 and attached_at is null for update',
             [mediaIds, member.family_id, member.id],
           )
-          if (owned.length !== mediaIds.length) {
+          // все на месте, и фото в mediaIds, а файлы в fileIds (виды не путаются)
+          const kindOf = new Map(owned.map((o) => [o.id, o.kind]))
+          if (owned.length !== mediaIds.length || photoIds.some((id) => kindOf.get(id) !== 'image') || fileIds.some((id) => kindOf.get(id) !== 'file')) {
             await tx.query('rollback')
             return reply.code(400).send({ error: 'invalid_media' })
           }
+          fileNames = fileIds.map((id) => ({ name: owned.find((o) => o.id === id)!.fileName ?? '' }))
+          if (photoOnly) text = attachmentPlaceholder(photoIds.length, fileNames)
         }
         const { rows } = await tx.query<MessageRow>(
           `insert into messages (family_id, chat_key, sender_id, text, photo_only) values ($1, $2, $3, $4, $5)
@@ -465,7 +536,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
         [member.id, chat.key, message.createdAt],
       )
       // в уведомлении фото отмечено значком: «📷 Фото» или «📷 подпись»
-      const pushText = mediaIds.length === 0 || photoOnly ? text : `📷 ${text}`
+      const pushText = mediaIds.length === 0 || photoOnly ? text : `${fileIds.length > 0 && photoIds.length === 0 ? '📎' : '📷'} ${text}`
 
       // каждому участнику (и другим устройствам автора) сигнал с чатом, каким он виден ему: общий или собеседник
       const { rows: roles } = await pool.query<{ id: string; role: string }>('select id, role from members where id = any($1)', [chat.participants])

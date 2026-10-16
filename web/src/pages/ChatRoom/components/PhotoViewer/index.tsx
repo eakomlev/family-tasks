@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type UIEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { saveFile } from '@/lib/saveFile'
 import { useInFlight } from '@/lib/useInFlight'
 import { nextIndex, prevIndex } from '../../utils'
 import { Arrow, IconButton, Overlay, SaveButton, Slide, Stage, Status, Track, TopBar } from './styles'
@@ -7,33 +8,6 @@ import type { PhotoViewerProps } from './types'
 
 // Сколько длится плавная прокрутка кнопкой (запас к настоящей: браузеры анимируют 300–500 мс)
 const SMOOTH_SCROLL_MS = 700
-
-// Сохранение фото без ухода со страницы: на телефоне ссылка с download открывала саму картинку в этом же окне приложения,
-// а выйти оттуда было нечем (у установленного приложения нет кнопки «назад»). Поэтому файл берём запросом (он идёт через кэш
-// фото) и отдаём системе: меню «Поделиться» (на iPhone там «Сохранить изображение») или скачивание из памяти.
-async function savePhoto(url: string, name: string): Promise<void> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error('download_failed')
-  const blob = await res.blob()
-  const file = new File([blob], name, { type: blob.type || 'image/jpeg' })
-  if (navigator.canShare?.({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file] })
-      return
-    } catch (err) {
-      // человек закрыл меню: это не ошибка
-      if ((err as Error).name === 'AbortError') return
-    }
-  }
-  const href = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = href
-  link.download = name
-  document.body.append(link)
-  link.click()
-  link.remove()
-  setTimeout(() => URL.revokeObjectURL(href), 10_000)
-}
 
 // Просмотр фото сообщения на весь экран. Фото лежат в одной горизонтальной ленте с привязкой к краям (scroll-snap): листается
 // пальцем, как слайдер, следом за пальцем; есть кнопки и стрелки клавиатуры. «Сохранить» не уходит со страницы, закрыть можно
@@ -108,7 +82,7 @@ export function PhotoViewer({ photos, index, onIndexChange, onClose }: PhotoView
     setSaving(true)
     setSaveFailed(false)
     try {
-      await savePhoto(photos[index].fullUrl, `foto-${index + 1}.jpg`)
+      await saveFile(photos[index].fullUrl, `foto-${index + 1}.jpg`, 'image/jpeg')
     } catch {
       setSaveFailed(true)
     } finally {

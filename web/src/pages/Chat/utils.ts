@@ -20,9 +20,16 @@ export function chatPreviewParts(chat: ChatSummary, me: string, members: Member[
   if (!chat.last) return { text: 'Сообщений пока нет', mine: false }
   const last = chat.last
   const count = last.media?.length ?? 0
-  // сообщение с фото: «📷 Фото», «📷 3 фото» или «📷 подпись»
+  const files = last.files ?? []
+  // сообщение с вложениями: «📷 Фото», «📷 3 фото», «📎 имя файла», «📎 3 файла» или значок и подпись
   const caption = (last.caption ?? '').replace(/\s+/g, ' ').trim()
-  const text = count > 0 ? `📷 ${caption || (count === 1 ? 'Фото' : `${count} фото`)}` : last.text.replace(/\s+/g, ' ').trim()
+  const fileLabel = files.length === 1 ? files[0].name : `${files.length} ${files.length < 5 ? 'файла' : 'файлов'}`
+  const text =
+    count > 0
+      ? `📷 ${caption || (count === 1 ? 'Фото' : `${count} фото`)}`
+      : files.length > 0
+        ? `📎 ${caption || fileLabel}`
+        : last.text.replace(/\s+/g, ' ').trim()
   if (chat.last.senderId === me) return { prefix: 'Вы:', mine: true, text }
   if (chat.id === 'family') {
     const sender = members.find((m) => m.id === chat.last!.senderId)

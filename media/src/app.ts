@@ -8,8 +8,25 @@ import type { BlobStore } from './store.js'
 // Идентификаторы приходят от server (uuid); прочее в ключи не пускаем: так в адресе не бывает «..», слэшей и подмены префикса.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const keyOf = (family: string, id: string, variant: 'full' | 'thumb') => `${family}/${id}/${variant}.jpg`
+// обычный файл хранится как есть, одним объектом
+export const fileKeyOf = (family: string, id: string) => `${family}/${id}/file`
 
-const VARIANTS = new Set(['full', 'thumb'])
+const VARIANTS = new Set(['full', 'thumb', 'file'])
+
+// Имя для скачивания приходит в запросе, поэтому берём только безопасное (без путей и управляющих знаков);
+// для старых браузеров рядом запасное имя из ASCII.
+export function contentDisposition(rawName: unknown): string {
+  const cleaned = (typeof rawName === 'string' ? rawName : '')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f\\/"<>|:*?]/g, '_')
+    .replace(/^\.+/, '')
+    .trim()
+    .slice(0, 150)
+  const name = cleaned || 'file'
+  const ascii = name.replace(/[^\x20-\x7e]/g, '_')
+  const encoded = encodeURIComponent(name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`
+}
 
 function sameToken(given: unknown, expected: string): boolean {
   if (typeof given !== 'string') return false
@@ -29,13 +46,15 @@ export interface AppOptions {
 export function buildApp({ config, store, now = () => new Date() }: AppOptions): FastifyInstance {
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? 'info' },
-    bodyLimit: config.maxUploadBytes,
+    // общий предел по большему из двух, у каждого маршрута записи свой точный
+    bodyLimit: Math.max(config.maxUploadBytes, config.maxFileBytes),
     // проверку живости (раз в 30 секунд) в журнал не пишем
     disableRequestLogging: (req) => req.url === '/health',
   })
 
-  // фото приходит сырым JPEG; остальные типы тела не принимаем
+  // фото приходит сырым JPEG, файл сырыми байтами; остальные типы тела не принимаем
   app.addContentTypeParser('image/jpeg', { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
 
   // проверка живости контейнера и самого хранилища (без секретов и данных)
   app.get('/health', async (_req, reply) => {
@@ -54,7 +73,7 @@ export function buildApp({ config, store, now = () => new Date() }: AppOptions):
   })
 
   // Принять фото: проверить, перекодировать, сохранить полный вариант и превью. Повтор с тем же id перезаписывает файл.
-  app.put<{ Params: { family: string; id: string }; Body: Buffer }>('/internal/media/:family/:id', async (req, reply) => {
+  app.put<{ Params: { family: string; id: string }; Body: Buffer }>('/internal/media/:family/:id', { bodyLimit: config.maxUploadBytes }, async (req, reply) => {
     const { family, id } = req.params
     if (!UUID.test(family) || !UUID.test(id)) return reply.code(400).send({ error: 'invalid_id' })
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) return reply.code(415).send({ error: 'invalid_image' })
@@ -70,11 +89,21 @@ export function buildApp({ config, store, now = () => new Date() }: AppOptions):
     return { width: processed.width, height: processed.height, size: processed.full.length, thumbSize: processed.thumb.length }
   })
 
-  // Удалить файл (повторный вызов безопасен).
+  // Принять обычный файл (документ, архив…): байты сохраняются как есть, содержимое не разбирается. Что это за файл (имя, тип),
+  // знает server; отсюда он отдаётся всегда как скачиваемый бинарный, а не как страница или картинка. Повтор с тем же id перезаписывает.
+  app.put<{ Params: { family: string; id: string }; Body: Buffer }>('/internal/files/:family/:id', { bodyLimit: config.maxFileBytes }, async (req, reply) => {
+    const { family, id } = req.params
+    if (!UUID.test(family) || !UUID.test(id)) return reply.code(400).send({ error: 'invalid_id' })
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) return reply.code(415).send({ error: 'invalid_file' })
+    await store.put(fileKeyOf(family, id), req.body, 'application/octet-stream')
+    return { size: req.body.length }
+  })
+
+  // Удалить фото или файл (повторный вызов безопасен): что лежит под этим id, знает server, поэтому убираем всё возможное.
   app.delete<{ Params: { family: string; id: string } }>('/internal/media/:family/:id', async (req, reply) => {
     const { family, id } = req.params
     if (!UUID.test(family) || !UUID.test(id)) return reply.code(400).send({ error: 'invalid_id' })
-    await store.delete([keyOf(family, id, 'full'), keyOf(family, id, 'thumb')])
+    await store.delete([keyOf(family, id, 'full'), keyOf(family, id, 'thumb'), fileKeyOf(family, id)])
     return reply.code(204).send()
   })
 
@@ -87,7 +116,7 @@ export function buildApp({ config, store, now = () => new Date() }: AppOptions):
     for (const o of objects) {
       const [, id, file] = o.key.split('/')
       if (!id) continue
-      items.set(id, (items.get(id) ?? 0) + (file === 'full.jpg' ? o.size : 0))
+      items.set(id, (items.get(id) ?? 0) + (file === 'full.jpg' || file === 'file' ? o.size : 0))
     }
     return { items: [...items].map(([id, size]) => ({ id, size })) }
   })
@@ -103,7 +132,7 @@ export function buildApp({ config, store, now = () => new Date() }: AppOptions):
 
   // ---- раздача по подписанной ссылке ----
   // Без верной подписи, с чужим семейством или отсутствующим файлом ответ один и тот же (404): по ответу нельзя узнать, что есть.
-  app.get<{ Params: { family: string; id: string; variant: string }; Querystring: { exp?: string; sig?: string } }>(
+  app.get<{ Params: { family: string; id: string; variant: string }; Querystring: { exp?: string; sig?: string; name?: string } }>(
     '/media/:family/:id/:variant',
     async (req, reply) => {
       const { family, id, variant } = req.params
@@ -114,7 +143,8 @@ export function buildApp({ config, store, now = () => new Date() }: AppOptions):
         verify(config.secret, family, id, exp, req.query.sig, nowSeconds)
       if (!ok) return reply.code(404).send({ error: 'not_found' })
 
-      const object = await store.get(keyOf(family, id, variant as 'full' | 'thumb'))
+      const isFile = variant === 'file'
+      const object = await store.get(isFile ? fileKeyOf(family, id) : keyOf(family, id, variant as 'full' | 'thumb'))
       if (!object) {
         return reply.code(404).send({ error: 'not_found' })
       }
@@ -122,6 +152,11 @@ export function buildApp({ config, store, now = () => new Date() }: AppOptions):
       const maxAge = Math.max(0, Math.min(exp - nowSeconds, 86400))
       reply.header('Cache-Control', `private, max-age=${maxAge}`)
       reply.header('X-Content-Type-Options', 'nosniff')
+      if (isFile) {
+        // чужой файл никогда не открывается в приложении: только скачивание как бинарного, без выполнения чего-либо
+        reply.header('Content-Disposition', contentDisposition(req.query.name))
+        reply.header('Content-Security-Policy', "sandbox; default-src 'none'")
+      }
       if (object.etag) {
         reply.header('ETag', object.etag)
         if (req.headers['if-none-match'] === object.etag) {
@@ -130,7 +165,7 @@ export function buildApp({ config, store, now = () => new Date() }: AppOptions):
         }
       }
       reply.header('Content-Length', object.size)
-      return reply.type('image/jpeg').send(object.body)
+      return reply.type(isFile ? 'application/octet-stream' : 'image/jpeg').send(object.body)
     },
   )
 

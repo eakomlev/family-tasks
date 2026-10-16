@@ -1,9 +1,11 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { CoinIcon } from '@/components/CoinBalance'
 import { ReadTicks } from '@/components/ReadTicks'
+import { formatFileSize } from '@/lib/files'
+import { saveFile } from '@/lib/saveFile'
 import { useLongPress } from '../../useLongPress'
 import { bubbleText, formatMessageTime, groupReactions, photoColumns, totalCoins } from '../../utils'
-import { Bubble, CoinPill, Extras, Footer, PhotoButton, Photos, ReactionChip, Sender, Text, Time, Wrap } from './styles'
+import { Bubble, CoinPill, Extras, FileButton, FileInfo, Files, Footer, PhotoButton, Photos, ReactionChip, Sender, Text, Time, Wrap } from './styles'
 import type { MessageBubbleProps } from './types'
 
 export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, onFeedback, onOpenPhoto }: MessageBubbleProps) {
@@ -20,6 +22,22 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
       }),
   )
   const photos = message.media ?? []
+  const files = message.files ?? []
+  // какой файл сейчас сохраняется / не сохранился (одно сообщение: пока идёт загрузка, повторное нажатие ничего не делает)
+  const [saving, setSaving] = useState<string>()
+  const [saveFailed, setSaveFailed] = useState(false)
+  async function save(id: string, url: string, name: string) {
+    if (saving) return
+    setSaving(id)
+    setSaveFailed(false)
+    try {
+      await saveFile(url, name)
+    } catch {
+      setSaveFailed(true)
+    } finally {
+      setSaving(undefined)
+    }
+  }
   const text = bubbleText(message)
 
   // долгое нажатие (палец), удержание мыши или правая кнопка открывают окно реакции; с клавиатуры Enter и пробел
@@ -58,6 +76,23 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
               </PhotoButton>
             ))}
           </Photos>
+        )}
+        {files.length > 0 && (
+          <Files>
+            {files.map((file) => (
+              <FileButton key={file.id} type="button" aria-label={`Скачать файл ${file.name}`} disabled={saving === file.id} onClick={() => Date.now() - lastLong.current > 700 && void save(file.id, file.url, file.name)}>
+                <svg viewBox="0 0 24 24" aria-hidden focusable="false">
+                  <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 3v5h5M12 11v6m0 0-2.5-2.5M12 17l2.5-2.5" />
+                </svg>
+                <FileInfo>
+                  <strong>{file.name}</strong>
+                  <small>{formatFileSize(file.size)}</small>
+                </FileInfo>
+              </FileButton>
+            ))}
+            {saveFailed && <Text role="alert">Не удалось сохранить файл.</Text>}
+          </Files>
         )}
         {text && <Text>{text}</Text>}
         <Footer>

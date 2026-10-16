@@ -195,3 +195,87 @@ export const SendButton = styled.button`
     outline-offset: 2px;
   }
 `
+
+// выбранные файлы (не фото) над полем ввода: строка с именем, состоянием и кнопкой «убрать»
+export const FileList = styled.ul`
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0 0 0.4rem;
+  list-style: none;
+`
+
+export const FileChip = styled.li<{ $failed?: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.4rem 0.4rem 0.75rem;
+  border: 1px solid ${({ $failed }) => ($failed ? 'var(--error)' : 'var(--border)')};
+  border-radius: 0.8rem;
+  background: var(--surface);
+`
+
+export const FileInfo = styled.span`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+
+  strong {
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+`
+
+export const FileRetry = styled.button`
+  flex: none;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.6rem;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+`
+
+export const FileRemove = styled.button`
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--border);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+`

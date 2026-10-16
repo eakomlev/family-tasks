@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
-import { FAMILY_CHAT, listMessages, uploadChatPhoto, type ChatMessage, type MessageFeedback } from '@/api'
+import { FAMILY_CHAT, listMessages, uploadChatFile, uploadChatPhoto, type ChatMessage, type MessageFeedback } from '@/api'
 import { Avatar } from '@/components/Avatar'
 import { TabIcon } from '@/components/TabBar/TabIcon'
 import { MoodMark } from '@/components/MoodMark'
@@ -198,8 +198,14 @@ function Conversation({ chat }: { chat: string | undefined }) {
     return mediaId
   }
 
-  async function handleSend({ text, mediaIds }: OutgoingMessage) {
-    const { message } = await sendMessage({ chat: chat!, text, mediaIds }).unwrap().catch(toApiError)
+  // загрузка одного файла (не фото) для сообщения
+  async function handleUploadFile(file: File) {
+    const { fileId } = await uploadChatFile(token!, chat!, file)
+    return fileId
+  }
+
+  async function handleSend({ text, mediaIds, fileIds }: OutgoingMessage) {
+    const { message } = await sendMessage({ chat: chat!, text, mediaIds, fileIds }).unwrap().catch(toApiError)
     stick.current = true
     setThread((current) => ({ messages: appendMessage(current?.messages ?? [], message), hasMore: current?.hasMore ?? false, readUpTo: current?.readUpTo ?? null }))
   }
@@ -285,7 +291,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
         </FeedContent>
       </Feed>
 
-      <Composer onSend={handleSend} onUpload={handleUpload} />
+      <Composer onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} />
 
       {viewing && (
         <PhotoViewer

@@ -13,6 +13,9 @@ class FakeMedia implements MediaClient {
   async upload() {
     return { width: 100, height: 100, size: 1000, thumbSize: 100 }
   }
+  async uploadFile(_family: string, _id: string, body: Buffer) {
+    return { size: body.length }
+  }
   async delete(_family: string, id: string) {
     if (this.failWith) throw this.failWith
     this.deleted.push(id)

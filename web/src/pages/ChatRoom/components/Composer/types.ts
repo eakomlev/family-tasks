@@ -3,6 +3,8 @@ export interface OutgoingMessage {
   text: string
   // загруженные фото в порядке показа
   mediaIds: string[]
+  // загруженные файлы (документы, архивы…) в порядке показа
+  fileIds: string[]
 }
 
 export interface ComposerProps {
@@ -10,6 +12,8 @@ export interface ComposerProps {
   onSend: (message: OutgoingMessage) => Promise<void>
   // загружает одно уже уменьшенное фото и возвращает его идентификатор; бросает ошибку, если не вышло
   onUpload: (photo: Blob) => Promise<string>
+  // загружает один файл (не фото) и возвращает его идентификатор; бросает ошибку, если не вышло
+  onUploadFile: (file: File) => Promise<string>
 }
 
 // Фото, приложенное к сообщению, на пути от выбора до отправки.
@@ -21,5 +25,17 @@ export interface Attachment {
   mediaId?: string
   error?: string
   // уменьшенный файл остаётся, чтобы повторить загрузку без повторного выбора (нет, если не удалось подготовить)
+  retryable?: boolean
+}
+
+// Файл (не фото), приложенный к сообщению, на пути от выбора до отправки.
+export interface FileAttachment {
+  key: string
+  name: string
+  size: number
+  status: 'uploading' | 'done' | 'failed'
+  fileId?: string
+  error?: string
+  // можно повторить загрузку (нет, если файл отклонён ещё на устройстве: слишком большой, запрещённый вид)
   retryable?: boolean
 }

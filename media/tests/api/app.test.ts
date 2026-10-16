@@ -227,3 +227,85 @@ describe('живость', () => {
     await broken.close()
   })
 })
+
+describe('обычные файлы', () => {
+  const PDF = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\n')
+  const putFile = (family: string, id: string, body: Buffer | string, headers: Record<string, string> = { ...internal, 'content-type': 'application/octet-stream' }, target = app) =>
+    target.inject({ method: 'PUT', url: `/internal/files/${family}/${id}`, headers, payload: body })
+  const fileLink = (family: string, id: string, name?: string) => {
+    const exp = nowSeconds + 86400
+    const query = `exp=${exp}&sig=${sign(config.secret, family, id, exp)}${name === undefined ? '' : `&name=${encodeURIComponent(name)}`}`
+    return `/media/${family}/${id}/file?${query}`
+  }
+
+  it('сохраняет байты как есть и отдаёт только как скачиваемый бинарный файл', async () => {
+    const family = newFamily()
+    const id = randomUUID()
+    const res = await putFile(family, id, PDF)
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ size: PDF.length })
+    const got = await app.inject({ method: 'GET', url: fileLink(family, id, 'Отчёт 2026.pdf') })
+    expect(got.statusCode).toBe(200)
+    expect(got.rawPayload.equals(PDF)).toBe(true)
+    expect(got.headers['content-type']).toMatch(/^application\/octet-stream/)
+    expect(got.headers['x-content-type-options']).toBe('nosniff')
+    expect(got.headers['content-security-policy']).toMatch(/sandbox/)
+    expect(got.headers['content-disposition']).toBe(
+      `attachment; filename="_____ 2026.pdf"; filename*=UTF-8''${encodeURIComponent('Отчёт 2026.pdf')}`,
+    )
+  })
+
+  it('имя для скачивания очищается от путей и управляющих знаков, без имени «file»', async () => {
+    const family = newFamily()
+    const id = randomUUID()
+    await putFile(family, id, PDF)
+    const header = async (name?: string) => (await app.inject({ method: 'GET', url: fileLink(family, id, name) })).headers['content-disposition']
+    expect(await header('../../etc/passwd')).toContain('filename="_.._etc_passwd"')
+    expect(await header('a"; filename="evil.exe')).not.toContain('"evil')
+    expect(await header('x\r\nSet-Cookie: a=b')).not.toMatch(/[\r\n]/)
+    expect(await header()).toContain('filename="file"')
+    expect(await header('.hidden')).toContain('filename="hidden"')
+  })
+
+  it('без токена, с неверным id, пустое тело или не те байты (не octet-stream) отклоняются', async () => {
+    const family = newFamily()
+    const id = randomUUID()
+    expect((await putFile(family, id, PDF, { 'content-type': 'application/octet-stream' })).statusCode).toBe(401)
+    expect((await putFile('не-uuid', id, PDF)).statusCode).toBe(400)
+    expect((await putFile(family, id, Buffer.alloc(0))).statusCode).toBe(415)
+    expect((await putFile(family, id, PDF, { ...internal, 'content-type': 'text/html' })).statusCode).toBe(415)
+    expect(await store.get(`${family}/${id}/file`)).toBeNull()
+  })
+
+  it('файл больше предела для файлов отклоняется (413), а предел фото к файлам не относится', async () => {
+    const family = newFamily()
+    const small = buildApp({ config: testConfig({ maxFileBytes: 1000 }), store })
+    await small.ready()
+    expect((await putFile(family, randomUUID(), Buffer.alloc(5000, 1), undefined, small)).statusCode).toBe(413)
+    // обычный файл крупнее предела фото (3 МБ) проходит
+    expect((await putFile(family, randomUUID(), Buffer.alloc(4 * 1024 * 1024, 7))).statusCode).toBe(200)
+    await small.close()
+  })
+
+  it('подпись и срок проверяются как у фото: чужая подпись 404', async () => {
+    const family = newFamily()
+    const id = randomUUID()
+    await putFile(family, id, PDF)
+    const exp = nowSeconds + 3600
+    expect((await app.inject({ method: 'GET', url: `/media/${family}/${id}/file?exp=${exp}&sig=${'0'.repeat(64)}` })).statusCode).toBe(404)
+    expect((await app.inject({ method: 'GET', url: fileLink(family, randomUUID()) })).statusCode).toBe(404)
+  })
+
+  it('список считает размер файла, удаление убирает его (повтор безопасен)', async () => {
+    const family = newFamily()
+    const id = randomUUID()
+    await putFile(family, id, PDF)
+    const listed = (await app.inject({ method: 'GET', url: `/internal/media/${family}`, headers: internal })).json()
+    expect(listed).toEqual({ items: [{ id, size: PDF.length }] })
+    const del = () => app.inject({ method: 'DELETE', url: `/internal/media/${family}/${id}`, headers: internal })
+    expect((await del()).statusCode).toBe(204)
+    expect((await del()).statusCode).toBe(204)
+    expect(await store.get(`${family}/${id}/file`)).toBeNull()
+    expect((await app.inject({ method: 'GET', url: fileLink(family, id) })).statusCode).toBe(404)
+  })
+})

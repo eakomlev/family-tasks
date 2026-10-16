@@ -141,3 +141,69 @@ export const CoinPill = styled.span`
     height: 1.1rem;
   }
 `
+
+// файлы сообщения: строка со значком, именем и размером; нажатие сохраняет файл
+export const Files = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.1rem 0 0.25rem;
+`
+
+export const FileButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: 0.7rem;
+  background: rgb(0 0 0 / 0.08);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-touch-callout: none;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  &:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 1px;
+  }
+
+  svg {
+    flex: none;
+    width: 1.6rem;
+    height: 1.6rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+`
+
+export const FileInfo = styled.span`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+
+  strong {
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    opacity: 0.75;
+    font-size: 0.75rem;
+  }
+`

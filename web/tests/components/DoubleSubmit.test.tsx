@@ -131,7 +131,7 @@ describe('создание и сохранение', () => {
     const request = slow()
     const onSend = vi.fn().mockReturnValue(request.promise)
     const user = userEvent.setup()
-    render(<Composer onSend={onSend} onUpload={vi.fn()} />)
+    render(<Composer onSend={onSend} onUploadFile={vi.fn()} onUpload={vi.fn()} />)
     await user.type(screen.getByLabelText('Сообщение'), 'Привет')
     twice(screen.getByRole('button', { name: 'Отправить' }))
     expect(onSend).toHaveBeenCalledTimes(1)

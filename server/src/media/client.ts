@@ -9,6 +9,8 @@ export interface UploadResult {
 export interface MediaClient {
   // кладёт фото (JPEG); бросает MediaRejected, если сервис счёл файл негодным
   upload(family: string, id: string, body: Buffer): Promise<UploadResult>
+  // кладёт обычный файл как есть (документ, архив…); возвращает его размер
+  uploadFile(family: string, id: string, body: Buffer): Promise<{ size: number }>
   // удаляет файл (повтор безопасен)
   delete(family: string, id: string): Promise<void>
   // отвечает ли сервис и доступно ли его хранилище (для страницы «Сервис»); не бросает ошибок
@@ -50,6 +52,11 @@ export function createMediaClient(config: Pick<MediaEnv, 'url' | 'internalToken'
       if (res.status === 422) throw new MediaRejected()
       if (!res.ok) throw new Error(`media upload failed: ${res.status}`)
       return (await res.json()) as UploadResult
+    },
+    async uploadFile(family, id, body) {
+      const res = await call(`/internal/files/${family}/${id}`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: new Uint8Array(body) })
+      if (!res.ok) throw new Error(`media file upload failed: ${res.status}`)
+      return (await res.json()) as { size: number }
     },
     async health() {
       try {

@@ -108,7 +108,7 @@ export const MAX_PHOTOS = 10
 
 // Текст сообщения для показа в пузыре: у сообщения с фото это подпись (заглушку «📷 Фото» видят только старые версии приложения).
 // Сообщения из кэша прежней версии без полей caption и media считаются обычными текстовыми.
-export const bubbleText = (message: ChatMessage): string => ((message.media?.length ?? 0) > 0 ? (message.caption ?? '') : message.text)
+export const bubbleText = (message: ChatMessage): string => ((message.media?.length ?? 0) + (message.files?.length ?? 0) > 0 ? (message.caption ?? '') : message.text)
 
 // Раскладка фото в пузыре: одно крупно (по своим пропорциям), 2–4 в два столбца, больше в три; плитки квадратные.
 export function photoColumns(count: number): number {
@@ -116,11 +116,11 @@ export function photoColumns(count: number): number {
   return count <= 4 ? 2 : 3
 }
 
-// Можно отправлять: есть текст или фото, всё загружено и нет неудавшихся загрузок.
-export function canSendMessage(text: string, photos: { status: 'uploading' | 'done' | 'failed' }[]): boolean {
-  if (photos.some((p) => p.status !== 'done')) return false
+// Можно отправлять: есть текст, фото или файл, всё загружено и нет неудавшихся загрузок.
+export function canSendMessage(text: string, attachments: { status: 'uploading' | 'done' | 'failed' }[]): boolean {
+  if (attachments.some((p) => p.status !== 'done')) return false
   const trimmed = text.trim()
-  return trimmed.length <= MAX_LENGTH && (trimmed.length > 0 || photos.length > 0)
+  return trimmed.length <= MAX_LENGTH && (trimmed.length > 0 || attachments.length > 0)
 }
 
 // Следующий и предыдущий номер при листании фото по кругу.

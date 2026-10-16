@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
 import { Notice } from '@/components/Notice'
-import { describePhotoError } from '@/lib/errors'
+import { describeFileError, describePhotoError } from '@/lib/errors'
+import { fileProblem, formatFileSize, MAX_FILES } from '@/lib/files'
 import { resizeToPhoto } from '@/lib/image'
 import { canSendMessage, MAX_LENGTH, MAX_PHOTOS } from '../../utils'
-import { AttachButton, Bar, Field, Row, SendButton, Strip, Thumb, ThumbRemove, ThumbRetry, ThumbState } from './styles'
-import type { Attachment, ComposerProps } from './types'
+import { AttachButton, Bar, Field, FileChip, FileInfo, FileList, FileRemove, FileRetry, Row, SendButton, Strip, Thumb, ThumbRemove, ThumbRetry, ThumbState } from './styles'
+import type { Attachment, ComposerProps, FileAttachment } from './types'
 import { useInFlight } from '@/lib/useInFlight'
 
 let counter = 0
@@ -12,17 +13,20 @@ const nextKey = () => `photo-${++counter}`
 
 // Поле ввода сообщения: растёт по мере набора, Enter отправляет, Shift+Enter переносит строку. Скрепка прикладывает фото (до 10):
 // выбранные уменьшаются на устройстве и сразу загружаются, а к сообщению прикрепляются кнопкой отправки.
-export function Composer({ onSend, onUpload }: ComposerProps) {
+export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
   const guard = useInFlight()
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
   const [photos, setPhotos] = useState<Attachment[]>([])
+  const [files, setFiles] = useState<FileAttachment[]>([])
   const [photoNotice, setPhotoNotice] = useState<string>()
   const field = useRef<HTMLTextAreaElement>(null)
   const picker = useRef<HTMLInputElement>(null)
   // уменьшенные файлы по ключу (для повтора загрузки) и очередь обработки: фото готовятся и грузятся по одному
   const [blobs] = useState(() => new Map<string, Blob>())
+  // выбранные файлы по ключу (для повтора загрузки)
+  const [fileObjects] = useState(() => new Map<string, File>())
   const queue = useRef<Promise<void>>(Promise.resolve())
   const alive = useRef(true)
 
@@ -31,8 +35,9 @@ export function Composer({ onSend, onUpload }: ComposerProps) {
     return () => {
       alive.current = false
       blobs.clear()
+      fileObjects.clear()
     }
-  }, [blobs])
+  }, [blobs, fileObjects])
 
   // освобождаем локальные адреса превью, когда компонент уходит
   const photosRef = useRef(photos)
@@ -79,17 +84,52 @@ export function Composer({ onSend, onUpload }: ComposerProps) {
     await upload(key, blob)
   }
 
-  function addFiles(files: File[]) {
-    const images = files.filter((f) => f.type.startsWith('image/'))
-    const room = MAX_PHOTOS - photos.length
-    const accepted = images.slice(0, Math.max(0, room))
+  const patchFile = (key: string, change: Partial<FileAttachment>) =>
+    setFiles((list) => list.map((f) => (f.key === key ? { ...f, ...change } : f)))
+
+  async function uploadAttachedFile(key: string, file: File) {
+    patchFile(key, { status: 'uploading', error: undefined })
+    try {
+      const fileId = await onUploadFile(file)
+      if (alive.current) patchFile(key, { status: 'done', fileId })
+    } catch (err) {
+      if (alive.current) patchFile(key, { status: 'failed', error: describeFileError(err), retryable: true })
+    }
+  }
+
+  // Выбранное: картинки идут как фото (уменьшаются), всё остальное как файлы (до MAX_FILES, как есть)
+  function addFiles(picked: File[]) {
+    const images = picked.filter((f) => f.type.startsWith('image/'))
+    const others = picked.filter((f) => !f.type.startsWith('image/'))
+    const acceptedImages = images.slice(0, Math.max(0, MAX_PHOTOS - photos.length))
+    const acceptedFiles = others.slice(0, Math.max(0, MAX_FILES - files.length))
     setPhotoNotice(
-      images.length < files.length ? 'Выберите фотографии: другие файлы не поддерживаются.' : images.length > accepted.length ? `К сообщению можно приложить не больше ${MAX_PHOTOS} фото.` : undefined,
+      images.length > acceptedImages.length
+        ? `К сообщению можно приложить не больше ${MAX_PHOTOS} фото.`
+        : others.length > acceptedFiles.length
+          ? `К сообщению можно приложить не больше ${MAX_FILES} файлов.`
+          : undefined,
     )
-    if (accepted.length === 0) return
-    const added = accepted.map((file) => ({ key: nextKey(), file }))
-    setPhotos((list) => [...list, ...added.map(({ key, file }): Attachment => ({ key, preview: URL.createObjectURL(file), status: 'uploading' }))])
-    for (const { key, file } of added) queue.current = queue.current.then(() => process(key, file))
+    if (acceptedImages.length > 0) {
+      const added = acceptedImages.map((file) => ({ key: nextKey(), file }))
+      setPhotos((list) => [...list, ...added.map(({ key, file }): Attachment => ({ key, preview: URL.createObjectURL(file), status: 'uploading' }))])
+      for (const { key, file } of added) queue.current = queue.current.then(() => process(key, file))
+    }
+    if (acceptedFiles.length > 0) {
+      const added = acceptedFiles.map((file) => ({ key: nextKey(), file, problem: fileProblem(file) }))
+      setFiles((list) => [
+        ...list,
+        ...added.map(
+          ({ key, file, problem }): FileAttachment =>
+            problem ? { key, name: file.name, size: file.size, status: 'failed', error: problem, retryable: false } : { key, name: file.name, size: file.size, status: 'uploading' },
+        ),
+      ])
+      for (const { key, file, problem } of added) {
+        if (problem) continue
+        fileObjects.set(key, file)
+        queue.current = queue.current.then(() => uploadAttachedFile(key, file))
+      }
+    }
   }
 
   function onPick(e: ChangeEvent<HTMLInputElement>) {
@@ -107,11 +147,24 @@ export function Composer({ onSend, onUpload }: ComposerProps) {
     setPhotoNotice(undefined)
   }
 
+  function removeFile(key: string) {
+    fileObjects.delete(key)
+    setFiles((list) => list.filter((f) => f.key !== key))
+    setPhotoNotice(undefined)
+  }
+
+  function retryFile(key: string) {
+    const file = fileObjects.get(key)
+    if (file) queue.current = queue.current.then(() => uploadAttachedFile(key, file))
+  }
+
   // после отправки: превью и файлы больше не нужны
   function clearPhotos() {
     photos.forEach((p) => URL.revokeObjectURL(p.preview))
     blobs.clear()
+    fileObjects.clear()
     setPhotos([])
+    setFiles([])
     setPhotoNotice(undefined)
   }
 
@@ -122,7 +175,7 @@ export function Composer({ onSend, onUpload }: ComposerProps) {
 
   const shiftRef = useRef(false)
   const submitRef = useRef<() => Promise<void>>(async () => {})
-  const canSend = canSendMessage(text, photos)
+  const canSend = canSendMessage(text, [...photos, ...files])
 
   const submit = guard(async (e?: FormEvent) => {
     e?.preventDefault()
@@ -130,7 +183,7 @@ export function Composer({ onSend, onUpload }: ComposerProps) {
     setBusy(true)
     setFailed(false)
     try {
-      await onSend({ text: text.trim(), mediaIds: photos.map((p) => p.mediaId!) })
+      await onSend({ text: text.trim(), mediaIds: photos.map((p) => p.mediaId!), fileIds: files.map((f) => f.fileId!) })
       setText('')
       clearPhotos()
     } catch {
@@ -177,7 +230,8 @@ export function Composer({ onSend, onUpload }: ComposerProps) {
     }
   }, [])
 
-  const uploading = photos.some((p) => p.status === 'uploading')
+  const uploading = photos.some((p) => p.status === 'uploading') || files.some((f) => f.status === 'uploading')
+  const hasAttachments = photos.length > 0 || files.length > 0
 
   return (
     <>
@@ -185,6 +239,9 @@ export function Composer({ onSend, onUpload }: ComposerProps) {
       {photoNotice && <Notice $tone="warning">{photoNotice}</Notice>}
       {photos.some((p) => p.status === 'failed') && (
         <Notice $tone="error">{photos.find((p) => p.status === 'failed')?.error} Повторите загрузку или уберите это фото.</Notice>
+      )}
+      {files.some((f) => f.status === 'failed') && (
+        <Notice $tone="error">{files.find((f) => f.status === 'failed')?.error} Повторите загрузку или уберите этот файл.</Notice>
       )}
       <Bar onSubmit={submit}>
         {photos.length > 0 && (
@@ -210,9 +267,31 @@ export function Composer({ onSend, onUpload }: ComposerProps) {
             ))}
           </Strip>
         )}
+        {files.length > 0 && (
+          <FileList aria-label="Выбранные файлы">
+            {files.map((file) => (
+              <FileChip key={file.key} $failed={file.status === 'failed'}>
+                <FileInfo>
+                  <strong>{file.name}</strong>
+                  <small>{file.status === 'uploading' ? 'Загружается…' : file.status === 'failed' ? 'Не загружен' : formatFileSize(file.size)}</small>
+                </FileInfo>
+                {file.status === 'failed' && file.retryable && (
+                  <FileRetry type="button" aria-label={`Повторить загрузку файла ${file.name}`} onClick={() => retryFile(file.key)}>
+                    Ещё раз
+                  </FileRetry>
+                )}
+                <FileRemove type="button" aria-label={`Убрать файл ${file.name}`} disabled={busy} onClick={() => removeFile(file.key)}>
+                  <svg viewBox="0 0 24 24" aria-hidden>
+                    <path d="M6 6l12 12M18 6 6 18" />
+                  </svg>
+                </FileRemove>
+              </FileChip>
+            ))}
+          </FileList>
+        )}
         <Row>
-          <input ref={picker} type="file" accept="image/*" multiple hidden aria-label="Выбрать фото" onChange={onPick} />
-          <AttachButton type="button" aria-label="Прикрепить фото" disabled={busy || photos.length >= MAX_PHOTOS} onClick={() => picker.current?.click()}>
+          <input ref={picker} type="file" multiple hidden aria-label="Выбрать фото или файл" onChange={onPick} />
+          <AttachButton type="button" aria-label="Прикрепить фото или файл" disabled={busy || (photos.length >= MAX_PHOTOS && files.length >= MAX_FILES)} onClick={() => picker.current?.click()}>
             <svg viewBox="0 0 24 24" aria-hidden focusable="false">
               <path d="m20 11-8.2 8.2a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7l-8.3 8.3a1.7 1.7 0 0 1-2.4-2.4L14.5 7" />
             </svg>
@@ -222,8 +301,8 @@ export function Composer({ onSend, onUpload }: ComposerProps) {
             value={text}
             rows={1}
             maxLength={MAX_LENGTH}
-            placeholder={photos.length > 0 ? 'Подпись' : 'Сообщение'}
-            aria-label={photos.length > 0 ? 'Подпись к фото' : 'Сообщение'}
+            placeholder={hasAttachments ? 'Подпись' : 'Сообщение'}
+            aria-label={photos.length > 0 ? 'Подпись к фото' : files.length > 0 ? 'Подпись к файлам' : 'Сообщение'}
             enterKeyHint="send"
             onChange={(e) => {
               setText(e.target.value)
@@ -231,7 +310,7 @@ export function Composer({ onSend, onUpload }: ComposerProps) {
             }}
             onKeyDown={onKeyDown}
           />
-          <SendButton type="submit" aria-label="Отправить" disabled={busy || !canSend} title={uploading ? 'Фото ещё загружаются' : undefined}>
+          <SendButton type="submit" aria-label="Отправить" disabled={busy || !canSend} title={uploading ? 'Вложения ещё загружаются' : undefined}>
             <svg viewBox="0 0 24 24" aria-hidden focusable="false">
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>

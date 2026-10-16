@@ -42,12 +42,84 @@ export async function loadMedia(
   const { rows } = await db.query<{ messageId: string; id: string; familyId: string; width: number; height: number }>(
     `select mm.message_id as "messageId", m.id, m.family_id as "familyId", m.width, m.height
      from message_media mm join media m on m.id = mm.media_id
-     where mm.message_id = any($1) order by mm.message_id, mm.position`,
+     where mm.message_id = any($1) and m.kind = 'image' order by mm.message_id, mm.position`,
     [messageIds],
   )
   for (const r of rows) {
     const list = out.get(r.messageId) ?? []
     list.push({ id: r.id, width: r.width, height: r.height, ...mediaUrls(secret, r.familyId, r.id, now) })
+    out.set(r.messageId, list)
+  }
+  return out
+}
+
+// ---- обычные файлы в чатах (документы, архивы и т. п.) ----
+
+// Файл сообщения в ответах API. url ведёт на скачивание: сервис media всегда отдаёт его как бинарный attachment.
+export interface FileDto {
+  id: string
+  name: string
+  size: number
+  url: string
+}
+
+// Не больше файлов в одном сообщении и размер одного файла (по умолчанию 10 МБ).
+export const MAX_FILES = 5
+export const maxFileBytes = () => {
+  const n = Number(process.env.MAX_FILE_BYTES)
+  return Number.isFinite(n) && n > 0 ? n : 10 * 1024 * 1024
+}
+export const MAX_FILE_NAME = 120
+
+// Расширения, которые не пересылаем: исполняемое, сценарии и страницы (открытая у получателя страница может выдавать себя за что угодно).
+const BLOCKED_EXTENSIONS = new Set([
+  'exe', 'msi', 'bat', 'cmd', 'com', 'scr', 'pif', 'cpl', 'msc', 'dll', 'sys', 'lnk', 'reg', 'hta', 'jar', 'apk', 'ipa', 'app', 'dmg',
+  'pkg', 'deb', 'rpm', 'iso', 'vbs', 'vbe', 'js', 'jse', 'mjs', 'wsf', 'wsh', 'ps1', 'psm1', 'sh', 'bash', 'zsh', 'command',
+  'html', 'htm', 'xhtml', 'mht', 'mhtml', 'svg',
+])
+
+// Безопасное имя файла: без пути и управляющих знаков, не длиннее MAX_FILE_NAME (расширение сохраняется). Пустое имя: null.
+export function cleanFileName(raw: string): string | null {
+  // eslint-disable-next-line no-control-regex
+  const base = raw.replace(/[\u0000-\u001f\u007f]/g, '').split(/[\\/]/).pop()!.replace(/^\.+/, '').trim()
+  if (!base) return null
+  if (base.length <= MAX_FILE_NAME) return base
+  const dot = base.lastIndexOf('.')
+  const ext = dot > 0 && base.length - dot <= 12 ? base.slice(dot) : ''
+  return base.slice(0, MAX_FILE_NAME - ext.length) + ext
+}
+
+export function isBlockedFile(name: string): boolean {
+  const dot = name.lastIndexOf('.')
+  // проверяем и последнее расширение, и «двойное» (отчёт.pdf.exe) через последнее: оно решает, чем файл откроется
+  return dot >= 0 && BLOCKED_EXTENSIONS.has(name.slice(dot + 1).toLowerCase())
+}
+
+// Заглушка в text для сообщения только с вложениями (видит старая версия клиента).
+export function attachmentPlaceholder(photos: number, files: Pick<FileDto, 'name'>[]): string {
+  if (files.length === 0) return photoPlaceholder(photos)
+  if (photos === 0) return files.length === 1 ? `📎 ${files[0].name}` : `📎 Файлы ×${files.length}`
+  return `📎 Вложения ×${photos + files.length}`
+}
+
+export function fileUrl(secret: string, family: string, id: string, name: string, now: Date): string {
+  const exp = expiryFor(now)
+  return `/media/${family}/${id}/file?exp=${exp}&sig=${sign(secret, family, id, exp)}&name=${encodeURIComponent(name)}`
+}
+
+// Файлы сообщений одним запросом: сообщение -> файлы по порядку.
+export async function loadFiles(db: Db, secret: string | null, messageIds: string[], now = new Date()): Promise<Map<string, FileDto[]>> {
+  const out = new Map<string, FileDto[]>()
+  if (messageIds.length === 0 || !secret) return out
+  const { rows } = await db.query<{ messageId: string; id: string; familyId: string; name: string; size: number }>(
+    `select mm.message_id as "messageId", m.id, m.family_id as "familyId", m.file_name as name, m.size
+     from message_media mm join media m on m.id = mm.media_id
+     where mm.message_id = any($1) and m.kind = 'file' order by mm.message_id, mm.position`,
+    [messageIds],
+  )
+  for (const r of rows) {
+    const list = out.get(r.messageId) ?? []
+    list.push({ id: r.id, name: r.name, size: r.size, url: fileUrl(secret, r.familyId, r.id, r.name, now) })
     out.set(r.messageId, list)
   }
   return out

@@ -28,14 +28,14 @@ beforeEach(() => {
   resize.mockReset().mockImplementation(async () => ({ blob: new Blob(['x'], { type: 'image/jpeg' }), width: 800, height: 600 }))
 })
 
-const pick = (files: File[]) => fireEvent.change(screen.getByLabelText('Выбрать фото'), { target: { files } })
+const pick = (files: File[]) => fireEvent.change(screen.getByLabelText('Выбрать фото или файл'), { target: { files } })
 
 describe('Composer: фото', () => {
   it('выбранное фото уменьшается, загружается и показывается превью; отправка вместе с подписью', async () => {
     const onUpload = vi.fn().mockResolvedValue('media-1')
     const onSend = vi.fn().mockResolvedValue(undefined)
     const user = userEvent.setup()
-    render(<Composer onSend={onSend} onUpload={onUpload} />)
+    render(<Composer onSend={onSend} onUploadFile={vi.fn()} onUpload={onUpload} />)
     pick([jpeg()])
     expect(await screen.findByAltText('Фото 1')).toHaveAttribute('src', 'blob:preview-1')
     await waitFor(() => expect(onUpload).toHaveBeenCalledTimes(1))
@@ -44,7 +44,7 @@ describe('Composer: фото', () => {
 
     await user.type(screen.getByLabelText('Подпись к фото'), 'Смотри')
     await user.click(screen.getByRole('button', { name: 'Отправить' }))
-    expect(onSend).toHaveBeenCalledWith({ text: 'Смотри', mediaIds: ['media-1'] })
+    expect(onSend).toHaveBeenCalledWith({ text: 'Смотри', mediaIds: ['media-1'], fileIds: [] })
     // после отправки поле и вложения очищены, превью освобождено
     await waitFor(() => expect(screen.queryByAltText('Фото 1')).toBeNull())
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview-1')
@@ -53,12 +53,12 @@ describe('Composer: фото', () => {
 
   it('одно только фото без текста отправить можно', async () => {
     const onSend = vi.fn().mockResolvedValue(undefined)
-    render(<Composer onSend={onSend} onUpload={vi.fn().mockResolvedValue('m1')} />)
+    render(<Composer onSend={onSend} onUploadFile={vi.fn()} onUpload={vi.fn().mockResolvedValue('m1')} />)
     expect(screen.getByRole('button', { name: 'Отправить' })).toBeDisabled()
     pick([jpeg()])
     await waitFor(() => expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled())
     await userEvent.click(screen.getByRole('button', { name: 'Отправить' }))
-    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: ['m1'] })
+    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: ['m1'], fileIds: [] })
   })
 
   it('несколько фото грузятся по одному и уходят в порядке выбора', async () => {
@@ -69,17 +69,17 @@ describe('Composer: фото', () => {
       return id
     })
     const onSend = vi.fn().mockResolvedValue(undefined)
-    render(<Composer onSend={onSend} onUpload={onUpload} />)
+    render(<Composer onSend={onSend} onUploadFile={vi.fn()} onUpload={onUpload} />)
     pick([jpeg('1.jpg'), jpeg('2.jpg'), jpeg('3.jpg')])
     await waitFor(() => expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled())
     await userEvent.click(screen.getByRole('button', { name: 'Отправить' }))
-    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: ['m1', 'm2', 'm3'] })
+    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: ['m1', 'm2', 'm3'], fileIds: [] })
   })
 
   it('пока фото грузится, отправить нельзя', async () => {
     let finish!: (id: string) => void
     const onUpload = vi.fn(() => new Promise<string>((r) => (finish = r)))
-    render(<Composer onSend={vi.fn()} onUpload={onUpload} />)
+    render(<Composer onSend={vi.fn()} onUploadFile={vi.fn()} onUpload={onUpload} />)
     pick([jpeg()])
     await waitFor(() => expect(onUpload).toHaveBeenCalled())
     expect(screen.getByRole('button', { name: 'Отправить' })).toBeDisabled()
@@ -89,7 +89,7 @@ describe('Composer: фото', () => {
 
   it('загрузка не удалась: причина показана, отправить нельзя, «Ещё раз» повторяет без повторного выбора', async () => {
     const onUpload = vi.fn().mockRejectedValueOnce(new ApiError(413, 'media_quota')).mockResolvedValue('m1')
-    render(<Composer onSend={vi.fn()} onUpload={onUpload} />)
+    render(<Composer onSend={vi.fn()} onUploadFile={vi.fn()} onUpload={onUpload} />)
     pick([jpeg()])
     expect(await screen.findByText(/Место для фото у семьи закончилось/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Отправить' })).toBeDisabled()
@@ -104,7 +104,7 @@ describe('Composer: фото', () => {
   it('фото не удалось подготовить: повтор не предлагается, можно убрать', async () => {
     resize.mockRejectedValueOnce(new ImageError('decode_failed'))
     const onUpload = vi.fn()
-    render(<Composer onSend={vi.fn()} onUpload={onUpload} />)
+    render(<Composer onSend={vi.fn()} onUploadFile={vi.fn()} onUpload={onUpload} />)
     pick([jpeg()])
     expect(await screen.findByText(/Не удалось открыть фото/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Повторить загрузку/ })).toBeNull()
@@ -117,39 +117,31 @@ describe('Composer: фото', () => {
   it('убрать загруженное фото: оно не уходит в сообщение', async () => {
     const onSend = vi.fn().mockResolvedValue(undefined)
     const onUpload = vi.fn().mockResolvedValueOnce('a').mockResolvedValueOnce('b')
-    render(<Composer onSend={onSend} onUpload={onUpload} />)
+    render(<Composer onSend={onSend} onUploadFile={vi.fn()} onUpload={onUpload} />)
     pick([jpeg(), jpeg()])
     await waitFor(() => expect(onUpload).toHaveBeenCalledTimes(2))
     await userEvent.click(screen.getByRole('button', { name: 'Убрать фото 1' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled())
     await userEvent.click(screen.getByRole('button', { name: 'Отправить' }))
-    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: ['b'] })
+    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: ['b'], fileIds: [] })
   })
 
-  it('больше десяти фото не берётся, сказано почему; кнопка вложения блокируется на десяти', async () => {
+  it('больше десяти фото не берётся, сказано почему; на десяти фото кнопка вложения остаётся для файлов', async () => {
     const onUpload = vi.fn().mockResolvedValue('m')
-    render(<Composer onSend={vi.fn()} onUpload={onUpload} />)
+    render(<Composer onSend={vi.fn()} onUploadFile={vi.fn()} onUpload={onUpload} />)
     pick(Array.from({ length: 12 }, (_, i) => jpeg(`${i}.jpg`)))
     expect(await screen.findByText(/не больше 10 фото/)).toBeInTheDocument()
     await waitFor(() => expect(onUpload).toHaveBeenCalledTimes(10))
     expect(within(screen.getByLabelText('Выбранные фото')).getAllByRole('img')).toHaveLength(10)
-    expect(screen.getByRole('button', { name: 'Прикрепить фото' })).toBeDisabled()
-  })
-
-  it('не изображения пропускаются с пояснением', async () => {
-    const onUpload = vi.fn().mockResolvedValue('m')
-    render(<Composer onSend={vi.fn()} onUpload={onUpload} />)
-    pick([new File(['x'], 'a.pdf', { type: 'application/pdf' })])
-    expect(await screen.findByText(/другие файлы не поддерживаются/)).toBeInTheDocument()
-    expect(screen.queryByLabelText('Выбранные фото')).toBeNull()
-    expect(resize).not.toHaveBeenCalled()
+    // файлы прикладываются отдельно от фото: кнопка работает, пока не заполнены оба предела
+    expect(screen.getByRole('button', { name: 'Прикрепить фото или файл' })).toBeEnabled()
   })
 
   it('ошибка отправки: фото и подпись остаются, загружать заново не нужно', async () => {
     const onUpload = vi.fn().mockResolvedValue('m1')
     const onSend = vi.fn().mockRejectedValueOnce(new Error('x')).mockResolvedValue(undefined)
     const user = userEvent.setup()
-    render(<Composer onSend={onSend} onUpload={onUpload} />)
+    render(<Composer onSend={onSend} onUploadFile={vi.fn()} onUpload={onUpload} />)
     pick([jpeg()])
     await waitFor(() => expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled())
     await user.type(screen.getByLabelText('Подпись к фото'), 'вот')
@@ -158,14 +150,14 @@ describe('Composer: фото', () => {
     expect(screen.getByAltText('Фото 1')).toBeInTheDocument()
     expect(screen.getByLabelText('Подпись к фото')).toHaveValue('вот')
     await user.click(screen.getByRole('button', { name: 'Отправить' }))
-    expect(onSend).toHaveBeenLastCalledWith({ text: 'вот', mediaIds: ['m1'] })
+    expect(onSend).toHaveBeenLastCalledWith({ text: 'вот', mediaIds: ['m1'], fileIds: [] })
     expect(onUpload).toHaveBeenCalledTimes(1)
   })
 
   it('двойное нажатие «Отправить» отправляет сообщение с фото один раз', async () => {
     let finish!: () => void
     const onSend = vi.fn(() => new Promise<void>((r) => (finish = r)))
-    render(<Composer onSend={onSend} onUpload={vi.fn().mockResolvedValue('m1')} />)
+    render(<Composer onSend={onSend} onUploadFile={vi.fn()} onUpload={vi.fn().mockResolvedValue('m1')} />)
     pick([jpeg()])
     await waitFor(() => expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled())
     const send = screen.getByRole('button', { name: 'Отправить' })

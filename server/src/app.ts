@@ -56,6 +56,8 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
 
   // фото приходит сырым JPEG (загрузка в чат); предел размера задан у самого маршрута
   app.addContentTypeParser('image/jpeg', { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
+  // файл в чат приходит сырыми байтами; размер ограничен у самого маршрута
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
 
   // Авторизация по умолчанию: без токена отвечаем 401 раньше проверки тела и параметров (иначе схему можно «прощупать» без входа).
   app.addHook('onRequest', async (req, reply) => {

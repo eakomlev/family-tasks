@@ -37,6 +37,7 @@ services:
       MEDIA_SECRET: ${MEDIA_SECRET:-}
       MEDIA_INTERNAL_TOKEN: ${MEDIA_INTERNAL_TOKEN:-}
       MEDIA_QUOTA_BYTES: ${MEDIA_QUOTA_BYTES:-}
+      MAX_FILE_BYTES: ${MAX_FILE_BYTES:-}
     depends_on:
       db:
         condition: service_healthy
@@ -117,6 +118,7 @@ services:
       PORT: 3000
       MEDIA_SECRET: ${MEDIA_SECRET:-}
       MEDIA_INTERNAL_TOKEN: ${MEDIA_INTERNAL_TOKEN:-}
+      MEDIA_MAX_FILE_BYTES: ${MAX_FILE_BYTES:-}
       S3_ENDPOINT: http://s3:8333
       S3_BUCKET: ${S3_BUCKET:-media}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-mediakey}

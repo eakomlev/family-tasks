@@ -26,6 +26,14 @@ export interface ChatMediaItem extends ChatMedia {
   createdAt: string
 }
 
+// Файл в сообщении (документ, архив…): url ведёт на скачивание
+export interface ChatFile {
+  id: string
+  name: string
+  size: number
+  url: string
+}
+
 export interface ChatMessage {
   id: string
   senderId: string
@@ -34,6 +42,8 @@ export interface ChatMessage {
   // подпись к фото; у сообщения без фото равна text, у сообщения только с фото пустая
   caption: string
   media: ChatMedia[]
+  // обычные файлы; нет у сообщений из кэша и ответов прежней версии сервера
+  files?: ChatFile[]
   // ISO-время
   createdAt: string
   reactions: Reaction[]

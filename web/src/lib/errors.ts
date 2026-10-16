@@ -67,3 +67,17 @@ export function describePhotoError(err: unknown): string {
   }
   return 'Не удалось загрузить фото. Попробуйте ещё раз.'
 }
+
+// Ошибки отправки файла в чат (не фото): ответы сервера.
+export function describeFileError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.code === 'network') return 'Нет связи с сервером. Попробуйте ещё раз.'
+    if (err.code === 'file_type_blocked') return 'Такие файлы отправлять нельзя.'
+    if (err.code === 'media_quota') return 'Место для файлов у семьи закончилось.'
+    if (err.code === 'media_disabled') return 'Отправка файлов пока не включена.'
+    if (err.code === 'media_unavailable') return 'Сервис файлов сейчас недоступен. Попробуйте позже.'
+    if (err.status === 413) return 'Файл слишком большой.'
+    if (err.code === 'invalid_file') return 'Не удалось принять этот файл.'
+  }
+  return 'Не удалось загрузить файл. Попробуйте ещё раз.'
+}
