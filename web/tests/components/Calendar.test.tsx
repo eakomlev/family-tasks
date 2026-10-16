@@ -151,7 +151,7 @@ describe('календарь: виды', () => {
     renderAt('/calendar?view=day&date=2026-11-05')
     expect(await screen.findByText('Убрать комнату')).toBeInTheDocument()
     expect(await screen.findByText('Плавание')).toBeInTheDocument()
-    expect(screen.getByText('Миша · Бассейн')).toBeInTheDocument()
+    expect(screen.getByText(/17:00–18:00 · Миша · Бассейн/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Убрать комнату/ })).toHaveAttribute('href', '/tasks/t1?date=2026-11-05')
   })
 

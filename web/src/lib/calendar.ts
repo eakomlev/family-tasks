@@ -230,3 +230,67 @@ export function timeLabel(item: Pick<CalendarItem, 'start' | 'end'>): string {
   if (item.end) return `до ${item.end}`
   return 'Весь день'
 }
+
+// ---- вид «День»: полоса суток с блоками ----
+
+export const MINUTES_IN_DAY = 24 * 60
+// короче этого блок не рисуется (иначе подпись не помещается, а соседи по времени накладывались бы незаметно)
+export const MIN_BLOCK_MINUTES = 30
+
+const toMinutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
+
+// Запись без времени (весь день): праздники, дни рождения, события на весь день и середина многодневного
+export const isAllDay = (item: Pick<CalendarItem, 'start' | 'end'>) => item.start === null && item.end === null
+
+// Запись на полосе суток: сколько минут от полуночи занимает и в какой «колонке» стоит рядом с пересекающимися
+export interface PlacedItem {
+  item: CalendarItem
+  startMin: number
+  endMin: number
+  // номер колонки среди пересекающихся записей и сколько их всего в этой группе
+  column: number
+  columns: number
+}
+
+// Сколько длится запись, у которой нет конца: событие, начавшееся в этот день и идущее дальше, до конца суток; задание полчаса;
+// тренировка без конца час
+function endOf(item: CalendarItem, start: number): number {
+  if (item.end) return toMinutes(item.end)
+  if (item.kind === 'event') return MINUTES_IN_DAY
+  return start + (item.kind === 'task' ? MIN_BLOCK_MINUTES : 60)
+}
+
+// Раскладывает записи со временем по полосе суток. Пересекающиеся делят ширину поровну: каждая получает свою колонку, как в Teams.
+export function placeTimed(items: CalendarItem[]): PlacedItem[] {
+  const timed = items
+    .filter((item) => !isAllDay(item))
+    .map((item) => {
+      // последний день многодневного события: есть только конец, значит с полуночи
+      const start = item.start ? toMinutes(item.start) : 0
+      const end = Math.min(MINUTES_IN_DAY, Math.max(endOf(item, start), start + MIN_BLOCK_MINUTES))
+      return { item, startMin: start, endMin: end }
+    })
+    .sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin)
+
+  const placed: PlacedItem[] = []
+  let group: { item: CalendarItem; startMin: number; endMin: number; column: number }[] = []
+  let groupEnd = 0
+  let columnEnds: number[] = []
+
+  const flush = () => {
+    for (const entry of group) placed.push({ ...entry, columns: columnEnds.length })
+    group = []
+    columnEnds = []
+  }
+
+  for (const entry of timed) {
+    if (group.length > 0 && entry.startMin >= groupEnd) flush()
+    let column = columnEnds.findIndex((end) => end <= entry.startMin)
+    if (column === -1) column = columnEnds.length
+    columnEnds[column] = entry.endMin
+    group.push({ ...entry, column })
+    groupEnd = Math.max(groupEnd, entry.endMin)
+  }
+  flush()
+  return placed
+}

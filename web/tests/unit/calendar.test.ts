@@ -9,6 +9,8 @@ import {
   formatPeriod,
   groupByDay,
   holidayItems,
+  isAllDay,
+  placeTimed,
   rangeFor,
   shiftAnchor,
   startOfMonth,
@@ -232,5 +234,58 @@ describe('настройки календаря в хранилище', () => {
     expect(loadSettings('m1')).toEqual({ view: 'month', kinds: { ...DEFAULT_SETTINGS.kinds, task: false }, hiddenMembers: ['a'] })
     localStorage.setItem('calendar-settings:m1', 'null')
     expect(loadSettings('m1')).toEqual(DEFAULT_SETTINGS)
+  })
+})
+
+describe('полоса суток: раскладка записей', () => {
+  const at = (key: string, start: string | null, end: string | null, over: Partial<CalendarItem> = {}): CalendarItem => ({
+    key,
+    kind: 'event',
+    title: key,
+    date: '2026-11-07',
+    start,
+    end,
+    memberIds: [],
+    href: null,
+    ...over,
+  })
+  const place = (items: CalendarItem[]) => placeTimed(items).map((p) => [p.item.key, p.startMin, p.endMin, p.column, p.columns])
+
+  it('записи без времени на полосу не попадают', () => {
+    expect(placeTimed([at('весь день', null, null)])).toEqual([])
+    expect(isAllDay(at('x', null, null))).toBe(true)
+    expect(isAllDay(at('x', '10:00', null))).toBe(false)
+  })
+
+  it('один блок занимает от начала до конца на всю ширину', () => {
+    expect(place([at('a', '10:00', '11:30')])).toEqual([['a', 600, 690, 0, 1]])
+  })
+
+  it('без конца: событие до конца суток, задание полчаса, тренировка час; слишком короткое растягивается до получаса', () => {
+    expect(place([at('событие', '20:00', null)])).toEqual([['событие', 1200, 1440, 0, 1]])
+    expect(place([at('задание', '16:00', null, { kind: 'task' })])).toEqual([['задание', 960, 990, 0, 1]])
+    expect(place([at('тренировка', '17:00', null, { kind: 'training' })])).toEqual([['тренировка', 1020, 1080, 0, 1]])
+    expect(place([at('короткое', '09:00', '09:10')])).toEqual([['короткое', 540, 570, 0, 1]])
+  })
+
+  it('последний день многодневного события идёт с полуночи до конца', () => {
+    expect(place([at('ночёвка', null, '09:00')])).toEqual([['ночёвка', 0, 540, 0, 1]])
+  })
+
+  it('пересекающиеся делят ширину колонками, не пересекающиеся стоят на всю ширину', () => {
+    const rows = place([at('a', '10:00', '12:00'), at('b', '11:00', '12:30'), at('c', '12:00', '13:00'), at('d', '15:00', '16:00')])
+    expect(rows).toEqual([
+      ['a', 600, 720, 0, 2],
+      ['b', 660, 750, 1, 2],
+      // c начинается, когда a закончилась: берёт её колонку, группа общая с b
+      ['c', 720, 780, 0, 2],
+      ['d', 900, 960, 0, 1],
+    ])
+  })
+
+  it('три записи одновременно в трёх колонках', () => {
+    const rows = place([at('a', '10:00', '11:00'), at('b', '10:00', '11:00'), at('c', '10:30', '11:30')])
+    expect(rows.map((r) => r[4])).toEqual([3, 3, 3])
+    expect(new Set(rows.map((r) => r[3])).size).toBe(3)
   })
 })

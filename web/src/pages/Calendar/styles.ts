@@ -11,6 +11,7 @@ export const TopBar = styled.div`
   padding-right: var(--topbar-reserve, 0);
 `
 
+// «+» просто знак без фона
 export const IconLink = styled(Link)`
   flex: none;
   width: 2.5rem;
@@ -18,15 +19,15 @@ export const IconLink = styled(Link)`
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-text);
+  background: transparent;
+  color: var(--accent);
 
   svg {
-    width: 1.3rem;
-    height: 1.3rem;
+    width: 1.8rem;
+    height: 1.8rem;
     fill: none;
     stroke: currentColor;
-    stroke-width: 2.2;
+    stroke-width: 2.4;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
@@ -40,9 +41,14 @@ export const IconLink = styled(Link)`
 // настройки: тот же размер, но без заливки
 export const SettingsLink = styled(IconLink)`
   margin-left: auto;
-  background: transparent;
   color: var(--muted);
   border: 1px solid var(--border);
+
+  svg {
+    width: 1.3rem;
+    height: 1.3rem;
+    stroke-width: 2.2;
+  }
 
   &:hover {
     color: var(--accent);

@@ -20,7 +20,8 @@ function Shell() {
   // переписка (/chat/:chat) занимает весь экран, без панели табов (экран «Медиа файлы» обычная страница)
   const chatRoom = pathname.startsWith('/chat/') && !pathname.endsWith('/media')
   // на страницах профиля значок профиля не нужен (баланс монет остаётся)
-  const hideAvatar = chatRoom || pathname.startsWith('/profile')
+  // и на странице календаря: там своя шапка с кнопками, значок профиля ей мешал бы
+  const hideAvatar = chatRoom || pathname.startsWith('/profile') || pathname === '/calendar'
   // монеты есть только у детей; в переписке баланс скрыт (он только отвлекает и перекрывает шапку)
   const showCoins = data?.me.coins !== undefined && !chatRoom
 

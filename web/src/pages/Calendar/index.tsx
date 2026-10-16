@@ -28,6 +28,7 @@ import { useProfile } from '@/profile/context'
 import { useListEventsQuery } from '@/store/events'
 import { useListTasksQuery } from '@/store/tasks'
 import { AgendaList } from './components/AgendaList'
+import { DayTimeline } from './components/DayTimeline'
 import { MonthView } from './components/MonthView'
 import { Arrow, DayHeading, DaySection, Dot, Empty, IconLink, Legend, Period, SettingsLink, Switch, Today, TopBar } from './styles'
 
@@ -150,7 +151,12 @@ export default function Calendar() {
             </DaySection>
           ))}
 
-        {view === 'day' && <AgendaList items={byDay.get(anchor) ?? []} emptyText="В этот день записей нет" />}
+        {view === 'day' && (
+          <>
+            {(byDay.get(anchor) ?? []).length === 0 && <Empty>В этот день записей нет</Empty>}
+            <DayTimeline day={anchor} items={byDay.get(anchor) ?? []} now={now} isToday={anchor === today} />
+          </>
+        )}
       </Stack>
 
       <Legend aria-label="Обозначения">
