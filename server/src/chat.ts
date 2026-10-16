@@ -219,7 +219,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     if (!member) return
 
     const { rows: others } = await pool.query(
-      'select id, name from members where family_id = $1 and id <> $2 order by lower(name)',
+      'select id, name, created_at as "createdAt" from members where family_id = $1 and id <> $2 order by lower(name)',
       [member.family_id, member.id],
     )
     const chats = [
@@ -244,13 +244,29 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     )
     const { rows: mutes } = await pool.query<{ chatKey: string }>('select chat_key as "chatKey" from chat_mutes where member_id = $1 and chat_key = any($2)', [member.id, keys])
     const mutedKeys = new Set(mutes.map((m) => m.chatKey))
+    // До какого момента прочитали остальные участники чата (как в самом чате: в общем самое позднее прочтение, кто чат не открывал,
+    // читает с момента появления в семье). По нему в списке у моего последнего сообщения видна галочка «прочитано».
+    const { rows: reads } = await pool.query<{ memberId: string; chatKey: string; at: Date }>(
+      'select member_id as "memberId", chat_key as "chatKey", last_read_at as at from chat_reads where chat_key = any($1) and member_id <> $2',
+      [keys, member.id],
+    )
+    const readAt = new Map(reads.map((r) => [`${r.chatKey}|${r.memberId}`, r.at]))
+    const readUpTo = (chat: { id: string; key: string }): Date | null => {
+      const peers = chat.id === FAMILY_CHAT ? others : others.filter((o) => o.id === chat.id)
+      let best: Date | null = null
+      for (const p of peers) {
+        const at = readAt.get(`${chat.key}|${p.id}`) ?? (p.createdAt as Date)
+        if (!best || at > best) best = at
+      }
+      return best
+    }
     const lastMedia = await loadMedia(pool, secret, lasts.map((l) => l.id))
     const lastBy = new Map(lasts.map((l) => [l.chatKey, { ...toMessage(l), media: lastMedia.get(l.id) ?? [] }]))
     const unreadBy = new Map(unreads.map((u) => [u.chatKey, Number(u.count)]))
 
     const list = chats.map((c) => {
       const last = lastBy.get(c.key)
-      return { id: c.id, last: last ?? null, unread: unreadBy.get(c.key) ?? 0, muted: mutedKeys.has(c.key) }
+      return { id: c.id, last: last ?? null, unread: unreadBy.get(c.key) ?? 0, muted: mutedKeys.has(c.key), readUpTo: readUpTo(c) }
     })
     // порядок по времени последнего сообщения; без сообщений: порядок исходного списка (общий, затем по имени)
     const order = new Map(list.map((c, i) => [c.id, i]))

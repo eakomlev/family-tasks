@@ -1,4 +1,6 @@
-import styled, { keyframes } from 'styled-components'
+import type { ComponentProps } from 'react'
+import styled, { css, keyframes } from 'styled-components'
+import { useSlideIn } from '@/lib/useSlideIn'
 
 export const Page = styled.main`
   max-width: 28rem;
@@ -20,11 +22,19 @@ const slideIn = keyframes`
   }
 `
 
-// страница выезжает справа при открытии (карточка задания), как переписка в чате
-export const SlideInPage = styled(Page)`
-  animation: ${slideIn} 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+const Sliding = styled(Page)<{ $slide: boolean }>`
+  ${({ $slide }) =>
+    $slide &&
+    css`
+      animation: ${slideIn} 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-  }
+      @media (prefers-reduced-motion: reduce) {
+        animation: none;
+      }
+    `}
 `
+
+// страница выезжает справа при открытии (карточка задания), как переписка в чате; при возврате назад без анимации
+export function SlideInPage(props: ComponentProps<typeof Page>) {
+  return <Sliding $slide={useSlideIn()} {...props} />
+}

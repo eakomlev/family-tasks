@@ -1,8 +1,9 @@
 import { useRef } from 'react'
 import { CoinIcon } from '@/components/CoinBalance'
+import { ReadTicks } from '@/components/ReadTicks'
 import { useLongPress } from '../../useLongPress'
 import { bubbleText, formatMessageTime, groupReactions, photoColumns, totalCoins } from '../../utils'
-import { Bubble, CoinPill, Extras, Footer, PhotoButton, Photos, ReactionChip, Sender, Text, Tick, Time, Wrap } from './styles'
+import { Bubble, CoinPill, Extras, Footer, PhotoButton, Photos, ReactionChip, Sender, Text, Time, Wrap } from './styles'
 import type { MessageBubbleProps } from './types'
 
 export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, onFeedback, onOpenPhoto }: MessageBubbleProps) {
@@ -61,15 +62,7 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
         {text && <Text>{text}</Text>}
         <Footer>
           <Time>{formatMessageTime(message.createdAt)}</Time>
-          {mine && status && (
-            <Tick $read={status === 'read'} role="img" aria-label={status === 'read' ? 'Прочитано' : 'Отправлено'}>
-              <svg viewBox="0 0 20 12" aria-hidden focusable="false">
-                {/* одна галочка: отправлено; вторая, сдвинутая, добавляется у прочитанного */}
-                <path d="m1.5 6.5 3.2 3.2L11 2.5" />
-                {status === 'read' && <path d="m8.5 8.4 1.1 1.3L17.5 2.5" />}
-              </svg>
-            </Tick>
-          )}
+          {mine && status && <ReadTicks status={status} dim />}
         </Footer>
       </Bubble>
       {(reactions.length > 0 || coins > 0) && (

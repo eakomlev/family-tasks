@@ -21,13 +21,14 @@ function Shell() {
   const chatRoom = pathname.startsWith('/chat/')
   // на страницах профиля значок профиля не нужен (баланс монет остаётся)
   const hideAvatar = chatRoom || pathname.startsWith('/profile')
+  // монеты есть только у детей; в переписке баланс скрыт (он только отвлекает и перекрывает шапку)
+  const showCoins = data?.me.coins !== undefined && !chatRoom
 
   return (
-    <Root $chatRoom={chatRoom} $reserve={data?.me.coins !== undefined ? (hideAvatar ? '6.5rem' : '9.5rem') : hideAvatar ? '0rem' : '3.25rem'}>
+    <Root $chatRoom={chatRoom} $reserve={showCoins ? (hideAvatar ? '6.5rem' : '9.5rem') : hideAvatar ? '0rem' : '3.25rem'}>
       <PushPrompt />
       <TopRight $fixed={chatRoom}>
-        {/* монеты есть только у детей */}
-        {data?.me.coins !== undefined && <CoinBalance coins={data.me.coins} />}
+        {showCoins && <CoinBalance coins={data.me.coins!} />}
         {/* на странице профиля и в переписке значок не нужен */}
         {!hideAvatar && (
           <ProfileLink to="/profile" aria-label={`Профиль: ${identity.name}`}>

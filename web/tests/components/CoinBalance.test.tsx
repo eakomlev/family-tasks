@@ -61,6 +61,8 @@ function renderShell(who: typeof kid | typeof mama, coins: number | undefined, p
           <Route element={<AppShell />}>
             <Route path="/tasks" element={<p>Страница заданий</p>} />
             <Route path="/profile" element={<p>Страница профиля</p>} />
+            <Route path="/chat" element={<p>Список чатов</p>} />
+            <Route path="/chat/:chat" element={<p>Переписка</p>} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -96,6 +98,15 @@ describe('баланс монет сверху', () => {
     renderShell(kid, 45, '/profile')
     expect(await screen.findByRole('link', { name: /Монеты: 45/ })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /^Профиль/ })).not.toBeInTheDocument()
+  })
+
+  it('в переписке баланс скрыт, в списке чатов остаётся', async () => {
+    const { unmount } = renderShell(kid, 120, '/chat/family')
+    await screen.findByText('Переписка')
+    expect(screen.queryByRole('link', { name: /Монеты/ })).not.toBeInTheDocument()
+    unmount()
+    renderShell(kid, 120, '/chat')
+    expect(await screen.findByRole('link', { name: /Монеты: 120/ })).toBeInTheDocument()
   })
 
   it('нулевой баланс у ребёнка тоже виден', async () => {

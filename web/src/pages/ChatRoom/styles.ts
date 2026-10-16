@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import styled, { keyframes } from 'styled-components'
+import { BACK_STATE } from '@/lib/useSlideIn'
+import styled, { css, keyframes } from 'styled-components'
 
 // переписка выезжает справа, как в мессенджерах
 const slideIn = keyframes`
@@ -15,7 +16,7 @@ const slideIn = keyframes`
 // Экран переписки стоит ровно на видимой области (useKeyboardViewport: --vv-top и --vvh), а прокручивается только
 // лента внутри него. Страница сама не прокручивается: так открытая клавиатура не уводит поле ввода под себя и браузеру
 // нечего «подтягивать» в кадр. Шапка сверху, поле ввода снизу, между ними лента.
-export const Room = styled.main`
+export const Room = styled.main<{ $slide?: boolean }>`
   position: fixed;
   top: var(--vv-top, 0px);
   left: 0;
@@ -29,7 +30,8 @@ export const Room = styled.main`
 
   /* фон на весь экран: мягкий цветной градиент и узор из значков, рисуется цветом акцента (подходит обеим темам) */
   isolation: isolate;
-  animation: ${slideIn} 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* выезжает только при переходе вперёд; при возврате (кнопка «назад») без анимации */
+  ${({ $slide }) => ($slide ? css`animation: ${slideIn} 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);` : '')}
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
@@ -98,7 +100,7 @@ export const Header = styled.header`
 `
 
 // стрелка выхода из переписки слева от аватара собеседника
-export const BackButton = styled(Link)`
+export const BackButton = styled(Link).attrs({ state: BACK_STATE })`
   flex: none;
   display: grid;
   place-items: center;

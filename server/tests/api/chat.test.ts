@@ -299,6 +299,26 @@ describe('отметки «прочитано»', () => {
     }
   })
 
+  it('список чатов отдаёт readUpTo: по нему видно, прочитано ли моё последнее сообщение', async () => {
+    const f = await createFamily()
+    try {
+      const sent = (await send(f.mom.token, f.kid.id, 'привет')).body.message
+      const readIn = async (token: string, chat: string) =>
+        (await api(app, token, 'GET', '/api/chats')).body.chats.find((c: { id: string }) => c.id === chat).readUpTo as string | null
+      expect(isRead(await readIn(f.mom.token, f.kid.id), sent.createdAt)).toBe(false)
+      await api(app, f.kid.token, 'POST', `/api/chats/${f.mom.id}/read`)
+      expect(isRead(await readIn(f.mom.token, f.kid.id), sent.createdAt)).toBe(true)
+      // общий чат: прочёл хотя бы один из остальных; своё прочтение не считается
+      const all = (await send(f.mom.token, 'family', 'всем')).body.message
+      await api(app, f.mom.token, 'POST', '/api/chats/family/read')
+      expect(isRead(await readIn(f.mom.token, 'family'), all.createdAt)).toBe(false)
+      await api(app, f.dad.token, 'POST', '/api/chats/family/read')
+      expect(isRead(await readIn(f.mom.token, 'family'), all.createdAt)).toBe(true)
+    } finally {
+      await removeFamilies(f.id)
+    }
+  })
+
   it('общий чат: «прочитано», как только прочёл хотя бы один из остальных; своё прочтение не считается', async () => {
     const f = await createFamily()
     try {

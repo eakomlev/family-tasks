@@ -1,19 +1,21 @@
 import { useRef, useState, type MouseEvent } from 'react'
 import { Avatar } from '@/components/Avatar'
+import { ReadTicks } from '@/components/ReadTicks'
 import { TabIcon } from '@/components/TabBar/TabIcon'
 import { MoodMark } from '@/components/MoodMark'
 import { useLongPress } from '@/pages/ChatRoom/useLongPress'
-import { Body, Bottom, Count, FamilyIcon, MutedMark, Name, Preview, Prefix, Row, Time, Top } from '../../styles'
+import { Body, Bottom, Count, FamilyIcon, Meta, MutedMark, Name, Preview, Prefix, Row, Status, Time, Top } from '../../styles'
 import { ChatMenu } from '../ChatMenu'
 import type { ChatRowProps } from '../../types'
 import { memberLabel } from '@/lib/roles'
-import { chatPreviewParts, chatTitle, formatChatTime } from '../../utils'
+import { chatPreviewParts, chatTitle, formatChatTime, lastMessageStatus } from '../../utils'
 
 // строка списка чатов: кто, последнее сообщение, время и число непрочитанных
 export function ChatRow({ chat, member, members, me, viewerRole, now }: ChatRowProps) {
   const unread = chat.unread > 0
   const preview = chatPreviewParts(chat, me, members, viewerRole)
   const muted = chat.muted === true
+  const status = lastMessageStatus(chat, me)
 
   // долгое нажатие открывает меню чата; «клик» после него (палец отпускается над ссылкой) переход не делает
   const [menu, setMenu] = useState(false)
@@ -33,7 +35,12 @@ export function ChatRow({ chat, member, members, me, viewerRole, now }: ChatRowP
       <Body>
         <Top>
           <Name $unread={unread}>{chatTitle(chat.id, members, viewerRole)}{muted && <MutedMark aria-label="Уведомления отключены" />}{member && <> <MoodMark mood={member.mood} now={now} /></>}</Name>
-          {chat.last && <Time $unread={unread}>{formatChatTime(chat.last.createdAt, now)}</Time>}
+          {chat.last && (
+            <Meta>
+              {status && <Status $read={status === 'read'}><ReadTicks status={status} /></Status>}
+              <Time $unread={unread}>{formatChatTime(chat.last.createdAt, now)}</Time>
+            </Meta>
+          )}
         </Top>
         <Bottom>
           <Preview $unread={unread}>

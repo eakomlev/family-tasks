@@ -104,6 +104,20 @@ export const Name = styled.strong<{ $unread: boolean }>`
   font-weight: 600;
 `
 
+// время последнего сообщения и (у моего сообщения) галочки статуса
+export const Meta = styled.span`
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+`
+
+// галочки в списке: «прочитано» акцентным цветом, «отправлено» серым
+export const Status = styled.span<{ $read: boolean }>`
+  display: inline-flex;
+  color: ${({ $read }) => ($read ? 'var(--accent)' : 'var(--muted)')};
+`
+
 export const Time = styled.span<{ $unread: boolean }>`
   flex: none;
   color: ${({ $unread }) => ($unread ? 'var(--accent)' : 'var(--muted)')};

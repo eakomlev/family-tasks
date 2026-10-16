@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage, ChatSummary, Member } from '@/api'
 import { memberLabel } from '@/lib/roles'
-import { chatPreview, chatPreviewParts, chatTitle, formatChatTime } from '@/pages/Chat/utils'
+import { chatPreview, chatPreviewParts, chatTitle, formatChatTime, lastMessageStatus } from '@/pages/Chat/utils'
 import { appendMessage, canSend, dayLabel, groupByDay, mergeLatest, messageStatus, participantsLabel, visitLabel } from '@/pages/ChatRoom/utils'
 
 const msg = (id: string, createdAt = '2026-10-11T10:00:00Z', senderId = 'm1', text = id): ChatMessage => ({ id, senderId, text, caption: text, media: [], createdAt, reactions: [], awards: [] })
@@ -115,6 +115,19 @@ describe('список чатов', () => {
     expect(memberLabel(members[2], 'child')).toBe('Миша')
     expect(memberLabel(members[0], 'papa')).toBe('Лена')
     expect(memberLabel(members[2], 'mama')).toBe('Миша')
+  })
+
+  it('lastMessageStatus: статус только у моего последнего сообщения', () => {
+    const mine = msg('x', '2026-10-11T10:00:00Z', 'me')
+    const theirs = msg('y', '2026-10-11T10:00:00Z', 'm2')
+    const withRead = (last: ChatMessage | null, readUpTo?: string | null): ChatSummary => ({ id: 'm2', last, unread: 0, readUpTo })
+    expect(lastMessageStatus(withRead(mine, null), 'me')).toBe('sent')
+    expect(lastMessageStatus(withRead(mine, '2026-10-11T09:59:59Z'), 'me')).toBe('sent')
+    expect(lastMessageStatus(withRead(mine, '2026-10-11T10:00:00Z'), 'me')).toBe('read')
+    // чужое сообщение, пустой чат и ответ прежнего сервера без readUpTo: статуса нет
+    expect(lastMessageStatus(withRead(theirs, '2026-10-11T11:00:00Z'), 'me')).toBeNull()
+    expect(lastMessageStatus(withRead(null, null), 'me')).toBeNull()
+    expect(lastMessageStatus(withRead(mine), 'me')).toBeNull()
   })
 
   it('chatTitle', () => {

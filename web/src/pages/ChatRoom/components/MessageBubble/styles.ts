@@ -94,22 +94,6 @@ export const Time = styled.span`
   opacity: 0.7;
 `
 
-// галочки статуса на акцентном фоне своего пузыря: у «отправлено» приглушённая, у «прочитано» двойная и яркая
-export const Tick = styled.span<{ $read: boolean }>`
-  display: inline-flex;
-  opacity: ${({ $read }) => ($read ? 1 : 0.6)};
-
-  svg {
-    width: 1rem;
-    height: 0.65rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.7;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-`
-
 // Реакции и монеты слегка заезжают на нижний край пузыря и сдвинуты внутрь от его угла, как в популярных мессенджерах
 export const Extras = styled.div<{ $mine: boolean }>`
   position: relative;

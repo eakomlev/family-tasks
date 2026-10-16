@@ -1,6 +1,7 @@
 import type { ChatSummary, Member } from '@/api'
 import { addDays, todayIso } from '@/lib/date'
 import { memberLabel, type Role } from '@/lib/roles'
+import { messageStatus, type MessageStatus } from '@/pages/ChatRoom/utils'
 
 export const FAMILY_TITLE = 'Общий чат'
 
@@ -29,6 +30,12 @@ export function chatPreviewParts(chat: ChatSummary, me: string, members: Member[
     return name ? { prefix: `${name}:`, mine: false, text } : { mine: false, text }
   }
   return { mine: false, text }
+}
+
+// Статус моего последнего сообщения для списка (галочки рядом со временем); null, если последнее сообщение не моё или сервер не прислал readUpTo.
+export function lastMessageStatus(chat: ChatSummary, me: string): MessageStatus | null {
+  if (!chat.last || chat.last.senderId !== me || chat.readUpTo === undefined) return null
+  return messageStatus(chat.last, chat.readUpTo)
 }
 
 // Строка под названием чата одной строкой: «Вы: …» для своих сообщений, в общем чате «Имя: …» для чужих, в личном просто текст.

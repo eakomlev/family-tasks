@@ -107,6 +107,24 @@ describe('список чатов', () => {
   })
 })
 
+describe('статус моего последнего сообщения в списке', () => {
+  const at = '2026-10-11T10:00:00Z'
+  it('две галочки, если прочитано, одна, если нет; у чужого последнего сообщения и без readUpTo галочек нет', () => {
+    const chats: ChatSummary[] = [
+      { id: 'family', last: m('1', 'me', 'прочитано', at), unread: 0, readUpTo: '2026-10-11T10:05:00Z' },
+      { id: 'm2', last: m('2', 'me', 'не прочитано', at), unread: 0, readUpTo: '2026-10-11T09:00:00Z' },
+      { id: 'm3', last: m('3', 'm3', 'от Ани', at), unread: 0, readUpTo: '2026-10-11T10:05:00Z' },
+      { id: 'papa', last: m('4', 'me', 'старый сервер', at), unread: 0 },
+    ]
+    render(providers(<MemoryRouter><Chat /></MemoryRouter>, { chats }))
+    const links = screen.getAllByRole('link')
+    expect(within(links[0]).getByRole('img', { name: 'Прочитано' })).toBeInTheDocument()
+    expect(within(links[1]).getByRole('img', { name: 'Отправлено' })).toBeInTheDocument()
+    expect(within(links[2]).queryByRole('img')).not.toBeInTheDocument()
+    expect(within(links[3]).queryByRole('img')).not.toBeInTheDocument()
+  })
+})
+
 describe('ребёнок видит родителей как «Мама» и «Папа»', () => {
   it('в списке чатов: название, превью в общем чате и аватар по роли', () => {
     const chats: ChatSummary[] = [

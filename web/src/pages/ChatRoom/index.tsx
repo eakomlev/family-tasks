@@ -16,6 +16,7 @@ import { toApiError } from '@/store/api'
 import { useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, useSendMessageMutation } from '@/store/chat'
 import { currentMood } from '@/lib/mood'
 import { isParent, memberLabel } from '@/lib/roles'
+import { useSlideIn } from '@/lib/useSlideIn'
 import { chatTitle } from '../Chat/utils'
 import { ChatMenu } from '../Chat/components/ChatMenu'
 import { MutedMark } from '../Chat/styles'
@@ -45,6 +46,8 @@ export default function ChatRoom() {
 
 function Conversation({ chat }: { chat: string | undefined }) {
   const { identity } = useIdentity()
+  // переписка выезжает справа только при переходе вперёд
+  const slideIn = useSlideIn()
   const { data } = useProfile()
   const now = useNow()
   const { chats } = useChats()
@@ -214,7 +217,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
   const groups = messages ? groupByDay(messages, now) : []
 
   return (
-    <Room>
+    <Room $slide={slideIn}>
       <Header>
         <BackButton to="/chat" aria-label="К списку чатов">
           <svg viewBox="0 0 24 24" aria-hidden>
