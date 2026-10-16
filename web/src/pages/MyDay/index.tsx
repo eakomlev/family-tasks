@@ -45,14 +45,14 @@ export default function MyDay() {
           <CalendarIcon day={now.getDate()} />
         </CalendarLink>
         <GreetingRow>
+          {/* значок времени суток слева от приветствия */}
+          <Icon aria-hidden>{greeting.icon}</Icon>
           <h1>{greeting.text}, {identity?.name}!</h1>
-          {isChild ? (
-            // настроение вместо значка времени суток; нажатие открывает выбор
-            <MoodButton type="button" aria-label={mood ? `Настроение: ${mood.label}. Изменить` : 'Выбрать настроение'} onClick={() => setMoodOpen(true)}>
-              {mood?.emoji ?? greeting.icon}
+          {/* справа от приветствия настроение ребёнка, если выбрано сегодня (нажатие открывает выбор) */}
+          {isChild && mood && (
+            <MoodButton type="button" aria-label={`Настроение: ${mood.label}. Изменить`} onClick={() => setMoodOpen(true)}>
+              {mood.emoji}
             </MoodButton>
-          ) : (
-            <Icon aria-hidden>{greeting.icon}</Icon>
           )}
         </GreetingRow>
         <DateLine>{formatToday(now)}</DateLine>

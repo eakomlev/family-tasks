@@ -23,14 +23,16 @@ export const CalendarLink = styled(Link)`
   }
 `
 
-// приветствие и справа от него значок времени суток (у ребёнка вместо него настроение)
+// значок времени суток слева, приветствие, справа настроение ребёнка
 export const GreetingRow = styled.div`
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.6rem;
+  /* отступ от значка календаря над приветствием */
+  margin-top: 0.75rem;
 
   h1 {
+    flex: 1;
     min-width: 0;
     margin: 0;
   }

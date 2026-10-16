@@ -36,7 +36,7 @@ afterEach(() => {
 })
 
 describe('«Мой день»: календарь', () => {
-  it('слева вверху значок календаря с сегодняшним числом ведёт на /calendar, значок времени суток справа от приветствия', () => {
+  it('слева вверху значок календаря с сегодняшним числом ведёт на /calendar; значок времени суток слева от приветствия', () => {
     const identity = { familyCode: 'c', memberId: 'mama', name: 'Лена', role: 'mama' as const, token: 'tok' }
     render(
       <Provider store={makeStore({ hydrate: false })}>
@@ -53,11 +53,13 @@ describe('«Мой день»: календарь', () => {
     expect(link).toHaveAttribute('href', '/calendar')
     expect(link).toHaveTextContent('12')
 
-    // приветствие и значок времени суток в одной строке; календарь стоит выше них
+    // календарь стоит выше приветствия; в строке приветствия значок времени суток идёт перед ним, справа ничего нет (у взрослого)
     const heading = screen.getByRole('heading', { level: 1 })
     expect(heading).toHaveTextContent('Добрый день, Лена!')
     const row = heading.parentElement!
-    expect(within(row).getByText('☀️')).toBeInTheDocument()
+    const icon = within(row).getByText('☀️')
+    expect(icon.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(row).queryByRole('button')).not.toBeInTheDocument()
     expect(link.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(row.contains(link)).toBe(false)
   })
