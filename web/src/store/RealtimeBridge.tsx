@@ -6,7 +6,7 @@ import { api } from './api'
 import { createInvalidator, tagsForEvent } from './invalidate'
 import type { AppStore } from './index'
 
-const TOPICS: Topic[] = ['tasks', 'members', 'schedule', 'trainings', 'goals', 'chat', 'resync']
+const TOPICS: Topic[] = ['tasks', 'members', 'schedule', 'trainings', 'goals', 'events', 'chat', 'resync']
 
 // События сокета сбрасывают кэш по тегам: активные экраны сами запрашивают данные заново, неактивные записи удаляются.
 // Единственное место, где используется `useLive`: экраны на сигналы не подписываются.

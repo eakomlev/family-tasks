@@ -11,8 +11,12 @@ import { SessionSync } from '@/store/SessionSync'
 import { useThemeSync } from '@/lib/useThemeSync'
 import Chat from '@/pages/Chat'
 import Coins from '@/pages/Coins'
+import Calendar from '@/pages/Calendar'
+import CalendarSettings from '@/pages/CalendarSettings'
 import ChatMedia from '@/pages/ChatMedia'
 import ChatRoom from '@/pages/ChatRoom'
+import EventForm from '@/pages/EventForm'
+import EventView from '@/pages/EventView'
 import CreateFamily from '@/pages/CreateFamily'
 import Family from '@/pages/Family'
 import FamilyCreated from '@/pages/FamilyCreated'
@@ -70,6 +74,11 @@ export default function App() {
               <Route path="/chat" element={<Chat />} />
               <Route path="/chat/:chat" element={<ChatRoom />} />
               <Route path="/chat/:chat/media" element={<ChatMedia />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/calendar/settings" element={<CalendarSettings />} />
+              <Route path="/calendar/events/new" element={<EventForm />} />
+              <Route path="/calendar/events/:id" element={<EventView />} />
+              <Route path="/calendar/events/:id/edit" element={<EventForm />} />
               <Route path="/my-day" element={<MyDay />} />
               <Route path="/family" element={<Family />} />
               <Route path="/family/invite" element={<Invite />} />

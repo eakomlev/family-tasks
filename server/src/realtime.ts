@@ -13,6 +13,8 @@ export type RealtimeEvent =
   | { type: 'schedule'; memberId: string }
   | { type: 'trainings'; memberId: string }
   | { type: 'goals'; memberId: string }
+  // события семейного календаря изменились (кто их видит, определяет сам запрос)
+  | { type: 'events' }
   // в чате изменение: chat — собеседник («family» для общего чата) с точки зрения получателя
   | { type: 'chat'; chat: string }
 

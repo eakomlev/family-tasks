@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CalendarIcon } from '@/components/CalendarIcon'
 import { MoodDialog } from '@/components/MoodDialog'
 import { Page } from '@/components/Page'
 import { PendingReview } from '@/components/PendingReview'
@@ -8,7 +9,7 @@ import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
 import { useSetMoodMutation } from '@/store/profile'
-import { DateLine, Hero, Icon, MoodButton } from './styles'
+import { CalendarLink, DateLine, GreetingRow, Hero, Icon, MoodButton } from './styles'
 import { DailyFact } from './components/DailyFact'
 import { EarnedToday } from './components/EarnedToday'
 import { FamilyLessons } from './components/FamilyLessons'
@@ -39,15 +40,21 @@ export default function MyDay() {
   return (
     <Page>
       <Hero>
-        {isChild ? (
-          // настроение вместо значка времени суток; нажатие открывает выбор
-          <MoodButton type="button" aria-label={mood ? `Настроение: ${mood.label}. Изменить` : 'Выбрать настроение'} onClick={() => setMoodOpen(true)}>
-            {mood?.emoji ?? greeting.icon}
-          </MoodButton>
-        ) : (
-          <Icon aria-hidden>{greeting.icon}</Icon>
-        )}
-        <h1>{greeting.text}, {identity?.name}!</h1>
+        {/* слева вверху семейный календарь со сегодняшним числом */}
+        <CalendarLink to="/calendar" aria-label="Семейный календарь">
+          <CalendarIcon day={now.getDate()} />
+        </CalendarLink>
+        <GreetingRow>
+          <h1>{greeting.text}, {identity?.name}!</h1>
+          {isChild ? (
+            // настроение вместо значка времени суток; нажатие открывает выбор
+            <MoodButton type="button" aria-label={mood ? `Настроение: ${mood.label}. Изменить` : 'Выбрать настроение'} onClick={() => setMoodOpen(true)}>
+              {mood?.emoji ?? greeting.icon}
+            </MoodButton>
+          ) : (
+            <Icon aria-hidden>{greeting.icon}</Icon>
+          )}
+        </GreetingRow>
         <DateLine>{formatToday(now)}</DateLine>
       </Hero>
       <DailyFact now={now} />

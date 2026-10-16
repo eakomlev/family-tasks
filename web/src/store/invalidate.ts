@@ -20,6 +20,8 @@ export function tagsForEvent(event: RealtimeEvent): readonly TagItem[] {
       return [{ type: 'Trainings', id: event.memberId }]
     case 'goals':
       return ['Goals']
+    case 'events':
+      return ['Events']
     case 'chat':
       return ['Chats', { type: 'Messages', id: event.chat }]
     case 'resync':

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 export const Hero = styled.section`
@@ -6,10 +7,38 @@ export const Hero = styled.section`
   gap: 0.25rem;
 `
 
-// смайлик приветствия стоит в первой строке, на одном уровне со значком профиля справа
-export const Icon = styled.div`
+// календарь стоит в первой строке слева, на одном уровне со значком профиля справа
+export const CalendarLink = styled(Link)`
+  align-self: flex-start;
+  display: block;
+  width: 3rem;
+  height: 3rem;
   margin-top: -0.5rem;
-  font-size: 3rem;
+  border-radius: 0.8rem;
+  -webkit-tap-highlight-color: transparent;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+`
+
+// приветствие и справа от него значок времени суток (у ребёнка вместо него настроение)
+export const GreetingRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+
+  h1 {
+    min-width: 0;
+    margin: 0;
+  }
+`
+
+export const Icon = styled.div`
+  flex: none;
+  font-size: 2.2rem;
   line-height: 1;
 `
 
@@ -19,12 +48,11 @@ export const DateLine = styled.p`
 
 // настроение ребёнка на месте значка времени суток: тот же размер, но нажимается
 export const MoodButton = styled.button`
-  align-self: flex-start;
-  margin: -0.5rem 0 0;
+  flex: none;
   padding: 0;
   border: 0;
   background: none;
-  font-size: 3rem;
+  font-size: 2.2rem;
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;

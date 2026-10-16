@@ -12,6 +12,12 @@ const lightColors = css`
   --success: #2e7d32;
   --on-error: #fff;
   --warning-bg: #fff4d6;
+  /* цвета видов записей семейного календаря */
+  --cal-event: #4f46e5;
+  --cal-task: #d97706;
+  --cal-birthday: #db2777;
+  --cal-training: #0d9488;
+  --cal-holiday: #dc2626;
   /* «жидкое стекло» панели табов */
   --glass-bar: rgb(255 255 255 / 0.72);
   --glass-tint: rgb(79 70 229 / 0.13);
@@ -39,6 +45,11 @@ const darkColors = css`
   --success: #7bd88f;
   --on-error: #2a0a08;
   --warning-bg: #3d3416;
+  --cal-event: #8f89f5;
+  --cal-task: #fbbf24;
+  --cal-birthday: #f472b6;
+  --cal-training: #2dd4bf;
+  --cal-holiday: #f87171;
   --glass-bar: rgb(30 29 46 / 0.72);
   --glass-tint: rgb(124 117 240 / 0.24);
   --glass-edge: rgb(255 255 255 / 0.28);

@@ -6,6 +6,8 @@ export type ServerEvent =
   | { type: 'trainings'; memberId: string }
   // цели ребёнка: создали, изменили, удалили или купили
   | { type: 'goals'; memberId: string }
+  // события семейного календаря изменились
+  | { type: 'events' }
   // изменение в чате; chat — «family» или собеседник
   | { type: 'chat'; chat: string }
 
