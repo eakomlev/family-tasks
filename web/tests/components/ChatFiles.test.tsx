@@ -120,13 +120,14 @@ describe('MessageBubble: файлы', () => {
   })
 
   it('нажатие скачивает файл без ухода со страницы (из памяти через ссылку download)', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(new Blob(['pdf']), { status: 200 }))
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, blob: async () => new Blob(['pdf']) })
     vi.stubGlobal('fetch', fetchMock)
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     try {
       render(<MessageBubble message={message()} mine={false} showSender={false} />)
       await userEvent.click(screen.getByRole('button', { name: 'Скачать файл Отчёт.pdf' }))
-      await waitFor(() => expect(click).toHaveBeenCalled())
+      // ответ подменён простым объектом: Response из Node не дружит с Blob из jsdom (на разных версиях Node по-разному)
+      await waitFor(() => expect(click).toHaveBeenCalled(), { timeout: 3000 })
       expect(fetchMock).toHaveBeenCalledWith('/media/f/f1/file?exp=1&sig=a&name=x')
     } finally {
       click.mockRestore()
@@ -134,7 +135,7 @@ describe('MessageBubble: файлы', () => {
   })
 
   it('не получилось скачать: сообщение под файлом', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 404 })))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }))
     render(<MessageBubble message={message()} mine={false} showSender={false} />)
     await userEvent.click(screen.getByRole('button', { name: 'Скачать файл Отчёт.pdf' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось сохранить файл.')
