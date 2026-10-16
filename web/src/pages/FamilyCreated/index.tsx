@@ -6,6 +6,7 @@ import { Button } from '@/components/Button'
 import { LinkBox } from '@/components/LinkBox'
 import { useIdentity } from '@/identity/context'
 import { inviteLink } from '@/lib/links'
+import { retryRead } from '@/lib/retry'
 import { Celebration } from './styles'
 import type { LocationState } from './types'
 import { START_PATH } from '@/lib/routes'
@@ -20,7 +21,9 @@ export default function FamilyCreated() {
 
   useEffect(() => {
     if (invite || !identity) return
-    getInvite(identity.token).then(setInvite).catch(() => setFailed(true))
+    const controller = new AbortController()
+    retryRead(() => getInvite(identity.token), controller.signal).then(setInvite).catch(() => setFailed(true))
+    return () => controller.abort()
   }, [invite, identity])
 
   if (!identity || failed) return <Navigate to="/family" replace />

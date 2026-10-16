@@ -425,6 +425,17 @@ describe('переписка', () => {
     expect(api.listMessages).toHaveBeenCalledWith('tok', 'family')
   })
 
+  it('личная переписка: аватар и имя сверху ведут в профиль собеседника, в общем чате ссылки нет', async () => {
+    vi.mocked(api.listMessages).mockResolvedValue({ messages: [], hasMore: false, readUpTo: null, peer: null })
+    renderRoom('m2')
+    const heading = await screen.findByRole('heading', { name: /Миша/ })
+    expect(heading.closest('a')).toHaveAttribute('href', '/family/m2')
+    cleanup()
+    renderRoom('family')
+    const family = await screen.findByRole('heading', { name: 'Общий чат' })
+    expect(family.closest('a')).toBeNull()
+  })
+
   it('свои сообщения с галочками: «прочитано» до отметки собеседника, «отправлено» после; у чужих галочек нет', async () => {
     vi.mocked(api.listMessages).mockResolvedValue({
       messages: [

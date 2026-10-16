@@ -2,6 +2,7 @@ import { createAction } from '@reduxjs/toolkit'
 import { createApi, type BaseQueryFn } from '@reduxjs/toolkit/query/react'
 import { ApiError } from '@/api'
 import { request, send } from '@/api/client'
+import { retryRead } from '@/lib/retry'
 import { getSession } from './session'
 
 // Теги инвалидации: события сокета (store/invalidate.ts) и мутации сбрасывают нужные данные по ним
@@ -37,12 +38,16 @@ export const apiBaseQuery: BaseQueryFn<ApiRequest, unknown, ApiQueryError> = asy
 
 // Запрос через готовую функцию клиента API (`@/api`) вместо описания пути: логика запросов остаётся в одном месте, тесты экранов
 // по-прежнему подменяют функции `@/api`. Ошибка клиента превращается в простой объект (в Redux хранится только сериализуемое).
+//
+// Чтение (query) при пропаже связи не заканчивается ошибкой: оно повторяется каждые 2–3 секунды, пока экран открыт (отмена по signal),
+// а экран всё это время показывает «Загрузка…» или прежние данные. Изменяющие запросы (mutation) не повторяются: решает человек.
 export function fromApi<A, R>(call: (token: string, arg: A) => Promise<R>) {
-  return async (arg: A): Promise<{ data: R } | { error: ApiQueryError }> => {
+  return async (arg: A, queryApi?: { type?: string; signal?: AbortSignal }): Promise<{ data: R } | { error: ApiQueryError }> => {
     const session = getSession()
     if (!session) return { error: { status: 0, code: 'no_session' } }
     try {
-      return { data: (await call(session.token, arg)) as R }
+      const run = () => call(session.token, arg)
+      return { data: (queryApi?.type === 'query' ? await retryRead(run, queryApi.signal) : await run()) as R }
     } catch (err) {
       if (err instanceof ApiError) return { error: { status: err.status, code: err.code, body: err.body } }
       throw err

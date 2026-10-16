@@ -59,6 +59,24 @@ describe('страница «Задания»: фильтр по людям', ()
   })
 })
 
+describe('нет связи', () => {
+  it('вместо «Не удалось загрузить» показывается загрузка, а данные запрашиваются снова, пока не получится', async () => {
+    vi.mocked(api.listTasks).mockRejectedValueOnce(new api.ApiError(0, 'network'))
+    renderTasks('mama')
+    expect(screen.getByText('Загрузка…')).toBeInTheDocument()
+    expect(screen.queryByText(/Не удалось загрузить/)).not.toBeInTheDocument()
+    // повтор через 2–3 секунды
+    expect(await screen.findByText('Вынести мусор', {}, { timeout: 6000 })).toBeInTheDocument()
+    expect(api.listTasks).toHaveBeenCalledTimes(2)
+  }, 10000)
+
+  it('настоящая ошибка сервера по-прежнему показывается', async () => {
+    vi.mocked(api.listTasks).mockReset().mockRejectedValue(new api.ApiError(500, 'internal_error'))
+    renderTasks('mama')
+    expect(await screen.findByText(/Не удалось загрузить задания/)).toBeInTheDocument()
+  })
+})
+
 describe('повторяющиеся задания в «Предстоящих»', () => {
   it('список просят со сжатием серий: одно текущее вхождение на повторяющееся задание', async () => {
     renderTasks('mama')

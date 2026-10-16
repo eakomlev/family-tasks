@@ -5,6 +5,7 @@ import { LinkBox } from '@/components/LinkBox'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
 import { inviteLink } from '@/lib/links'
+import { retryRead } from '@/lib/retry'
 import type { InviteSectionProps } from './types'
 import { useInFlight } from '@/lib/useInFlight'
 
@@ -17,14 +18,18 @@ export function InviteSection({ token }: InviteSectionProps) {
 
   useEffect(() => {
     let cancelled = false
-    getInvite(token)
+    const controller = new AbortController()
+    retryRead(() => getInvite(token), controller.signal)
       .then((res) => !cancelled && setInvite(res))
       .catch((err) => {
         if (cancelled) return
         if (err instanceof ApiError && err.status === 404) setInvite(null)
         else setError(true)
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [token])
 
   const renew = guard(async () => {

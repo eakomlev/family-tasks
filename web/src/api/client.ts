@@ -1,3 +1,5 @@
+import { reportNetworkFailure, reportNetworkOk } from '@/lib/connection'
+
 export class ApiError extends Error {
   status: number
   code: string
@@ -35,8 +37,12 @@ export async function request<T>(path: string, init: RequestInit = {}, token?: s
     try {
       res = await fetch(`/api${path}`, { ...init, headers })
     } catch {
+      // запрос не дошёл до сервера: плашка «Соединение…» и повторы чтения
+      reportNetworkFailure()
       throw new ApiError(0, 'network')
     }
+    // любой ответ сервера (даже с ошибкой) значит, что связь есть
+    reportNetworkOk()
     if (res.status !== 429 || !isRead || attempt >= MAX_RATE_RETRIES) break
     await new Promise((resolve) => setTimeout(resolve, retryDelay(res, attempt)))
   }

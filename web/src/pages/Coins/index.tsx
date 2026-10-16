@@ -7,7 +7,9 @@ import { CoinIcon } from '@/components/CoinBalance'
 import { Notice } from '@/components/Notice'
 import { Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
+import { retryRead } from '@/lib/retry'
 import { START_PATH } from '@/lib/routes'
+import { useAbortOnUnmount } from '@/lib/useAbortOnUnmount'
 import { useProfile } from '@/profile/context'
 import { useGetCoinHistoryQuery } from '@/store/coins'
 import { GoalsList } from './components/GoalsList'
@@ -45,6 +47,7 @@ export default function Coins() {
   // защита от двойной подгрузки: сторож может сработать несколько раз, пока идёт запрос
   const busy = useRef(false)
   const sentinel = useRef<HTMLDivElement>(null)
+  const abort = useAbortOnUnmount()
 
   useEffect(() => {
     if (!firstPage) return
@@ -62,7 +65,7 @@ export default function Coins() {
     busy.current = true
     setLoadingMore(true)
     try {
-      const page = await listCoinHistory(token, items[items.length - 1].id, ownerId)
+      const page = await retryRead(() => listCoinHistory(token, items[items.length - 1].id, ownerId), abort.current?.signal)
       setHistory((current) => {
         const known = current?.items ?? []
         return { items: [...known, ...page.items.filter((e) => !known.some((k) => k.id === e.id))], hasMore: page.hasMore, balance: page.balance }
@@ -74,7 +77,7 @@ export default function Coins() {
       busy.current = false
       setLoadingMore(false)
     }
-  }, [token, items, ownerId])
+  }, [token, items, ownerId, abort])
 
   // подгрузка при прокрутке: следим за сторожем в конце списка
   useEffect(() => {

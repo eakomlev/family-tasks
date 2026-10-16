@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/AppShell'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
 import { GlobalStyle } from '@/components/GlobalStyle'
+import { ConnectionBanner } from '@/components/ConnectionBanner'
 import { UpdateBanner } from '@/components/UpdateBanner'
 import { IdentityProvider } from '@/identity'
 import { store } from '@/store'
@@ -44,6 +45,7 @@ export default function App() {
     <IdentityProvider>
       <SessionSync />
       <GlobalStyle />
+      <ConnectionBanner />
       <UpdateBanner />
       <ConfirmProvider>
         <BrowserRouter>

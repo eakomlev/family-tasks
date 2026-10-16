@@ -172,7 +172,7 @@ describe('страница истории монет', () => {
   it('ошибка подгрузки: записи остаются, можно повторить', async () => {
     vi.mocked(api.listCoinHistory)
       .mockResolvedValueOnce({ balance: 70, hasMore: true, items: [entry(1)] })
-      .mockRejectedValueOnce(new api.ApiError(0, 'network'))
+      .mockRejectedValueOnce(new api.ApiError(500, 'internal_error'))
       .mockResolvedValueOnce({ balance: 70, hasMore: false, items: [entry(2)] })
     renderPage()
     await screen.findByText('за дело 1')

@@ -16,6 +16,8 @@ import { toApiError } from '@/store/api'
 import { useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, useSendMessageMutation } from '@/store/chat'
 import { currentMood } from '@/lib/mood'
 import { isParent, memberLabel } from '@/lib/roles'
+import { retryRead } from '@/lib/retry'
+import { useAbortOnUnmount } from '@/lib/useAbortOnUnmount'
 import { useSlideIn } from '@/lib/useSlideIn'
 import { chatTitle } from '../Chat/utils'
 import { ChatMenu } from '../Chat/components/ChatMenu'
@@ -26,7 +28,7 @@ import { MessageBubble } from './components/MessageBubble'
 import { MessagesSkeleton } from './components/MessagesSkeleton'
 import { PhotoViewer } from './components/PhotoViewer'
 import type { OutgoingMessage } from './components/Composer/types'
-import { BackButton, DayLabel, Title, Empty, Feed, FeedContent, FamilyIcon, Header, MenuButton, Room } from './styles'
+import { BackButton, DayLabel, Title, Empty, Feed, FeedContent, FamilyIcon, Header, MenuButton, Room, Who, WhoLink } from './styles'
 import { appendMessage, groupByDay, mergeLatest, messageStatus, participantsLabel, replaceMessage, visitLabel } from './utils'
 
 // «рядом с низом»: тогда новое сообщение прокручивает переписку само, а не сбивает чтение старых
@@ -48,6 +50,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
   const { identity } = useIdentity()
   // переписка выезжает справа только при переходе вперёд
   const slideIn = useSlideIn()
+  const abort = useAbortOnUnmount()
   const { data } = useProfile()
   const now = useNow()
   const { chats } = useChats()
@@ -177,7 +180,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
     if (!token || !chat || !messages?.length) return
     setLoadingOlder(true)
     try {
-      const page = await listMessages(token, chat, messages[0].id)
+      const page = await retryRead(() => listMessages(token, chat, messages[0].id), abort.current?.signal)
       stick.current = false
       const feed = feedRef.current
       if (feed) keepFromBottom.current = feed.scrollHeight - feed.scrollTop
@@ -216,6 +219,17 @@ function Conversation({ chat }: { chat: string | undefined }) {
 
   const groups = messages ? groupByDay(messages, now) : []
 
+  const who = (
+    <>
+      {other ? <Avatar name={memberLabel(other, identity.role)} seed={other.id} src={other.avatar} size="2.25rem" /> : <FamilyIcon aria-hidden><TabIcon name="family" /></FamilyIcon>}
+      <Title>
+        <h1>{chatTitle(chat, members, identity.role)}{chats?.find((c) => c.id === chat)?.muted && <MutedMark aria-label="Уведомления отключены" />}{other && <> <MoodMark mood={other.mood} now={now} /></>}</h1>
+        {/* под заголовком: в общем чате число участников, в личном когда собеседник был в чате */}
+        {chat === FAMILY_CHAT ? participantsLabel(members.length) && <small>{participantsLabel(members.length)}</small> : visitLabel(peer, now) && <small>{visitLabel(peer, now)}</small>}
+      </Title>
+    </>
+  )
+
   return (
     <Room $slide={slideIn}>
       <Header>
@@ -224,12 +238,8 @@ function Conversation({ chat }: { chat: string | undefined }) {
             <path d="M15 5l-7 7 7 7" />
           </svg>
         </BackButton>
-        {other ? <Avatar name={memberLabel(other, identity.role)} seed={other.id} src={other.avatar} size="2.25rem" /> : <FamilyIcon aria-hidden><TabIcon name="family" /></FamilyIcon>}
-        <Title>
-          <h1>{chatTitle(chat, members, identity.role)}{chats?.find((c) => c.id === chat)?.muted && <MutedMark aria-label="Уведомления отключены" />}{other && <> <MoodMark mood={other.mood} now={now} /></>}</h1>
-          {/* под заголовком: в общем чате число участников, в личном когда собеседник был в чате */}
-          {chat === FAMILY_CHAT ? participantsLabel(members.length) && <small>{participantsLabel(members.length)}</small> : visitLabel(peer, now) && <small>{visitLabel(peer, now)}</small>}
-        </Title>
+        {/* аватар и имя собеседника: нажатие открывает его профиль (в общем чате это просто подпись) */}
+        {other ? <WhoLink to={`/family/${other.id}`}>{who}</WhoLink> : <Who>{who}</Who>}
         <MenuButton type="button" aria-label="Меню чата" aria-haspopup="dialog" onClick={() => setMenuOpen(true)}>
           <svg viewBox="0 0 24 24" aria-hidden>
             <circle cx="12" cy="5" r="1.9" />

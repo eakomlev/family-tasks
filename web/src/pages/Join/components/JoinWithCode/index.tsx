@@ -6,6 +6,7 @@ import { ReplaceGuard } from '@/components/ReplaceGuard'
 import { RoleForm } from '@/components/RoleForm'
 import { useIdentity } from '@/identity/context'
 import { toIdentity } from '@/identity/utils'
+import { retryRead } from '@/lib/retry'
 import { JOIN_ROLES } from '@/lib/roles'
 import type { InviteState, JoinWithCodeProps } from './types'
 import { START_PATH } from '@/lib/routes'
@@ -23,7 +24,8 @@ export function JoinWithCode({ code }: JoinWithCodeProps) {
 
   useEffect(() => {
     let cancelled = false
-    checkInvite(code)
+    const controller = new AbortController()
+    retryRead(() => checkInvite(code), controller.signal)
       .then(() => !cancelled && setInvite('ok'))
       .catch((err) => {
         if (cancelled) return
@@ -31,7 +33,10 @@ export function JoinWithCode({ code }: JoinWithCodeProps) {
         else if (err instanceof ApiError && err.status === 404) setInvite('not_found')
         else setInvite('error')
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [code])
 
   async function handleSubmit(data: SignupData) {

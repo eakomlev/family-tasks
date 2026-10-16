@@ -136,6 +136,31 @@ export const Title = styled.div`
   }
 `
 
+// аватар и имя собеседника в шапке: в личной переписке это ссылка на его профиль, в общем чате просто блок
+const whoStyle = css`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: inherit;
+  text-decoration: none;
+`
+
+export const Who = styled.div`
+  ${whoStyle}
+`
+
+export const WhoLink = styled(Link)`
+  ${whoStyle}
+  border-radius: 0.6rem;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+`
+
 export const FamilyIcon = styled.span`
   flex: none;
   display: grid;

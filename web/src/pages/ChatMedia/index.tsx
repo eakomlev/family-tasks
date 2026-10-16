@@ -6,6 +6,8 @@ import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
+import { retryRead } from '@/lib/retry'
+import { useAbortOnUnmount } from '@/lib/useAbortOnUnmount'
 import { useProfile } from '@/profile/context'
 import { PhotoViewer } from '../ChatRoom/components/PhotoViewer'
 import { chatTitle } from '../Chat/utils'
@@ -23,6 +25,8 @@ export default function ChatMedia() {
   const [failed, setFailed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [viewing, setViewing] = useState<number>()
+  // экран закрыт: повторы чтения без связи прекращаются
+  const abort = useAbortOnUnmount()
   // защита от двойной подгрузки: сторож может сработать несколько раз, пока идёт запрос
   const busy = useRef(false)
   const sentinel = useRef<HTMLDivElement>(null)
@@ -34,7 +38,7 @@ export default function ChatMedia() {
       busy.current = true
       setLoading(true)
       try {
-        const page = await listChatMedia(token, chat, before)
+        const page = await retryRead(() => listChatMedia(token, chat, before), abort.current?.signal)
         setItems((current) => {
           const known = current ?? []
           return before ? [...known, ...page.items.filter((p) => !known.some((k) => k.id === p.id))] : page.items
@@ -48,7 +52,7 @@ export default function ChatMedia() {
         setLoading(false)
       }
     },
-    [token, chat],
+    [token, chat, abort],
   )
 
   useEffect(() => {
