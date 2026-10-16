@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { isParent } from '@/lib/roles'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
@@ -36,7 +37,7 @@ export default function GoalForm() {
   const file = useRef<HTMLInputElement>(null)
 
   const token = identity?.token
-  const isParent = !!identity && identity.role !== 'child'
+  const isParentViewer = isParent(identity?.role)
 
   // цель для изменения: из кэша сразу, свежее следом
   const query = useGetGoalQuery(goalId ?? '', { skip: !token || !goalId })
@@ -63,7 +64,7 @@ export default function GoalForm() {
   }
 
   if (!identity || !token) return null
-  if (!isParent || state === 'missing') return <Navigate to="/coins" replace />
+  if (!isParentViewer || state === 'missing') return <Navigate to="/coins" replace />
   // купленную цель менять нельзя
   if (goal?.purchasedAt) return <Navigate to={`/goals/${goal.id}`} replace />
 

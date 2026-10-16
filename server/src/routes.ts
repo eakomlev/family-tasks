@@ -18,11 +18,11 @@ import { coinBalance } from './coins.js'
 import { mailBudgetExhausted } from './outbox/budget.js'
 import { enqueue, PRIORITY } from './outbox/index.js'
 import { closeSession, publish } from './realtime.js'
+import { MAX_FAMILY_MEMBERS, ROLES, type Role } from './roles.js'
 
 const INVITE_TTL_DAYS = 7
 const UNIQUE_VIOLATION = '23505'
 
-type Role = 'mama' | 'papa' | 'child'
 
 // эндпоинты, где можно подбирать коды, ограничиваем строже общего лимита
 const strictLimit = { rateLimit: { max: 10, timeWindow: '1 minute' } }
@@ -62,7 +62,7 @@ const joinSchema = {
     required: ['role', 'name', 'email', 'code'],
     additionalProperties: false,
     properties: {
-      role: { enum: ['mama', 'papa', 'child'] },
+      role: { enum: ROLES },
       name: nameSchema,
       email: emailSchema,
       code: codeSchema,
@@ -292,6 +292,13 @@ export async function routes(app: FastifyInstance) {
       const db = await pool.connect()
       try {
         await db.query('begin')
+        // блокировка семьи: два одновременных вступления не обойдут лимит
+        await db.query('select id from families where id = $1 for update', [invite.family_id])
+        const { rows: count } = await db.query('select count(*)::int as n from members where family_id = $1', [invite.family_id])
+        if (count[0].n >= MAX_FAMILY_MEMBERS) {
+          await db.query('rollback')
+          return reply.code(409).send({ error: 'family_full' })
+        }
         const member = await insertMember(db, invite.family_id, req.body, email, false)
         await discardEmailCode(db, email, 'signup')
         await db.query('commit')

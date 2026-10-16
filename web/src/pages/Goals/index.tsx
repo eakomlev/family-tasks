@@ -1,4 +1,5 @@
 import { Navigate, useParams } from 'react-router-dom'
+import { isAdult, isParent } from '@/lib/roles'
 import { BackLink } from '@/components/BackLink'
 import { GoalCard } from '@/components/GoalCard'
 import { Notice } from '@/components/Notice'
@@ -13,14 +14,15 @@ export default function Goals() {
   const { memberId } = useParams()
   const { identity } = useIdentity()
   const { data } = useProfile()
-  const isParent = !!identity && identity.role !== 'child'
+  const isAdultViewer = isAdult(identity?.role)
+  const canEdit = isParent(identity?.role)
   // из кэша сразу, свежее приходит следом и после каждого изменения целей
-  const query = useListGoalsQuery(memberId ?? '', { skip: !memberId || !isParent })
+  const query = useListGoalsQuery(memberId ?? '', { skip: !memberId || !isAdultViewer })
   const goals = query.data?.goals
   const failed = query.isError && !goals
 
   if (!identity) return null
-  if (!isParent) return <Navigate to="/coins" replace />
+  if (!isAdultViewer) return <Navigate to="/coins" replace />
   const child = data?.members.find((m) => m.id === memberId)
   if (data && (!child || child.role !== 'child')) return <Navigate to="/family" replace />
 
@@ -30,9 +32,9 @@ export default function Goals() {
       <h1>{child ? `Цели: ${child.name}` : 'Цели'}</h1>
       {failed && !goals && <Notice $tone="error">Не удалось загрузить цели. Проверьте соединение.</Notice>}
       {!goals && !failed && <p>Загрузка…</p>}
-      {goals && goals.length === 0 && <Notice $tone="muted">Целей пока нет. Добавьте то, на что ребёнок будет копить монеты.</Notice>}
+      {goals && goals.length === 0 && <Notice $tone="muted">Целей пока нет.{canEdit && ' Добавьте то, на что ребёнок будет копить монеты.'}</Notice>}
       {goals && goals.length > 0 && <List>{goals.map((goal) => <GoalCard key={goal.id} goal={goal} />)}</List>}
-      <AddButton to={`/family/${memberId}/goals/new`}>＋ Новая цель</AddButton>
+      {canEdit && <AddButton to={`/family/${memberId}/goals/new`}>＋ Новая цель</AddButton>}
       <ListEnd />
     </Page>
   )

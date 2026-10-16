@@ -98,6 +98,17 @@ describe('GoalCard', () => {
   })
 })
 
+describe('страница цели у бабушки', () => {
+  it('цель видна, но изменить и удалить нельзя', async () => {
+    const grandma: Member = { id: 'gm', name: 'Нина', role: 'grandma', avatar: null, isOwner: false }
+    renderView(grandma, { goal: goal(), balance: 120 })
+    expect(await screen.findByText('Набор лего')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Изменить' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Удалить цель' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Оплатить/ })).not.toBeInTheDocument()
+  })
+})
+
 describe('страница цели у ребёнка', () => {
   it('не хватает монет: написано сколько, оплатить нельзя', async () => {
     renderView(kid, { goal: goal(), balance: 120 })

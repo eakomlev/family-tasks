@@ -10,6 +10,7 @@ import type { PushMessage } from './outbox/contract.js'
 import { coinsWord } from './tasks/text.js'
 import { enqueueToMember } from './outbox/index.js'
 import { isViewingChat, publish, publishTo } from './realtime.js'
+import { isParent } from './roles.js'
 
 const MAX_TEXT = 2000
 
@@ -126,9 +127,9 @@ async function decorate(db: Pick<Pool, 'query'>, messages: MessageDto[], secret:
   }))
 }
 
-const PARENT_LABELS: Record<string, string> = { mama: 'Мама', papa: 'Папа' }
+const PARENT_LABELS: Record<string, string> = { mama: 'Мама', papa: 'Папа', grandma: 'Бабушка', grandpa: 'Дедушка' }
 
-// Как получатель видит отправителя: ребёнок видит родителей как «Мама» и «Папа» (как и в самом чате), остальные по имени.
+// Как получатель видит отправителя: ребёнок видит взрослых как «Мама», «Папа», «Бабушка» и «Дедушка» (как и в самом чате), остальные по имени.
 export function senderLabel(sender: { name: string; role: string }, recipientRole: string): string {
   return recipientRole === 'child' ? (PARENT_LABELS[sender.role] ?? sender.name) : sender.name
 }
@@ -439,7 +440,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
   app.delete<{ Params: { chat: string } }>('/api/chats/:chat/messages', { schema: { params: chatParams } }, async (req, reply) => {
     const member = await me(req, reply)
     if (!member) return
-    if (member.role !== 'mama' && member.role !== 'papa') return reply.code(403).send({ error: 'parents_only' })
+    if (!isParent(member.role)) return reply.code(403).send({ error: 'parents_only' })
     const chat = await resolveChat(member, req.params.chat, reply)
     if (!chat) return
 
@@ -518,7 +519,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       if (!member) return
       const { emoji, coins } = req.body
       if (emoji === undefined && coins === undefined) return reply.code(400).send({ error: 'nothing_to_do' })
-      if (coins !== undefined && member.role === 'child') return reply.code(403).send({ error: 'parents_only' })
+      if (coins !== undefined && !isParent(member.role)) return reply.code(403).send({ error: 'parents_only' })
 
       const chat = await resolveChat(member, req.params.chat, reply)
       if (!chat) return

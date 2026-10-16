@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { isParent } from '@/lib/roles'
 import { Notice } from '@/components/Notice'
 import { TaskItem } from '@/components/TaskItem'
 import { useIdentity } from '@/identity/context'
@@ -15,12 +16,12 @@ import type { PendingReviewProps } from './types'
 export function PendingReview({ assigneeId = null, onCount }: PendingReviewProps) {
   const { identity } = useIdentity()
   const { data } = useProfile()
-  const isParent = !!identity && identity.role !== 'child'
+  const isReviewer = isParent(identity?.role)
   const review = useReview()
   // тот же запрос, что у значка на табе «Задачи»: в кэше он общий
-  const { data: list } = useListPendingTasksQuery(undefined, { skip: !isParent })
+  const { data: list } = useListPendingTasksQuery(undefined, { skip: !isReviewer })
 
-  const entries = isParent && list ? toEntries(list, assigneeId) : []
+  const entries = isReviewer && list ? toEntries(list, assigneeId) : []
   const count = entries.length
   useEffect(() => {
     onCount?.(count)

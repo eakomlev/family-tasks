@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { isParent } from '@/lib/roles'
 import { ApiError, type RepeatType } from '@/api'
 import { Button } from '@/components/Button'
 import { Checkbox } from '@/components/Checkbox'
@@ -34,9 +35,9 @@ export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDele
   const [error, setError] = useState<string>()
 
   const assigneeIsChild = members.find((m) => m.id === form.assigneeId)?.role === 'child'
-  // награду назначают только родители: ребёнок не может выдать монеты ни себе, ни другим
-  const meIsChild = members.find((m) => m.id === me)?.role === 'child'
-  const canReward = assigneeIsChild && !meIsChild
+  // награду назначают только родители (мама, папа): ребёнок, бабушка и дедушка не могут выдать монеты
+  const meIsParent = isParent(members.find((m) => m.id === me)?.role)
+  const canReward = assigneeIsChild && meIsParent
 
   const patch = (changes: Partial<FormState>) => {
     setForm((current) => ({ ...current, ...changes }))

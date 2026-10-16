@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { isParent } from '@/lib/roles'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError, type Occurrence, type Task } from '@/api'
 import { Avatar } from '@/components/Avatar'
@@ -80,8 +81,8 @@ export default function TaskView() {
   const done = occurrence?.done ?? null
   const pending = occurrence?.pending ?? null
   const late = !done && !pending && occurrence?.date != null && occurrence.date < today
-  const isChild = identity?.role === 'child'
-  // ребёнок задание с наградой только отправляет на проверку, подтверждает родитель
+  // ребёнок, бабушка и дедушка задание с наградой только отправляют на проверку, подтверждает родитель (мама, папа)
+  const isChild = !isParent(identity?.role)
   const needsReview = !!task && task.reward > 0 && isChild
 
   // Действие над вхождением; результат применяется сразу, а подтверждённый запрос обновит и остальных по сокету.

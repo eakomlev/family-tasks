@@ -1,12 +1,14 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { authenticate } from './auth.js'
 import { pool } from './db.js'
+import { isParent } from './roles.js'
 
 export type MemberParams = { Params: { id: string } }
 
 // Расписания (уроков, тренировок) есть только у детей; видеть и менять их могут сам ребёнок
-// и родители (мама/папа) его семьи. Возвращает id ребёнка или null, если ответ уже отправлен.
-export async function authorizeChild(req: FastifyRequest<MemberParams>, reply: FastifyReply) {
+// и взрослые его семьи. Менять (`write`) могут только сам ребёнок и родители (мама/папа), бабушка и дедушка только читают.
+// Возвращает id ребёнка или null, если ответ уже отправлен.
+export async function authorizeChild(req: FastifyRequest<MemberParams>, reply: FastifyReply, write = false) {
   const me = await authenticate(req)
   if (!me) {
     reply.code(401).send({ error: 'unauthorized' })
@@ -28,6 +30,10 @@ export async function authorizeChild(req: FastifyRequest<MemberParams>, reply: F
   }
   if (me.id !== target.id && me.role === 'child') {
     reply.code(403).send({ error: 'forbidden' })
+    return null
+  }
+  if (write && me.id !== target.id && !isParent(me.role)) {
+    reply.code(403).send({ error: 'parents_only' })
     return null
   }
   return target.id as string

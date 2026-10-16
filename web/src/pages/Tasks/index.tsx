@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isParent } from '@/lib/roles'
 import { Chip } from '@/components/Chip'
 import { PendingReview } from '@/components/PendingReview'
 import { Notice } from '@/components/Notice'
@@ -43,10 +44,11 @@ export default function Tasks() {
     if (next !== tab) setTab(next)
   }
 
-  const isParent = identity?.role !== 'child'
+  // родителям ожидающие проверки показывает блок «Ждут подтверждения», поэтому в списках по дням они скрыты
+  const isReviewer = isParent(identity?.role)
   const [pendingCount, setPendingCount] = useState(0)
   // у родителей ожидающие проверки собраны в своём блоке сверху, в списках по дням их нет
-  const sections = list && tab === 'upcoming' ? buildSections(list, today, filter, { hidePending: isParent }) : []
+  const sections = list && tab === 'upcoming' ? buildSections(list, today, filter, { hidePending: isReviewer }) : []
   const doneEntries = list && tab === 'done' ? buildDone(list, filter) : []
   const isEmpty = !!list && (tab === 'upcoming' ? sections.length === 0 && pendingCount === 0 : doneEntries.length === 0)
 

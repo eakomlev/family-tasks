@@ -3,6 +3,7 @@ import { authenticate } from '../auth.js'
 import { pool } from '../db.js'
 import { enqueueToMember } from '../outbox/index.js'
 import { publish } from '../realtime.js'
+import { isParent } from '../roles.js'
 import { addDays, isRealDate, NO_DATE, occursOn, occurrencesBetween, previousOccurrence, type RepeatType, type Schedule } from './recurrence.js'
 import { completedMessage, createdMessage, reviewMessage, rewardMessage, updatedMessage, type TaskDto } from './text.js'
 
@@ -185,10 +186,10 @@ export async function taskRoutes(app: FastifyInstance) {
     return rows[0]?.role
   }
 
-  // Награда монетами только за задания детей (у родителей монет нет) и только от родителей: ребёнок не может
-  // выдать монеты ни себе, ни другим. Возвращает код ошибки или undefined, если всё в порядке.
+  // Награда монетами только за задания детей (у родителей монет нет) и только от родителей (мама, папа): ребёнок, бабушка и дедушка не могут
+  // выдать монеты. Возвращает код ошибки или undefined, если всё в порядке.
   const rewardError = (reward: number | undefined, assigneeRole: string, authorRole: string) =>
-    !reward ? undefined : authorRole === 'child' ? 'reward_requires_parent' : assigneeRole !== 'child' ? 'reward_requires_child' : undefined
+    !reward ? undefined : !isParent(authorRole) ? 'reward_requires_parent' : assigneeRole !== 'child' ? 'reward_requires_child' : undefined
 
   // Забрать ранее выданные монеты по заданию (отмена отметки, смена графика): по каждому ребёнку и вхождению отменяется
   // всё, что ещё не отменено, поэтому повторные отметки и отмены никогда не дают больше одной награды за выполнение.
@@ -452,7 +453,8 @@ export async function taskRoutes(app: FastifyInstance) {
     confirmOnly = false,
   ): Promise<'submitted' | 'done' | 'confirmed' | 'unchanged'> {
     const occurrence = date ?? NO_DATE
-    const isChild = member.role === 'child'
+    // монеты выдаёт только родитель; остальные (ребёнок, бабушка, дедушка) отправляют задание с наградой на проверку
+    const isChild = !isParent(member.role)
     let outcome: 'submitted' | 'done' | 'confirmed' | 'unchanged' = 'unchanged'
     const db = await pool.connect()
     try {
@@ -543,7 +545,7 @@ export async function taskRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const member = await me(req, reply)
       if (!member) return
-      if (member.role === 'child') return reply.code(403).send({ error: 'parents_only' })
+      if (!isParent(member.role)) return reply.code(403).send({ error: 'parents_only' })
       const row = await findTask(req.params.id, member)
       if (!row) return reply.code(404).send({ error: 'task_not_found' })
       if (!validOccurrence(row, req.body.date)) return reply.code(400).send({ error: 'invalid_occurrence' })
@@ -573,7 +575,7 @@ export async function taskRoutes(app: FastifyInstance) {
           [row.id, occurrence],
         )
         if (existing.length > 0) {
-          if (member.role === 'child' && row.reward > 0 && !existing[0].pending) {
+          if (!isParent(member.role) && row.reward > 0 && !existing[0].pending) {
             await db.query('rollback')
             return reply.code(403).send({ error: 'confirmed' })
           }

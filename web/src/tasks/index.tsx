@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { isParent } from '@/lib/roles'
 import { useIdentity } from '@/identity/context'
 import { todayIso } from '@/lib/date'
 import { countActionable } from '@/lib/occurrences'
@@ -14,6 +15,6 @@ export function TaskBadgeProvider({ children }: { children: ReactNode }) {
   const { data: current } = useListTasksQuery({ from: today, to: today })
   const { data: pending } = useListPendingTasksQuery()
 
-  const count = current && pending && identity ? countActionable(current, pending, identity.memberId, identity.role !== 'child', today) : 0
+  const count = current && pending && identity ? countActionable(current, pending, identity.memberId, isParent(identity.role), today) : 0
   return <TaskBadgeContext value={count}>{children}</TaskBadgeContext>
 }

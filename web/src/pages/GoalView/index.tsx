@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isParent } from '@/lib/roles'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { BackLink } from '@/components/BackLink'
@@ -125,7 +126,7 @@ export default function GoalView() {
             </>
           )}
 
-          {!isChild && (
+          {isParent(identity.role) && (
             <>
               {error && <Notice $tone="error">{error}</Notice>}
               {!bought && <Button type="button" disabled={busy} onClick={() => navigate(`/goals/${goal.id}/edit`)}>Изменить</Button>}

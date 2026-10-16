@@ -85,6 +85,9 @@ describe('тексты ошибок', () => {
       backToDetails: false,
     })
   })
+  it('describeSignupError: семья заполнена', () => {
+    expect(describeSignupError(new ApiError(409, 'family_full'))).toMatchObject({ backToDetails: false, text: expect.stringMatching(/6 участников/) })
+  })
   it('describeSaveError', () => {
     expect(describeSaveError(new ApiError(409, 'name_taken'))).toMatch(/уже есть участник/)
     expect(describeSaveError(new ApiError(400, 'invalid_birth_date'))).toMatch(/дату рождения/)

@@ -15,7 +15,7 @@ import { useViewingChat } from '@/realtime/context'
 import { toApiError } from '@/store/api'
 import { useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, useSendMessageMutation } from '@/store/chat'
 import { currentMood } from '@/lib/mood'
-import { memberLabel } from '@/lib/roles'
+import { isParent, memberLabel } from '@/lib/roles'
 import { chatTitle } from '../Chat/utils'
 import { ChatMenu } from '../Chat/components/ChatMenu'
 import { MutedMark } from '../Chat/styles'
@@ -198,9 +198,9 @@ function Conversation({ chat }: { chat: string | undefined }) {
     setThread((current) => ({ messages: appendMessage(current?.messages ?? [], message), hasMore: current?.hasMore ?? false, readUpTo: current?.readUpTo ?? null }))
   }
 
-  // Реакцию можно поставить на любое сообщение, а монеты начисляют только родители и только за сообщения детей.
+  // Реакцию можно поставить на любое сообщение, а монеты начисляют только родители (мама, папа) и только за сообщения детей.
   const canAward = (message: ChatMessage) =>
-    identity!.role !== 'child' && members.find((m) => m.id === message.senderId)?.role === 'child'
+    isParent(identity!.role) && members.find((m) => m.id === message.senderId)?.role === 'child'
 
   async function handleFeedback(feedback: MessageFeedback) {
     const target = feedbackFor

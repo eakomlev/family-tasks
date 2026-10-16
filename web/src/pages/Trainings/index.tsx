@@ -11,6 +11,7 @@ import { SortableList } from '@/components/SortableList'
 import { Stack } from '@/components/Stack'
 import { TrainingViewList } from '@/components/TrainingViewList'
 import { useIdentity } from '@/identity/context'
+import { isAdult, isParent } from '@/lib/roles'
 import { WEEK_DAYS } from '@/lib/weekdays'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
@@ -52,7 +53,9 @@ export default function Trainings() {
   const target = data?.members.find((m) => m.id === memberId)
   // чужое расписание открывают только родители и только расписание ребёнка из своей семьи;
   // пока список семьи не загружен, участника проверить нельзя, поэтому пропускаем (сервер проверит сам)
-  const allowed = isOwn ? isChild : !isChild && (!data || target?.role === 'child')
+  // бабушка и дедушка расписание только смотрят, менять могут сам ребёнок и родители
+  const canEdit = isOwn || isParent(identity?.role)
+  const allowed = isOwn ? isChild : isAdult(identity?.role) && (!data || target?.role === 'child')
 
   // серверное состояние из кэша (сохранённое на устройстве видно сразу, свежее приходит следом); чужие правки приходят по сокету
   // через инвалидацию кэша, черновик при этом не трогаем
@@ -178,9 +181,11 @@ export default function Trainings() {
               )}
               <TrainingViewList trainings={dayTrainings} />
               {justSaved && <Notice $tone="muted">Расписание тренировок сохранено.</Notice>}
-              <Button $variant="primary" type="button" onClick={startEditing}>
-                {hasAnyTrainings ? 'Изменить' : 'Составить расписание'}
-              </Button>
+              {canEdit && (
+                <Button $variant="primary" type="button" onClick={startEditing}>
+                  {hasAnyTrainings ? 'Изменить' : 'Составить расписание'}
+                </Button>
+              )}
             </>
           )}
         </Stack>

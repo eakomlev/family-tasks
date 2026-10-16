@@ -6,6 +6,7 @@ import { pool } from './db.js'
 import type { PushMessage } from './outbox/contract.js'
 import { enqueueToMember } from './outbox/index.js'
 import { publish } from './realtime.js'
+import { isParent } from './roles.js'
 import { coinsWord } from './tasks/text.js'
 
 const idParams = { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } }
@@ -75,7 +76,7 @@ export async function goalRoutes(app: FastifyInstance) {
   }
 
   const parentsOnly = (role: string, reply: FastifyReply) => {
-    if (role === 'child') {
+    if (!isParent(role)) {
       reply.code(403).send({ error: 'parents_only' })
       return false
     }
@@ -94,7 +95,7 @@ export async function goalRoutes(app: FastifyInstance) {
   })
 
   app.post<MemberParams & { Body: GoalInput }>('/api/members/:id/goals', { schema: { params: idParams, body: goalBody } }, async (req, reply) => {
-    const memberId = await authorizeChild(req, reply)
+    const memberId = await authorizeChild(req, reply, true)
     if (!memberId) return
     const me = (await authenticate(req))!
     if (!parentsOnly(me.role, reply)) return

@@ -25,7 +25,7 @@ export function taskMeta(
   return { parts, late }
 }
 
-const ROLE_FROM = { mama: 'от мамы', papa: 'от папы' } as const
+const ROLE_FROM = { mama: 'от мамы', papa: 'от папы', grandma: 'от бабушки', grandpa: 'от дедушки' } as const
 
 // Подпись «от кого». Задание ребёнку от родителя подписываем по-домашнему («от мамы», «от папы»),
 // во всех остальных случаях по имени автора. Пусто, если автор и есть исполнитель.

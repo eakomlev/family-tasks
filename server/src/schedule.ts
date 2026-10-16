@@ -66,7 +66,7 @@ export async function scheduleRoutes(app: FastifyInstance) {
     '/api/members/:id/schedule',
     { schema: saveScheduleSchema },
     async (req, reply) => {
-      const memberId = await authorizeChild(req, reply)
+      const memberId = await authorizeChild(req, reply, true)
       if (!memberId) return
 
       const perDay = new Map<number, number>()
