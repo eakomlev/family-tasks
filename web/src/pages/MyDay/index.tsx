@@ -9,6 +9,7 @@ import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
 import { useSetMoodMutation } from '@/store/profile'
 import { DateLine, Hero, Icon, MoodButton } from './styles'
+import { DailyFact } from './components/DailyFact'
 import { EarnedToday } from './components/EarnedToday'
 import { FamilyLessons } from './components/FamilyLessons'
 import { TodayLessons } from './components/TodayLessons'
@@ -49,6 +50,7 @@ export default function MyDay() {
         <h1>{greeting.text}, {identity?.name}!</h1>
         <DateLine>{formatToday(now)}</DateLine>
       </Hero>
+      <DailyFact now={now} />
       <EarnedToday now={now} />
       <PendingReview />
       <TodayTasks now={now} />
