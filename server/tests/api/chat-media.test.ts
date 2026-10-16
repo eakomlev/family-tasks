@@ -298,6 +298,56 @@ describe('сообщения с фото', () => {
   })
 })
 
+describe('все фото чата', () => {
+  const list = (token: string | null, chat: string, query = '', target = app) => api(target, token, 'GET', `/api/chats/${chat}/media${query}`)
+
+  it('свежие первыми, внутри сообщения по порядку; страницы по before; доступ как к чату', async () => {
+    const f = await createFamily()
+    try {
+      const a = [await photo(f.kid.token), await photo(f.kid.token)]
+      await send(f.kid.token, 'family', { mediaIds: a })
+      await new Promise((r) => setTimeout(r, 15))
+      const b = [await photo(f.mom.token)]
+      await send(f.mom.token, 'family', { text: 'вот', mediaIds: b })
+      await send(f.mom.token, 'family', { text: 'без фото' })
+
+      const all = await list(f.dad.token, 'family')
+      expect(all.status).toBe(200)
+      expect(all.body.items.map((i: any) => i.id)).toEqual([b[0], a[0], a[1]])
+      expect(all.body.hasMore).toBe(false)
+      expect(all.body.items[0]).toMatchObject({ senderId: f.mom.id, width: 1600, height: 1200 })
+      expect(new URL(all.body.items[0].thumbUrl, 'http://x').pathname).toBe(`/media/${f.id}/${b[0]}/thumb`)
+
+      // по одному фото на странице: курсор before ведёт по списку без пропусков и повторов
+      const p1 = await list(f.dad.token, 'family', '?limit=1')
+      expect(p1.body.items.map((i: any) => i.id)).toEqual([b[0]])
+      expect(p1.body.hasMore).toBe(true)
+      const p2 = await list(f.dad.token, 'family', `?limit=1&before=${b[0]}`)
+      expect(p2.body.items.map((i: any) => i.id)).toEqual([a[0]])
+      const p3 = await list(f.dad.token, 'family', `?limit=5&before=${a[0]}`)
+      expect(p3.body.items.map((i: any) => i.id)).toEqual([a[1]])
+      expect(p3.body.hasMore).toBe(false)
+
+      // личный чат видят только двое: у сестры с мамой свой чат, и фото брата там нет; неизвестный участник 404, без токена 401
+      const direct = await photo(f.kid.token, f.mom.id)
+      await send(f.kid.token, f.mom.id, { mediaIds: [direct] })
+      expect((await list(f.mom.token, f.kid.id)).body.items.map((i: any) => i.id)).toEqual([direct])
+      expect((await list(f.sis.token, f.mom.id)).body.items).toEqual([])
+      expect((await list(f.sis.token, '11111111-1111-4111-8111-111111111111')).status).toBe(404)
+      expect((await list(null, 'family')).status).toBe(401)
+      // в общем чате личные фото не видны
+      expect((await list(f.dad.token, 'family')).body.items).toHaveLength(3)
+    } finally {
+      await removeFamilies(f.id)
+    }
+  })
+
+  it('пустой чат и фото не настроены: пустой список', async () => {
+    expect((await list(fam.sis.token, fam.mom.id)).body).toEqual({ items: [], hasMore: false })
+    expect((await list(fam.mom.token, 'family', '', disabledApp)).body).toEqual({ items: [], hasMore: false })
+  })
+})
+
 describe('уборка сирот', () => {
   const insert = async (ageHours: number, attached = false) => {
     const { rows } = await pool.query(

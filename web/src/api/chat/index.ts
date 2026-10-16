@@ -1,5 +1,5 @@
 import { request, send } from '../client'
-import type { ChatMessage, ChatSummary, MessageFeedback, MessagePage } from './types'
+import type { ChatMediaItem, ChatMessage, ChatSummary, MessageFeedback, MessagePage } from './types'
 
 export const FAMILY_CHAT = 'family'
 
@@ -9,6 +9,10 @@ export const listChats = (token: string) => request<{ chats: ChatSummary[] }>('/
 // before — id самого старого уже загруженного сообщения (чтобы получить более старые)
 export const listMessages = (token: string, chat: string, before?: string) =>
   request<MessagePage>(`/chats/${chat}/messages${before ? `?before=${before}` : ''}`, {}, token)
+
+// Все фото чата, свежие первыми; before — id самого старого уже загруженного фото
+export const listChatMedia = (token: string, chat: string, before?: string) =>
+  request<{ items: ChatMediaItem[]; hasMore: boolean }>(`/chats/${chat}/media${before ? `?before=${before}` : ''}`, {}, token)
 
 // text может быть пустым, если есть фото (mediaIds из uploadChatPhoto, в порядке показа)
 export const sendMessage = (token: string, chat: string, text: string, mediaIds?: string[]) =>

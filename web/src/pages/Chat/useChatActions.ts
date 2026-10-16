@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import type { SheetAction } from '@/components/ActionSheet/types'
 import { FAMILY_CHAT } from '@/api'
@@ -8,10 +9,11 @@ import { toApiError } from '@/store/api'
 import { useClearChatMutation, useSetChatMutedMutation } from '@/store/chat'
 import { chatTitle } from './utils'
 
-// Действия над чатом для меню (три точки в переписке, долгое нажатие в списке): отключить или включить уведомления (всем)
+// Действия над чатом для меню (три точки в переписке, долгое нажатие в списке): все фото чата («Медиа файлы»), отключить или включить уведомления (всем)
 // и очистить чат (только родителям, у всех участников, безвозвратно).
 export function useChatActions(chat: string): SheetAction[] {
   const confirm = useConfirm()
+  const navigate = useNavigate()
   const { identity } = useIdentity()
   const { data } = useProfile()
   const { chats } = useChats()
@@ -23,6 +25,7 @@ export function useChatActions(chat: string): SheetAction[] {
   const title = identity ? chatTitle(chat, data?.members ?? [], identity.role) : ''
 
   const actions: SheetAction[] = [
+    { key: 'media', label: 'Медиа файлы', onSelect: () => navigate(`/chat/${chat}/media`) },
     {
       key: 'mute',
       label: muted ? 'Включить уведомления' : 'Отключить уведомления',

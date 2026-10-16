@@ -4,7 +4,7 @@ import type { Pool } from 'pg'
 import { authenticate } from './auth.js'
 import { directKey } from './chatKey.js'
 import { MediaRejected, type MediaClient } from './media/client.js'
-import { loadMedia, MAX_PHOTO_BYTES, MAX_PHOTOS, mediaQuotaBytes, photoPlaceholder, type MediaDto } from './media/index.js'
+import { loadMedia, mediaUrls, MAX_PHOTO_BYTES, MAX_PHOTOS, mediaQuotaBytes, photoPlaceholder, type MediaDto } from './media/index.js'
 import { pool } from './db.js'
 import type { PushMessage } from './outbox/contract.js'
 import { coinsWord } from './tasks/text.js'
@@ -18,6 +18,8 @@ const MAX_TEXT = 2000
 export const REACTIONS = ['👍', '❤️', '🔥', '👏', '🎉', '💪', '🤩', '😍']
 const MAX_AWARD = 1000
 const PAGE_SIZE = 50
+// фото на странице экрана «Медиа файлы»
+const MEDIA_PAGE_SIZE = 60
 const PREVIEW_LENGTH = 140
 
 export const FAMILY_CHAT = 'family'
@@ -36,6 +38,16 @@ const listMessagesSchema = {
     properties: {
       before: { type: 'string', format: 'uuid' },
       limit: { type: 'integer', minimum: 1, maximum: 100, default: PAGE_SIZE },
+    },
+  },
+}
+const listMediaSchema = {
+  params: chatParams,
+  querystring: {
+    type: 'object',
+    properties: {
+      before: { type: 'string', format: 'uuid' },
+      limit: { type: 'integer', minimum: 1, maximum: 100, default: MEDIA_PAGE_SIZE },
     },
   },
 }
@@ -278,6 +290,45 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     })
     return { chats: list }
   })
+
+  // Все фото чата, свежие первыми (экран «Медиа файлы»). before = id самого старого уже загруженного фото. Доступ как к самому чату;
+  // порядок: сообщения от новых к старым, внутри сообщения по порядку фото.
+  app.get<{ Params: { chat: string }; Querystring: { before?: string; limit?: number } }>(
+    '/api/chats/:chat/media',
+    { schema: listMediaSchema },
+    async (req, reply) => {
+      const member = await me(req, reply)
+      if (!member) return
+      const chat = await resolveChat(member, req.params.chat, reply)
+      if (!chat) return
+      if (!secret) return { items: [], hasMore: false }
+
+      const limit = req.query.limit ?? MEDIA_PAGE_SIZE
+      const { rows } = await pool.query<{ id: string; width: number; height: number; messageId: string; senderId: string; createdAt: Date }>(
+        `select md.id, md.width, md.height, ms.id as "messageId", ms.sender_id as "senderId", ms.created_at as "createdAt"
+         from message_media mm
+         join media md on md.id = mm.media_id
+         join messages ms on ms.id = mm.message_id
+         where ms.family_id = $1 and ms.chat_key = $2
+           and ($3::uuid is null or (ms.created_at, ms.id, -mm.position) < (
+             select ms2.created_at, ms2.id, -mm2.position from message_media mm2 join messages ms2 on ms2.id = mm2.message_id
+             where mm2.media_id = $3 and ms2.chat_key = $2))
+         order by ms.created_at desc, ms.id desc, mm.position asc limit $4`,
+        [member.family_id, chat.key, req.query.before ?? null, limit + 1],
+      )
+      const now = new Date()
+      const items = rows.slice(0, limit).map((r) => ({
+        id: r.id,
+        width: r.width,
+        height: r.height,
+        ...mediaUrls(secret, member.family_id, r.id, now),
+        messageId: r.messageId,
+        senderId: r.senderId,
+        createdAt: r.createdAt,
+      }))
+      return { items, hasMore: rows.length > limit }
+    },
+  )
 
   // Сообщения чата, старые сверху. Без before отдаются самые свежие; before = id самого старого уже загруженного.
   app.get<{ Params: { chat: string }; Querystring: { before?: string; limit?: number } }>(

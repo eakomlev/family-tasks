@@ -10,6 +10,7 @@ import { SessionSync } from '@/store/SessionSync'
 import { useThemeSync } from '@/lib/useThemeSync'
 import Chat from '@/pages/Chat'
 import Coins from '@/pages/Coins'
+import ChatMedia from '@/pages/ChatMedia'
 import ChatRoom from '@/pages/ChatRoom'
 import CreateFamily from '@/pages/CreateFamily'
 import Family from '@/pages/Family'
@@ -66,6 +67,7 @@ export default function App() {
               <Route path="/lesson-report" element={<LessonReport />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/chat/:chat" element={<ChatRoom />} />
+              <Route path="/chat/:chat/media" element={<ChatMedia />} />
               <Route path="/my-day" element={<MyDay />} />
               <Route path="/family" element={<Family />} />
               <Route path="/family/invite" element={<Invite />} />

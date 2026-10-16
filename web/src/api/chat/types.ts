@@ -19,6 +19,13 @@ export interface ChatMedia {
   fullUrl: string
 }
 
+// Фото в списке всех фото чата: то же, что в сообщении, плюс откуда оно
+export interface ChatMediaItem extends ChatMedia {
+  messageId: string
+  senderId: string
+  createdAt: string
+}
+
 export interface ChatMessage {
   id: string
   senderId: string
