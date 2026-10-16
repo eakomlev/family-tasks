@@ -22,13 +22,26 @@ export const PRIORITY = {
 
 export type Priority = (typeof PRIORITY)[keyof typeof PRIORITY]
 
-export interface EmailPayload {
+// письмо с кодом входа
+export interface CodeEmail {
   v: typeof PAYLOAD_VERSION
   kind: 'code'
   to: string
   code: string
   ttlMinutes: number
 }
+
+// письмо-приглашение в семью: ссылка на присоединение; ttlMinutes сколько письмо ждёт отправки
+export interface InviteEmail {
+  v: typeof PAYLOAD_VERSION
+  kind: 'invite'
+  to: string
+  inviterName: string
+  link: string
+  ttlMinutes: number
+}
+
+export type EmailPayload = CodeEmail | InviteEmail
 
 export interface PushPayload {
   v: typeof PAYLOAD_VERSION

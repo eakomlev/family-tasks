@@ -14,6 +14,7 @@ import {
 } from './auth.js'
 import { familyCode, hashToken, inviteCode } from './codes.js'
 import { pool } from './db.js'
+import type { CaptchaVerifier } from './captcha.js'
 import { coinBalance } from './coins.js'
 import { mailBudgetExhausted } from './outbox/budget.js'
 import { enqueue, PRIORITY } from './outbox/index.js'
@@ -38,7 +39,7 @@ const emailCodeSchema = {
     type: 'object',
     required: ['email', 'purpose'],
     additionalProperties: false,
-    properties: { email: emailSchema, purpose: { enum: ['signup', 'login'] } },
+    properties: { email: emailSchema, purpose: { enum: ['signup', 'login'] }, captchaToken: { type: 'string', maxLength: 4096 } },
   },
 }
 
@@ -137,7 +138,7 @@ async function insertMember(
   return { id, name, role: body.role, isOwner, token }
 }
 
-async function issueInvite(db: Pick<PoolClient, 'query'>, familyId: string) {
+export async function issueInvite(db: Pick<PoolClient, 'query'>, familyId: string) {
   // новая ссылка заменяет старые: так владелец может отозвать утёкшее приглашение
   await db.query('delete from invites where family_id = $1', [familyId])
   const { rows } = await db.query(
@@ -153,7 +154,10 @@ function constraintOf(err: unknown): string | undefined {
   return e.code === UNIQUE_VIOLATION ? e.constraint : undefined
 }
 
-export async function routes(app: FastifyInstance) {
+export async function routes(app: FastifyInstance, { captcha }: { captcha: CaptchaVerifier | null }) {
+  // ключ клиента для виджета капчи; пусто: капча выключена и токен не нужен
+  app.get('/api/captcha/config', { config: { public: true } }, async () => ({ siteKey: captcha?.siteKey ?? null }))
+
   app.get('/api/health', { config: { public: true } }, async (_req, reply) => {
     try {
       await pool.query('select 1')
@@ -165,12 +169,21 @@ export async function routes(app: FastifyInstance) {
   })
 
   // отправка кода на почту. Ответ не зависит от того, известен ли email, чтобы адреса нельзя было перебирать
-  app.post<{ Body: { email: string; purpose: Purpose } }>(
+  app.post<{ Body: { email: string; purpose: Purpose; captchaToken?: string } }>(
     '/api/email-codes',
     { schema: emailCodeSchema, config: publicStrict },
     async (req, reply) => {
       const email = normalizeEmail(req.body.email)
       const { purpose } = req.body
+
+      // Капча первой и не зависит от адреса: ответ ничего не раскрывает про email, а бот не доходит ни до кода, ни до бюджета писем.
+      // Если сервис капчи не ответил, пропускаем (иначе его сбой не даст войти никому); от перебора по-прежнему защищает строгий лимит.
+      if (captcha) {
+        if (!req.body.captchaToken) return reply.code(400).send({ error: 'captcha_required' })
+        const result = await captcha.verify(req.body.captchaToken, req.ip)
+        if (result === 'failed') return reply.code(400).send({ error: 'captcha_failed' })
+        if (result === 'unavailable') req.log.error('captcha service unavailable, check skipped')
+      }
 
       // Письма отправляет notifier в пределах дневного бюджета. Если он исчерпан, код не дойдёт до истечения (10 минут),
       // поэтому честно отказываем сразу. Проверка первая и не зависит от адреса, так что ответ ничего не раскрывает,

@@ -4,12 +4,22 @@ import { parsePayload } from '../../src/contract.js'
 
 // Общий образец (contracts/outbox-v1.json) проверяет и server (server/tests/api/outbox.test.ts): так контракт не расходится.
 const sample = JSON.parse(readFileSync(new URL('../../../contracts/outbox-v1.json', import.meta.url), 'utf8'))
-const { email, push, message } = sample
+const { email, emailInvite, push, message } = sample
 
 describe('parsePayload', () => {
   it('принимает письмо с кодом и push из server', () => {
     expect(parsePayload('email', email)).toEqual({ ok: true, channel: 'email', payload: email })
     expect(parsePayload('push', push)).toEqual({ ok: true, channel: 'push', payload: push })
+  })
+
+  it('принимает письмо-приглашение с ссылкой', () => {
+    expect(parsePayload('email', emailInvite)).toEqual({ ok: true, channel: 'email', payload: emailInvite })
+  })
+
+  it('письмо-приглашение без имени или с чужой ссылкой отвергается', () => {
+    expect(parsePayload('email', { ...emailInvite, inviterName: '' })).toMatchObject({ ok: false, reason: 'invalid' })
+    expect(parsePayload('email', { ...emailInvite, link: 'javascript:alert(1)' })).toMatchObject({ ok: false, reason: 'invalid' })
+    expect(parsePayload('email', { ...emailInvite, kind: 'unknown' })).toMatchObject({ ok: false, reason: 'invalid' })
   })
 
   it('лишние поля отбрасывает', () => {

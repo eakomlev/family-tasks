@@ -25,6 +25,11 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       # администраторы сервиса (раздел «Сервис» в профиле), email через запятую
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # адрес сайта для ссылок в письмах-приглашениях: PUBLIC_URL или https://DOMAIN
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      DOMAIN: ${DOMAIN:-}
+      SMARTCAPTCHA_CLIENT_KEY: ${SMARTCAPTCHA_CLIENT_KEY:-}
+      SMARTCAPTCHA_SERVER_KEY: ${SMARTCAPTCHA_SERVER_KEY:-}
       # дневной лимит писем: тот же, что у notifier (по нему API отказывает, когда бюджет исчерпан)
       MAIL_DAILY_LIMIT: ${MAIL_DAILY_LIMIT:-2800}
       # фото в чатах: без обоих секретов отправка фото выключена (текст работает); подробности в docs/chat-photos-plan.md

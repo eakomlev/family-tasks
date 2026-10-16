@@ -10,12 +10,12 @@ import { describeSignupError } from './utils'
 import { useInFlight } from '@/lib/useInFlight'
 
 // два шага: роль, имя и email, затем код из письма
-export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
+export function RoleForm({ roles, submitLabel, initialEmail, onSubmit }: RoleFormProps) {
   const guard = useInFlight()
   const [step, setStep] = useState<Step>('details')
   const [role, setRole] = useState<Role | null>(null)
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(initialEmail ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 

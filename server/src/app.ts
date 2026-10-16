@@ -3,9 +3,11 @@ import websocket from '@fastify/websocket'
 import Fastify, { type RouteOptions } from 'fastify'
 import { authenticate } from './auth.js'
 import { adminRoutes } from './admin.js'
+import { captchaFromEnv, type CaptchaVerifier } from './captcha.js'
 import { chatRoutes } from './chat.js'
 import { coinRoutes } from './coins.js'
 import { goalRoutes } from './goals.js'
+import { inviteRoutes } from './invites.js'
 import { createMediaClient, mediaEnv, type MediaClient } from './media/client.js'
 import { robloxRoutes } from './roblox.js'
 import { pushRoutes } from './push.js'
@@ -33,10 +35,13 @@ interface Options {
   rateLimit?: boolean
   // фото в чатах: клиент сервиса media и секрет подписи ссылок; по умолчанию из окружения, null отключает фото
   media?: { client: MediaClient; secret: string } | null
+  // капча перед отправкой кода на почту; по умолчанию из окружения (SMARTCAPTCHA_*), null выключает
+  captcha?: CaptchaVerifier | null
 }
 
 // Собирает приложение, но не запускает его: запуск и планировщик в index.ts, тесты работают через app.inject.
-export async function buildApp({ logger = true, rateLimit: limit = true, onRoute, media }: Options = {}) {
+export async function buildApp({ logger = true, rateLimit: limit = true, onRoute, media, captcha }: Options = {}) {
+  if (captcha === undefined) captcha = captchaFromEnv()
   if (media === undefined) {
     const env = mediaEnv()
     media = env ? { client: createMediaClient(env), secret: env.secret } : null
@@ -73,7 +78,8 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
   if (limit) await app.register(rateLimit, { max: GENERAL_LIMIT_PER_MINUTE, timeWindow: '1 minute' })
   await app.register(websocket, { options: { maxPayload: MAX_PAYLOAD } })
   await app.register(realtimeRoutes)
-  await app.register(routes)
+  await app.register(routes, { captcha })
+  await app.register(inviteRoutes)
   await app.register(scheduleRoutes)
   await app.register(trainingRoutes)
   await app.register(taskRoutes)

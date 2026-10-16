@@ -17,7 +17,7 @@ const PROBLEMS: Partial<Record<InviteState, string>> = {
   error: 'Не удалось проверить приглашение. Попробуйте позже.',
 }
 
-export function JoinWithCode({ code }: JoinWithCodeProps) {
+export function JoinWithCode({ code, email }: JoinWithCodeProps) {
   const { save } = useIdentity()
   const navigate = useNavigate()
   const [invite, setInvite] = useState<InviteState>('checking')
@@ -54,7 +54,7 @@ export function JoinWithCode({ code }: JoinWithCodeProps) {
     <>
       <p>Вас приглашают в семью.</p>
       <ReplaceGuard>
-        <RoleForm roles={JOIN_ROLES} submitLabel="Присоединиться" onSubmit={handleSubmit} />
+        <RoleForm roles={JOIN_ROLES} submitLabel="Присоединиться" initialEmail={email} onSubmit={handleSubmit} />
       </ReplaceGuard>
     </>
   )

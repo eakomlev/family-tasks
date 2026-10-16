@@ -24,6 +24,7 @@ afterAll(async () => {
 const PUBLIC = [
   'GET /api/health',
   'GET /api/push/config',
+  'GET /api/captcha/config',
   'POST /api/email-codes',
   'POST /api/families',
   'GET /api/invites/:code',
