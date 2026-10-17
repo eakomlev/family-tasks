@@ -14,13 +14,13 @@ export function AuthPage({ children, bare }: { children: ReactNode; bare?: boole
 
 export { AuthCard } from './styles'
 
-// Логотип: золотая монета с галочкой (как значок приложения)
+// Логотип: белый дом с галочкой на индиго (как значок приложения)
 export function AppLogo() {
   return (
     <AuthLogo viewBox="0 0 64 64" aria-hidden focusable="false">
-      <circle cx="32" cy="32" r="29" fill="#fbbf24" stroke="#d97706" strokeWidth="4" />
-      <circle cx="32" cy="32" r="21" fill="none" stroke="#d97706" strokeWidth="2.4" opacity="0.6" />
-      <path d="m20 33 8 8 16-18" fill="none" stroke="#b45309" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+      <rect width="64" height="64" rx="14" fill="#4f46e5" />
+      <path d="M32 15 13.25 30.75H20.25V47.75H43.75V30.75H50.75Z" fill="#fff" stroke="#fff" strokeWidth="5.5" strokeLinejoin="round" />
+      <path d="M24.5 38.5 30 44 40.3 32.8" fill="none" stroke="#4f46e5" strokeWidth="3.75" strokeLinecap="round" strokeLinejoin="round" />
     </AuthLogo>
   )
 }
