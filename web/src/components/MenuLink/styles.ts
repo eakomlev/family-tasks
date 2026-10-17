@@ -7,9 +7,10 @@ export const Item = styled(Link)`
   justify-content: space-between;
   gap: 1rem;
   padding: 0.9rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.8rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
   background: var(--surface);
+  box-shadow: var(--card-shadow);
   color: inherit;
   text-decoration: none;
 

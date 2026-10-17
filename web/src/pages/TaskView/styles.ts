@@ -3,9 +3,10 @@ import styled from 'styled-components'
 export const Description = styled.p`
   margin: 0;
   padding: 0.8rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.8rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
   background: var(--surface);
+  box-shadow: var(--card-shadow);
   /* переносы строк из текста сохраняются */
   white-space: pre-wrap;
   overflow-wrap: anywhere;

@@ -1,6 +1,6 @@
 import { useChats } from '@/chat/context'
 import { useTaskBadge } from '@/tasks/context'
-import { Badge, Bar, Icon, IconWrap, TabLink, Tabs } from './styles'
+import { Badge, Bar, Icon, IconWrap, Label, TabLink, Tabs } from './styles'
 import { TabIcon } from './TabIcon'
 import { TABS } from './utils'
 
@@ -24,7 +24,7 @@ export function TabBar() {
                       <Badge aria-label={`Непрочитанных сообщений: ${unread}`}>{unread > 99 ? '99+' : unread}</Badge>
                     )}
                   </IconWrap>
-                  {tab.label}
+                  <Label $active={isActive}>{tab.label}</Label>
                 </>
               )}
             </TabLink>

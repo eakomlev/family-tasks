@@ -11,6 +11,7 @@ import { toApiError } from '@/store/api'
 import { useSetMoodMutation } from '@/store/profile'
 import { CalendarLink, DateLine, GreetingRow, Hero, Icon, MoodButton } from './styles'
 import { DailyFact } from './components/DailyFact'
+import { DayProgress } from './components/DayProgress'
 import { EarnedToday } from './components/EarnedToday'
 import { FamilyLessons } from './components/FamilyLessons'
 import { TodayLessons } from './components/TodayLessons'
@@ -42,7 +43,7 @@ export default function MyDay() {
       <Hero>
         {/* слева вверху семейный календарь со сегодняшним числом */}
         <CalendarLink to="/calendar" aria-label="Семейный календарь">
-          <CalendarIcon day={now.getDate()} />
+          <CalendarIcon date={now} />
         </CalendarLink>
         <GreetingRow>
           {/* значок времени суток слева от приветствия */}
@@ -57,6 +58,7 @@ export default function MyDay() {
         </GreetingRow>
         <DateLine>{formatToday(now)}</DateLine>
       </Hero>
+      <DayProgress now={now} />
       <DailyFact now={now} />
       <EarnedToday now={now} />
       <PendingReview />

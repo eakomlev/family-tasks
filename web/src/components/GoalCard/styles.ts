@@ -6,9 +6,10 @@ export const Card = styled(Link)`
   align-items: center;
   gap: 0.8rem;
   padding: 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 0.8rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
   background: var(--surface);
+  box-shadow: var(--card-shadow);
   color: inherit;
   text-decoration: none;
 
@@ -51,9 +52,9 @@ export const Price = styled.span`
 // сколько накоплено от цены
 export const Progress = styled.span<{ $ratio: number }>`
   display: block;
-  height: 0.4rem;
+  height: 0.5rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  background: var(--track);
   overflow: hidden;
 
   &::after {
@@ -62,7 +63,7 @@ export const Progress = styled.span<{ $ratio: number }>`
     width: ${({ $ratio }) => Math.round(Math.min(1, Math.max(0, $ratio)) * 100)}%;
     height: 100%;
     border-radius: inherit;
-    background: var(--accent);
+    background: var(--coin);
   }
 `
 

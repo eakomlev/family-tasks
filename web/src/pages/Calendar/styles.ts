@@ -227,10 +227,11 @@ export const List = styled.ul`
 
 export const Row = styled.li<{ $kind: string }>`
   position: relative;
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-left: 4px solid var(--cal-${({ $kind }) => $kind});
-  border-radius: 0.8rem;
+  border-radius: var(--radius-card);
   background: var(--surface);
+  box-shadow: var(--card-shadow);
 
   > a,
   > div {

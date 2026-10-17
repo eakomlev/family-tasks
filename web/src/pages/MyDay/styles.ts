@@ -14,7 +14,8 @@ export const CalendarLink = styled(Link)`
   width: 3rem;
   height: 3rem;
   margin-top: -0.5rem;
-  border-radius: 0.8rem;
+  border-radius: 1rem;
+  text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 
   &:focus-visible {
@@ -46,6 +47,7 @@ export const Icon = styled.div`
 
 export const DateLine = styled.p`
   color: var(--muted);
+  font-weight: 700;
 `
 
 // настроение ребёнка на месте значка времени суток: тот же размер, но нажимается

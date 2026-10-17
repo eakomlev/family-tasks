@@ -58,7 +58,8 @@ export const Reward = styled.div`
   padding: 0.5rem 1rem;
   border-radius: 999px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
   font-size: 1.2rem;
   font-weight: 700;
 

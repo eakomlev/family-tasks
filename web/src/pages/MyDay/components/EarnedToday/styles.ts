@@ -7,9 +7,10 @@ export const Banner = styled(Link)`
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  border: 1px solid color-mix(in srgb, #d97706 45%, var(--border));
-  border-radius: 0.9rem;
-  background: color-mix(in srgb, #fbbf24 14%, var(--surface));
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
   color: inherit;
   text-decoration: none;
 
@@ -20,7 +21,7 @@ export const Banner = styled(Link)`
   }
 
   &:hover {
-    border-color: #d97706;
+    border-color: var(--coin);
   }
 
   &:focus-visible {

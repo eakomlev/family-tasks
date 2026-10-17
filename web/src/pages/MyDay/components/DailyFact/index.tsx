@@ -35,7 +35,7 @@ export function DailyFact({ now }: DailyFactProps) {
         </div>
       </Head>
       <Text>{fact.text}</Text>
-      <Button type="button" onClick={close}>Класс!</Button>
+      <Button type="button" $variant="lime" $inline onClick={close}>Класс!</Button>
     </Card>
   )
 }

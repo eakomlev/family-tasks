@@ -1,6 +1,7 @@
 import { Avatar } from '@/components/Avatar'
+import { coinsWord } from '@/lib/coins'
 import { formatDateTime } from '@/lib/date'
-import { Actions, Body, Badge, Card, Chevron, Hidden, Inner, Meta, Row, Shell, Title, Who } from './styles'
+import { Actions, Body, Badge, Card, Chevron, Reward, Hidden, Inner, Meta, Row, Shell, Title, Who } from './styles'
 import { TaskIcon } from './TaskIcon'
 import type { TaskItemProps, TaskState } from './types'
 import { authorLabel, taskMeta } from './utils'
@@ -43,7 +44,15 @@ export function TaskItem({ task, occurrence, assignee, showAssignee, author, don
           </Meta>
         )}
       </Body>
-      <Chevron aria-hidden>›</Chevron>
+      {/* награда за выполнение: видно, что задание «стоит» монет */}
+      {task.reward > 0 ? (
+        <Reward $done={done}>
+          +{task.reward}
+          <Hidden>{coinsWord(task.reward).slice(String(task.reward).length)}</Hidden>
+        </Reward>
+      ) : (
+        <Chevron aria-hidden>›</Chevron>
+      )}
     </>
   )
 

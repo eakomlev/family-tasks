@@ -6,9 +6,10 @@ export const Card = styled.div`
   display: grid;
   gap: 0.35rem;
   padding: 0.6rem 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: 0.8rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
   background: var(--surface);
+  box-shadow: var(--card-shadow);
 
   &:hover {
     border-color: var(--accent);

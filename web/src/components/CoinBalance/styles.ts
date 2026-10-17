@@ -7,9 +7,10 @@ export const Chip = styled(Link)`
   gap: 0.35rem;
   height: 2.25rem;
   padding: 0 0.8rem 0 0.5rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 999px;
   background: var(--surface);
+  box-shadow: var(--card-shadow);
   color: var(--text);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -36,9 +37,10 @@ export const Card = styled(Link)`
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.8rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
   background: var(--surface);
+  box-shadow: var(--card-shadow);
   color: inherit;
   text-decoration: none;
 

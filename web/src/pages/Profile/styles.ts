@@ -45,9 +45,10 @@ export const Hero = styled.section`
 
 export const Badge = styled.span`
   padding: 0.2rem 0.7rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 999px;
   background: var(--surface);
+  box-shadow: var(--card-shadow);
   color: var(--muted);
   font-size: 0.85rem;
 `

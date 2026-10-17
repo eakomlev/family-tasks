@@ -21,6 +21,8 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       registerType: 'autoUpdate',
+      // шрифт Nunito (кириллица и латиница) кладём в кэш вместе с приложением: без сети буквы не «прыгают» на системный шрифт
+      injectManifest: { globPatterns: ['**/*.{js,css,html}', 'assets/nunito-{cyrillic,latin}-wght-normal-*.woff2'] },
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
         // постоянный идентификатор приложения: смена названия и значка воспринимается как обновление того же приложения
@@ -29,8 +31,8 @@ export default defineConfig({
         short_name: 'Моя Семья',
         description: 'Задания, расписание, чат и дела всей семьи',
         lang: 'ru',
-        theme_color: '#4f46e5',
-        background_color: '#14131f',
+        theme_color: '#4b3bff',
+        background_color: '#0b0e1f',
         display: 'standalone',
         icons: [
           { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },

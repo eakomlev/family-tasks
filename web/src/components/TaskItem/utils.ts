@@ -1,9 +1,8 @@
 import type { Member, Occurrence, Task } from '@/api'
-import { coinsWord } from '@/lib/coins'
 import { formatDayMonth } from '@/lib/date'
 import { describeRepeat } from '@/lib/taskText'
 
-// Что написать под названием: срок, время, повтор. Просроченное помечается.
+// Что написать под названием: срок, время, повтор (награда показана отдельной плашкой). Просроченное помечается.
 export function taskMeta(
   task: Task,
   occurrence: Occurrence,
@@ -20,8 +19,6 @@ export function taskMeta(
   if (task.time) parts.push(task.time)
   const repeat = describeRepeat(task.repeat)
   if (repeat) parts.push(task.repeat.until ? `${repeat} до ${formatDayMonth(task.repeat.until)}` : repeat)
-  // награда за выполнение: видно, что задание «стоит» монет
-  if (task.reward > 0) parts.push(`+${coinsWord(task.reward)}`)
   return { parts, late }
 }
 

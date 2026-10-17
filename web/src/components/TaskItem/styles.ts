@@ -9,12 +9,13 @@ export const Row = styled.li`
 // вся карточка — ссылка на страницу задания
 export const Card = styled(Link)`
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.75rem;
-  padding: 0.7rem 0.9rem;
-  border: 1px solid var(--border);
-  border-radius: 0.8rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
   background: var(--surface);
+  box-shadow: var(--card-shadow);
   color: inherit;
   text-decoration: none;
 
@@ -32,21 +33,21 @@ export const Card = styled(Link)`
   }
 `
 
-// значок состояния: что сделано, что ещё нет, что просрочено
 // Карточка с кнопками проверки: та же рамка, но ссылкой остаётся только верхняя часть, а кнопки лежат под ней
 // (кнопка внутри ссылки недопустима).
 export const Shell = styled.div`
-  border: 1px solid var(--border);
-  border-radius: 0.8rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
   background: var(--surface);
+  box-shadow: var(--card-shadow);
   overflow: hidden;
 `
 
 export const Inner = styled(Link)`
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.75rem;
-  padding: 0.7rem 0.9rem;
+  padding: 0.75rem 0.9rem;
   color: inherit;
   text-decoration: none;
 
@@ -65,19 +66,21 @@ export const Actions = styled.div`
     flex: 1;
     padding: 0.55rem 0.8rem;
     border: 1px solid var(--border);
-    border-radius: 0.7rem;
+    border-radius: 999px;
     background: var(--surface);
     color: var(--text);
     font: inherit;
-    font-weight: 600;
+    font-weight: 800;
     cursor: pointer;
   }
 
+  /* подтверждение с наградой: лаймовая кнопка действия */
   button[data-primary] {
     flex: 1.6;
-    border-color: var(--accent);
-    background: var(--accent);
-    color: var(--accent-text);
+    border-color: var(--lime);
+    background: var(--lime);
+    color: var(--on-lime);
+    font-weight: 900;
   }
 
   button:disabled {
@@ -91,20 +94,22 @@ export const Actions = styled.div`
   }
 `
 
+// круглая «галочка», как в игре: пустой круг у открытого, лаймовый у выполненного,
+// песочные часы у ждущего проверки, часы у просроченного
 export const Badge = styled.span<{ $state: TaskState }>`
   flex: none;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2rem;
+  height: 2rem;
   display: grid;
   place-items: center;
-  border-radius: 0.7rem;
+  border-radius: 50%;
 
   svg {
-    width: 1.35rem;
-    height: 1.35rem;
+    width: 1.2rem;
+    height: 1.2rem;
     fill: none;
     stroke: currentColor;
-    stroke-width: 1.8;
+    stroke-width: 2.2;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
@@ -112,13 +117,13 @@ export const Badge = styled.span<{ $state: TaskState }>`
   ${({ $state }) =>
     $state === 'done'
       ? css`
-          background: var(--accent);
-          color: var(--accent-text);
+          background: var(--lime);
+          color: var(--on-lime);
         `
       : $state === 'pending'
         ? css`
-            background: color-mix(in srgb, #f59e0b 20%, transparent);
-            color: #d97706;
+            background: var(--review-bg);
+            color: var(--review-text);
           `
       : $state === 'late'
         ? css`
@@ -126,9 +131,26 @@ export const Badge = styled.span<{ $state: TaskState }>`
             color: var(--error);
           `
         : css`
-            background: color-mix(in srgb, var(--accent) 14%, transparent);
-            color: var(--accent);
+            border: 2.5px solid var(--check-border);
+
+            svg {
+              display: none;
+            }
           `}
+`
+
+// плашка награды справа: золотая, у выполненного приглушённая
+export const Reward = styled.span<{ $done: boolean }>`
+  flex: none;
+  align-self: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: var(--coin-bg);
+  color: var(--coin-text);
+  font-size: 0.85rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  opacity: ${({ $done }) => ($done ? 0.6 : 1)};
 `
 
 export const Body = styled.div`
@@ -143,6 +165,7 @@ export const Body = styled.div`
 `
 
 export const Title = styled.span<{ $done: boolean }>`
+  font-weight: 800;
   color: ${({ $done }) => ($done ? 'var(--muted)' : 'var(--text)')};
   text-decoration: ${({ $done }) => ($done ? 'line-through' : 'none')};
   overflow-wrap: anywhere;
@@ -155,6 +178,7 @@ export const Meta = styled.span<{ $late?: boolean }>`
   gap: 0.2rem 0.6rem;
   color: ${({ $late }) => ($late ? 'var(--error)' : 'var(--muted)')};
   font-size: 0.85rem;
+  font-weight: 700;
 `
 
 export const Who = styled.span`

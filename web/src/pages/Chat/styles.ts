@@ -101,7 +101,7 @@ export const Name = styled.strong<{ $unread: boolean }>`
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 1.05rem;
-  font-weight: 600;
+  font-weight: 800;
 `
 
 // время последнего сообщения и (у моего сообщения) галочки статуса

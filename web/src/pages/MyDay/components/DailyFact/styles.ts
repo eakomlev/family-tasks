@@ -6,9 +6,14 @@ export const Card = styled.section`
   flex-direction: column;
   gap: 0.6rem;
   padding: 1rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
-  border-radius: 1rem;
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border: 1px solid var(--card-border);
+  border-radius: 1.6rem;
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+
+  button {
+    align-self: flex-start;
+  }
 `
 
 export const Head = styled.div`
@@ -26,13 +31,13 @@ export const Label = styled.span`
   display: block;
   color: var(--muted);
   font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 800;
 `
 
 export const Title = styled.h2`
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
+  font-weight: 900;
 `
 
 export const Text = styled.p`

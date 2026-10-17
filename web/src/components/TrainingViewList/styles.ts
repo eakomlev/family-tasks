@@ -14,9 +14,10 @@ export const Item = styled.li`
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.7rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.8rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
   background: var(--surface);
+  box-shadow: var(--card-shadow);
 `
 
 export const Main = styled.div`

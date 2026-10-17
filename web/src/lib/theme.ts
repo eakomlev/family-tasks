@@ -5,7 +5,7 @@ export const THEME_ORDER: ThemePreference[] = ['system', 'light', 'dark']
 const STORAGE_KEY = 'theme'
 
 // цвет строки состояния браузера: совпадает с --bg в GlobalStyle
-const THEME_COLORS = { light: '#f7f7fb', dark: '#14131f' }
+const THEME_COLORS = { light: '#f1f4ff', dark: '#0b0e1f' }
 
 export function readPreference(): ThemePreference {
   try {

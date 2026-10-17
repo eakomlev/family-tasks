@@ -1,5 +1,5 @@
 export interface ButtonStyleProps {
-  $variant?: 'primary' | 'danger' | 'text'
+  $variant?: 'primary' | 'lime' | 'danger' | 'text'
   // по ширине содержимого, а не на всю строку
   $inline?: boolean
 }

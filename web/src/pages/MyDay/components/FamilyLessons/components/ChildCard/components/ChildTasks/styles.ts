@@ -60,18 +60,20 @@ export const Time = styled.span`
   font-size: 0.8rem;
 `
 
-// маленький значок состояния: галочка у выполненного, кружок у остальных
+// маленький значок состояния, как у карточек заданий: лаймовая галочка у выполненного,
+// фиолетовый кружок у ждущего проверки, пустой у остальных
 export const Mark = styled.span<{ $done: boolean; $pending?: boolean }>`
   flex: none;
   width: 1.1rem;
   height: 1.1rem;
   display: grid;
   place-items: center;
-  border: 1.5px solid ${({ $done, $pending }) => ($done ? 'var(--accent)' : $pending ? '#d97706' : 'var(--border)')};
+  border: 2px solid ${({ $done, $pending }) => ($done ? 'var(--lime)' : $pending ? 'var(--review-text)' : 'var(--check-border)')};
   border-radius: 50%;
-  background: ${({ $done, $pending }) => ($done ? 'var(--accent)' : $pending ? 'color-mix(in srgb, #d97706 25%, transparent)' : 'transparent')};
-  color: var(--accent-text);
+  background: ${({ $done, $pending }) => ($done ? 'var(--lime)' : $pending ? 'var(--review-bg)' : 'transparent')};
+  color: ${({ $done, $pending }) => ($done ? 'var(--on-lime)' : $pending ? 'var(--review-text)' : 'transparent')};
   font-size: 0.65rem;
+  font-weight: 900;
   line-height: 1;
 `
 

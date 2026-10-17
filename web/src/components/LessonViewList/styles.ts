@@ -14,9 +14,10 @@ export const Item = styled.li<{ $link?: boolean }>`
   align-items: center;
   gap: 0.75rem;
   padding: ${({ $link }) => ($link ? '0' : '0.75rem 1rem')};
-  border: 1px solid var(--border);
-  border-radius: 0.8rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
   background: var(--surface);
+  box-shadow: var(--card-shadow);
 
   &:hover {
     border-color: ${({ $link }) => ($link ? 'var(--accent)' : 'var(--border)')};

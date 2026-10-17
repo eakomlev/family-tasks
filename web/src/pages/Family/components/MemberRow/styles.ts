@@ -11,9 +11,10 @@ export const Card = styled(Link)`
   align-items: center;
   gap: 0.75rem;
   padding: 0.6rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.8rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
   background: var(--surface);
+  box-shadow: var(--card-shadow);
   color: inherit;
   text-decoration: none;
 
@@ -30,5 +31,6 @@ export const Card = styled(Link)`
 export const Name = styled.span`
   flex: 1;
   min-width: 0;
+  font-weight: 800;
   overflow-wrap: anywhere;
 `
