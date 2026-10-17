@@ -6,7 +6,7 @@ import { useIdentity } from '@/identity/context'
 import { MAX_FAMILY_MEMBERS, ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
 import { MemberRow } from './components/MemberRow'
-import { Members } from './styles'
+import { DeleteLink, Members } from './styles'
 
 export default function Family() {
   const { identity } = useIdentity()
@@ -30,6 +30,8 @@ export default function Family() {
 
       {data?.me.isOwner && data.members.length < MAX_FAMILY_MEMBERS && <MenuLink to="/family/invite">Пригласить</MenuLink>}
       {data?.me.isOwner && data.members.length >= MAX_FAMILY_MEMBERS && <Notice $tone="muted">В семье максимум участников ({MAX_FAMILY_MEMBERS}), пригласить ещё кого-то нельзя.</Notice>}
+      {/* в самом низу, только создателю семьи */}
+      {data?.me.isOwner && <DeleteLink to="/family/delete">Удалить семейный аккаунт</DeleteLink>}
     </Page>
   )
 }

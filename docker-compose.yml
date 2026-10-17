@@ -82,6 +82,9 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       # без публичного ключа VAPID уведомления выключены, как у server
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      # удаление семьи: сначала файлы в сервисе media, потом данные в базе
+      MEDIA_URL: http://media:3000
+      MEDIA_INTERNAL_TOKEN: ${MEDIA_INTERNAL_TOKEN:-}
     healthcheck:
       test: ["CMD", "node", "dist/healthcheck.js"]
       interval: 30s

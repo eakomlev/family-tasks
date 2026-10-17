@@ -16,6 +16,7 @@ import CalendarSettings from '@/pages/CalendarSettings'
 import ChatMedia from '@/pages/ChatMedia'
 import ChatRoom from '@/pages/ChatRoom'
 import EventForm from '@/pages/EventForm'
+import FamilyDelete from '@/pages/FamilyDelete'
 import EventView from '@/pages/EventView'
 import CreateFamily from '@/pages/CreateFamily'
 import Family from '@/pages/Family'
@@ -82,6 +83,7 @@ export default function App() {
               <Route path="/my-day" element={<MyDay />} />
               <Route path="/family" element={<Family />} />
               <Route path="/family/invite" element={<Invite />} />
+              <Route path="/family/delete" element={<FamilyDelete />} />
               <Route path="/family/:memberId" element={<MemberPreview />} />
               <Route path="/profile/schedule" element={<Schedule />} />
               <Route path="/profile/trainings" element={<Trainings />} />

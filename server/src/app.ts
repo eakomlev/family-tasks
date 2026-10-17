@@ -7,6 +7,7 @@ import { captchaFromEnv, type CaptchaVerifier } from './captcha.js'
 import { chatRoutes } from './chat.js'
 import { coinRoutes } from './coins.js'
 import { eventRoutes } from './events.js'
+import { familyDeletionRoutes } from './familyDeletion.js'
 import { goalRoutes } from './goals.js'
 import { inviteRoutes } from './invites.js'
 import { createMediaClient, mediaEnv, type MediaClient } from './media/client.js'
@@ -92,6 +93,7 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
   await app.register(robloxRoutes)
   await app.register(goalRoutes)
   await app.register(eventRoutes)
+  await app.register(familyDeletionRoutes)
   await app.register(adminRoutes, { media })
   return app
 }
