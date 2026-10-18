@@ -1,23 +1,21 @@
-// Генерирует короткий тихий звук отправки сообщения (assets/sounds/send.wav): мягкий «блип» с быстро затухающим тоном.
+// Генерирует звук отправки сообщения (assets/sounds/send.wav): очень короткий мягкий «поп» (0,1 с), тон быстро идёт вверх и затухает.
 // Запуск из каталога mobile/:  node scripts/generate-sound.cjs
 const fs = require('node:fs')
 const path = require('node:path')
 
 const RATE = 44100
-const DURATION = 0.13
+const DURATION = 0.1
 const total = Math.floor(RATE * DURATION)
 const samples = new Int16Array(total)
 let phase = 0
 for (let i = 0; i < total; i++) {
   const t = i / RATE
-  // тон плавно идёт вверх (650 → 980 Гц), как лёгкий «пуф»
-  const freq = 650 + (980 - 650) * Math.min(1, t / 0.07)
+  // тон поднимается с 260 до 960 Гц за 30 мс
+  const freq = 260 + 700 * Math.min(1, t / 0.03)
   phase += (2 * Math.PI * freq) / RATE
-  // быстрое нарастание (4 мс) и плавное затухание
-  const attack = Math.min(1, t / 0.004)
-  const decay = Math.exp(-t * 32)
-  const wave = Math.sin(phase) + 0.25 * Math.sin(phase * 2)
-  samples[i] = Math.round(wave * attack * decay * 0.28 * 32767)
+  // нарастание 2 мс и быстрое затухание
+  const env = Math.min(1, t / 0.002) * Math.exp(-t * 55)
+  samples[i] = Math.round(Math.sin(phase) * env * 0.5 * 32767)
 }
 
 const data = Buffer.from(samples.buffer)
