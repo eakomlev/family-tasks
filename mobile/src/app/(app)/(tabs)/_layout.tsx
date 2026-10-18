@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { useEffect, useState } from 'react'
+import { Animated, Pressable, Text, View } from 'react-native'
 import { TopTabs, type MaterialTopTabBarProps } from 'expo-router/js-top-tabs'
 import { Ionicons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -37,9 +38,22 @@ type BarProps = MaterialTopTabBarProps & {
 
 // Плавающая тёмная панель табов («Квест»): значки и подписи; выбранный таб лежит на лаймовой капсуле с тёмным значком, остальные приглушены.
 // Лежит поверх листаемых страниц.
-function FloatingTabBar({ state, navigateToTab, badges }: BarProps) {
-  const { colors } = useTheme()
+function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
+  const { colors, dark } = useTheme()
   const insets = useSafeAreaInsets()
+  // Подсветка идёт за самой страницей, а не за состоянием навигации: оно обновляется, когда пролистывание закончилось, и подсветка отставала.
+  // «Ближайший» таб считаем по положению страниц (меняется на полпути между соседями), по нажатию подсвечиваем сразу.
+  const [near, setNear] = useState(state.index)
+  const [barWidth, setBarWidth] = useState(0)
+  useEffect(() => setNear(state.index), [state.index])
+  useEffect(() => {
+    const id = position.addListener(({ value }) => setNear(Math.round(value)))
+    return () => position.removeListener(id)
+  }, [position])
+  const count = state.routes.length
+  const GAP = 4
+  const PAD = 5
+  const tabWidth = barWidth > 0 ? (barWidth - 2 * PAD - 2 - GAP * (count - 1)) / count : 0
   return (
     <View pointerEvents="box-none" style={{ height: 88 + insets.bottom, marginTop: -(88 + insets.bottom), justifyContent: 'flex-end' }}>
       <View
@@ -48,29 +62,48 @@ function FloatingTabBar({ state, navigateToTab, badges }: BarProps) {
           marginHorizontal: 12,
           marginBottom: 12 + insets.bottom * 0.4,
           borderRadius: 32,
-          padding: 5,
+          padding: PAD,
           backgroundColor: colors.tabbarBg,
           borderWidth: 1,
           borderColor: colors.tabbarBorder,
           flexDirection: 'row',
-          gap: 4,
+          gap: GAP,
           shadowColor: '#000',
-          shadowOpacity: 0.35,
+          shadowOpacity: dark ? 0.35 : 0.14,
           shadowRadius: 12,
           shadowOffset: { width: 0, height: 6 },
           elevation: 10,
         }}
+        onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
       >
+        {tabWidth > 0 && (
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: PAD,
+              top: PAD,
+              bottom: PAD,
+              width: tabWidth,
+              borderRadius: 27,
+              backgroundColor: colors.tabbarActiveBg,
+              transform: [{ translateX: position.interpolate({ inputRange: [0, count - 1], outputRange: [0, (count - 1) * (tabWidth + GAP)], extrapolate: 'clamp' }) }],
+            }}
+          />
+        )}
         {state.routes.map((route, index) => {
           const tab = TABS.find((t) => t.name === route.name)
           if (!tab) return null
-          const focused = state.index === index
-          const color = focused ? colors.onLime : colors.tabbarIcon
+          const focused = near === index
+          const color = focused ? colors.tabbarActiveText : colors.tabbarIcon
           const badge = badges[tab.name]
           return (
             <Pressable
               key={route.key}
-              onPress={() => navigateToTab(route.key)}
+              onPress={() => {
+                setNear(index)
+                navigateToTab(route.key)
+              }}
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
               accessibilityLabel={tab.title}
@@ -80,7 +113,6 @@ function FloatingTabBar({ state, navigateToTab, badges }: BarProps) {
                 justifyContent: 'center',
                 gap: 1,
                 borderRadius: 27,
-                backgroundColor: focused ? colors.lime : 'transparent',
               }}
             >
               <View>
@@ -95,13 +127,13 @@ function FloatingTabBar({ state, navigateToTab, badges }: BarProps) {
                       height: 16,
                       borderRadius: 8,
                       paddingHorizontal: 4,
-                      // у выбранного таба капсула уже лаймовая: бейдж тёмный
-                      backgroundColor: focused ? colors.onLime : colors.lime,
+                      // у выбранного таба подложка уже цветная: бейдж цветом текста таба
+                      backgroundColor: focused ? colors.tabbarActiveText : colors.lime,
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
-                    <Text style={{ fontFamily: FONT_FAMILY.black, fontSize: 10, color: focused ? colors.lime : colors.onLime }}>{badge}</Text>
+                    <Text style={{ fontFamily: FONT_FAMILY.black, fontSize: 10, color: focused ? colors.tabbarActiveBg : colors.onLime }}>{badge}</Text>
                   </View>
                 ) : null}
               </View>
@@ -122,7 +154,7 @@ export default function TabsLayout() {
   const badges = { tasks: taskBadge, chat: unread > 0 ? unread : undefined }
 
   return (
-    <TopTabs tabBarPosition="bottom" tabBar={(props) => <FloatingTabBar {...props} badges={badges} />} screenOptions={{ swipeEnabled: true, lazy: true }}>
+    <TopTabs tabBarPosition="bottom" tabBar={(props) => <FloatingTabBar {...props} badges={badges} />} screenOptions={{ swipeEnabled: true, lazy: true, lazyPreloadDistance: 1 }}>
       {TABS.map((tab) => (
         <TopTabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />
       ))}

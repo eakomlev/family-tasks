@@ -36,6 +36,9 @@ export interface Palette {
   tabbarBg: string
   tabbarBorder: string
   tabbarIcon: string
+  // выбранный таб: подложка и значок с подписью
+  tabbarActiveBg: string
+  tabbarActiveText: string
   // цвета видов записей семейного календаря
   calEvent: string
   calTask: string
@@ -50,14 +53,14 @@ export interface Palette {
 }
 
 export const lightPalette: Palette = {
-  bg: '#f1f4ff',
+  bg: '#f5f6fb',
   surface: '#ffffff',
-  text: '#141633',
-  muted: '#5f6487',
-  border: '#d9ddf2',
+  text: '#14162b',
+  muted: '#6b7090',
+  border: '#e6e8f2',
   accent: '#4b3bff',
   accentText: '#ffffff',
-  accentSoft: '#e6e3ff',
+  accentSoft: '#e9e6ff',
   error: '#d32f2f',
   success: '#3e8e00',
   onError: '#ffffff',
@@ -65,23 +68,25 @@ export const lightPalette: Palette = {
   lime: '#c4f04a',
   onLime: '#1f2e00',
   coin: '#ffc233',
-  coinBg: '#fff3cf',
+  coinBg: '#fff4d6',
   coinText: '#7a4b00',
   doneBg: '#e9fbc4',
   doneText: '#3e5b00',
   reviewBg: '#e6e3ff',
   reviewText: '#3424c9',
-  cardBorder: 'transparent',
-  track: '#e3e6f7',
-  checkBorder: '#c9cde8',
+  cardBorder: '#eceef6',
+  track: '#eef0fa',
+  checkBorder: '#c3c8e3',
   heroBg: '#4b3bff',
   heroBorder: 'transparent',
   heroText: '#ffffff',
   heroMuted: '#dcd7ff',
   heroTrack: 'rgba(255, 255, 255, 0.22)',
-  tabbarBg: '#141633',
-  tabbarBorder: 'transparent',
-  tabbarIcon: '#a8add6',
+  tabbarBg: '#ffffff',
+  tabbarBorder: '#e6e8f2',
+  tabbarIcon: '#7a7fa0',
+  tabbarActiveBg: '#e9e6ff',
+  tabbarActiveText: '#4b3bff',
   calEvent: '#4b3bff',
   calTask: '#d97706',
   calBirthday: '#db2777',
@@ -126,6 +131,8 @@ export const darkPalette: Palette = {
   tabbarBg: '#1a1f3d',
   tabbarBorder: '#2c3260',
   tabbarIcon: '#9aa0c7',
+  tabbarActiveBg: '#c4f04a',
+  tabbarActiveText: '#1f2e00',
   calEvent: '#8f84ff',
   calTask: '#fbbf24',
   calBirthday: '#f472b6',
