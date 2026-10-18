@@ -1,12 +1,14 @@
-import { View } from 'react-native'
-import { Redirect } from 'expo-router'
+import { Pressable, View } from 'react-native'
+import { Redirect, useRouter } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
+import { useTheme } from 'styled-components/native'
 import { Avatar } from '@/components/Avatar'
 import { BackLink } from '@/components/BackLink'
 import { CoinBalanceCard } from '@/components/Coins'
 import { MenuLink } from '@/components/MenuLink'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
-import { Text, PageTitle } from '@/components/Text'
+import { Text, Title } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { ageFromBirthDate, formatAge, formatBirthDate } from '@/lib/date'
 import { ROLE_LABELS } from '@/lib/roles'
@@ -26,6 +28,8 @@ function ChildCoins({ memberId }: { memberId: string }) {
 export function MemberScreen({ memberId }: { memberId: string }) {
   const { identity } = useIdentity()
   const { data, failed } = useProfile()
+  const router = useRouter()
+  const { colors } = useTheme()
 
   // свой профиль открывается на странице профиля
   if (memberId === identity?.memberId) return <Redirect href="/profile" />
@@ -42,11 +46,22 @@ export function MemberScreen({ memberId }: { memberId: string }) {
       {member && (
         <View style={{ alignItems: 'center', gap: 8 }}>
           <Avatar name={member.name} seed={member.id} src={member.avatar} size={112} />
-          <PageTitle>{member.name}</PageTitle>
+          <Title style={{ textAlign: 'center' }}>{member.name}</Title>
           <Text $weight="bold" $tone="accent">
             {`${ROLE_LABELS[member.role]}${member.isOwner ? ' · создатель семьи' : ''}`}
           </Text>
           {member.birthDate && <Notice>{`${formatBirthDate(member.birthDate)} · ${formatAge(ageFromBirthDate(member.birthDate))}`}</Notice>}
+          <Pressable
+            onPress={() => router.push({ pathname: '/chat/[chat]', params: { chat: member.id } })}
+            accessibilityRole="button"
+            accessibilityLabel={`Написать: ${member.name}`}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 999, backgroundColor: colors.accent }}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color="#ffffff" />
+            <Text $weight="extraBold" style={{ color: '#ffffff' }}>
+              Написать
+            </Text>
+          </Pressable>
         </View>
       )}
       {/* монеты, цели и расписания ребёнка видят взрослые (расписания правят только родители) */}

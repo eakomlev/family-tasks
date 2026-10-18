@@ -23,7 +23,7 @@ interface ChipProps extends Omit<PressableProps, 'children'> {
 export function Chip({ active = false, children, ...rest }: ChipProps) {
   return (
     <Pill $active={active} accessibilityRole="button" accessibilityState={{ selected: active }} {...rest}>
-      <Text $weight="extraBold" $size={14} style={{ color: active ? '#ffffff' : undefined }}>
+      <Text $weight="extraBold" $size={14} style={active ? { color: '#ffffff' } : undefined}>
         {children}
       </Text>
     </Pill>

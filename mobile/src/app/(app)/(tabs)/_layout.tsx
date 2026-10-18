@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from 'react-native'
 import { TopTabs, type MaterialTopTabBarProps } from 'expo-router/js-top-tabs'
 import { Ionicons } from '@expo/vector-icons'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from 'styled-components/native'
 import { useChats } from '@/chat/context'
 import { useIdentity } from '@/identity/context'
@@ -30,43 +31,89 @@ function useTaskBadge(): number | undefined {
   return count > 0 ? count : undefined
 }
 
-type BarProps = MaterialTopTabBarProps & { badges: Record<string, number | undefined> }
+type BarProps = MaterialTopTabBarProps & {
+  badges: Record<string, number | undefined>
+}
 
 // Плавающая тёмная панель табов («Квест»): значки и подписи, выбранный таб лаймовый. Лежит поверх листаемых страниц.
 function FloatingTabBar({ state, navigateToTab, badges }: BarProps) {
   const { colors } = useTheme()
+  const insets = useSafeAreaInsets()
   return (
-    <View
-      pointerEvents="box-none"
-      style={{ position: 'absolute', left: 12, right: 12, bottom: 12, height: 64, borderRadius: 32, paddingTop: 6, backgroundColor: colors.tabbarBg, flexDirection: 'row' }}
-    >
-      {state.routes.map((route, index) => {
-        const tab = TABS.find((t) => t.name === route.name)
-        if (!tab) return null
-        const focused = state.index === index
-        const color = focused ? colors.lime : colors.tabbarIcon
-        const badge = badges[tab.name]
-        return (
-          <Pressable
-            key={route.key}
-            onPress={() => navigateToTab(route.key)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: focused }}
-            accessibilityLabel={tab.title}
-            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 }}
-          >
-            <View>
-              <Ionicons name={tab.icon} size={24} color={color} />
-              {badge ? (
-                <View style={{ position: 'absolute', top: -4, right: -10, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontFamily: FONT_FAMILY.black, fontSize: 10, color: colors.onLime }}>{badge}</Text>
-                </View>
-              ) : null}
-            </View>
-            <Text style={{ fontFamily: FONT_FAMILY.extraBold, fontSize: 11, color }}>{tab.title}</Text>
-          </Pressable>
-        )
-      })}
+    <View pointerEvents="box-none" style={{ height: 88 + insets.bottom, marginTop: -(88 + insets.bottom), justifyContent: 'flex-end' }}>
+      <View
+        style={{
+          height: 64,
+          marginHorizontal: 12,
+          marginBottom: 12 + insets.bottom * 0.4,
+          borderRadius: 32,
+          paddingTop: 6,
+          backgroundColor: colors.tabbarBg,
+          flexDirection: 'row',
+        }}
+      >
+        {state.routes.map((route, index) => {
+          const tab = TABS.find((t) => t.name === route.name)
+          if (!tab) return null
+          const focused = state.index === index
+          const color = focused ? colors.lime : colors.tabbarIcon
+          const badge = badges[tab.name]
+          return (
+            <Pressable
+              key={route.key}
+              onPress={() => navigateToTab(route.key)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: focused }}
+              accessibilityLabel={tab.title}
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 2,
+              }}
+            >
+              <View>
+                <Ionicons name={tab.icon} size={24} color={color} />
+                {badge ? (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: -4,
+                      right: -10,
+                      minWidth: 16,
+                      height: 16,
+                      borderRadius: 8,
+                      paddingHorizontal: 4,
+                      backgroundColor: colors.lime,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: FONT_FAMILY.black,
+                        fontSize: 10,
+                        color: colors.onLime,
+                      }}
+                    >
+                      {badge}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text
+                style={{
+                  fontFamily: FONT_FAMILY.extraBold,
+                  fontSize: 11,
+                  color,
+                }}
+              >
+                {tab.title}
+              </Text>
+            </Pressable>
+          )
+        })}
+      </View>
     </View>
   )
 }

@@ -88,10 +88,10 @@ function DayTabs({ days, selected, counts, unit, onSelect }: { days: DayInfo[]; 
         const active = selected === day.value
         return (
           <Tab key={day.value} $active={active} onPress={() => onSelect(day.value)} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={`${day.full}, ${unit}: ${counts[day.value] ?? 0}`}>
-            <Text $weight="extraBold" $size={14} style={{ color: active ? '#ffffff' : undefined }}>
+            <Text $weight="extraBold" $size={14} style={active ? { color: '#ffffff' } : undefined}>
               {day.short}
             </Text>
-            <Text $size={12} $weight="bold" style={{ color: active ? '#ffffff' : undefined, opacity: 0.8 }}>
+            <Text $size={12} $weight="bold" style={active ? { color: '#ffffff', opacity: 0.8 } : { opacity: 0.8 }}>
               {counts[day.value] ? String(counts[day.value]) : '·'}
             </Text>
           </Tab>

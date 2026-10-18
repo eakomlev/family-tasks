@@ -140,7 +140,7 @@ export function CalendarScreen() {
           eachDay(range.from, range.to).map((day) => (
             <View key={day} style={{ gap: 6 }}>
               <Pressable onPress={() => go('day', day)} accessibilityRole="button">
-                <Heading style={{ color: day === today ? colors.accent : undefined }}>{formatDayHeading(day)}</Heading>
+                <Heading style={day === today ? { color: colors.accent } : undefined}>{formatDayHeading(day)}</Heading>
               </Pressable>
               <AgendaList items={byDay.get(day) ?? []} emptyText="—" />
             </View>

@@ -1,6 +1,6 @@
 import { Pressable, View } from 'react-native'
 import { useRouter } from 'expo-router'
-import styled from 'styled-components/native'
+import styled, { useTheme } from 'styled-components/native'
 import { CoinIcon } from '@/components/Coins'
 import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
@@ -21,6 +21,7 @@ const Banner = styled.View`
 export function EarnedToday({ now }: { now: Date }) {
   const { identity } = useIdentity()
   const router = useRouter()
+  const { colors } = useTheme()
   const isChild = identity?.role === 'child'
   // пересчёт при смене дня, а не каждую минуту обновления времени
   const since = startOfDayIso(now)
@@ -35,10 +36,10 @@ export function EarnedToday({ now }: { now: Date }) {
       <Banner>
         <CoinIcon size={30} />
         <View>
-          <Text $size={13} style={{ color: '#7a4b00' }}>
+          <Text $size={13} style={{ color: colors.coinText }}>
             Сегодня заработано
           </Text>
-          <Text $weight="black" $size={18} style={{ color: '#7a4b00' }}>{`+${coinsWord(earned)}`}</Text>
+          <Text $weight="black" $size={18} style={{ color: colors.coinText }}>{`+${coinsWord(earned)}`}</Text>
         </View>
       </Banner>
     </Pressable>

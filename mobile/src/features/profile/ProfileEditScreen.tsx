@@ -10,7 +10,7 @@ import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, PageTitle } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { ageFromBirthDate, formatAge } from '@/lib/date'
 import { pickSquareImage } from '@/lib/image'
@@ -77,7 +77,6 @@ export function ProfileEditScreen() {
     return (
       <Screen>
         <BackLink fallback="/profile">← Профиль</BackLink>
-        <PageTitle>Изменить профиль</PageTitle>
         <Text $tone="muted">Загрузка…</Text>
       </Screen>
     )
@@ -121,7 +120,6 @@ export function ProfileEditScreen() {
   return (
     <Screen>
       <BackLink fallback="/profile">← Профиль</BackLink>
-      <PageTitle>Изменить профиль</PageTitle>
 
       <View style={{ alignItems: 'center', gap: 8 }}>
         <Avatar name={me.name} seed={me.id} src={me.avatar} size={112} />

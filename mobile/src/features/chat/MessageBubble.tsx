@@ -168,7 +168,7 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
           {coins > 0 && (
             <Chip accessibilityLabel={`Начислено монет: ${coins}`}>
               <CoinIcon size={14} />
-              <Text $size={12} $weight="black" style={{ color: '#7a4b00' }}>{`+${coins}`}</Text>
+              <Text $size={12} $weight="black" style={{ color: colors.coinText }}>{`+${coins}`}</Text>
             </Chip>
           )}
         </View>

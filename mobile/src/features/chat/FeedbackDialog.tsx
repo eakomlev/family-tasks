@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Modal, Pressable, View } from 'react-native'
-import styled from 'styled-components/native'
+import styled, { useTheme } from 'styled-components/native'
 import type { MessageFeedback } from '@/api'
 import { CoinIcon } from '@/components/Coins'
 import { Notice } from '@/components/Notice'
@@ -60,6 +60,7 @@ interface FeedbackDialogProps {
 // Компактное окно над сообщением (открывается долгим нажатием): реакция и, если это родитель и сообщение ребёнка, монеты автору.
 // Выбор применяется сразу, кнопки «Отправить» нет: повторное нажатие на свою реакцию снимает её.
 export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onClose }: FeedbackDialogProps) {
+  const { colors } = useTheme()
   const guard = useInFlight()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
@@ -96,7 +97,7 @@ export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onClos
                   {COIN_CHOICES.map((n) => (
                     <CoinButton key={n} disabled={busy} accessibilityRole="button" accessibilityLabel={`Начислить ${n} монет`} onPress={() => void apply({ coins: n })}>
                       <CoinIcon size={18} />
-                      <Text $weight="black" $size={14} style={{ color: '#7a4b00' }}>{`+${n}`}</Text>
+                      <Text $weight="black" $size={14} style={{ color: colors.coinText }}>{`+${n}`}</Text>
                     </CoinButton>
                   ))}
                 </View>

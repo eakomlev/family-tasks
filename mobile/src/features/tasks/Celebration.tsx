@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Modal } from 'react-native'
-import styled from 'styled-components/native'
+import styled, { useTheme } from 'styled-components/native'
 import { Button } from '@/components/Button'
 import { Text, Title } from '@/components/Text'
 import { coinsWord } from '@/lib/coins'
@@ -27,6 +27,7 @@ const Reward = styled.View`
 
 // Экран поздравления на весь экран после выполнения задания, с конфетти
 export function Celebration({ title, reward, onClose }: { title: string; reward?: number; onClose: () => void }) {
+  const { colors } = useTheme()
   const [praise] = useState(() => pick(PRAISES))
   const [emoji] = useState(() => pick(EMOJIS))
 
@@ -40,7 +41,7 @@ export function Celebration({ title, reward, onClose }: { title: string; reward?
         {reward !== undefined && reward > 0 && (
           <Reward>
             <Text $size={22}>🪙</Text>
-            <Text $weight="black" $size={20} style={{ color: '#7a4b00' }}>{`+${coinsWord(reward)}`}</Text>
+            <Text $weight="black" $size={20} style={{ color: colors.coinText }}>{`+${coinsWord(reward)}`}</Text>
           </Reward>
         )}
         <Button variant="lime" onPress={onClose} style={{ alignSelf: 'stretch', marginTop: 12 }}>

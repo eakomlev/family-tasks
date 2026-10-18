@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FlatList, View } from 'react-native'
 import { Redirect } from 'expo-router'
-import styled from 'styled-components/native'
+import styled, { useTheme } from 'styled-components/native'
 import { listCoinHistory, type CoinEntry } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
@@ -59,6 +59,7 @@ export function CoinsScreen({ memberId }: { memberId?: string }) {
   const { identity } = useIdentity()
   const { data } = useProfile()
   const insets = useSafeAreaInsets()
+  const { colors } = useTheme()
 
   const token = identity?.token
   const isChild = identity?.role === 'child'
@@ -122,10 +123,10 @@ export function CoinsScreen({ memberId }: { memberId?: string }) {
       <PageTitle>{isChild || !owner ? 'Монеты' : `Монеты: ${owner.name}`}</PageTitle>
       <Total accessibilityLiveRegion="polite">
         <CoinIcon size={34} />
-        <Text $weight="black" $size={30} style={{ color: '#7a4b00' }}>
+        <Text $weight="black" $size={30} style={{ color: colors.coinText }}>
           {String(shown)}
         </Text>
-        <Text style={{ color: '#7a4b00' }}>сейчас на счёте</Text>
+        <Text style={{ color: colors.coinText }}>сейчас на счёте</Text>
       </Total>
       {/* цели видит и оплачивает сам ребёнок */}
       {isChild && <GoalsList balance={shown} memberId={identity.memberId} />}
@@ -141,6 +142,7 @@ export function CoinsScreen({ memberId }: { memberId?: string }) {
       data={items ?? []}
       keyExtractor={(entry) => entry.id}
       ListHeaderComponent={header}
+      style={{ flex: 1, backgroundColor: colors.bg }}
       contentContainerStyle={{ padding: 20, paddingTop: insets.top + TOP_CORNER, paddingBottom: 120, gap: 8 }}
       renderItem={({ item: entry }) => (
         <Row>
@@ -156,7 +158,7 @@ export function CoinsScreen({ memberId }: { memberId?: string }) {
             $weight="black"
             $size={17}
             accessibilityLabel={`${entry.amount > 0 ? 'Начислено' : 'Списано'}: ${Math.abs(entry.amount)}`}
-            style={{ color: entry.amount < 0 ? '#d32f2f' : '#3e8e00' }}
+            style={{ color: entry.amount < 0 ? colors.error : colors.success }}
           >
             {formatAmount(entry.amount)}
           </Text>
