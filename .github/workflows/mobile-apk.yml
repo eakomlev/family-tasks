@@ -1,0 +1,117 @@
+name: "Мобильное приложение: сборка APK"
+
+# Каждый пуш в main, затрагивающий mobile/, собирает подписанный APK и кладёт его в релиз `mobile-latest`.
+# Постоянная ссылка на скачивание: https://github.com/<владелец>/<репозиторий>/releases/download/mobile-latest/moya-semya.apk
+# Один раз нужно создать ключ подписи и секреты репозитория (инструкция: mobile/README.md, раздел «Сборка APK»).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile-apk.yml"
+  workflow_dispatch:
+
+# новая сборка отменяет ещё идущую: нужен только свежий APK
+concurrency:
+  group: mobile-apk
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    name: "Сборка и публикация APK"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      # адрес сервера вшивается в приложение при сборке (Settings → Secrets and variables → Actions → Variables)
+      EXPO_PUBLIC_API_URL: ${{ vars.MOBILE_API_URL }}
+      # растёт с каждой сборкой: Android обновляет установленное приложение только на большую версию
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - name: Проверка настроек
+        run: |
+          if [ -z "$EXPO_PUBLIC_API_URL" ]; then
+            echo "::error::Не задана переменная репозитория MOBILE_API_URL (адрес сервера, например https://family.example.com)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      # нативный проект создаётся на лету (в репозитории его нет); подпись и версия подключены плагином plugins/withReleaseSigning.js
+      - name: Нативный проект Android
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Ключ подписи
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Нет секрета ANDROID_KEYSTORE_BASE64: APK подписан отладочным ключом, обновить им установленное приложение нельзя"
+          else
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "ANDROID_KEYSTORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          fi
+
+      # только современные телефоны (arm64 и arm 32-бит): без x86 APK заметно меньше
+      - name: Сборка APK
+        working-directory: mobile/android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a --no-daemon
+
+      - name: Подготовка файла
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk moya-semya.apk
+          ls -l moya-semya.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: moya-semya-apk
+          path: mobile/moya-semya.apk
+          retention-days: 14
+
+      # релиз пересоздаётся заново: ссылка на файл остаётся той же, а метка указывает на собранный коммит
+      - name: Публикация в релиз mobile-latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNED: ${{ steps.signing.outputs.signed }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          gh release delete mobile-latest --cleanup-tag --yes || true
+          notes="Сборка №$RUN_NUMBER из коммита ${GITHUB_SHA::7}. Подпись: $([ "$SIGNED" = true ] && echo 'свой ключ' || echo 'ОТЛАДОЧНЫЙ ключ (обновление поверх прежней установки невозможно)')."
+          gh release create mobile-latest moya-semya.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Приложение для Android (последняя сборка)" \
+            --notes "$notes"
+          echo "Скачать: https://github.com/$GITHUB_REPOSITORY/releases/download/mobile-latest/moya-semya.apk" >> "$GITHUB_STEP_SUMMARY"
