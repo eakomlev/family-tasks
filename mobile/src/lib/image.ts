@@ -1,15 +1,8 @@
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as ImagePicker from 'expo-image-picker'
+import { ImageError } from './imageError'
 
-// Ошибки подготовки фото на устройстве
-export class ImageError extends Error {
-  reason: 'not_image' | 'too_large' | 'decode_failed' | 'no_permission'
-
-  constructor(reason: ImageError['reason']) {
-    super(reason)
-    this.reason = reason
-  }
-}
+export { ImageError } from './imageError'
 
 // Выбор картинки из галереи с обрезкой до квадрата и сжатием до size × size JPEG (data URL). Фото аватара около 5–10 КБ,
 // чтобы его можно было хранить прямо в таблице участников; сервер ничего не ресайзит. null, если человек отменил выбор.

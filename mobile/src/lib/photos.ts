@@ -1,5 +1,5 @@
 import * as ImageManipulator from 'expo-image-manipulator'
-import { ImageError } from './image'
+import { ImageError } from './imageError'
 import { fitSize, PHOTO_MAX_BYTES } from './photoSize'
 
 // Подготовка фото для чата на устройстве: длинная сторона до 1600 px, JPEG качеством 0,82; метка геопозиции пропадает, поворот

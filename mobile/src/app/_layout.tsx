@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { Provider } from 'react-redux'
 import NetInfo from '@react-native-community/netinfo'
+import { CaptchaHost } from '@/components/CaptchaHost'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
 import { IdentityProvider } from '@/identity'
 import { setNetworkAvailable } from '@/lib/connection'
@@ -41,6 +42,8 @@ export default function RootLayout() {
               <StatusBar style="auto" />
               <ConfirmProvider>
                 <Stack screenOptions={{ headerShown: false }} />
+                {/* проверка «я не робот» перед отправкой кода на почту (если включена на сервере) */}
+                <CaptchaHost />
               </ConfirmProvider>
             </IdentityProvider>
           </ThemeProvider>

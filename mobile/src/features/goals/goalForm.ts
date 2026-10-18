@@ -1,5 +1,5 @@
 import { ApiError, type Goal, type GoalInput } from '@/api'
-import { ImageError } from '@/lib/image'
+import { ImageError } from '@/lib/imageError'
 
 export const MAX_PRICE = 100000
 

@@ -1,5 +1,5 @@
 import { ApiError } from '@/api'
-import { ImageError } from '@/lib/image'
+import { ImageError } from '@/lib/imageError'
 
 export function describeCodeError(err: unknown): string {
   if (err instanceof ApiError) {
