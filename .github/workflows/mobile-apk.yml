@@ -33,14 +33,15 @@ jobs:
       # растёт с каждой сборкой: Android обновляет установленное приложение только на большую версию
       ANDROID_VERSION_CODE: ${{ github.run_number }}
     steps:
+      - uses: actions/checkout@v4
+
+      # до этого шага папки mobile ещё нет, поэтому checkout стоит первым
       - name: Проверка настроек
         run: |
           if [ -z "$EXPO_PUBLIC_API_URL" ]; then
             echo "::error::Не задана переменная репозитория MOBILE_API_URL (адрес сервера, например https://family.example.com)"
             exit 1
           fi
-
-      - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
