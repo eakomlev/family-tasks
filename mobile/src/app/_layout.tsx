@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { Stack } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
-import { StatusBar } from 'expo-status-bar'
 import { useFonts } from 'expo-font'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -39,7 +38,6 @@ export default function RootLayout() {
           <ThemeProvider>
             <IdentityProvider>
               <SessionSync />
-              <StatusBar style="auto" />
               <ConfirmProvider>
                 <Stack screenOptions={{ headerShown: false }} />
                 {/* проверка «я не робот» перед отправкой кода на почту (если включена на сервере) */}

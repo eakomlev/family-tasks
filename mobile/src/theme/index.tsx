@@ -1,5 +1,6 @@
-import { useMemo, type ReactNode } from 'react'
-import { useColorScheme } from 'react-native'
+import { useEffect, useMemo, type ReactNode } from 'react'
+import { Appearance, useColorScheme } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
 import { ThemeProvider as StyledThemeProvider } from 'styled-components/native'
 import { darkPalette, lightPalette, type Palette } from './palettes'
 import { useThemePreference } from './preference'
@@ -23,7 +24,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const preference = useThemePreference()
   const dark = preference === 'system' ? scheme === 'dark' : preference === 'dark'
   const theme = useMemo(() => makeTheme(dark), [dark])
-  return <StyledThemeProvider theme={theme}>{children}</StyledThemeProvider>
+  // Явный выбор темы в приложении распространяем на систему (окна выбора фото, клавиатура, диалоги); «как в системе» возвращает управление ей
+  useEffect(() => {
+    Appearance.setColorScheme(preference === 'system' ? 'unspecified' : preference)
+  }, [preference])
+  return (
+    <StyledThemeProvider theme={theme}>
+      {/* значки системной строки по теме приложения, а не по системной: светлая тема в тёмной системе иначе даёт белое на белом */}
+      <StatusBar style={dark ? 'light' : 'dark'} />
+      {children}
+    </StyledThemeProvider>
+  )
 }
 
 export { darkPalette, lightPalette, type Palette }
