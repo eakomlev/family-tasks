@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Pressable, RefreshControl, View } from 'react-native'
+import { useRouter } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
 import { useDispatch } from 'react-redux'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
@@ -26,6 +28,7 @@ export default function MyDay() {
   const { identity } = useIdentity()
   const { data } = useProfile()
   const dispatch = useDispatch()
+  const router = useRouter()
   const now = useNow()
   const greeting = getGreeting(now)
   const [setMood] = useSetMoodMutation()
@@ -48,6 +51,10 @@ export default function MyDay() {
       refreshControl={<RefreshControl refreshing={false} onRefresh={() => void dispatch(api.util.invalidateTags(['Me', 'Tasks', 'Goals', 'Schedule', 'Trainings']))} />}
     >
       <Stack $gap={4}>
+        {/* вход в семейный календарь */}
+        <Pressable onPress={() => router.push('/calendar')} accessibilityRole="button" accessibilityLabel="Семейный календарь" style={{ alignSelf: 'flex-start', marginBottom: 6 }}>
+          <Ionicons name="calendar-outline" size={30} color="#4b3bff" />
+        </Pressable>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Title style={{ flex: 1 }}>{`${greeting.icon} ${greeting.text}, ${identity?.name}!`}</Title>
           {isChild && mood && (

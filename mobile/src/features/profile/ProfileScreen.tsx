@@ -64,8 +64,14 @@ export function ProfileScreen() {
           {/* у ребёнка: монеты и переход к истории начислений */}
           {me.coins !== undefined && <CoinBalanceCard coins={me.coins} to="/coins" />}
 
+          {me.role === 'child' && (
+            <>
+              <MenuLink to="/profile/schedule">Расписание уроков</MenuLink>
+              <MenuLink to="/profile/trainings">Расписание тренировок</MenuLink>
+            </>
+          )}
           <MenuLink to="/profile/theme">Тема</MenuLink>
-          <Notice>Уведомления и расписания появятся в следующих версиях.</Notice>
+          <Notice>Уведомления появятся в следующих версиях.</Notice>
         </>
       )}
 

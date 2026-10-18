@@ -32,10 +32,10 @@ export const uploadChatPhoto = (token: string, chat: string, photo: Blob) =>
 
 // Загрузка одного файла (документ, архив…, до 10 МБ) для будущего сообщения; к сообщению он прикрепляется через fileIds.
 // Имя уходит в заголовке в процентной записи (в заголовках нет кириллицы).
-export const uploadChatFile = (token: string, chat: string, file: File) =>
+export const uploadChatFile = (token: string, chat: string, file: { blob: Blob; name: string }) =>
   request<{ fileId: string; name: string; size: number }>(
     `/chats/${chat}/files`,
-    { method: 'POST', body: file, headers: { 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) } },
+    { method: 'POST', body: file.blob, headers: { 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) } },
     token,
   )
 

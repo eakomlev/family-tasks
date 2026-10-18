@@ -1,4 +1,4 @@
-import { View } from 'react-native'
+import { Pressable, View } from 'react-native'
 import styled from 'styled-components/native'
 import { Text } from '@/components/Text'
 import { formatTimeRange, type ViewLesson, type ViewTraining } from './schedule'
@@ -24,11 +24,12 @@ const Number = styled.View`
 `
 
 // Расписание дня только для чтения: номер урока, предмет, кабинет и время
-export function LessonList({ lessons }: { lessons: ViewLesson[] }) {
+export function LessonList({ lessons, onPress }: { lessons: ViewLesson[]; onPress?: (lesson: ViewLesson) => void }) {
   return (
     <View style={{ gap: 8 }}>
       {lessons.map((lesson, index) => (
-        <Row key={lesson.key}>
+        <Pressable key={lesson.key} disabled={!onPress} onPress={() => onPress?.(lesson)} accessibilityRole={onPress ? 'button' : undefined}>
+        <Row>
           <Number>
             <Text $weight="extraBold" $size={13} $tone="accent">
               {String(index + 1)}
@@ -45,7 +46,9 @@ export function LessonList({ lessons }: { lessons: ViewLesson[] }) {
           <Text $size={14} $tone="muted">
             {formatTimeRange(lesson)}
           </Text>
+          {onPress && <Text $tone="muted" $size={20}>›</Text>}
         </Row>
+        </Pressable>
       ))}
     </View>
   )

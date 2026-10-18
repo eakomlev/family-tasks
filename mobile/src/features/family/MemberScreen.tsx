@@ -49,11 +49,13 @@ export function MemberScreen({ memberId }: { memberId: string }) {
           {member.birthDate && <Notice>{`${formatBirthDate(member.birthDate)} · ${formatAge(ageFromBirthDate(member.birthDate))}`}</Notice>}
         </View>
       )}
-      {/* монеты и цели ребёнка видят взрослые; расписания придут в следующей фазе */}
+      {/* монеты, цели и расписания ребёнка видят взрослые (расписания правят только родители) */}
       {member?.role === 'child' && identity?.role !== 'child' && (
         <>
           <ChildCoins memberId={member.id} />
           <MenuLink to={{ pathname: '/family/[memberId]/goals', params: { memberId: member.id } }}>Цели</MenuLink>
+          <MenuLink to={{ pathname: '/family/[memberId]/schedule', params: { memberId: member.id } }}>Расписание уроков</MenuLink>
+          <MenuLink to={{ pathname: '/family/[memberId]/trainings', params: { memberId: member.id } }}>Расписание тренировок</MenuLink>
         </>
       )}
     </Screen>

@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
 import { Heading, Text } from '@/components/Text'
@@ -8,6 +9,7 @@ import { capitalize, lessonsForDay, pickLessonDay, pickTrainingDay } from './sch
 
 // Уроки самого ребёнка на сегодня или завтра; у родителей блока нет (у них сводка по детям)
 export function TodayLessons({ now }: { now: Date }) {
+  const router = useRouter()
   const { identity } = useIdentity()
   const memberId = identity?.memberId
   const isChild = identity?.role === 'child'
@@ -32,7 +34,8 @@ export function TodayLessons({ now }: { now: Date }) {
       {failed && <Notice tone="error">Не удалось загрузить расписание. Проверьте соединение.</Notice>}
       {!lessons && !failed && <Text $tone="muted">Загрузка…</Text>}
       {empty && <Notice>{empty}</Notice>}
-      {dayLessons.length > 0 && <LessonList lessons={dayLessons} />}
+      {/* нажатие на урок открывает «Что ты хочешь сообщить!» */}
+      {dayLessons.length > 0 && <LessonList lessons={dayLessons} onPress={(lesson) => router.push({ pathname: '/lesson-report', params: { subject: lesson.subject } })} />}
     </Stack>
   )
 }

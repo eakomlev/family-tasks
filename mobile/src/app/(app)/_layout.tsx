@@ -3,6 +3,8 @@ import { Redirect, Tabs, usePathname, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from 'styled-components/native'
+import { ChatsProvider } from '@/chat'
+import { useChats } from '@/chat/context'
 import { Avatar } from '@/components/Avatar'
 import { CoinBalance } from '@/components/Coins'
 import { useIdentity } from '@/identity/context'
@@ -27,7 +29,7 @@ const TABS: { name: string; title: string; icon: IconName }[] = [
 ]
 
 // разделы без своего таба: открываются из других экранов
-const HIDDEN = ['coins', 'goals', 'profile']
+const HIDDEN = ['coins', 'goals', 'profile', 'lesson-report', 'calendar']
 
 // Сколько заданий ждёт действия: значок на табе «Задачи». Берёт те же запросы, что «Мой день» (в кэше они общие).
 function useTaskBadge(): number | undefined {
@@ -39,6 +41,9 @@ function useTaskBadge(): number | undefined {
   return count > 0 ? count : undefined
 }
 
+// переписка (/chat/<чат>) занимает весь экран, без панели табов
+const inChatRoom = (pathname: string) => pathname.startsWith('/chat/') && pathname.length > '/chat/'.length
+
 // Правый верхний угол: баланс монет ребёнка и значок профиля (на самой странице профиля значка нет)
 function TopRight() {
   const { identity } = useIdentity()
@@ -47,7 +52,9 @@ function TopRight() {
   const router = useRouter()
   const pathname = usePathname()
   if (!identity) return null
-  const onProfile = pathname.startsWith('/profile')
+  const onProfile = pathname.startsWith('/profile') || pathname === '/calendar'
+  // в переписке угол не нужен: он перекрыл бы шапку
+  if (inChatRoom(pathname)) return null
   const coins = data?.me.coins
 
   return (
@@ -65,6 +72,9 @@ function TopRight() {
 function TabsWithBadge() {
   const { colors } = useTheme()
   const badge = useTaskBadge()
+  const { unread } = useChats()
+  const pathname = usePathname()
+  const hideBar = inChatRoom(pathname)
   return (
     <>
       <Tabs
@@ -84,6 +94,7 @@ function TabsWithBadge() {
             borderTopWidth: 0,
             paddingTop: 6,
             backgroundColor: colors.tabbarBg,
+            display: hideBar ? 'none' : 'flex',
           },
         }}
       >
@@ -93,7 +104,7 @@ function TabsWithBadge() {
             name={tab.name}
             options={{
               title: tab.title,
-              tabBarBadge: tab.name === 'tasks' ? badge : undefined,
+              tabBarBadge: tab.name === 'tasks' ? badge : tab.name === 'chat' && unread > 0 ? unread : undefined,
               tabBarIcon: ({ color, size }) => <Ionicons name={tab.icon} size={size} color={String(color)} />,
             }}
           />
@@ -116,7 +127,9 @@ export default function AppLayout() {
     <RealtimeProvider token={identity.token}>
       <ProfileProvider>
         <RealtimeBridge />
-        <TabsWithBadge />
+        <ChatsProvider>
+          <TabsWithBadge />
+        </ChatsProvider>
       </ProfileProvider>
     </RealtimeProvider>
   )
