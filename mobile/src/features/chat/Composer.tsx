@@ -8,6 +8,7 @@ import styled, { useTheme } from 'styled-components/native'
 import { ActionSheet } from '@/components/ActionSheet'
 import { Notice } from '@/components/Notice'
 import { Text } from '@/components/Text'
+import { withType } from '@/lib/blob'
 import { describeFileError, describePhotoError } from '@/lib/errors'
 import { fileProblem, formatFileSize, MAX_FILES } from '@/lib/files'
 import { preparePhoto } from '@/lib/photos'
@@ -185,7 +186,7 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
       const item: Attachment = { key, kind: 'file', name: asset.name, size, status: 'uploading', retryable: true }
       setItems((current) => [...current, item])
       try {
-        blobs.set(key, await (await fetch(asset.uri)).blob())
+        blobs.set(key, withType(await (await fetch(asset.uri)).blob(), 'application/octet-stream'))
         void upload(item)
       } catch {
         patch(key, { status: 'failed', error: 'Не удалось прочитать файл.', retryable: false })

@@ -1,4 +1,5 @@
 import * as ImageManipulator from 'expo-image-manipulator'
+import { withType } from './blob'
 import { ImageError } from './imageError'
 import { fitSize, PHOTO_MAX_BYTES } from './photoSize'
 
@@ -18,7 +19,7 @@ export async function preparePhoto(uri: string, width: number, height: number): 
   try {
     for (const quality of QUALITIES) {
       const result = await ImageManipulator.manipulateAsync(uri, [{ resize: size }], { compress: quality, format: ImageManipulator.SaveFormat.JPEG })
-      const blob = await (await fetch(result.uri)).blob()
+      const blob = withType(await (await fetch(result.uri)).blob(), 'image/jpeg')
       if (blob.size <= PHOTO_MAX_BYTES || quality === QUALITIES[QUALITIES.length - 1]) {
         if (blob.size > PHOTO_MAX_BYTES) throw new ImageError('too_large')
         return { uri: result.uri, blob, width: result.width, height: result.height }
