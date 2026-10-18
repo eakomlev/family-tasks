@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Image, Pressable, View } from 'react-native'
+import { Image, Pressable, View, useWindowDimensions } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import styled, { useTheme } from 'styled-components/native'
 import type { ChatMessage } from '@/api'
@@ -10,8 +10,8 @@ import { saveRemoteFile } from '@/lib/saveFile'
 import { ReadTicks } from './ReadTicks'
 import { bubbleText, formatMessageTime, groupReactions, photoColumns, totalCoins, type MessageStatus } from './roomUtils'
 
-const Bubble = styled.View<{ $mine: boolean }>`
-  max-width: 82%;
+const Bubble = styled.View<{ $mine: boolean; $max: number }>`
+  max-width: ${({ $max }) => $max}px;
   padding: 8px 12px 6px;
   border-radius: 18px;
   border-bottom-right-radius: ${({ $mine }) => ($mine ? 6 : 18)}px;
@@ -41,6 +41,9 @@ interface MessageBubbleProps {
   // имя автора над чужим сообщением (в общем чате)
   showSender: boolean
   status?: MessageStatus
+  // своё сообщение ещё уходит (часы вместо галочек) или не ушло (красная иконка слева, нажатие открывает меню)
+  delivery?: 'sending' | 'failed'
+  onFailedPress?: () => void
   // долгое нажатие открывает окно реакции и монет
   onFeedback?: () => void
   // нажатие на фото: номер фото в сообщении
@@ -51,8 +54,10 @@ interface MessageBubbleProps {
 const PHOTO_WIDTH = 240
 
 // Пузырь сообщения: свои справа акцентные, чужие слева; внутри фото (плитками) и файлы, под ним реакции и начисленные монеты
-export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, onFeedback, onOpenPhoto }: MessageBubbleProps) {
+export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, delivery, onFailedPress, onOpenPhoto, onFeedback }: MessageBubbleProps) {
   const { colors } = useTheme()
+  // ширина пузыря в пикселях: проценты внутри строки с иконкой ошибки считались бы от самого пузыря и ужимали его
+  const maxWidth = Math.round(useWindowDimensions().width * 0.82)
   const reactions = groupReactions(message.reactions)
   const coins = totalCoins(message.awards)
   const text = bubbleText(message)
@@ -80,6 +85,12 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
 
   return (
     <View style={{ alignItems: mine ? 'flex-end' : 'flex-start', marginVertical: 3 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%' }}>
+        {delivery === 'failed' && (
+          <Pressable onPress={onFailedPress} accessibilityRole="button" accessibilityLabel="Не отправлено. Нажмите, чтобы повторить" hitSlop={10}>
+            <Ionicons name="alert-circle" size={28} color={colors.error} />
+          </Pressable>
+        )}
       <Pressable
         onLongPress={onFeedback}
         delayLongPress={450}
@@ -87,7 +98,7 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
         accessibilityHint={onFeedback ? 'Удерживайте, чтобы поставить реакцию' : undefined}
         style={{ maxWidth: '100%' }}
       >
-        <Bubble $mine={mine}>
+        <Bubble $mine={mine} $max={maxWidth}>
           {showSender && !mine && (
             <Text $weight="extraBold" $size={13} $tone="accent">
               {`${senderName ?? 'Участник'}${senderMood ? ` ${senderMood}` : ''}`}
@@ -149,10 +160,12 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
             <Text $size={11} style={{ color: fg, opacity: 0.7 }}>
               {formatMessageTime(message.createdAt)}
             </Text>
-            {mine && status && <ReadTicks status={status} color={fg} dim />}
+            {mine && delivery === 'sending' && <Ionicons name="time-outline" size={13} color={fg} style={{ opacity: 0.7 }} accessibilityLabel="Отправляется" />}
+            {mine && !delivery && status && <ReadTicks status={status} color={fg} dim />}
           </View>
         </Bubble>
       </Pressable>
+      </View>
       {(reactions.length > 0 || coins > 0) && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: -8, marginHorizontal: 8 }} accessibilityLabel="Реакции и монеты">
           {reactions.map((r) => (

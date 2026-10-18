@@ -55,7 +55,8 @@
         {
           "contactsPermission": "Нужен доступ к контактам, чтобы вы могли пригласить человека по его email."
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true

@@ -22,11 +22,14 @@ export interface OutgoingMessage {
   mediaIds: string[]
   // загруженные файлы в порядке показа
   fileIds: string[]
+  // что показать в ленте, пока сообщение уходит: адреса превью фото и имена файлов
+  photoUris: string[]
+  files: { name: string; size: number }[]
 }
 
 interface ComposerProps {
-  // отправляет сообщение; должен бросить ошибку, если не вышло (текст и вложения тогда остаются в поле)
-  onSend: (message: OutgoingMessage) => Promise<void>
+  // отправляет сообщение; не ждёт ответа сервера: поле очищается сразу, а сообщение уже стоит в ленте (с ошибкой, если не ушло)
+  onSend: (message: OutgoingMessage) => void
   // загружает одно уже уменьшенное фото и возвращает его идентификатор; бросает ошибку, если не вышло
   onUpload: (photo: Blob) => Promise<string>
   // загружает один файл и возвращает его идентификатор; бросает ошибку, если не вышло
@@ -84,8 +87,6 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
   const insets = useSafeAreaInsets()
   const { colors } = useTheme()
   const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [failed, setFailed] = useState(false)
   const [items, setItems] = useState<Attachment[]>([])
   const [menu, setMenu] = useState(false)
   // пока клавиатура открыта, нижний отступ безопасной зоны не нужен: поле стоит прямо над ней
@@ -197,28 +198,22 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
     setItems((current) => current.filter((i) => i.key !== key))
   }
 
-  const ready = canSendMessage(text, items) && !busy
+  const ready = canSendMessage(text, items)
 
   const send = guard(async () => {
     if (!ready) return
-    setBusy(true)
-    setFailed(false)
-    try {
-      await onSend({
-        text: text.trim(),
-        mediaIds: photos.map((p) => p.id!).filter(Boolean),
-        fileIds: files.map((f) => f.id!).filter(Boolean),
-      })
-      setText('')
-      setItems([])
-      blobs.clear()
-      setNotice(undefined)
-    } catch {
-      // текст и вложения остаются: повторить можно сразу, загружать заново не нужно
-      setFailed(true)
-    } finally {
-      setBusy(false)
-    }
+    onSend({
+      text: text.trim(),
+      mediaIds: photos.map((p) => p.id!).filter(Boolean),
+      fileIds: files.map((f) => f.id!).filter(Boolean),
+      photoUris: photos.map((p) => p.uri ?? ''),
+      files: files.map((f) => ({ name: f.name ?? 'Файл', size: f.size ?? 0 })),
+    })
+    // сообщение уже в ленте: поле и вложения освобождаются сразу
+    setText('')
+    setItems([])
+    blobs.clear()
+    setNotice(undefined)
   })
 
   return (
@@ -274,21 +269,13 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
           <Notice tone="warning">{notice}</Notice>
         </View>
       )}
-      {failed && (
-        <View style={{ paddingHorizontal: 12 }}>
-          <Notice tone="error">Не удалось отправить. Попробуйте ещё раз.</Notice>
-        </View>
-      )}
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 10 }}>
         <RoundButton onPress={() => setMenu(true)} accessibilityRole="button" accessibilityLabel="Прикрепить">
           <Ionicons name="attach" size={24} color={colors.text} />
         </RoundButton>
         <Field
           value={text}
-          onChangeText={(value) => {
-            setText(value)
-            setFailed(false)
-          }}
+          onChangeText={setText}
           placeholder={photos.length > 0 && text === '' ? 'Подпись' : 'Сообщение'}
           placeholderTextColor={colors.muted}
           multiline

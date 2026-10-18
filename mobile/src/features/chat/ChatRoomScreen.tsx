@@ -20,11 +20,13 @@ import { useProfile } from '@/profile/context'
 import { useViewingChat } from '@/realtime/context'
 import { toApiError } from '@/store/api'
 import { useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, useSendMessageMutation } from '@/store/chat'
+import { playSendSound } from '@/lib/sound'
 import { Composer, type OutgoingMessage } from './Composer'
 import { FeedbackDialog } from './FeedbackDialog'
 import { MessageBubble } from './MessageBubble'
 import { PhotoViewer } from './PhotoViewer'
 import { chatTitle } from './listUtils'
+import { consumePending, discardPending, isPendingId, pendingToMessage, retrySend, startSend, usePending, type PendingMessage } from './pending'
 import { appendMessage, groupByDay, mergeLatest, messageStatus, participantsLabel, replaceMessage, visitLabel } from './roomUtils'
 import { useChatActions } from './useChatActions'
 
@@ -39,7 +41,7 @@ const Header = styled.View`
 `
 
 // элемент ленты: сообщение или подпись дня (лента перевёрнута: новые внизу)
-type Row = { kind: 'day'; key: string; label: string } | { kind: 'message'; key: string; message: ChatMessage }
+type Row = { kind: 'day'; key: string; label: string } | { kind: 'message'; key: string; message: ChatMessage; delivery?: 'sending' | 'failed'; pendingId?: string }
 
 function ChatMenu({ chat, onClose }: { chat: string; onClose: () => void }) {
   const actions = useChatActions(chat)
@@ -79,6 +81,10 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [feedbackFor, setFeedbackFor] = useState<ChatMessage>()
   const [menuOpen, setMenuOpen] = useState(false)
+  // не отправленное сообщение, для которого открыто меню («Отправить ещё раз» и «Удалить»)
+  const [failedMenu, setFailedMenu] = useState<string>()
+  // свои сообщения, которые ещё уходят или не ушли (лежат вне экрана, отправка идёт и после выхода из чата)
+  const pending = usePending(chat)
   // открытый просмотр фото: сообщение и номер фото в нём
   const [viewing, setViewing] = useState<{ message: ChatMessage; index: number }>()
   // чужое сообщение, до которого уже отметили прочитанное: без этого отметка вызывает событие, событие новый запрос, и так по кругу
@@ -115,6 +121,18 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
     }
   }, [page, chat, me, markRead])
 
+  // ушедшее сообщение переезжает из «ждущих» в ленту одним шагом, без мигания
+  useEffect(() => {
+    const done = pending.filter((p): p is PendingMessage & { sent: ChatMessage } => p.status === 'done' && !!p.sent)
+    if (done.length === 0) return
+    setThread((current) => ({
+      messages: done.reduce((list, p) => appendMessage(list, p.sent), current?.messages ?? []),
+      hasMore: current?.hasMore ?? false,
+      readUpTo: current?.readUpTo ?? null,
+    }))
+    done.forEach((p) => consumePending(p.id))
+  }, [pending])
+
   // вернулись в приложение: пока читали что-то другое, могли прийти сообщения
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => state === 'active' && void markRead())
@@ -123,14 +141,18 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
 
   // строки ленты: от свежих к старым (список перевёрнут), подпись дня стоит после сообщений своего дня
   const rows = useMemo<Row[]>(() => {
-    if (!messages) return []
+    if (!messages && pending.length === 0) return []
+    // свои неотправленные сообщения идут после остальных: они самые новые
+    const waiting = pending.filter((p) => p.status !== 'done')
+    const delivery = new Map(waiting.map((p) => [p.id, p.status as 'sending' | 'failed']))
+    const all = [...(messages ?? []), ...waiting.map((p) => pendingToMessage(p, me ?? ''))]
     const list: Row[] = []
-    for (const group of groupByDay(messages, now)) {
+    for (const group of groupByDay(all, now)) {
       list.push({ kind: 'day', key: `day-${group.key}`, label: group.label })
-      for (const message of group.messages) list.push({ kind: 'message', key: message.id, message })
+      for (const message of group.messages) list.push({ kind: 'message', key: message.id, message, delivery: delivery.get(message.id), pendingId: isPendingId(message.id) ? message.id : undefined })
     }
     return list.reverse()
-  }, [messages, now])
+  }, [messages, pending, now, me])
 
   if (!identity || !me || !token) return null
   if (missing) return <Redirect href="/chat" />
@@ -167,10 +189,15 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
     return fileId
   }
 
-  // должна бросить ошибку, если не вышло: поле ввода тогда оставит текст и вложения
-  async function handleSend({ text, mediaIds, fileIds }: OutgoingMessage) {
-    const { message } = await sendMessage({ chat, text, mediaIds, fileIds }).unwrap().catch(toApiError)
-    setThread((current) => ({ messages: appendMessage(current?.messages ?? [], message), hasMore: current?.hasMore ?? false, readUpTo: current?.readUpTo ?? null }))
+  // Сообщение появляется в ленте сразу и уходит в фоне; не ушло, значит красная иконка с повторной отправкой
+  function handleSend({ text, mediaIds, fileIds, photoUris, files }: OutgoingMessage) {
+    playSendSound()
+    startSend({ chat, text, mediaIds, fileIds, photoUris, files }, (draft) =>
+      sendMessage({ chat, text: draft.text, mediaIds: draft.mediaIds, fileIds: draft.fileIds })
+        .unwrap()
+        .then((res) => res.message)
+        .catch(toApiError),
+    )
   }
 
   // Реакцию можно поставить на любое сообщение, а монеты начисляют только родители (мама, папа) и только за сообщения детей.
@@ -244,9 +271,11 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
               senderName={sender(row.message.senderId)}
               senderMood={currentMood(members.find((m) => m.id === row.message.senderId)?.mood, now)?.emoji}
               showSender={chat === FAMILY_CHAT}
-              status={row.message.senderId === me ? messageStatus(row.message, thread?.readUpTo ?? null) : undefined}
-              onFeedback={() => setFeedbackFor(row.message)}
-              onOpenPhoto={(index) => setViewing({ message: row.message, index })}
+              status={row.message.senderId === me && !row.pendingId ? messageStatus(row.message, thread?.readUpTo ?? null) : undefined}
+              delivery={row.delivery}
+              onFailedPress={() => setFailedMenu(row.pendingId)}
+              onFeedback={row.pendingId ? undefined : () => setFeedbackFor(row.message)}
+              onOpenPhoto={row.pendingId ? undefined : (index) => setViewing({ message: row.message, index })}
             />
           )
         }
@@ -271,6 +300,16 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
 
       {viewing && <PhotoViewer photos={viewing.message.media} index={viewing.index} onClose={() => setViewing(undefined)} />}
       {menuOpen && <ChatMenu chat={chat} onClose={() => setMenuOpen(false)} />}
+      {failedMenu && (
+        <ActionSheet
+          title="Сообщение не отправлено"
+          onClose={() => setFailedMenu(undefined)}
+          actions={[
+            { key: 'retry', label: 'Отправить ещё раз', onSelect: () => retrySend(failedMenu) },
+            { key: 'delete', label: 'Удалить', danger: true, onSelect: () => discardPending(failedMenu) },
+          ]}
+        />
+      )}
       {feedbackFor && (
         <FeedbackDialog
           authorName={sender(feedbackFor.senderId) ?? 'Участник'}
