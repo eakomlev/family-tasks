@@ -43,8 +43,9 @@ export function ProfileScreen() {
 
   return (
     <Screen>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <Heading style={{ flex: 1, fontSize: 26 }}>Профиль</Heading>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <BackLink fallback="/" />
+        <Heading style={{ flex: 1, fontSize: 22 }}>Профиль</Heading>
         {me && <Button variant="text" onPress={() => router.push('/profile/edit')}>Изменить</Button>}
       </View>
       {!me && <Text $tone="muted">Загрузка…</Text>}
@@ -78,7 +79,6 @@ export function ProfileScreen() {
       )}
 
       <Button onPress={handleLogout}>Выйти</Button>
-      <BackLink fallback="/">← Мой день</BackLink>
     </Screen>
   )
 }
