@@ -4,22 +4,30 @@
     "slug": "family-tasks",
     "version": "0.1.0",
     "orientation": "portrait",
-    "scheme": "mysemya",
+    "scheme": "familytasks",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.mysemya.mobile"
+      "bundleIdentifier": "ru.familytasks.mobile"
     },
     "android": {
-      "package": "app.mysemya.mobile",
+      "package": "ru.familytasks.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#4f46e5",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -35,7 +43,13 @@
       ],
       "./plugins/withReleaseSigning",
       "@react-native-community/datetimepicker",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-notifications",
+        {
+          "color": "#4f46e5"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

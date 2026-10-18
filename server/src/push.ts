@@ -8,7 +8,13 @@ import { enqueue, PRIORITY } from './outbox/index.js'
 // Без публичного ключа push выключен: маршруты отвечают 503, уведомления не ставятся в очередь.
 const publicKey = process.env.VAPID_PUBLIC_KEY
 
-export const pushEnabled = Boolean(publicKey)
+// Push на телефон приложения (Android через Firebase Cloud Messaging): сервер знает только признак «включено», ключ сервисного аккаунта
+// есть у notifier. Подписка-токен хранится рядом с веб-подписками (kind = 'fcm').
+export const fcmEnabled = process.env.FCM_ENABLED === 'true'
+export const webPushEnabled = Boolean(publicKey)
+
+// push включён, если работает хотя бы один способ доставки
+export const pushEnabled = webPushEnabled || fcmEnabled
 
 // Сервер сам делает запрос на адрес из подписки, поэтому принимаем только адреса известных push-сервисов:
 // иначе любой участник мог бы заставить сервер обращаться к произвольным https-адресам (SSRF).
@@ -50,6 +56,19 @@ const subscribeSchema = {
   },
 }
 
+const deviceSchema = {
+  body: {
+    type: 'object',
+    required: ['token', 'timeZone'],
+    additionalProperties: false,
+    properties: {
+      // токен Firebase длиной около 150–200 знаков; запас с избытком
+      token: { type: 'string', minLength: 20, maxLength: 4096 },
+      timeZone: { type: 'string', minLength: 1, maxLength: 64 },
+    },
+  },
+}
+
 const unsubscribeSchema = {
   body: {
     type: 'object',
@@ -62,7 +81,7 @@ const unsubscribeSchema = {
 export async function pushRoutes(app: FastifyInstance) {
   // публичный ключ нужен браузеру, чтобы оформить подписку
   app.get('/api/push/config', { config: { public: true } }, async (_req, reply) => {
-    if (!pushEnabled) return reply.code(503).send({ error: 'push_not_configured' })
+    if (!webPushEnabled) return reply.code(503).send({ error: 'push_not_configured' })
     return { publicKey }
   })
 
@@ -72,7 +91,7 @@ export async function pushRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const me = await authenticate(req)
       if (!me) return reply.code(401).send({ error: 'unauthorized' })
-      if (!pushEnabled) return reply.code(503).send({ error: 'push_not_configured' })
+      if (!webPushEnabled) return reply.code(503).send({ error: 'push_not_configured' })
 
       const { endpoint, keys, timeZone } = req.body
       if (!isAllowedEndpoint(endpoint)) return reply.code(400).send({ error: 'invalid_endpoint' })
@@ -84,13 +103,34 @@ export async function pushRoutes(app: FastifyInstance) {
          values ($1, $2, $3, $4, $5)
          on conflict (endpoint) do update
            set member_id = excluded.member_id, p256dh = excluded.p256dh,
-               auth = excluded.auth, time_zone = excluded.time_zone`,
+               auth = excluded.auth, time_zone = excluded.time_zone, kind = 'web'`,
         [me.id, endpoint, keys.p256dh, keys.auth, timeZone],
       )
       return reply.code(204).send()
     },
   )
 
+  // Устройство с приложением: токен Firebase и часовой пояс (по нему считаются 10:00 и 17:00). Токен переходит к тому, кто вошёл на
+  // устройстве последним. Адрес по токену никто не запрашивает, поэтому проверка адреса (SSRF) здесь не нужна.
+  app.post<{ Body: { token: string; timeZone: string } }>('/api/push/devices', { schema: deviceSchema, config: strictLimit }, async (req, reply) => {
+    const me = await authenticate(req)
+    if (!me) return reply.code(401).send({ error: 'unauthorized' })
+    if (!fcmEnabled) return reply.code(503).send({ error: 'push_not_configured' })
+
+    const { token, timeZone } = req.body
+    if (!isValidTimeZone(timeZone)) return reply.code(400).send({ error: 'invalid_time_zone' })
+
+    await pool.query(
+      `insert into push_subscriptions (member_id, endpoint, p256dh, auth, time_zone, kind)
+       values ($1, $2, null, null, $3, 'fcm')
+       on conflict (endpoint) do update
+         set member_id = excluded.member_id, p256dh = null, auth = null, time_zone = excluded.time_zone, kind = 'fcm'`,
+      [me.id, token, timeZone],
+    )
+    return reply.code(204).send()
+  })
+
+  // отписка работает и для токена устройства (он лежит в endpoint)
   app.post<{ Body: { endpoint: string } }>(
     '/api/push/unsubscribe',
     { schema: unsubscribeSchema },

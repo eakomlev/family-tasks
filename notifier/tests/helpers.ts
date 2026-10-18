@@ -69,3 +69,12 @@ export async function insertRow(row: NewRow = {}): Promise<string> {
 }
 
 export const rowById = async (id: string) => (await pool.query('select * from outbox where id = $1', [id])).rows[0]
+
+// Устройство с приложением: токен Firebase в endpoint, ключей нет (kind = 'fcm')
+export async function subscribeDevice(memberId: string, token = `fcm-token-${uid()}`.padEnd(40, 'x')): Promise<{ id: string; endpoint: string }> {
+  const { rows } = await pool.query(
+    `insert into push_subscriptions (member_id, endpoint, p256dh, auth, time_zone, kind) values ($1, $2, null, null, 'UTC', 'fcm') returning id`,
+    [memberId, token],
+  )
+  return { id: rows[0].id, endpoint: token }
+}

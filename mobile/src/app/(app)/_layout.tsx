@@ -6,6 +6,7 @@ import { Avatar } from '@/components/Avatar'
 import { CoinBalance } from '@/components/Coins'
 import { useIdentity } from '@/identity/context'
 import { ProfileProvider } from '@/profile'
+import { NotificationsBridge } from '@/features/notifications/NotificationsBridge'
 import { useProfile } from '@/profile/context'
 import { RealtimeProvider } from '@/realtime'
 import { RealtimeBridge } from '@/store/RealtimeBridge'
@@ -48,6 +49,7 @@ export default function AppLayout() {
     <RealtimeProvider token={identity.token}>
       <ProfileProvider>
         <RealtimeBridge />
+        <NotificationsBridge />
         <ChatsProvider>
           <Stack screenOptions={{ headerShown: false }} />
           <TopRight />

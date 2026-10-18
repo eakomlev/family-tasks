@@ -23,6 +23,8 @@ services:
       # Письма и push server только ставит в очередь outbox, отправляет сервис notifier: SMTP и приватный ключ VAPID
       # есть только у него (docs/notification-queue-plan.md). Серверу нужен публичный ключ: браузер просит его для подписки.
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      # push на телефон приложения: серверу нужен только признак, ключ сервисного аккаунта у notifier
+      FCM_ENABLED: ${FCM_ENABLED:-}
       # администраторы сервиса (раздел «Сервис» в профиле), email через запятую
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       # адрес сайта для ссылок в письмах-приглашениях: PUBLIC_URL или https://DOMAIN
@@ -58,6 +60,8 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@family-tasks.local}
+      # Firebase Cloud Messaging (push в приложение на Android): ключ сервисного аккаунта одной строкой base64
+      FCM_SERVICE_ACCOUNT_BASE64: ${FCM_SERVICE_ACCOUNT_BASE64:-}
       # лимиты провайдеров (подробности в .env.example)
       MAIL_DAILY_LIMIT: ${MAIL_DAILY_LIMIT:-2800}
       MAIL_RATE_PER_SECOND: ${MAIL_RATE_PER_SECOND:-2}
@@ -80,8 +84,9 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      # без публичного ключа VAPID уведомления выключены, как у server
+      # без публичного ключа VAPID и без FCM_ENABLED уведомления выключены, как у server
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      FCM_ENABLED: ${FCM_ENABLED:-}
       # удаление семьи: сначала файлы в сервисе media, потом данные в базе
       MEDIA_URL: http://media:3000
       MEDIA_INTERNAL_TOKEN: ${MEDIA_INTERNAL_TOKEN:-}

@@ -9,6 +9,8 @@ export default defineConfig({
       DATABASE_URL: testDatabaseUrl(),
       // публичный ключ VAPID нужен серверу только как признак «push включён» и для GET /api/push/config
       VAPID_PUBLIC_KEY: 'test-public-key',
+      // push на телефон (токены Firebase): в тестах включён
+      FCM_ENABLED: 'true',
       // в тестах push-сервисом выступает подставной адрес
       PUSH_ALLOWED_HOSTS: 'push.test',
       // администратор в тестах: почта, которую тесты выдают нужному участнику

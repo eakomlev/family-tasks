@@ -7,9 +7,9 @@ import { Button } from '@/components/Button'
 import { CoinBalanceCard } from '@/components/Coins'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { MenuLink } from '@/components/MenuLink'
-import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Heading, Text } from '@/components/Text'
+import { disablePush } from '@/features/notifications/usePush'
 import { useIdentity } from '@/identity/context'
 import { ageFromBirthDate, formatAge, formatBirthDate } from '@/lib/date'
 import { ROLE_LABELS } from '@/lib/roles'
@@ -33,7 +33,8 @@ export function ProfileScreen() {
       danger: true,
     })
     if (!ok) return
-    // даже если сервер недоступен, на этом устройстве всё равно выходим
+    // даже если сервер недоступен, на этом устройстве всё равно выходим; уведомления выключаем до выхода, пока токен сессии ещё действует
+    await disablePush(token).catch(() => {})
     await logout(token).catch(() => {})
     await clear()
   }
@@ -70,8 +71,8 @@ export function ProfileScreen() {
               <MenuLink to="/profile/trainings">Расписание тренировок</MenuLink>
             </>
           )}
+          <MenuLink to="/profile/notifications">Уведомления</MenuLink>
           <MenuLink to="/profile/theme">Тема</MenuLink>
-          <Notice>Уведомления появятся в следующих версиях.</Notice>
         </>
       )}
 

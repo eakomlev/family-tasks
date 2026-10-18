@@ -12,9 +12,9 @@ const BEAT_MS = 15_000
 const instance = hostname()
 const pool = createPool()
 
-// Без публичного ключа VAPID уведомления выключены (как у server): notifier всё равно отбросил бы такие сообщения.
-const enabled = Boolean(process.env.VAPID_PUBLIC_KEY)
-if (!enabled) log('warn', 'push_disabled', { hint: 'VAPID_PUBLIC_KEY is not set: nothing will be planned' })
+// Без публичного ключа VAPID и без FCM_ENABLED уведомления выключены (как у server): notifier всё равно отбросил бы такие сообщения.
+const enabled = Boolean(process.env.VAPID_PUBLIC_KEY) || process.env.FCM_ENABLED === 'true'
+if (!enabled) log('warn', 'push_disabled', { hint: 'neither VAPID_PUBLIC_KEY nor FCM_ENABLED is set: nothing will be planned' })
 
 // Файлы удаляемых семей убирает сервис media (без его настроек удалять в хранилище нечего)
 const media = mediaCleanerFromEnv()
@@ -26,7 +26,7 @@ const tick = async () => {
   running = true
   const now = new Date()
   try {
-    // плановые уведомления: без ключа VAPID выключены
+    // плановые уведомления: без VAPID и FCM выключены
     if (enabled) {
       try {
         const result = await runTickAsLeader(pool, now)

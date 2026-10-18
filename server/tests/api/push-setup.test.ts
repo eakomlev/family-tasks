@@ -13,9 +13,20 @@ it('push включён, когда задан публичный ключ VAPID
   expect((await import('../../src/push.js')).pushEnabled).toBe(true)
 })
 
-it('без публичного ключа push выключен, даже если приватный задан', async () => {
+it('без публичного ключа и FCM push выключен, даже если приватный ключ VAPID задан', async () => {
   vi.stubEnv('VAPID_PUBLIC_KEY', '')
+  vi.stubEnv('FCM_ENABLED', '')
   vi.stubEnv('VAPID_PRIVATE_KEY', 'private-key')
   vi.resetModules()
   expect((await import('../../src/push.js')).pushEnabled).toBe(false)
+})
+
+it('push на телефон включается признаком FCM_ENABLED независимо от VAPID', async () => {
+  vi.stubEnv('VAPID_PUBLIC_KEY', '')
+  vi.stubEnv('FCM_ENABLED', 'true')
+  vi.resetModules()
+  const push = await import('../../src/push.js')
+  expect(push.pushEnabled).toBe(true)
+  expect(push.fcmEnabled).toBe(true)
+  expect(push.webPushEnabled).toBe(false)
 })

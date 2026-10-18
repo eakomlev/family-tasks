@@ -12,6 +12,7 @@ import { FamilyChildren } from '@/features/myDay/FamilyChildren'
 import { MoodDialog } from '@/features/myDay/MoodDialog'
 import { TodayLessons, TodayTrainings } from '@/features/myDay/TodaySchedule'
 import { TodayTasks } from '@/features/myDay/TodayTasks'
+import { PushPrompt } from '@/features/notifications/PushPrompt'
 import { PendingReview } from '@/features/tasks/PendingReview'
 import { formatToday, getGreeting } from '@/features/myDay/utils'
 import { useIdentity } from '@/identity/context'
@@ -65,6 +66,7 @@ export default function MyDay() {
         </View>
         <Text $tone="muted">{formatToday(now)}</Text>
       </Stack>
+      <PushPrompt />
       <DayProgressCard now={now} />
       <EarnedToday now={now} />
       <PendingReview />

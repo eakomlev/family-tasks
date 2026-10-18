@@ -113,3 +113,53 @@ describe('проверочное уведомление', () => {
     expect(queued[0].payload).toMatchObject({ title: 'Проверка уведомлений', url: '/profile/notifications', tag: 'test' })
   })
 })
+
+// ---- устройства с приложением (токен Firebase) ----
+
+const TOKEN = 'fcm-token-'.padEnd(40, 'x')
+const device = (token: string | null, deviceToken = TOKEN, timeZone = 'Europe/Moscow') => api(app, token, 'POST', '/api/push/devices', { token: deviceToken, timeZone })
+const storedDevice = async (token: string) =>
+  (await pool.query('select member_id, time_zone, kind, p256dh, auth from push_subscriptions where endpoint = $1', [token])).rows
+
+describe('устройство с приложением', () => {
+  it('без авторизации 401', async () => {
+    expect((await device(null)).status).toBe(401)
+  })
+
+  it('регистрирует токен: вид fcm, ключей нет', async () => {
+    const token = `${TOKEN}-1`
+    expect((await device(fam.kid.token, token)).status).toBe(204)
+    expect(await storedDevice(token)).toEqual([{ member_id: fam.kid.id, time_zone: 'Europe/Moscow', kind: 'fcm', p256dh: null, auth: null }])
+  })
+
+  it('повтор обновляет часовой пояс, а не дублирует; токен переходит к тому, кто вошёл на устройстве последним', async () => {
+    const token = `${TOKEN}-2`
+    await device(fam.kid.token, token, 'Europe/Moscow')
+    await device(fam.kid.token, token, 'Asia/Tokyo')
+    expect(await storedDevice(token)).toMatchObject([{ member_id: fam.kid.id, time_zone: 'Asia/Tokyo' }])
+    await device(fam.mom.token, token)
+    expect(await storedDevice(token)).toMatchObject([{ member_id: fam.mom.id, kind: 'fcm' }])
+  })
+
+  it('проверяет часовой пояс и длину токена', async () => {
+    expect((await device(fam.kid.token, `${TOKEN}-3`, 'Mars/Base')).status).toBe(400)
+    expect((await device(fam.kid.token, 'short')).status).toBe(400)
+  })
+
+  it('отписаться от токена можно только от своего', async () => {
+    const token = `${TOKEN}-4`
+    await device(fam.kid.token, token)
+    await api(app, fam.mom.token, 'POST', '/api/push/unsubscribe', { endpoint: token })
+    expect(await storedDevice(token)).toHaveLength(1)
+    expect((await api(app, fam.kid.token, 'POST', '/api/push/unsubscribe', { endpoint: token })).status).toBe(204)
+    expect(await storedDevice(token)).toEqual([])
+  })
+
+  it('проверочное уведомление ставится и на устройство с приложением', async () => {
+    const token = `${TOKEN}-5`
+    await device(fam.sis.token, token)
+    const res = await api(app, fam.sis.token, 'POST', '/api/push/test')
+    expect(res.body).toMatchObject({ queued: 1 })
+    expect(await sentTo([token])).toHaveLength(1)
+  })
+})
