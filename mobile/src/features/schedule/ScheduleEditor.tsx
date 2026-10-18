@@ -188,7 +188,7 @@ export function ScheduleEditor<Row extends DraftRow>({ kind, memberId: paramId, 
   const fallback = isOwn ? '/profile' : ({ pathname: '/family/[memberId]', params: { memberId } } as const)
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback={fallback}>← Назад</BackLink>
       <PageTitle>{kind.title}</PageTitle>
       {!isOwn && target && <Text $tone="muted">{target.name}</Text>}

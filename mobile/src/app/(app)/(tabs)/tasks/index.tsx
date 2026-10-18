@@ -23,7 +23,6 @@ import { useListDoneTasksQuery, useListTasksQuery } from '@/store/tasks'
 
 // сколько дней вперёд показываем в «Предстоящих»
 const DAYS_AHEAD = 7
-const TAB_BAR_RESERVE = 88
 
 export default function Tasks() {
   const { identity } = useIdentity()
@@ -69,7 +68,7 @@ export default function Tasks() {
 
   return (
     <Screen
-      bottomReserve={TAB_BAR_RESERVE}
+     
       refreshControl={<RefreshControl refreshing={false} onRefresh={() => void dispatch(api.util.invalidateTags(['Tasks', 'Pending', 'Done']))} />}
     >
       <PageTitle>Задания</PageTitle>

@@ -49,7 +49,7 @@ export function LessonReportScreen({ subject: rawSubject }: { subject?: string }
   })
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback="/">← Мой день</BackLink>
       <PageTitle>Что ты хочешь сообщить!</PageTitle>
       <Text $weight="extraBold" $tone="accent">{`Урок «${subject}»`}</Text>

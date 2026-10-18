@@ -5,6 +5,7 @@ import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
+import { goBack } from '@/lib/navigation'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
 import { useCreateTaskMutation, useDeleteTaskMutation, useGetTaskQuery, useUpdateTaskMutation } from '@/store/tasks'
@@ -39,21 +40,22 @@ export function TaskFormScreen({ taskId, assignee }: { taskId?: string; assignee
 
   async function create(input: TaskInput) {
     await createTask(input).unwrap().catch(toApiError)
-    router.replace('/tasks')
+    goBack(router, '/tasks')
   }
 
   async function update(input: TaskInput) {
     await updateTask({ id: task!.id, input }).unwrap().catch(toApiError)
-    router.replace({ pathname: '/tasks/[taskId]', params: { taskId: task!.id } })
+    goBack(router, { pathname: '/tasks/[taskId]', params: { taskId: task!.id } })
   }
 
   async function remove() {
     await deleteTask(task!.id).unwrap().catch(toApiError)
-    router.replace('/tasks')
+    // задания больше нет: возвращаемся на список, минуя его страницу
+    router.dismissTo('/tasks')
   }
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback="/tasks">{taskId ? '← Задание' : '← Задания'}</BackLink>
       <PageTitle>{taskId ? 'Изменить задание' : 'Новое задание'}</PageTitle>
 

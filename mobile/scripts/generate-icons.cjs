@@ -1,4 +1,4 @@
-// Генерирует значки приложения из рисунка веб-версии (web/public/icon.svg: белый дом с галочкой на индиго).
+// Генерирует значки приложения из рисунка веб-версии (web/public/icon.svg: золотой контур дома с тёплым светом в двери на тёмном фоне).
 // Запуск из каталога mobile/:  node scripts/generate-icons.cjs
 // Использует `sharp` из соседнего пакета media/ (там он уже установлен), отдельной зависимости в mobile/ нет.
 // Результат: assets/images/{icon,android-icon-background,android-icon-foreground,android-icon-monochrome,splash-icon,favicon}.png
@@ -6,12 +6,11 @@ const path = require('node:path')
 const sharp = require(path.join(__dirname, '..', '..', 'media', 'node_modules', 'sharp'))
 
 const OUT = path.join(__dirname, '..', 'assets', 'images')
-const INDIGO = '#4f46e5'
 
-// дом и галочка в координатах исходного SVG (512 × 512)
-const HOUSE = `<path d="M256 120 L106 246 H162 V382 H350 V246 H406 Z" fill="#ffffff" stroke="#ffffff" stroke-width="44" stroke-linejoin="round"/>`
-const CHECK = (color) =>
-  `<path d="M196 308 L240 352 L322 262" fill="none" stroke="${color}" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>`
+// золотой контур дома с тёплым светом в двери на тёмном фоне в координатах исходного SVG (512 × 512); те же фигуры, что в web/public/icon.svg
+const DEFS = `<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1c2150"/><stop offset="1" stop-color="#07081c"/></linearGradient><linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe29a"/><stop offset="1" stop-color="#d9922e"/></linearGradient><radialGradient id="glow" cx=".5" cy=".62" r=".5"><stop offset="0" stop-color="#ffcf70" stop-opacity=".85"/><stop offset="1" stop-color="#ffcf70" stop-opacity="0"/></radialGradient><filter id="sh" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur in="SourceAlpha" stdDeviation="12"/><feOffset dy="14"/><feComponentTransfer><feFuncA type="linear" slope=".6"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`
+const BG = `<rect width="512" height="512" fill="url(#bg)"/><rect width="512" height="512" fill="url(#glow)"/>`
+const HOUSE = `<g filter="url(#sh)"><path d="M256 112 L96 250 H140 V396 H372 V250 H416 Z" fill="#0d1030" stroke="url(#gold)" stroke-width="22" stroke-linejoin="round"/></g><rect x="212" y="282" width="88" height="114" rx="44" fill="#ffd477"/><rect x="212" y="282" width="88" height="114" rx="44" fill="url(#glow)"/>`
 
 // рисунок по центру с масштабом (adaptive-значок Android: важное только в центральных ~60%)
 const svg = (inner, { scale = 1, background = '' } = {}) =>
@@ -21,17 +20,17 @@ const png = (xml, file, size = 1024) =>
   sharp(Buffer.from(xml)).resize(size, size).png().toFile(path.join(OUT, file)).then(() => console.log('готово', file))
 
 async function main() {
-  const background = `<rect width="512" height="512" fill="${INDIGO}"/>`
-  await png(svg(HOUSE + CHECK(INDIGO), { background }), 'icon.png')
-  await png(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="1024" height="1024">${background}</svg>`, 'android-icon-background.png')
-  await png(svg(HOUSE + CHECK(INDIGO), { scale: 0.85 }), 'android-icon-foreground.png')
-  // одноцветный значок (Android 13+, тематические значки): белый дом с прорезью-галочкой
+  await png(svg(DEFS + BG + HOUSE), 'icon.png')
+  // адаптивный значок Android: фон и дом отдельными слоями (важное только в центральных ~60%)
+  await png(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="1024" height="1024">${DEFS}${BG}</svg>`, 'android-icon-background.png')
+  await png(svg(DEFS + HOUSE, { scale: 0.85 }), 'android-icon-foreground.png')
+  // одноцветный значок (Android 13+, тематические значки): контур дома с дверью
   const mono =
-    `<defs><mask id="m"><rect width="512" height="512" fill="black"/>${HOUSE}${CHECK('black')}</mask></defs>` +
-    `<rect width="512" height="512" fill="#ffffff" mask="url(#m)"/>`
+    '<path d="M256 112 L96 250 H140 V396 H372 V250 H416 Z" fill="none" stroke="#ffffff" stroke-width="22" stroke-linejoin="round"/>' +
+    '<rect x="212" y="282" width="88" height="114" rx="44" fill="#ffffff"/>'
   await png(svg(mono, { scale: 0.85 }), 'android-icon-monochrome.png')
-  await png(svg(HOUSE + CHECK(INDIGO), { scale: 0.95 }), 'splash-icon.png')
-  await png(svg(HOUSE + CHECK(INDIGO), { background }), 'favicon.png', 48)
+  await png(svg(DEFS + HOUSE, { scale: 0.95 }), 'splash-icon.png')
+  await png(svg(DEFS + BG + HOUSE), 'favicon.png', 48)
 }
 
 main().catch((err) => {

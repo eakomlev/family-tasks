@@ -11,7 +11,7 @@ const LABELS: Record<ThemePreference, string> = { system: 'Как в систе�
 export function ThemeScreen() {
   const preference = useThemePreference()
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback="/profile">← Профиль</BackLink>
       <PageTitle>Тема</PageTitle>
       <Text $tone="muted">«Как в системе» следует за настройкой телефона.</Text>

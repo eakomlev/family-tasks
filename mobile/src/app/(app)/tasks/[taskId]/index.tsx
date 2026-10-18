@@ -17,6 +17,7 @@ import { formatDateTime, todayIso } from '@/lib/date'
 import { isParent } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
 import { useNow } from '@/lib/useNow'
+import { goBack } from '@/lib/navigation'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
 import { useCompleteTaskMutation, useConfirmTaskMutation, useGetTaskQuery, useUncompleteTaskMutation } from '@/store/tasks'
@@ -140,7 +141,7 @@ export default function TaskView() {
   const repeat = task ? describeFullRepeat(task) : ''
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback="/tasks">← Задания</BackLink>
       {state === 'loading' && <Text $tone="muted">Загрузка…</Text>}
       {state === 'failed' && <Notice tone="error">Не удалось загрузить задание. Проверьте соединение.</Notice>}
@@ -202,7 +203,7 @@ export default function TaskView() {
             )}
           </Stack>
 
-          {celebrating && <Celebration title={task.title} reward={task.assigneeId === me ? task.reward : undefined} onClose={() => router.replace('/tasks')} />}
+          {celebrating && <Celebration title={task.title} reward={task.assigneeId === me ? task.reward : undefined} onClose={() => goBack(router, '/tasks')} />}
         </>
       )}
     </Screen>

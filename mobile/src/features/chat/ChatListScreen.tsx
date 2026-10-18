@@ -115,7 +115,7 @@ export function ChatListScreen() {
   const members = data?.members ?? []
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <PageTitle>Чат</PageTitle>
       {!chats && <Text $tone="muted">Загрузка…</Text>}
       {chats && members.length === 0 && <Notice>В семье пока никого нет.</Notice>}

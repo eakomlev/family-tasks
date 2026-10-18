@@ -1,4 +1,5 @@
 import { useRouter, type Href } from 'expo-router'
+import { goBack } from '@/lib/navigation'
 import { Button } from '../Button'
 
 // Ссылка «←»: возвращает на экран, с которого пришли; если истории нет (открыли по ссылке), ведёт на запасной адрес
@@ -8,8 +9,7 @@ export function BackLink({ fallback, children = '← Назад' }: { fallback: 
     <Button
       variant="text"
       onPress={() => {
-        if (router.canGoBack()) router.back()
-        else router.replace(fallback)
+        goBack(router, fallback)
       }}
     >
       {children}

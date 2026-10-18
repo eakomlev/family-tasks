@@ -72,7 +72,7 @@ export function EventFormScreen({ id, date, view }: { id?: string; date?: string
     try {
       if (id) await updateEvent({ id, input: toInput(form) }).unwrap().catch(toApiError)
       else await createEvent(toInput(form)).unwrap().catch(toApiError)
-      router.replace({ pathname: '/calendar', params: { ...(view ? { view } : {}), date: form.startDate } })
+      router.dismissTo({ pathname: '/calendar', params: { ...(view ? { view } : {}), date: form.startDate } })
     } catch (err) {
       setError(describeEventError(err))
       setBusy(false)
@@ -85,7 +85,7 @@ export function EventFormScreen({ id, date, view }: { id?: string; date?: string
     setBusy(true)
     try {
       await deleteEvent(id).unwrap().catch(toApiError)
-      router.replace('/calendar')
+      router.dismissTo('/calendar')
     } catch (err) {
       setError(describeEventError(err))
       setBusy(false)
@@ -95,7 +95,7 @@ export function EventFormScreen({ id, date, view }: { id?: string; date?: string
   const loading = !!id && !stored && !event.error
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback={id ? { pathname: '/calendar/events/[id]', params: { id } } : back}>{id ? '← Событие' : '← Календарь'}</BackLink>
       <PageTitle>{id ? 'Изменить событие' : 'Новое событие'}</PageTitle>
       {loading && <Text $tone="muted">Загрузка…</Text>}

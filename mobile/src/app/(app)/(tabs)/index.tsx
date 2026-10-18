@@ -22,7 +22,6 @@ import { useProfile } from '@/profile/context'
 import { api, toApiError } from '@/store/api'
 import { useSetMoodMutation } from '@/store/profile'
 
-const TAB_BAR_RESERVE = 88
 
 // «Мой день»: приветствие и настроение, прогресс дня, задания, уроки и тренировки ребёнка, сводка по детям для взрослых
 export default function MyDay() {
@@ -48,7 +47,7 @@ export default function MyDay() {
 
   return (
     <Screen
-      bottomReserve={TAB_BAR_RESERVE}
+     
       refreshControl={<RefreshControl refreshing={false} onRefresh={() => void dispatch(api.util.invalidateTags(['Me', 'Tasks', 'Goals', 'Schedule', 'Trainings']))} />}
     >
       <Stack $gap={4}>

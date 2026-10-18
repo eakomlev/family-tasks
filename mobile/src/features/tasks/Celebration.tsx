@@ -4,6 +4,7 @@ import styled from 'styled-components/native'
 import { Button } from '@/components/Button'
 import { Text, Title } from '@/components/Text'
 import { coinsWord } from '@/lib/coins'
+import { Confetti } from './Confetti'
 import { EMOJIS, PRAISES, pick } from './celebrationText'
 
 const Overlay = styled.View`
@@ -24,7 +25,7 @@ const Reward = styled.View`
   background-color: ${({ theme }) => theme.colors.coinBg};
 `
 
-// Экран поздравления на весь экран после выполнения задания (конфетти добавим позже)
+// Экран поздравления на весь экран после выполнения задания, с конфетти
 export function Celebration({ title, reward, onClose }: { title: string; reward?: number; onClose: () => void }) {
   const [praise] = useState(() => pick(PRAISES))
   const [emoji] = useState(() => pick(EMOJIS))
@@ -32,6 +33,7 @@ export function Celebration({ title, reward, onClose }: { title: string; reward?
   return (
     <Modal animationType="fade" onRequestClose={onClose}>
       <Overlay accessibilityViewIsModal>
+        <Confetti />
         <Text $size={72}>{emoji}</Text>
         <Title style={{ color: '#ffffff', textAlign: 'center' }}>{praise}</Title>
         <Text style={{ color: '#dcd7ff', textAlign: 'center' }}>{`Задание «${title}» выполнено.`}</Text>

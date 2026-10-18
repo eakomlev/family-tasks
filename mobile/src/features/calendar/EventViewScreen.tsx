@@ -55,7 +55,7 @@ export function EventViewScreen({ id }: { id: string }) {
     if (!(await confirm({ title: 'Удалить событие?', message: 'Событие пропадёт у всех участников.', confirmLabel: 'Удалить', danger: true }))) return
     try {
       await deleteEvent(id).unwrap().catch(toApiError)
-      router.replace('/calendar')
+      router.dismissTo('/calendar')
     } catch (err) {
       setError(describeEventError(err))
     }
@@ -69,7 +69,7 @@ export function EventViewScreen({ id }: { id: string }) {
   const participants = event ? (event.allFamily ? members : members.filter((m) => event.memberIds.includes(m.id) || m.id === event.authorId)) : []
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback={event ? { pathname: '/calendar', params: { date: event.startDate } } : '/calendar'}>← Календарь</BackLink>
       {!event && <Text $tone="muted">Загрузка…</Text>}
       {event && (

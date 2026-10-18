@@ -13,6 +13,7 @@ import { Stack } from '@/components/Stack'
 import { Heading, Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { describeInviteEmailError } from '@/lib/errors'
+import { pickContact } from '@/lib/contacts'
 import { inviteLink } from '@/lib/links'
 import { retryRead } from '@/lib/retry'
 import { useInFlight } from '@/lib/useInFlight'
@@ -78,7 +79,7 @@ interface Recipient {
 
 const STATUS_TEXT = { idle: '', sending: 'Отправляем…', sent: 'Отправлено' } as const
 
-// Приглашение по email: адреса вводят по одному, потом на них уходят письма со ссылкой. Выбор из контактов телефона добавим позже.
+// Приглашение по email: адреса берут из контактов телефона или вводят по одному, потом на них уходят письма со ссылкой.
 function InviteByEmail({ token }: { token: string }) {
   const guard = useInFlight()
   const [recipients, setRecipients] = useState<Recipient[]>([])
@@ -86,14 +87,30 @@ function InviteByEmail({ token }: { token: string }) {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string>()
 
-  function add() {
-    const email = typed.trim().toLowerCase()
-    if (!email) return
-    if (!isValidEmail(email)) return setNotice(`Не похоже на email: ${email}`)
-    setNotice(undefined)
-    setRecipients((current) => (current.some((r) => r.email === email) ? current : [...current, { email, status: 'idle' }]))
-    setTyped('')
+  const addEmails = (emails: string[]) => {
+    const normalized = emails.map((e) => e.trim().toLowerCase()).filter(Boolean)
+    const bad = normalized.filter((e) => !isValidEmail(e))
+    setNotice(bad.length > 0 ? `Не похоже на email: ${bad.join(', ')}` : undefined)
+    setRecipients((current) => {
+      const next = [...current]
+      for (const email of normalized.filter(isValidEmail)) if (!next.some((r) => r.email === email)) next.push({ email, status: 'idle' })
+      return next
+    })
+    return bad.length === 0
   }
+
+  function add() {
+    if (typed.trim() && addEmails([typed])) setTyped('')
+  }
+
+  const pick = guard(async () => {
+    setNotice(undefined)
+    try {
+      addEmails((await pickContact()).map((c) => c.email))
+    } catch (err) {
+      setNotice((err as Error).message === 'no_permission' ? 'Нет доступа к контактам. Разрешите его в настройках телефона или введите адрес вручную.' : 'Не удалось открыть контакты. Введите адрес вручную.')
+    }
+  })
 
   const patch = (email: string, change: Partial<Recipient>) => setRecipients((current) => current.map((r) => (r.email === email ? { ...r, ...change } : r)))
 
@@ -119,7 +136,8 @@ function InviteByEmail({ token }: { token: string }) {
     <Stack>
       <Heading>Пригласить по email</Heading>
       <Text>Мы отправим письмо со ссылкой. Человек откроет её, подтвердит свой email кодом и выберет, кто он в семье.</Text>
-      <Field label="Email">
+      <Button onPress={pick}>Выбрать из контактов</Button>
+      <Field label="Или введите адрес">
         <Input
           value={typed}
           onChangeText={setTyped}
@@ -172,7 +190,7 @@ export function InviteScreen() {
   if (data && !data.me.isOwner) return <Redirect href="/family" />
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback="/family">← Моя семья</BackLink>
       <PageTitle>Пригласить в семью</PageTitle>
       <Text>Отправьте ссылку тому, кого хотите добавить. По ней можно присоединиться как мама, папа, бабушка, дедушка или ребёнок.</Text>

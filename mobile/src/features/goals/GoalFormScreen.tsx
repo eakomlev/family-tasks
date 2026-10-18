@@ -14,6 +14,7 @@ import { useIdentity } from '@/identity/context'
 import { pickSquareImage } from '@/lib/image'
 import { isParent } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
+import { goBack } from '@/lib/navigation'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
 import { useCreateGoalMutation, useDeleteGoalMutation, useGetGoalQuery, useUpdateGoalMutation } from '@/store/goals'
@@ -89,10 +90,10 @@ export function GoalFormScreen({ memberId, goalId }: { memberId?: string; goalId
     try {
       if (goal) {
         await updateGoal({ id: goal.id, input: toGoalInput(form) }).unwrap().catch(toApiError)
-        router.replace({ pathname: '/goals/[goalId]', params: { goalId: goal.id } })
+        goBack(router, { pathname: '/goals/[goalId]', params: { goalId: goal.id } })
       } else {
         await createGoal({ memberId: ownerId!, input: toGoalInput(form) }).unwrap().catch(toApiError)
-        router.replace({ pathname: '/family/[memberId]/goals', params: { memberId: ownerId! } })
+        goBack(router, { pathname: '/family/[memberId]/goals', params: { memberId: ownerId! } })
       }
     } catch (err) {
       setError(describeGoalError(err))
@@ -107,7 +108,7 @@ export function GoalFormScreen({ memberId, goalId }: { memberId?: string; goalId
     setBusy(true)
     try {
       await deleteGoal(goal.id).unwrap().catch(toApiError)
-      router.replace({ pathname: '/family/[memberId]/goals', params: { memberId: goal.memberId } })
+      router.dismissTo({ pathname: '/family/[memberId]/goals', params: { memberId: goal.memberId } })
     } catch (err) {
       setError(describeGoalError(err))
       setBusy(false)
@@ -117,7 +118,7 @@ export function GoalFormScreen({ memberId, goalId }: { memberId?: string; goalId
   const childName = data?.members.find((m) => m.id === ownerId)?.name
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback={goal ? { pathname: '/goals/[goalId]', params: { goalId: goal.id } } : { pathname: '/family/[memberId]/goals', params: { memberId: memberId! } }}>
         {goal ? '← Цель' : '← Цели'}
       </BackLink>

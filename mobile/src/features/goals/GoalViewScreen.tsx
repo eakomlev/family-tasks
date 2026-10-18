@@ -85,7 +85,7 @@ export function GoalViewScreen({ goalId }: { goalId: string }) {
     setBusy(true)
     try {
       await deleteGoal(goal.id).unwrap().catch(toApiError)
-      router.replace(backHref)
+      router.dismissTo(backHref)
     } catch {
       setError('Не удалось удалить цель. Попробуйте ещё раз.')
       setBusy(false)
@@ -93,7 +93,7 @@ export function GoalViewScreen({ goalId }: { goalId: string }) {
   })
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback={backHref}>{`← ${isChild ? 'Монеты' : 'Цели'}`}</BackLink>
       {state === 'loading' && <Text $tone="muted">Загрузка…</Text>}
       {state === 'failed' && !goal && <Notice tone="error">Не удалось загрузить цель. Проверьте соединение.</Notice>}

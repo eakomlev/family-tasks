@@ -26,6 +26,7 @@ import {
 } from '@/lib/calendar'
 import { CALENDAR_KINDS, useCalendarSettings, type CalendarView } from '@/lib/calendarSettings'
 import { todayIso } from '@/lib/date'
+import { goBack } from '@/lib/navigation'
 import { isAdult } from '@/lib/roles'
 import { useChildTrainings } from '@/lib/useChildTrainings'
 import { useNow } from '@/lib/useNow'
@@ -91,10 +92,13 @@ export function CalendarScreen() {
 
   return (
     <Screen
-      bottomReserve={88}
+     
       refreshControl={<RefreshControl refreshing={false} onRefresh={() => void dispatch(api.util.invalidateTags(['Events', 'Tasks', 'Trainings']))} />}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Pressable onPress={() => goBack(router, '/')} accessibilityRole="button" accessibilityLabel="Назад" hitSlop={8}>
+          <Ionicons name="arrow-back" size={26} color={colors.text} />
+        </Pressable>
         <Pressable onPress={() => router.push({ pathname: '/calendar/events/new', params: { date: anchor, view } })} accessibilityRole="button" accessibilityLabel="Новое событие" hitSlop={8}>
           <Ionicons name="add" size={30} color={colors.accent} />
         </Pressable>

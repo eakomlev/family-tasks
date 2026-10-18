@@ -75,7 +75,7 @@ export function ProfileEditScreen() {
 
   if (!me) {
     return (
-      <Screen bottomReserve={88}>
+      <Screen>
         <BackLink fallback="/profile">← Профиль</BackLink>
         <PageTitle>Изменить профиль</PageTitle>
         <Text $tone="muted">Загрузка…</Text>
@@ -119,7 +119,7 @@ export function ProfileEditScreen() {
   })
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback="/profile">← Профиль</BackLink>
       <PageTitle>Изменить профиль</PageTitle>
 

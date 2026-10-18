@@ -5,6 +5,7 @@ import { Avatar } from '@/components/Avatar'
 import { MenuLink } from '@/components/MenuLink'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
+import { Button } from '@/components/Button'
 import { Heading, Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { MAX_FAMILY_MEMBERS, ROLE_LABELS } from '@/lib/roles'
@@ -30,7 +31,7 @@ export function FamilyScreen() {
   if (!identity) return <Redirect href="/welcome" />
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <PageTitle>Ваша семья</PageTitle>
       <Text>{`Вы вошли как ${identity.name} (${ROLE_LABELS[identity.role]}).`}</Text>
 
@@ -63,6 +64,12 @@ export function FamilyScreen() {
       {data?.me.isOwner && data.members.length < MAX_FAMILY_MEMBERS && <MenuLink to="/family/invite">Пригласить</MenuLink>}
       {data?.me.isOwner && data.members.length >= MAX_FAMILY_MEMBERS && (
         <Notice>{`В семье максимум участников (${MAX_FAMILY_MEMBERS}), пригласить ещё кого-то нельзя.`}</Notice>
+      )}
+      {/* в самом низу, только создателю семьи */}
+      {data?.me.isOwner && (
+        <Button variant="text" onPress={() => router.push('/family/delete')}>
+          Удалить семейный аккаунт
+        </Button>
       )}
     </Screen>
   )

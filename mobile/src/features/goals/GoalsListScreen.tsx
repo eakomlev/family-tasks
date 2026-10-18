@@ -27,7 +27,7 @@ export function GoalsListScreen({ memberId }: { memberId: string }) {
   if (data && (!child || child.role !== 'child')) return <Redirect href="/family" />
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback={{ pathname: '/family/[memberId]', params: { memberId } }}>{`← ${child?.name ?? 'Назад'}`}</BackLink>
       <PageTitle>{child ? `Цели: ${child.name}` : 'Цели'}</PageTitle>
       {failed && <Notice tone="error">Не удалось загрузить цели. Проверьте соединение.</Notice>}

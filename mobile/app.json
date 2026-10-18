@@ -14,7 +14,7 @@
     "android": {
       "package": "ru.familytasks.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#4f46e5",
+        "backgroundColor": "#10133a",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -36,7 +36,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#4f46e5",
+          "backgroundColor": "#10133a",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200
         }
@@ -47,7 +47,13 @@
       [
         "expo-notifications",
         {
-          "color": "#4f46e5"
+          "color": "#10133a"
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Нужен доступ к контактам, чтобы вы могли пригласить человека по его email."
         }
       ]
     ],

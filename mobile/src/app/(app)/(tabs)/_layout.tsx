@@ -1,4 +1,5 @@
-import { Tabs, usePathname } from 'expo-router'
+import { Pressable, Text, View } from 'react-native'
+import { TopTabs, type MaterialTopTabBarProps } from 'expo-router/js-top-tabs'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from 'styled-components/native'
 import { useChats } from '@/chat/context'
@@ -29,51 +30,59 @@ function useTaskBadge(): number | undefined {
   return count > 0 ? count : undefined
 }
 
-// переписка (/chat/<чат>) занимает весь экран, без панели табов
-const inChatRoom = (pathname: string) => pathname.startsWith('/chat/') && pathname.length > '/chat/'.length
+type BarProps = MaterialTopTabBarProps & { badges: Record<string, number | undefined> }
 
-// Четыре главных раздела с плавающей тёмной панелью табов («Квест»). Остальные разделы (профиль, монеты, цели, календарь) лежат рядом,
-// в `(app)`, обычными экранами поверх: скрытые вкладки в этой версии Expo Router не открываются, а перенаправляют на первую вкладку.
-export default function TabsLayout() {
+// Плавающая тёмная панель табов («Квест»): значки и подписи, выбранный таб лаймовый. Лежит поверх листаемых страниц.
+function FloatingTabBar({ state, navigateToTab, badges }: BarProps) {
   const { colors } = useTheme()
-  const badge = useTaskBadge()
+  return (
+    <View
+      pointerEvents="box-none"
+      style={{ position: 'absolute', left: 12, right: 12, bottom: 12, height: 64, borderRadius: 32, paddingTop: 6, backgroundColor: colors.tabbarBg, flexDirection: 'row' }}
+    >
+      {state.routes.map((route, index) => {
+        const tab = TABS.find((t) => t.name === route.name)
+        if (!tab) return null
+        const focused = state.index === index
+        const color = focused ? colors.lime : colors.tabbarIcon
+        const badge = badges[tab.name]
+        return (
+          <Pressable
+            key={route.key}
+            onPress={() => navigateToTab(route.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: focused }}
+            accessibilityLabel={tab.title}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 }}
+          >
+            <View>
+              <Ionicons name={tab.icon} size={24} color={color} />
+              {badge ? (
+                <View style={{ position: 'absolute', top: -4, right: -10, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: FONT_FAMILY.black, fontSize: 10, color: colors.onLime }}>{badge}</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={{ fontFamily: FONT_FAMILY.extraBold, fontSize: 11, color }}>{tab.title}</Text>
+          </Pressable>
+        )
+      })}
+    </View>
+  )
+}
+
+// Четыре главных раздела: страницы листаются пальцем влево и вправо (как страницы), панель табов плавающая. Остальные экраны (задание,
+// переписка, профиль, календарь…) лежат рядом, в `(app)`, общим стеком поверх табов: скрытые вкладки в Expo Router не открываются.
+export default function TabsLayout() {
+  const taskBadge = useTaskBadge()
   const { unread } = useChats()
-  const pathname = usePathname()
-  const hideBar = inChatRoom(pathname)
+  const badges = { tasks: taskBadge, chat: unread > 0 ? unread : undefined }
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.lime,
-        tabBarInactiveTintColor: colors.tabbarIcon,
-        tabBarLabelStyle: { fontFamily: FONT_FAMILY.extraBold, fontSize: 11 },
-        tabBarBadgeStyle: { backgroundColor: colors.lime, color: colors.onLime, fontFamily: FONT_FAMILY.black },
-        tabBarStyle: {
-          position: 'absolute',
-          left: 12,
-          right: 12,
-          bottom: 12,
-          height: 64,
-          borderRadius: 32,
-          borderTopWidth: 0,
-          paddingTop: 6,
-          backgroundColor: colors.tabbarBg,
-          display: hideBar ? 'none' : 'flex',
-        },
-      }}
-    >
+    <TopTabs tabBarPosition="bottom" tabBar={(props) => <FloatingTabBar {...props} badges={badges} />} screenOptions={{ swipeEnabled: true, lazy: true }}>
       {TABS.map((tab) => (
-        <Tabs.Screen
-          key={tab.name}
-          name={tab.name}
-          options={{
-            title: tab.title,
-            tabBarBadge: tab.name === 'tasks' ? badge : tab.name === 'chat' && unread > 0 ? unread : undefined,
-            tabBarIcon: ({ color, size }) => <Ionicons name={tab.icon} size={size} color={String(color)} />,
-          }}
-        />
+        <TopTabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />
       ))}
-    </Tabs>
+    </TopTabs>
   )
 }

@@ -42,7 +42,7 @@ export function ProfileScreen() {
   const me = data?.me
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Heading style={{ flex: 1, fontSize: 26 }}>Профиль</Heading>
         {me && <Button variant="text" onPress={() => router.push('/profile/edit')}>Изменить</Button>}
@@ -73,6 +73,7 @@ export function ProfileScreen() {
           )}
           <MenuLink to="/profile/notifications">Уведомления</MenuLink>
           <MenuLink to="/profile/theme">Тема</MenuLink>
+          {me.isAdmin && <MenuLink to="/profile/service">Сервис</MenuLink>}
         </>
       )}
 

@@ -35,7 +35,7 @@ export function CalendarSettingsScreen() {
     }))
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback="/calendar">← Календарь</BackLink>
       <PageTitle>Настройки календаря</PageTitle>
 

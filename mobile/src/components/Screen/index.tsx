@@ -1,7 +1,9 @@
 import type { ReactElement, ReactNode } from 'react'
 import { KeyboardAvoidingView, ScrollView, View, type RefreshControlProps } from 'react-native'
+import { usePathname } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import styled from 'styled-components/native'
+import { TAB_BAR_RESERVE, tabBarVisible } from '@/lib/tabBar'
 
 const Root = styled.View`
   flex: 1;
@@ -13,7 +15,7 @@ export const TOP_CORNER = 10
 
 interface ScreenProps {
   children: ReactNode
-  // место снизу под плавающую панель табов
+  // место снизу под плавающую панель табов; по умолчанию считается по адресу экрана (есть панель или нет)
   bottomReserve?: number
   refreshControl?: ReactElement<RefreshControlProps>
   // false: экран сам управляет прокруткой (например, списком)
@@ -21,9 +23,11 @@ interface ScreenProps {
 }
 
 // Экран с учётом вырезов и клавиатуры: отступы от безопасных зон, прокрутка, ввод не прячется под клавиатурой
-export function Screen({ children, bottomReserve = 0, refreshControl, scroll = true }: ScreenProps) {
+export function Screen({ children, bottomReserve, refreshControl, scroll = true }: ScreenProps) {
   const insets = useSafeAreaInsets()
-  const padding = { paddingTop: insets.top + TOP_CORNER, paddingBottom: insets.bottom + 24 + bottomReserve, paddingHorizontal: 20 }
+  const pathname = usePathname()
+  const reserve = bottomReserve ?? (tabBarVisible(pathname) ? TAB_BAR_RESERVE : 0)
+  const padding = { paddingTop: insets.top + TOP_CORNER, paddingBottom: insets.bottom + 24 + reserve, paddingHorizontal: 20 }
   return (
     <Root>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">

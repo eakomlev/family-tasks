@@ -13,7 +13,7 @@ export function NotificationsScreen() {
   const [sent, setSent] = useState(false)
 
   return (
-    <Screen bottomReserve={88}>
+    <Screen>
       <BackLink fallback="/profile">← Профиль</BackLink>
       <PageTitle>Уведомления</PageTitle>
       <Text $tone="muted">Сообщения в чате, новые задания, награды, дни рождения, напоминания об уроках и тренировках.</Text>
