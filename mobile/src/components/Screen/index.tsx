@@ -8,6 +8,9 @@ const Root = styled.View`
   background-color: ${({ theme }) => theme.colors.bg};
 `
 
+// место сверху под угол с балансом монет и значком профиля (рисуется поверх экранов вошедшего)
+export const TOP_CORNER = 60
+
 interface ScreenProps {
   children: ReactNode
   // место снизу под плавающую панель табов
@@ -20,7 +23,7 @@ interface ScreenProps {
 // Экран с учётом вырезов и клавиатуры: отступы от безопасных зон, прокрутка, ввод не прячется под клавиатурой
 export function Screen({ children, bottomReserve = 0, refreshControl, scroll = true }: ScreenProps) {
   const insets = useSafeAreaInsets()
-  const padding = { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 + bottomReserve, paddingHorizontal: 20 }
+  const padding = { paddingTop: insets.top + TOP_CORNER, paddingBottom: insets.bottom + 24 + bottomReserve, paddingHorizontal: 20 }
   return (
     <Root>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

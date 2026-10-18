@@ -30,10 +30,11 @@
         {
           "backgroundColor": "#4f46e5",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 120
+          "imageWidth": 200
         }
       ],
-      "./plugins/withReleaseSigning"
+      "./plugins/withReleaseSigning",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

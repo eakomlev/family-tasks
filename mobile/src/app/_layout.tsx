@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { Provider } from 'react-redux'
 import NetInfo from '@react-native-community/netinfo'
+import { ConfirmProvider } from '@/components/ConfirmDialog'
 import { IdentityProvider } from '@/identity'
 import { setNetworkAvailable } from '@/lib/connection'
 import { store } from '@/store'
@@ -38,7 +39,9 @@ export default function RootLayout() {
             <IdentityProvider>
               <SessionSync />
               <StatusBar style="auto" />
-              <Stack screenOptions={{ headerShown: false }} />
+              <ConfirmProvider>
+                <Stack screenOptions={{ headerShown: false }} />
+              </ConfirmProvider>
             </IdentityProvider>
           </ThemeProvider>
         </Provider>
