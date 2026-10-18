@@ -1,9 +1,9 @@
 import { Redirect, useRouter } from 'expo-router'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
-import { Text, PageTitle } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { isAdult, isParent } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
@@ -28,8 +28,7 @@ export function GoalsListScreen({ memberId }: { memberId: string }) {
 
   return (
     <Screen>
-      <BackLink fallback={{ pathname: '/family/[memberId]', params: { memberId } }}>{`← ${child?.name ?? 'Назад'}`}</BackLink>
-      <PageTitle>{child ? `Цели: ${child.name}` : 'Цели'}</PageTitle>
+      <PageHeader fallback={{ pathname: '/family/[memberId]', params: { memberId } }}>{child ? `Цели: ${child.name}` : 'Цели'}</PageHeader>
       {failed && <Notice tone="error">Не удалось загрузить цели. Проверьте соединение.</Notice>}
       {!goals && !failed && <Text $tone="muted">Загрузка…</Text>}
       {goals && goals.length === 0 && <Notice>{`Целей пока нет.${canEdit ? ' Добавьте то, на что ребёнок будет копить монеты.' : ''}`}</Notice>}

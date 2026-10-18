@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { FlatList, Image, Pressable, useWindowDimensions, View } from 'react-native'
 import { Redirect } from 'expo-router'
 import { listChatMedia, type ChatMediaItem } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { TOP_CORNER } from '@/components/Screen'
-import { Text, PageTitle } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { retryRead } from '@/lib/retry'
 import { useProfile } from '@/profile/context'
@@ -77,8 +77,7 @@ export function ChatMediaScreen({ chat }: { chat: string }) {
         onEndReachedThreshold={0.5}
         ListHeaderComponent={
           <View style={{ gap: 12, paddingBottom: 8 }}>
-            <BackLink fallback={{ pathname: '/chat/[chat]', params: { chat } }}>{`← ${title}`}</BackLink>
-            <PageTitle>Медиа файлы</PageTitle>
+            <PageHeader fallback={{ pathname: '/chat/[chat]', params: { chat } }}>Медиа файлы</PageHeader>
             {failed && !items && <Notice tone="error">Не удалось загрузить фото.</Notice>}
             {failed && !items && <Button variant="text" onPress={() => void load()}>Повторить</Button>}
             {!items && !failed && <Text $tone="muted">Загрузка…</Text>}

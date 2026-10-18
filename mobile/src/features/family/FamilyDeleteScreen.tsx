@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { View } from 'react-native'
 import { Redirect } from 'expo-router'
 import { ApiError, logout, requestFamilyDeletion } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, PageTitle, Title } from '@/components/Text'
+import { Text, Title } from '@/components/Text'
 import { disablePush } from '@/features/notifications/usePush'
 import { useIdentity } from '@/identity/context'
 import { useInFlight } from '@/lib/useInFlight'
@@ -90,8 +90,7 @@ export function FamilyDeleteScreen() {
 
   return (
     <Screen>
-      <BackLink fallback="/family">← Моя семья</BackLink>
-      <PageTitle>Удаление семейного аккаунта</PageTitle>
+      <PageHeader fallback="/family">Удаление семейного аккаунта</PageHeader>
       <Text>Вы собираетесь удалить семью. Будет удалено без возможности восстановления:</Text>
       <Stack $gap={6}>
         {losses.map((line) => (

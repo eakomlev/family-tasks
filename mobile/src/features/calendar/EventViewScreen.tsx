@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { View } from 'react-native'
 import { Redirect, useRouter } from 'expo-router'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, PageTitle } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { formatDayMonth } from '@/lib/date'
 import { memberLabel } from '@/lib/roles'
@@ -70,11 +70,10 @@ export function EventViewScreen({ id }: { id: string }) {
 
   return (
     <Screen>
-      <BackLink fallback={event ? { pathname: '/calendar', params: { date: event.startDate } } : '/calendar'}>← Календарь</BackLink>
+      <PageHeader fallback={event ? { pathname: '/calendar', params: { date: event.startDate } } : '/calendar'}>{event?.title ?? ''}</PageHeader>
       {!event && <Text $tone="muted">Загрузка…</Text>}
       {event && (
         <>
-          <PageTitle>{event.title}</PageTitle>
           <Stack $gap={8}>
             <Row label="Когда">{whenText(event)}</Row>
             <Row label="Кто видит">{event.allFamily ? 'Вся семья' : participants.length <= 1 ? 'Только автор' : 'Выбранные участники'}</Row>

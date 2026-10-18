@@ -1,12 +1,12 @@
 import { Pressable, View } from 'react-native'
 import { useTheme } from 'styled-components/native'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Checkbox } from '@/components/Checkbox'
 import { Chip } from '@/components/Chip'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Heading, Text, PageTitle } from '@/components/Text'
+import { Heading, Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { CALENDAR_KINDS, useCalendarSettings, type CalendarView } from '@/lib/calendarSettings'
 import { memberLabel } from '@/lib/roles'
@@ -36,8 +36,7 @@ export function CalendarSettingsScreen() {
 
   return (
     <Screen>
-      <BackLink fallback="/calendar">← Календарь</BackLink>
-      <PageTitle>Настройки календаря</PageTitle>
+      <PageHeader fallback="/calendar">Настройки календаря</PageHeader>
 
       <Stack $gap={8}>
         <Heading>Что показывать</Heading>

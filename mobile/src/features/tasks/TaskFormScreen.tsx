@@ -1,9 +1,9 @@
 import { Redirect, useRouter } from 'expo-router'
 import type { TaskInput } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
-import { Text, PageTitle } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { goBack } from '@/lib/navigation'
 import { useProfile } from '@/profile/context'
@@ -56,8 +56,7 @@ export function TaskFormScreen({ taskId, assignee }: { taskId?: string; assignee
 
   return (
     <Screen>
-      <BackLink fallback="/tasks">{taskId ? '← Задание' : '← Задания'}</BackLink>
-      <PageTitle>{taskId ? 'Изменить задание' : 'Новое задание'}</PageTitle>
+      <PageHeader fallback="/tasks">{taskId ? 'Изменить задание' : 'Новое задание'}</PageHeader>
 
       {!taskId && members.length > 0 && (
         <TaskEditor initial={emptyForm(members.some((m) => m.id === assignee) ? assignee! : me)} members={members} me={me} submitLabel="Создать" onSubmit={create} />

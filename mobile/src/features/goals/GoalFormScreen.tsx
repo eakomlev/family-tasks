@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { View } from 'react-native'
 import { Redirect, useRouter } from 'expo-router'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { Field } from '@/components/Field'
@@ -9,7 +9,7 @@ import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, PageTitle } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { pickSquareImage } from '@/lib/image'
 import { isParent } from '@/lib/roles'
@@ -119,10 +119,7 @@ export function GoalFormScreen({ memberId, goalId }: { memberId?: string; goalId
 
   return (
     <Screen>
-      <BackLink fallback={goal ? { pathname: '/goals/[goalId]', params: { goalId: goal.id } } : { pathname: '/family/[memberId]/goals', params: { memberId: memberId! } }}>
-        {goal ? '← Цель' : '← Цели'}
-      </BackLink>
-      <PageTitle>{goal ? 'Изменить цель' : childName ? `Новая цель: ${childName}` : 'Новая цель'}</PageTitle>
+      <PageHeader fallback={goal ? { pathname: '/goals/[goalId]', params: { goalId: goal.id } } : { pathname: '/family/[memberId]/goals', params: { memberId: memberId! } }}>{goal ? 'Изменить цель' : childName ? `Новая цель: ${childName}` : 'Новая цель'}</PageHeader>
 
       {state === 'loading' && <Text $tone="muted">Загрузка…</Text>}
       {state === 'failed' && <Notice tone="error">Не удалось загрузить цель. Проверьте соединение.</Notice>}

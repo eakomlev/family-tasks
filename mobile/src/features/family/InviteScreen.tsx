@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { View } from 'react-native'
 import { Redirect } from 'expo-router'
 import { ApiError, getInvite, inviteByEmail, renewInvite, type Link } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
@@ -10,7 +10,7 @@ import { LinkBox } from '@/components/LinkBox'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Heading, Text, PageTitle } from '@/components/Text'
+import { Heading, Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { describeInviteEmailError } from '@/lib/errors'
 import { pickContact } from '@/lib/contacts'
@@ -191,8 +191,7 @@ export function InviteScreen() {
 
   return (
     <Screen>
-      <BackLink fallback="/family">← Моя семья</BackLink>
-      <PageTitle>Пригласить в семью</PageTitle>
+      <PageHeader fallback="/family">Пригласить в семью</PageHeader>
       <Text>Отправьте ссылку тому, кого хотите добавить. По ней можно присоединиться как мама, папа, бабушка, дедушка или ребёнок.</Text>
       {identity && data && <InviteLink token={identity.token} />}
       {identity && data && <InviteByEmail token={identity.token} />}

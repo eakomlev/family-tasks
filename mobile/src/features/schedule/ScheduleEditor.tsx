@@ -3,13 +3,13 @@ import { Pressable, ScrollView, View } from 'react-native'
 import { Redirect } from 'expo-router'
 import styled, { useTheme } from 'styled-components/native'
 import { ApiError, type Member } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Heading, Text, PageTitle } from '@/components/Text'
+import { Heading, Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { isAdult, isParent } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
@@ -189,8 +189,7 @@ export function ScheduleEditor<Row extends DraftRow>({ kind, memberId: paramId, 
 
   return (
     <Screen>
-      <BackLink fallback={fallback}>← Назад</BackLink>
-      <PageTitle>{kind.title}</PageTitle>
+      <PageHeader fallback={fallback}>{kind.title}</PageHeader>
       {!isOwn && target && <Text $tone="muted">{target.name}</Text>}
 
       {loadFailed && <Notice tone="error">Не удалось загрузить расписание. Проверьте соединение.</Notice>}

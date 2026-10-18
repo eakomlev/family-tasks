@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native'
 import { Redirect, useRouter } from 'expo-router'
 import { useTheme } from 'styled-components/native'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Checkbox } from '@/components/Checkbox'
 import { Chip } from '@/components/Chip'
@@ -14,7 +14,7 @@ import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, PageTitle } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { todayIso } from '@/lib/date'
 import { memberLabel } from '@/lib/roles'
@@ -96,8 +96,7 @@ export function EventFormScreen({ id, date, view }: { id?: string; date?: string
 
   return (
     <Screen>
-      <BackLink fallback={id ? { pathname: '/calendar/events/[id]', params: { id } } : back}>{id ? '← Событие' : '← Календарь'}</BackLink>
-      <PageTitle>{id ? 'Изменить событие' : 'Новое событие'}</PageTitle>
+      <PageHeader fallback={id ? { pathname: '/calendar/events/[id]', params: { id } } : back}>{id ? 'Изменить событие' : 'Новое событие'}</PageHeader>
       {loading && <Text $tone="muted">Загрузка…</Text>}
       {!loading && (
         <Stack>

@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, PageTitle } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { usePush } from './usePush'
 
 // Уведомления на этом телефоне: включить, проверить, выключить. Приходят о заданиях, чатах, монетах, днях рождения, уроках и тренировках.
@@ -14,8 +14,7 @@ export function NotificationsScreen() {
 
   return (
     <Screen>
-      <BackLink fallback="/profile">← Профиль</BackLink>
-      <PageTitle>Уведомления</PageTitle>
+      <PageHeader fallback="/profile">Уведомления</PageHeader>
       <Text $tone="muted">Сообщения в чате, новые задания, награды, дни рождения, напоминания об уроках и тренировках.</Text>
 
       {!state && <Text $tone="muted">Загрузка…</Text>}

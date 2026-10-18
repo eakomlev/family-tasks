@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { Pressable, View } from 'react-native'
 import { Redirect, useRouter } from 'expo-router'
 import { FAMILY_CHAT } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, PageTitle } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { buildLessonReport, GRADES, MAX_COMMENT } from '@/lib/lessonReport'
 import { useInFlight } from '@/lib/useInFlight'
@@ -50,8 +50,7 @@ export function LessonReportScreen({ subject: rawSubject }: { subject?: string }
 
   return (
     <Screen>
-      <BackLink fallback="/">← Мой день</BackLink>
-      <PageTitle>Что ты хочешь сообщить!</PageTitle>
+      <PageHeader fallback="/">Что ты хочешь сообщить!</PageHeader>
       <Text $weight="extraBold" $tone="accent">{`Урок «${subject}»`}</Text>
 
       <Stack>

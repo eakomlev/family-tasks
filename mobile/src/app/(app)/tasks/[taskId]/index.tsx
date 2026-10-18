@@ -3,12 +3,12 @@ import { View } from 'react-native'
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ApiError, type Occurrence, type Task } from '@/api'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, PageTitle } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { Celebration } from '@/features/tasks/Celebration'
 import { describeFullRepeat, describeOccurrenceDue } from '@/features/tasks/viewText'
 import { useIdentity } from '@/identity/context'
@@ -142,13 +142,12 @@ export default function TaskView() {
 
   return (
     <Screen>
-      <BackLink fallback="/tasks">← Задания</BackLink>
+      <PageHeader fallback="/tasks">{task?.title ?? ''}</PageHeader>
       {state === 'loading' && <Text $tone="muted">Загрузка…</Text>}
       {state === 'failed' && <Notice tone="error">Не удалось загрузить задание. Проверьте соединение.</Notice>}
 
       {task && state === 'ready' && (
         <>
-          <PageTitle>{task.title}</PageTitle>
           {done && <Notice>{`✓ Выполнено: ${byId(done.memberId)?.name ?? 'участник семьи'}, ${formatDateTime(done.at)}`}</Notice>}
           {pending && (
             <Notice tone="warning">

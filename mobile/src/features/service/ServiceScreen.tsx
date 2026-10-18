@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import { View } from 'react-native'
 import { Redirect } from 'expo-router'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Card } from '@/components/Card'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Heading, PageTitle, Text } from '@/components/Text'
+import { Heading, Text } from '@/components/Text'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
 import { useGetMediaStatsQuery, useGetQueueStatsQuery, useGetServiceStatsQuery } from '@/store/admin'
@@ -48,8 +48,7 @@ export function ServiceScreen() {
 
   return (
     <Screen>
-      <BackLink fallback="/profile">← Профиль</BackLink>
-      <PageTitle>Сервис</PageTitle>
+      <PageHeader fallback="/profile">Сервис</PageHeader>
       {isError && !stats && <Notice tone="error">Не удалось загрузить статистику. Проверьте соединение.</Notice>}
       {!stats && !isError && <Text $tone="muted">Загрузка…</Text>}
       {stats && (

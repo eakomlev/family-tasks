@@ -3,13 +3,13 @@ import { FlatList, View } from 'react-native'
 import { Redirect } from 'expo-router'
 import styled, { useTheme } from 'styled-components/native'
 import { listCoinHistory, type CoinEntry } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { CoinIcon } from '@/components/Coins'
 import { Notice } from '@/components/Notice'
 import { TOP_CORNER } from '@/components/Screen'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Heading, Text, PageTitle } from '@/components/Text'
+import { Heading, Text } from '@/components/Text'
 import { GoalCard } from '@/features/goals/GoalCard'
 import { useIdentity } from '@/identity/context'
 import { retryRead } from '@/lib/retry'
@@ -119,8 +119,7 @@ export function CoinsScreen({ memberId }: { memberId?: string }) {
 
   const header = (
     <View style={{ gap: 14, paddingBottom: 6 }}>
-      {isChild ? <BackLink fallback="/">← Мой день</BackLink> : <BackLink fallback={{ pathname: '/family/[memberId]', params: { memberId: memberId! } }}>{`← ${owner?.name ?? 'Назад'}`}</BackLink>}
-      <PageTitle>{isChild || !owner ? 'Монеты' : `Монеты: ${owner.name}`}</PageTitle>
+      <PageHeader fallback={isChild ? '/' : { pathname: '/family/[memberId]', params: { memberId: memberId! } }}>{isChild || !owner ? 'Монеты' : `Монеты: ${owner.name}`}</PageHeader>
       <Total accessibilityLiveRegion="polite">
         <CoinIcon size={34} />
         <Text $weight="black" $size={30} style={{ color: colors.coinText }}>

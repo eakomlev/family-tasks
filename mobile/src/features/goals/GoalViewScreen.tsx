@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { Linking, View } from 'react-native'
 import { Redirect, useRouter } from 'expo-router'
 import { ApiError } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { CoinIcon } from '@/components/Coins'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
-import { Text, PageTitle } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { coinsWord } from '@/lib/coins'
 import { formatDateTime } from '@/lib/date'
@@ -94,14 +94,13 @@ export function GoalViewScreen({ goalId }: { goalId: string }) {
 
   return (
     <Screen>
-      <BackLink fallback={backHref}>{`← ${isChild ? 'Монеты' : 'Цели'}`}</BackLink>
+      <PageHeader fallback={backHref}>{goal?.title ?? ''}</PageHeader>
       {state === 'loading' && <Text $tone="muted">Загрузка…</Text>}
       {state === 'failed' && !goal && <Notice tone="error">Не удалось загрузить цель. Проверьте соединение.</Notice>}
       {goal && (
         <>
           <GoalImage goal={goal} large />
           <View style={{ gap: 8 }}>
-            <PageTitle>{goal.title}</PageTitle>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <CoinIcon size={26} />
               <Text $weight="black" $size={22}>
