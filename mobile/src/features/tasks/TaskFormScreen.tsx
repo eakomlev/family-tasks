@@ -3,7 +3,7 @@ import type { TaskInput } from '@/api'
 import { BackLink } from '@/components/BackLink'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
-import { Text, Title } from '@/components/Text'
+import { Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
@@ -55,7 +55,7 @@ export function TaskFormScreen({ taskId, assignee }: { taskId?: string; assignee
   return (
     <Screen bottomReserve={88}>
       <BackLink fallback="/tasks">{taskId ? '← Задание' : '← Задания'}</BackLink>
-      <Title>{taskId ? 'Изменить задание' : 'Новое задание'}</Title>
+      <PageTitle>{taskId ? 'Изменить задание' : 'Новое задание'}</PageTitle>
 
       {!taskId && members.length > 0 && (
         <TaskEditor initial={emptyForm(members.some((m) => m.id === assignee) ? assignee! : me)} members={members} me={me} submitLabel="Создать" onSubmit={create} />

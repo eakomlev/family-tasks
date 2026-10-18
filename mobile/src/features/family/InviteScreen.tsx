@@ -10,7 +10,7 @@ import { LinkBox } from '@/components/LinkBox'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Heading, Text, Title } from '@/components/Text'
+import { Heading, Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { describeInviteEmailError } from '@/lib/errors'
 import { inviteLink } from '@/lib/links'
@@ -174,7 +174,7 @@ export function InviteScreen() {
   return (
     <Screen bottomReserve={88}>
       <BackLink fallback="/family">← Моя семья</BackLink>
-      <Title>Пригласить в семью</Title>
+      <PageTitle>Пригласить в семью</PageTitle>
       <Text>Отправьте ссылку тому, кого хотите добавить. По ней можно присоединиться как мама, папа, бабушка, дедушка или ребёнок.</Text>
       {identity && data && <InviteLink token={identity.token} />}
       {identity && data && <InviteByEmail token={identity.token} />}

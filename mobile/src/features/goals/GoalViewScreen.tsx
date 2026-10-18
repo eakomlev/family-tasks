@@ -8,7 +8,7 @@ import { CoinIcon } from '@/components/Coins'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
-import { Text, Title } from '@/components/Text'
+import { Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { coinsWord } from '@/lib/coins'
 import { formatDateTime } from '@/lib/date'
@@ -101,7 +101,7 @@ export function GoalViewScreen({ goalId }: { goalId: string }) {
         <>
           <GoalImage goal={goal} large />
           <View style={{ gap: 8 }}>
-            <Title>{goal.title}</Title>
+            <PageTitle>{goal.title}</PageTitle>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <CoinIcon size={26} />
               <Text $weight="black" $size={22}>

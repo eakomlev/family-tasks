@@ -3,7 +3,7 @@ import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
-import { Text, Title } from '@/components/Text'
+import { Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { isAdult, isParent } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
@@ -29,7 +29,7 @@ export function GoalsListScreen({ memberId }: { memberId: string }) {
   return (
     <Screen bottomReserve={88}>
       <BackLink fallback={{ pathname: '/family/[memberId]', params: { memberId } }}>{`← ${child?.name ?? 'Назад'}`}</BackLink>
-      <Title>{child ? `Цели: ${child.name}` : 'Цели'}</Title>
+      <PageTitle>{child ? `Цели: ${child.name}` : 'Цели'}</PageTitle>
       {failed && <Notice tone="error">Не удалось загрузить цели. Проверьте соединение.</Notice>}
       {!goals && !failed && <Text $tone="muted">Загрузка…</Text>}
       {goals && goals.length === 0 && <Notice>{`Целей пока нет.${canEdit ? ' Добавьте то, на что ребёнок будет копить монеты.' : ''}`}</Notice>}

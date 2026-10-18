@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/Checkbox'
 import { Chip } from '@/components/Chip'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Heading, Text, Title } from '@/components/Text'
+import { Heading, Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { CALENDAR_KINDS, useCalendarSettings, type CalendarView } from '@/lib/calendarSettings'
 import { memberLabel } from '@/lib/roles'
@@ -37,7 +37,7 @@ export function CalendarSettingsScreen() {
   return (
     <Screen bottomReserve={88}>
       <BackLink fallback="/calendar">← Календарь</BackLink>
-      <Title>Настройки календаря</Title>
+      <PageTitle>Настройки календаря</PageTitle>
 
       <Stack $gap={8}>
         <Heading>Что показывать</Heading>

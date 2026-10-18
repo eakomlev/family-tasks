@@ -9,7 +9,7 @@ import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, Title } from '@/components/Text'
+import { Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { pickSquareImage } from '@/lib/image'
 import { isParent } from '@/lib/roles'
@@ -121,7 +121,7 @@ export function GoalFormScreen({ memberId, goalId }: { memberId?: string; goalId
       <BackLink fallback={goal ? { pathname: '/goals/[goalId]', params: { goalId: goal.id } } : { pathname: '/family/[memberId]/goals', params: { memberId: memberId! } }}>
         {goal ? '← Цель' : '← Цели'}
       </BackLink>
-      <Title>{goal ? 'Изменить цель' : childName ? `Новая цель: ${childName}` : 'Новая цель'}</Title>
+      <PageTitle>{goal ? 'Изменить цель' : childName ? `Новая цель: ${childName}` : 'Новая цель'}</PageTitle>
 
       {state === 'loading' && <Text $tone="muted">Загрузка…</Text>}
       {state === 'failed' && <Notice tone="error">Не удалось загрузить цель. Проверьте соединение.</Notice>}

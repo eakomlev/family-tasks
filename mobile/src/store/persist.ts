@@ -4,7 +4,7 @@
 // поднимите, если изменилась форма сохраняемых данных: старый кэш будет выброшен
 import { getKv, type KeyValueStore } from '@/lib/kv'
 
-export const CACHE_VERSION = 1
+export const CACHE_VERSION = 2
 export const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 export const MAX_BYTES = 2_500_000
 

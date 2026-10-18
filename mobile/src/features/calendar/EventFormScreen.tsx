@@ -14,7 +14,7 @@ import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, Title } from '@/components/Text'
+import { Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { todayIso } from '@/lib/date'
 import { memberLabel } from '@/lib/roles'
@@ -97,7 +97,7 @@ export function EventFormScreen({ id, date, view }: { id?: string; date?: string
   return (
     <Screen bottomReserve={88}>
       <BackLink fallback={id ? { pathname: '/calendar/events/[id]', params: { id } } : back}>{id ? '← Событие' : '← Календарь'}</BackLink>
-      <Title>{id ? 'Изменить событие' : 'Новое событие'}</Title>
+      <PageTitle>{id ? 'Изменить событие' : 'Новое событие'}</PageTitle>
       {loading && <Text $tone="muted">Загрузка…</Text>}
       {!loading && (
         <Stack>

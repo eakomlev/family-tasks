@@ -8,7 +8,7 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, Title } from '@/components/Text'
+import { Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { formatDayMonth } from '@/lib/date'
 import { memberLabel } from '@/lib/roles'
@@ -74,7 +74,7 @@ export function EventViewScreen({ id }: { id: string }) {
       {!event && <Text $tone="muted">Загрузка…</Text>}
       {event && (
         <>
-          <Title>{event.title}</Title>
+          <PageTitle>{event.title}</PageTitle>
           <Stack $gap={8}>
             <Row label="Когда">{whenText(event)}</Row>
             <Row label="Кто видит">{event.allFamily ? 'Вся семья' : participants.length <= 1 ? 'Только автор' : 'Выбранные участники'}</Row>

@@ -20,4 +20,12 @@ export const Title = styled(Text).attrs({ $weight: 'black', $size: 26 })`
   line-height: 30px;
 `
 
+// Место справа в строке заголовка под угол с монетами и значком профиля (рисуется поверх экранов вошедшего)
+export const TOP_RIGHT_RESERVE = 150
+
+// Заголовок страницы: стоит на одной линии со значком профиля, поэтому справа оставляет ему место
+export const PageTitle = styled(Title)`
+  padding-right: ${TOP_RIGHT_RESERVE}px;
+`
+
 export const Heading = styled(Text).attrs({ $weight: 'black', $size: 18 })``

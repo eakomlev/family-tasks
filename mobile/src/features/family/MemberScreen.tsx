@@ -6,7 +6,7 @@ import { CoinBalanceCard } from '@/components/Coins'
 import { MenuLink } from '@/components/MenuLink'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
-import { Text, Title } from '@/components/Text'
+import { Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { ageFromBirthDate, formatAge, formatBirthDate } from '@/lib/date'
 import { ROLE_LABELS } from '@/lib/roles'
@@ -42,7 +42,7 @@ export function MemberScreen({ memberId }: { memberId: string }) {
       {member && (
         <View style={{ alignItems: 'center', gap: 8 }}>
           <Avatar name={member.name} seed={member.id} src={member.avatar} size={112} />
-          <Title>{member.name}</Title>
+          <PageTitle>{member.name}</PageTitle>
           <Text $weight="bold" $tone="accent">
             {`${ROLE_LABELS[member.role]}${member.isOwner ? ' · создатель семьи' : ''}`}
           </Text>

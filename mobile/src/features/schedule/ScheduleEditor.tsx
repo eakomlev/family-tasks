@@ -9,7 +9,7 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Heading, Text, Title } from '@/components/Text'
+import { Heading, Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { isAdult, isParent } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
@@ -190,7 +190,7 @@ export function ScheduleEditor<Row extends DraftRow>({ kind, memberId: paramId, 
   return (
     <Screen bottomReserve={88}>
       <BackLink fallback={fallback}>← Назад</BackLink>
-      <Title>{kind.title}</Title>
+      <PageTitle>{kind.title}</PageTitle>
       {!isOwn && target && <Text $tone="muted">{target.name}</Text>}
 
       {loadFailed && <Notice tone="error">Не удалось загрузить расписание. Проверьте соединение.</Notice>}

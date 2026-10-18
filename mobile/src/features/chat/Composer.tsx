@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Image, Pressable, ScrollView, TextInput, View } from 'react-native'
+import { Image, Keyboard, Pressable, ScrollView, TextInput, View } from 'react-native'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import { Ionicons } from '@expo/vector-icons'
@@ -88,12 +88,23 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
   const [failed, setFailed] = useState(false)
   const [items, setItems] = useState<Attachment[]>([])
   const [menu, setMenu] = useState(false)
+  // пока клавиатура открыта, нижний отступ безопасной зоны не нужен: поле стоит прямо над ней
+  const [keyboard, setKeyboard] = useState(false)
   const [notice, setNotice] = useState<string>()
   // подготовленные фото и выбранные файлы по ключу (повтор загрузки без повторного выбора)
   const [blobs] = useState(() => new Map<string, Blob>())
   // фото готовятся и грузятся по одному
   const queue = useRef<Promise<void>>(Promise.resolve())
   const alive = useRef(true)
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboard(true))
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboard(false))
+    return () => {
+      show.remove()
+      hide.remove()
+    }
+  }, [])
 
   useEffect(() => {
     alive.current = true
@@ -211,7 +222,7 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
   })
 
   return (
-    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg, paddingBottom: insets.bottom }}>
+    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg, paddingBottom: keyboard ? 0 : insets.bottom }}>
       {(photos.length > 0 || files.length > 0) && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, padding: 10 }} keyboardShouldPersistTaps="handled">
           {photos.map((p) => (

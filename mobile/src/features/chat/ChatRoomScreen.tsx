@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AppState, FlatList, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native'
+import { AppState, FlatList, KeyboardAvoidingView, Pressable, View } from 'react-native'
 import { Redirect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -190,7 +190,7 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
   const otherMood = other ? currentMood(other.mood, now)?.emoji : undefined
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior="padding">
       <Header style={{ paddingTop: insets.top + 8 }}>
         <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/chat'))} accessibilityRole="button" accessibilityLabel="К списку чатов" hitSlop={10}>
           <Ionicons name="chevron-back" size={26} color={colors.text} />
@@ -251,8 +251,7 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
           )
         }
         ListEmptyComponent={
-          // перевёрнутый список зеркалит содержимое: пустое состояние переворачиваем обратно
-          <View style={{ transform: [{ scaleY: -1 }], padding: 24 }}>
+          <View style={{ padding: 24 }}>
             {failed ? <Notice tone="error">Не удалось загрузить сообщения. Проверьте соединение.</Notice> : !messages ? <Text $tone="muted" style={{ textAlign: 'center' }}>Загрузка…</Text> : <Text $tone="muted" style={{ textAlign: 'center' }}>Сообщений пока нет. Напишите первым.</Text>}
           </View>
         }

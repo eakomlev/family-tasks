@@ -8,7 +8,7 @@ import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, Title } from '@/components/Text'
+import { Text, PageTitle } from '@/components/Text'
 import { Celebration } from '@/features/tasks/Celebration'
 import { describeFullRepeat, describeOccurrenceDue } from '@/features/tasks/viewText'
 import { useIdentity } from '@/identity/context'
@@ -147,7 +147,7 @@ export default function TaskView() {
 
       {task && state === 'ready' && (
         <>
-          <Title>{task.title}</Title>
+          <PageTitle>{task.title}</PageTitle>
           {done && <Notice>{`✓ Выполнено: ${byId(done.memberId)?.name ?? 'участник семьи'}, ${formatDateTime(done.at)}`}</Notice>}
           {pending && (
             <Notice tone="warning">

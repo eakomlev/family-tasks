@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react'
-import { KeyboardAvoidingView, Platform, ScrollView, View, type RefreshControlProps } from 'react-native'
+import { KeyboardAvoidingView, ScrollView, View, type RefreshControlProps } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import styled from 'styled-components/native'
 
@@ -8,8 +8,8 @@ const Root = styled.View`
   background-color: ${({ theme }) => theme.colors.bg};
 `
 
-// место сверху под угол с балансом монет и значком профиля (рисуется поверх экранов вошедшего)
-export const TOP_CORNER = 60
+// отступ сверху: угол с балансом монет и значком профиля стоит на одной линии с первой строкой экрана (заголовок оставляет ему место справа)
+export const TOP_CORNER = 10
 
 interface ScreenProps {
   children: ReactNode
@@ -26,7 +26,7 @@ export function Screen({ children, bottomReserve = 0, refreshControl, scroll = t
   const padding = { paddingTop: insets.top + TOP_CORNER, paddingBottom: insets.bottom + 24 + bottomReserve, paddingHorizontal: 20 }
   return (
     <Root>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         {scroll ? (
           <ScrollView contentContainerStyle={[{ gap: 16 }, padding]} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
             {children}

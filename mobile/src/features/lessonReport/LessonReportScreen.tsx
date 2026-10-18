@@ -9,7 +9,7 @@ import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, Title } from '@/components/Text'
+import { Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { buildLessonReport, GRADES, MAX_COMMENT } from '@/lib/lessonReport'
 import { useInFlight } from '@/lib/useInFlight'
@@ -51,7 +51,7 @@ export function LessonReportScreen({ subject: rawSubject }: { subject?: string }
   return (
     <Screen bottomReserve={88}>
       <BackLink fallback="/">← Мой день</BackLink>
-      <Title>Что ты хочешь сообщить!</Title>
+      <PageTitle>Что ты хочешь сообщить!</PageTitle>
       <Text $weight="extraBold" $tone="accent">{`Урок «${subject}»`}</Text>
 
       <Stack>

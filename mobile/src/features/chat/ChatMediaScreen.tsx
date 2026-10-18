@@ -6,7 +6,7 @@ import { BackLink } from '@/components/BackLink'
 import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { TOP_CORNER } from '@/components/Screen'
-import { Text, Title } from '@/components/Text'
+import { Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { retryRead } from '@/lib/retry'
 import { useProfile } from '@/profile/context'
@@ -78,7 +78,7 @@ export function ChatMediaScreen({ chat }: { chat: string }) {
         ListHeaderComponent={
           <View style={{ gap: 12, paddingBottom: 8 }}>
             <BackLink fallback={{ pathname: '/chat/[chat]', params: { chat } }}>{`← ${title}`}</BackLink>
-            <Title>Медиа файлы</Title>
+            <PageTitle>Медиа файлы</PageTitle>
             {failed && !items && <Notice tone="error">Не удалось загрузить фото.</Notice>}
             {failed && !items && <Button variant="text" onPress={() => void load()}>Повторить</Button>}
             {!items && !failed && <Text $tone="muted">Загрузка…</Text>}

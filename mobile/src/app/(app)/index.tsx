@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useDispatch } from 'react-redux'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, Title } from '@/components/Text'
+import { Text, PageTitle } from '@/components/Text'
 import { DayProgressCard } from '@/features/myDay/DayProgressCard'
 import { EarnedToday } from '@/features/myDay/EarnedToday'
 import { FamilyChildren } from '@/features/myDay/FamilyChildren'
@@ -56,7 +56,7 @@ export default function MyDay() {
           <Ionicons name="calendar-outline" size={30} color="#4b3bff" />
         </Pressable>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Title style={{ flex: 1 }}>{`${greeting.icon} ${greeting.text}, ${identity?.name}!`}</Title>
+          <PageTitle style={{ flex: 1 }}>{`${greeting.icon} ${greeting.text}, ${identity?.name}!`}</PageTitle>
           {isChild && mood && (
             <Pressable onPress={() => setMoodOpen(true)} accessibilityRole="button" accessibilityLabel={`Настроение: ${mood.label}. Изменить`}>
               <Text $size={34}>{mood.emoji}</Text>

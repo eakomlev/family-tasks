@@ -7,7 +7,7 @@ import { Chip } from '@/components/Chip'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Heading, Text, Title } from '@/components/Text'
+import { Heading, Text, PageTitle } from '@/components/Text'
 import { PendingReview } from '@/features/tasks/PendingReview'
 import { TaskItem } from '@/features/tasks/TaskItem'
 import type { Tab } from '@/features/tasks/types'
@@ -72,7 +72,7 @@ export default function Tasks() {
       bottomReserve={TAB_BAR_RESERVE}
       refreshControl={<RefreshControl refreshing={false} onRefresh={() => void dispatch(api.util.invalidateTags(['Tasks', 'Pending', 'Done']))} />}
     >
-      <Title>Задания</Title>
+      <PageTitle>Задания</PageTitle>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <Chip active={tab === 'upcoming'} onPress={() => setTab('upcoming')}>
           Предстоящие

@@ -5,7 +5,7 @@ import { Avatar } from '@/components/Avatar'
 import { MenuLink } from '@/components/MenuLink'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
-import { Heading, Text, Title } from '@/components/Text'
+import { Heading, Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { MAX_FAMILY_MEMBERS, ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
@@ -31,7 +31,7 @@ export function FamilyScreen() {
 
   return (
     <Screen bottomReserve={88}>
-      <Title>Ваша семья</Title>
+      <PageTitle>Ваша семья</PageTitle>
       <Text>{`Вы вошли как ${identity.name} (${ROLE_LABELS[identity.role]}).`}</Text>
 
       <Heading>{`Участники${data ? ` (${data.members.length} из ${MAX_FAMILY_MEMBERS})` : ''}`}</Heading>

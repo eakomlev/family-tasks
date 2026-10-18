@@ -9,7 +9,7 @@ import { ActionSheet } from '@/components/ActionSheet'
 import { Avatar } from '@/components/Avatar'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
-import { Text, Title } from '@/components/Text'
+import { Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { currentMood } from '@/lib/mood'
 import { memberLabel, type Role } from '@/lib/roles'
@@ -116,7 +116,7 @@ export function ChatListScreen() {
 
   return (
     <Screen bottomReserve={88}>
-      <Title>Чат</Title>
+      <PageTitle>Чат</PageTitle>
       {!chats && <Text $tone="muted">Загрузка…</Text>}
       {chats && members.length === 0 && <Notice>В семье пока никого нет.</Notice>}
       {chats && members.length > 0 && identity && (
