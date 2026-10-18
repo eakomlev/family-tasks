@@ -20,8 +20,8 @@ export function AppLogo({ size = 72 }: { size?: number }) {
       </Defs>
       <Rect width="64" height="64" rx="14" fill="url(#logoBg)" />
       <Rect width="64" height="64" rx="14" fill="url(#logoGlow)" />
-      <Path d="M32 14 12 31.25H17.5V49.5H46.5V31.25H52Z" fill="#0d1030" stroke="url(#logoGold)" strokeWidth="2.75" strokeLinejoin="round" />
-      <Rect x="26.5" y="35.25" width="11" height="14.25" rx="5.5" fill="#ffd477" />
+      <Path d="M34.8 19.4Q32 17 29.2 19.4L16.7 30.2Q15.2 31.5 17.2 31.5L18.6 31.5Q19.8 31.5 19.8 32.7L19.8 42.6Q19.8 46.8 24.1 46.8L39.9 46.8Q44.2 46.8 44.2 42.6L44.2 32.7Q44.2 31.5 45.4 31.5L46.8 31.5Q48.8 31.5 47.3 30.2Z" fill="#0d1030" stroke="url(#logoGold)" strokeWidth="2.4" strokeLinejoin="round" />
+      <Rect x="27.4" y="34.9" width="9.2" height="12" rx="4.6" fill="#ffd477" />
     </Svg>
   )
 }
