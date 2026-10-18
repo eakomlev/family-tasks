@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTheme } from 'styled-components/native'
 import { Pressable, RefreshControl, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -29,6 +30,7 @@ export default function MyDay() {
   const { data } = useProfile()
   const dispatch = useDispatch()
   const router = useRouter()
+  const { colors } = useTheme()
   const now = useNow()
   const greeting = getGreeting(now)
   const [setMood] = useSetMoodMutation()
@@ -52,8 +54,8 @@ export default function MyDay() {
     >
       <Stack $gap={4}>
         {/* вход в семейный календарь */}
-        <Pressable onPress={() => router.push('/calendar')} accessibilityRole="button" accessibilityLabel="Семейный календарь" style={{ alignSelf: 'flex-start', marginBottom: 6 }}>
-          <Ionicons name="calendar-outline" size={30} color="#4b3bff" />
+        <Pressable onPress={() => router.push('/calendar')} accessibilityRole="button" accessibilityLabel="Семейный календарь" style={{ alignSelf: 'flex-start', marginBottom: 18 }}>
+          <Ionicons name="calendar-outline" size={30} color={colors.text} />
         </Pressable>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <PageTitle style={{ flex: 1 }}>{`${greeting.icon} ${greeting.text}, ${identity?.name}!`}</PageTitle>

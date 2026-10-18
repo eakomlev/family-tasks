@@ -98,14 +98,16 @@ export function lessonsForDay(lessons: Lesson[], weekday: number): ViewLesson[] 
     .map((l, index) => ({ key: `${weekday}-${index}`, subject: l.subject, startsAt: l.startsAt, endsAt: l.endsAt, room: l.room }))
 }
 
-// Какие тренировки показывать: до вечера сегодняшние, вечером (как с уроками) завтрашние.
+// Какие тренировки показывать: сегодняшние, пока они не закончились (конец, а без него начало, ещё не прошёл; тренировка без времени
+// остаётся на весь день), потом ближайший будущий день. Прошедшее не показываем.
 // Тренировки бывают не каждый день, поэтому берём ближайший день, в который они есть, и подписываем его:
 // «сегодня», «завтра», «в среду». null, если тренировок нет вообще.
 export function pickTrainingDay(now: Date, trainings: Training[]): TrainingDay | null {
-  const start = now.getHours() >= EVENING_HOUR ? 1 : 0
-  for (let offset = start; offset < start + 7; offset++) {
+  const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  for (let offset = 0; offset <= 7; offset++) {
     const weekday = ((isoWeekday(now) - 1 + offset) % 7) + 1
-    const dayTrainings = trainings.filter((t) => t.weekday === weekday)
+    // сегодня остаются только не закончившиеся; через неделю в тот же день недели берём всё
+    const dayTrainings = trainings.filter((t) => t.weekday === weekday && (offset !== 0 || !(t.endsAt ?? t.startsAt) || (t.endsAt ?? t.startsAt)! > nowTime))
     if (dayTrainings.length === 0) continue
 
     const label =

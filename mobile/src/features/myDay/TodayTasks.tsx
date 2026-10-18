@@ -28,12 +28,15 @@ export function TodayTasks({ now }: { now: Date }) {
     .filter(({ occurrence }) => occurrence.date === null || occurrence.date <= today)
     .sort((a, b) => rank(a) - rank(b) || byTimeThenTitle(a, b))
 
+  // заданий нет: блок не показываем (ни заголовка, ни пояснения)
+  if (list && items.length === 0 && !allDone) return null
+
   return (
     <Stack $gap={10}>
       <Heading>Задания на сегодня</Heading>
       {failed && <Notice tone="error">Не удалось загрузить задания. Проверьте соединение.</Notice>}
       {!list && !failed && <Text $tone="muted">Загрузка…</Text>}
-      {list && items.length === 0 && <Notice>{allDone ? 'Все задания на сегодня выполнены.' : 'Заданий на сегодня и без срока нет.'}</Notice>}
+      {list && items.length === 0 && <Notice>Все задания на сегодня выполнены.</Notice>}
       {items.map((entry) => (
         <TaskItem
           key={occurrenceKey(entry.task.id, entry.occurrence.date)}

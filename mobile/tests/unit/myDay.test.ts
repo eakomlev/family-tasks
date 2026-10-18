@@ -88,8 +88,13 @@ describe('pickTrainingDay: какой день тренировок показа
     expect(day!.trainings).toHaveLength(1)
   })
 
-  it('вечером переходит на завтра', () => {
-    expect(pickTrainingDay(at(MON, 18), [training(1), training(2)])).toMatchObject({ weekday: 2, label: 'завтра' })
+  it('сегодняшняя тренировка остаётся, пока не закончилась', () => {
+    expect(pickTrainingDay(at(MON, 18), [training(1, 'Плавание', '19:00'), training(2)])).toMatchObject({ weekday: 1, label: 'сегодня' })
+    expect(pickTrainingDay(at(MON, 18), [training(1), training(2)])).toMatchObject({ weekday: 1, label: 'сегодня' })
+  })
+
+  it('прошедшая сегодня тренировка не показывается, берётся следующий день', () => {
+    expect(pickTrainingDay(at(MON, 20), [training(1, 'Плавание', '19:00'), training(2)])).toMatchObject({ weekday: 2, label: 'завтра' })
   })
 
   it('ближайший день с тренировками получает название дня недели', () => {
@@ -101,8 +106,8 @@ describe('pickTrainingDay: какой день тренировок показа
     expect(pickTrainingDay(at(SUN, 10), [training(7)])).toMatchObject({ weekday: 7, label: 'сегодня' })
   })
 
-  it('единственная тренировка в тот же день недели вечером — «через неделю»', () => {
-    expect(pickTrainingDay(at(MON, 19), [training(1)])).toMatchObject({ weekday: 1, label: 'через неделю' })
+  it('единственная прошедшая сегодня тренировка — «через неделю»', () => {
+    expect(pickTrainingDay(at(MON, 20), [training(1, 'Плавание', '19:00')])).toMatchObject({ weekday: 1, label: 'через неделю' })
   })
 
   it('без тренировок null', () => {
