@@ -14,6 +14,8 @@ import { fileProblem, formatFileSize, MAX_FILES } from '@/lib/files'
 import { preparePhoto } from '@/lib/photos'
 import { useInFlight } from '@/lib/useInFlight'
 import { FONT_FAMILY } from '@/theme/fonts'
+import { deleteBefore, insertAt, loadRecent, pushRecent, saveRecent } from './emoji'
+import { EmojiPanel } from './EmojiPanel'
 import { canSendMessage, MAX_LENGTH, MAX_PHOTOS } from './roomUtils'
 
 export interface OutgoingMessage {
@@ -93,6 +95,13 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
   // пока клавиатура открыта, нижний отступ безопасной зоны не нужен: поле стоит прямо над ней
   const [keyboard, setKeyboard] = useState(false)
   const [notice, setNotice] = useState<string>()
+  // панель эмодзи вместо клавиатуры, недавние и положение курсора (по нему вставляем и стираем)
+  const [emojiOpen, setEmojiOpen] = useState(false)
+  const [recent, setRecent] = useState<string[]>(loadRecent)
+  const [selection, setSelection] = useState({ start: 0, end: 0 })
+  // выставляем курсор сами только сразу после вставки, дальше он свободен
+  const [forced, setForced] = useState<{ start: number; end: number }>()
+  const input = useRef<{ focus: () => void } | null>(null)
   // подготовленные фото и выбранные файлы по ключу (повтор загрузки без повторного выбора)
   const [blobs] = useState(() => new Map<string, Blob>())
   // фото готовятся и грузятся по одному
@@ -201,6 +210,30 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
 
   const ready = canSendMessage(text, items)
 
+  function applyEdit(next: { text: string; cursor: number }) {
+    if (next.text.length > MAX_LENGTH) return
+    setText(next.text)
+    setForced({ start: next.cursor, end: next.cursor })
+    setSelection({ start: next.cursor, end: next.cursor })
+  }
+
+  function pickEmoji(emoji: string) {
+    applyEdit(insertAt(text, selection, emoji))
+    const next = pushRecent(recent, emoji)
+    setRecent(next)
+    saveRecent(next)
+  }
+
+  function toggleEmoji() {
+    if (emojiOpen) {
+      setEmojiOpen(false)
+      input.current?.focus()
+    } else {
+      Keyboard.dismiss()
+      setEmojiOpen(true)
+    }
+  }
+
   const send = guard(async () => {
     if (!ready) return
     onSend({
@@ -218,7 +251,7 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
   })
 
   return (
-    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg, paddingBottom: keyboard ? 0 : insets.bottom }}>
+    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg, paddingBottom: keyboard || emojiOpen ? 0 : insets.bottom }}>
       {(photos.length > 0 || files.length > 0) && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, padding: 10 }} keyboardShouldPersistTaps="handled">
           {photos.map((p) => (
@@ -274,19 +307,35 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
         <RoundButton onPress={() => setMenu(true)} accessibilityRole="button" accessibilityLabel="Прикрепить">
           <Ionicons name="attach" size={24} color={colors.text} />
         </RoundButton>
+        <View style={{ flex: 1 }}>
         <Field
+          ref={input as never}
           value={text}
+          selection={forced}
+          onSelectionChange={(e) => {
+            setSelection(e.nativeEvent.selection)
+            setForced(undefined)
+          }}
+          onFocus={() => setEmojiOpen(false)}
           onChangeText={setText}
           placeholder={photos.length > 0 && text === '' ? 'Подпись' : 'Сообщение'}
           placeholderTextColor={colors.muted}
           multiline
           maxLength={MAX_LENGTH}
           accessibilityLabel="Сообщение"
+          style={{ paddingRight: 48 }}
         />
+        <Pressable onPress={toggleEmoji} accessibilityRole="button" accessibilityLabel={emojiOpen ? 'Клавиатура' : 'Эмодзи'} hitSlop={6} style={{ position: 'absolute', right: 10, bottom: 9, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name={emojiOpen ? 'keypad-outline' : 'happy-outline'} size={26} color={colors.muted} />
+        </Pressable>
+        </View>
         <RoundButton $on={ready} disabled={!ready} onPress={send} accessibilityRole="button" accessibilityLabel="Отправить">
           <Ionicons name="arrow-up" size={22} color={ready ? '#ffffff' : colors.muted} />
         </RoundButton>
       </View>
+      {emojiOpen && (
+        <EmojiPanel recent={recent} onPick={pickEmoji} onBackspace={() => applyEdit(deleteBefore(text, selection))} />
+      )}
       {menu && (
         <ActionSheet
           title="Прикрепить"
