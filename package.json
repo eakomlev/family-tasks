@@ -2,9 +2,9 @@
   "name": "family-tasks",
   "private": true,
   "version": "0.0.0",
-  "description": "Скрипты для локальной разработки; у web/, server/, notifier/, scheduler/ и media/ свои package.json",
+  "description": "Скрипты для локальной разработки; у web/, mobile/, server/, notifier/, scheduler/ и media/ свои package.json",
   "scripts": {
-    "setup": "npm install && npm --prefix server install && npm --prefix notifier install && npm --prefix scheduler install && npm --prefix media install && npm --prefix web install",
+    "setup": "npm install && npm --prefix server install && npm --prefix notifier install && npm --prefix scheduler install && npm --prefix media install && npm --prefix web install && npm --prefix mobile install",
     "dev": "npm run dev:infra && concurrently --kill-others-on-fail -n server,notifier,scheduler,media,web -c blue,magenta,cyan,yellow,green \"npm:dev:server\" \"npm:dev:notifier\" \"npm:dev:scheduler\" \"npm:dev:media\" \"npm:dev:web\"",
     "dev:infra": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait db mailpit s3",
     "dev:server": "npm --prefix server run dev",
@@ -14,12 +14,13 @@
     "dev:web": "npm --prefix web run dev",
     "dev:stop": "docker compose -f docker-compose.yml -f docker-compose.dev.yml stop db mailpit s3",
     "seed": "npm --prefix server run seed --",
-    "test": "npm --prefix server test && npm --prefix notifier test && npm --prefix scheduler test && npm --prefix media test && npm --prefix web test",
+    "test": "npm --prefix server test && npm --prefix notifier test && npm --prefix scheduler test && npm --prefix media test && npm --prefix web test && npm --prefix mobile test",
     "test:server": "npm --prefix server test",
     "test:notifier": "npm --prefix notifier test",
     "test:scheduler": "npm --prefix scheduler test",
     "test:media": "npm --prefix media test",
-    "test:web": "npm --prefix web test"
+    "test:web": "npm --prefix web test",
+    "test:mobile": "npm --prefix mobile test"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
