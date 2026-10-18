@@ -16,7 +16,7 @@ export function BackLink({ fallback, children = 'Назад' }: { fallback: Href
       accessibilityRole="button"
       accessibilityLabel={`Назад: ${label}`}
       hitSlop={12}
-      style={{ alignSelf: 'flex-start', paddingVertical: 4 }}
+      style={{ alignSelf: 'center', height: 44, justifyContent: 'center' }}
     >
       <Ionicons name="chevron-back" size={28} color={colors.text} />
     </Pressable>

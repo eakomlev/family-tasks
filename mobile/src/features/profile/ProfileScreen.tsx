@@ -2,7 +2,7 @@ import { View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { logout } from '@/api'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { CoinBalanceCard } from '@/components/Coins'
 import { useConfirm } from '@/components/ConfirmDialog'
@@ -43,11 +43,9 @@ export function ProfileScreen() {
 
   return (
     <Screen>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <BackLink fallback="/" />
-        <Heading style={{ flex: 1, fontSize: 22 }}>Профиль</Heading>
-        {me && <Button variant="text" onPress={() => router.push('/profile/edit')}>Изменить</Button>}
-      </View>
+      <PageHeader fallback="/" right={me ? <Button variant="text" onPress={() => router.push('/profile/edit')}>Изменить</Button> : undefined}>
+        Профиль
+      </PageHeader>
       {!me && <Text $tone="muted">Загрузка…</Text>}
       {me && (
         <>
