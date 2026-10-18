@@ -35,7 +35,8 @@ type BarProps = MaterialTopTabBarProps & {
   badges: Record<string, number | undefined>
 }
 
-// Плавающая тёмная панель табов («Квест»): значки и подписи, выбранный таб лаймовый. Лежит поверх листаемых страниц.
+// Плавающая тёмная панель табов («Квест»): значки и подписи; выбранный таб лежит на лаймовой капсуле с тёмным значком, остальные приглушены.
+// Лежит поверх листаемых страниц.
 function FloatingTabBar({ state, navigateToTab, badges }: BarProps) {
   const { colors } = useTheme()
   const insets = useSafeAreaInsets()
@@ -47,16 +48,24 @@ function FloatingTabBar({ state, navigateToTab, badges }: BarProps) {
           marginHorizontal: 12,
           marginBottom: 12 + insets.bottom * 0.4,
           borderRadius: 32,
-          paddingTop: 6,
+          padding: 5,
           backgroundColor: colors.tabbarBg,
+          borderWidth: 1,
+          borderColor: colors.tabbarBorder,
           flexDirection: 'row',
+          gap: 4,
+          shadowColor: '#000',
+          shadowOpacity: 0.35,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 6 },
+          elevation: 10,
         }}
       >
         {state.routes.map((route, index) => {
           const tab = TABS.find((t) => t.name === route.name)
           if (!tab) return null
           const focused = state.index === index
-          const color = focused ? colors.lime : colors.tabbarIcon
+          const color = focused ? colors.onLime : colors.tabbarIcon
           const badge = badges[tab.name]
           return (
             <Pressable
@@ -69,11 +78,13 @@ function FloatingTabBar({ state, navigateToTab, badges }: BarProps) {
                 flex: 1,
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 2,
+                gap: 1,
+                borderRadius: 27,
+                backgroundColor: focused ? colors.lime : 'transparent',
               }}
             >
               <View>
-                <Ionicons name={tab.icon} size={24} color={color} />
+                <Ionicons name={focused ? (tab.icon.replace('-outline', '') as IconName) : tab.icon} size={23} color={color} />
                 {badge ? (
                   <View
                     style={{
@@ -84,32 +95,17 @@ function FloatingTabBar({ state, navigateToTab, badges }: BarProps) {
                       height: 16,
                       borderRadius: 8,
                       paddingHorizontal: 4,
-                      backgroundColor: colors.lime,
+                      // у выбранного таба капсула уже лаймовая: бейдж тёмный
+                      backgroundColor: focused ? colors.onLime : colors.lime,
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
-                    <Text
-                      style={{
-                        fontFamily: FONT_FAMILY.black,
-                        fontSize: 10,
-                        color: colors.onLime,
-                      }}
-                    >
-                      {badge}
-                    </Text>
+                    <Text style={{ fontFamily: FONT_FAMILY.black, fontSize: 10, color: focused ? colors.lime : colors.onLime }}>{badge}</Text>
                   </View>
                 ) : null}
               </View>
-              <Text
-                style={{
-                  fontFamily: FONT_FAMILY.extraBold,
-                  fontSize: 11,
-                  color,
-                }}
-              >
-                {tab.title}
-              </Text>
+              <Text style={{ fontFamily: FONT_FAMILY.extraBold, fontSize: 11, color }}>{tab.title}</Text>
             </Pressable>
           )
         })}

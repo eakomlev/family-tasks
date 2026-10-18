@@ -35,8 +35,7 @@ export function CalendarSettingsScreen() {
     }))
 
   return (
-    <Screen>
-      <PageHeader fallback="/calendar">Настройки календаря</PageHeader>
+    <Screen header={<PageHeader fallback="/calendar">Настройки календаря</PageHeader>}>
 
       <Stack $gap={8}>
         <Heading>Что показывать</Heading>

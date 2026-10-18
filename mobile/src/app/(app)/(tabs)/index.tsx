@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useDispatch } from 'react-redux'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text, PageTitle } from '@/components/Text'
+import { Text, Title } from '@/components/Text'
 import { DayProgressCard } from '@/features/myDay/DayProgressCard'
 import { EarnedToday } from '@/features/myDay/EarnedToday'
 import { FamilyChildren } from '@/features/myDay/FamilyChildren'
@@ -49,23 +49,26 @@ export default function MyDay() {
 
   return (
     <Screen
-     
+      header={
+        // шапка закреплена: календарь слева, справа остаётся место под монеты и значок профиля
+        <Pressable onPress={() => router.push('/calendar')} accessibilityRole="button" accessibilityLabel="Семейный календарь" hitSlop={8} style={{ alignSelf: 'flex-start', height: 38, justifyContent: 'center' }}>
+          <Ionicons name="calendar-outline" size={30} color={colors.text} />
+        </Pressable>
+      }
       refreshControl={<RefreshControl refreshing={false} onRefresh={() => void dispatch(api.util.invalidateTags(['Me', 'Tasks', 'Goals', 'Schedule', 'Trainings']))} />}
     >
       <Stack $gap={4}>
-        {/* вход в семейный календарь */}
-        <Pressable onPress={() => router.push('/calendar')} accessibilityRole="button" accessibilityLabel="Семейный календарь" style={{ alignSelf: 'flex-start', marginBottom: 18 }}>
-          <Ionicons name="calendar-outline" size={30} color={colors.text} />
-        </Pressable>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <PageTitle style={{ flex: 1 }}>{`${greeting.icon} ${greeting.text}, ${identity?.name}!`}</PageTitle>
+          <Title style={{ flex: 1 }}>{`${greeting.text}, ${identity?.name}!`}</Title>
           {isChild && mood && (
             <Pressable onPress={() => setMoodOpen(true)} accessibilityRole="button" accessibilityLabel={`Настроение: ${mood.label}. Изменить`}>
               <Text $size={34}>{mood.emoji}</Text>
             </Pressable>
           )}
         </View>
-        <Text $tone="muted">{formatToday(now)}</Text>
+        <Pressable onPress={() => router.push('/calendar')} accessibilityRole="button" accessibilityLabel="Открыть календарь" hitSlop={6} style={{ alignSelf: 'flex-start' }}>
+          <Text $tone="muted">{formatToday(now)}</Text>
+        </Pressable>
       </Stack>
       <PushPrompt />
       <DayProgressCard now={now} />

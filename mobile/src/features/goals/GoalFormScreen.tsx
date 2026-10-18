@@ -118,8 +118,7 @@ export function GoalFormScreen({ memberId, goalId }: { memberId?: string; goalId
   const childName = data?.members.find((m) => m.id === ownerId)?.name
 
   return (
-    <Screen>
-      <PageHeader fallback={goal ? { pathname: '/goals/[goalId]', params: { goalId: goal.id } } : { pathname: '/family/[memberId]/goals', params: { memberId: memberId! } }}>{goal ? 'Изменить цель' : childName ? `Новая цель: ${childName}` : 'Новая цель'}</PageHeader>
+    <Screen header={<PageHeader fallback={goal ? { pathname: '/goals/[goalId]', params: { goalId: goal.id } } : { pathname: '/family/[memberId]/goals', params: { memberId: memberId! } }}>{goal ? 'Изменить цель' : childName ? `Новая цель: ${childName}` : 'Новая цель'}</PageHeader>}>
 
       {state === 'loading' && <Text $tone="muted">Загрузка…</Text>}
       {state === 'failed' && <Notice tone="error">Не удалось загрузить цель. Проверьте соединение.</Notice>}

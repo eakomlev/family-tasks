@@ -141,8 +141,7 @@ export default function TaskView() {
   const repeat = task ? describeFullRepeat(task) : ''
 
   return (
-    <Screen>
-      <PageHeader fallback="/tasks">{task?.title ?? ''}</PageHeader>
+    <Screen header={<PageHeader fallback="/tasks">{task?.title ?? ''}</PageHeader>}>
       {state === 'loading' && <Text $tone="muted">Загрузка…</Text>}
       {state === 'failed' && <Notice tone="error">Не удалось загрузить задание. Проверьте соединение.</Notice>}
 

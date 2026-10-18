@@ -95,8 +95,7 @@ export function EventFormScreen({ id, date, view }: { id?: string; date?: string
   const loading = !!id && !stored && !event.error
 
   return (
-    <Screen>
-      <PageHeader fallback={id ? { pathname: '/calendar/events/[id]', params: { id } } : back}>{id ? 'Изменить событие' : 'Новое событие'}</PageHeader>
+    <Screen header={<PageHeader fallback={id ? { pathname: '/calendar/events/[id]', params: { id } } : back}>{id ? 'Изменить событие' : 'Новое событие'}</PageHeader>}>
       {loading && <Text $tone="muted">Загрузка…</Text>}
       {!loading && (
         <Stack>

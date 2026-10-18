@@ -190,8 +190,7 @@ export function InviteScreen() {
   if (data && !data.me.isOwner) return <Redirect href="/family" />
 
   return (
-    <Screen>
-      <PageHeader fallback="/family">Пригласить в семью</PageHeader>
+    <Screen header={<PageHeader fallback="/family">Пригласить в семью</PageHeader>}>
       <Text>Отправьте ссылку тому, кого хотите добавить. По ней можно присоединиться как мама, папа, бабушка, дедушка или ребёнок.</Text>
       {identity && data && <InviteLink token={identity.token} />}
       {identity && data && <InviteByEmail token={identity.token} />}

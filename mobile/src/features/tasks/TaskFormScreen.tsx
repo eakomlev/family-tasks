@@ -55,8 +55,7 @@ export function TaskFormScreen({ taskId, assignee }: { taskId?: string; assignee
   }
 
   return (
-    <Screen>
-      <PageHeader fallback="/tasks">{taskId ? 'Изменить задание' : 'Новое задание'}</PageHeader>
+    <Screen header={<PageHeader fallback="/tasks">{taskId ? 'Изменить задание' : 'Новое задание'}</PageHeader>}>
 
       {!taskId && members.length > 0 && (
         <TaskEditor initial={emptyForm(members.some((m) => m.id === assignee) ? assignee! : me)} members={members} me={me} submitLabel="Создать" onSubmit={create} />

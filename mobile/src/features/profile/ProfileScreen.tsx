@@ -42,10 +42,9 @@ export function ProfileScreen() {
   const me = data?.me
 
   return (
-    <Screen>
-      <PageHeader fallback="/" right={me ? <Button variant="text" onPress={() => router.push('/profile/edit')}>Изменить</Button> : undefined}>
+    <Screen header={<PageHeader fallback="/" right={me ? <Button variant="text" onPress={() => router.push('/profile/edit')}>Изменить</Button> : undefined}>
         Профиль
-      </PageHeader>
+      </PageHeader>}>
       {!me && <Text $tone="muted">Загрузка…</Text>}
       {me && (
         <>

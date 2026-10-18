@@ -93,8 +93,7 @@ export function GoalViewScreen({ goalId }: { goalId: string }) {
   })
 
   return (
-    <Screen>
-      <PageHeader fallback={backHref}>{goal?.title ?? ''}</PageHeader>
+    <Screen header={<PageHeader fallback={backHref}>{goal?.title ?? ''}</PageHeader>}>
       {state === 'loading' && <Text $tone="muted">Загрузка…</Text>}
       {state === 'failed' && !goal && <Notice tone="error">Не удалось загрузить цель. Проверьте соединение.</Notice>}
       {goal && (

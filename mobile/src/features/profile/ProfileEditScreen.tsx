@@ -75,8 +75,7 @@ export function ProfileEditScreen() {
 
   if (!me) {
     return (
-      <Screen>
-        <BackLink fallback="/profile">← Профиль</BackLink>
+      <Screen header={<BackLink fallback="/profile">← Профиль</BackLink>}>
         <Text $tone="muted">Загрузка…</Text>
       </Screen>
     )
@@ -118,8 +117,7 @@ export function ProfileEditScreen() {
   })
 
   return (
-    <Screen>
-      <BackLink fallback="/profile">← Профиль</BackLink>
+    <Screen header={<BackLink fallback="/profile">← Профиль</BackLink>}>
 
       <View style={{ alignItems: 'center', gap: 8 }}>
         <Avatar name={me.name} seed={me.id} src={me.avatar} size={112} />

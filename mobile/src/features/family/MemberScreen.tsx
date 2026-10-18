@@ -39,8 +39,7 @@ export function MemberScreen({ memberId }: { memberId: string }) {
   if (data && !member) return <Redirect href="/family" />
 
   return (
-    <Screen>
-      <BackLink fallback="/family">← Моя семья</BackLink>
+    <Screen header={<BackLink fallback="/family">← Моя семья</BackLink>}>
       {!member && failed && <Notice tone="error">Не удалось загрузить участника. Проверьте соединение.</Notice>}
       {!member && !failed && <Text $tone="muted">Загрузка…</Text>}
       {member && (

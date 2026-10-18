@@ -119,7 +119,6 @@ export function CoinsScreen({ memberId }: { memberId?: string }) {
 
   const header = (
     <View style={{ gap: 14, paddingBottom: 6 }}>
-      <PageHeader fallback={isChild ? '/' : { pathname: '/family/[memberId]', params: { memberId: memberId! } }}>{isChild || !owner ? 'Монеты' : `Монеты: ${owner.name}`}</PageHeader>
       <Total accessibilityLiveRegion="polite">
         <CoinIcon size={34} />
         <Text $weight="black" $size={30} style={{ color: colors.coinText }}>
@@ -137,12 +136,16 @@ export function CoinsScreen({ memberId }: { memberId?: string }) {
   )
 
   return (
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ paddingTop: insets.top + TOP_CORNER, paddingBottom: 6, paddingHorizontal: 20, backgroundColor: colors.bg }}>
+      <PageHeader fallback={isChild ? '/' : { pathname: '/family/[memberId]', params: { memberId: memberId! } }}>{isChild || !owner ? 'Монеты' : `Монеты: ${owner.name}`}</PageHeader>
+    </View>
     <FlatList
       data={items ?? []}
       keyExtractor={(entry) => entry.id}
       ListHeaderComponent={header}
       style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={{ padding: 20, paddingTop: insets.top + TOP_CORNER, paddingBottom: 120, gap: 8 }}
+      contentContainerStyle={{ padding: 20, paddingTop: 10, paddingBottom: 120, gap: 8 }}
       renderItem={({ item: entry }) => (
         <Row>
           <View style={{ flex: 1 }}>
@@ -183,5 +186,6 @@ export function CoinsScreen({ memberId }: { memberId?: string }) {
         </View>
       }
     />
+    </View>
   )
 }

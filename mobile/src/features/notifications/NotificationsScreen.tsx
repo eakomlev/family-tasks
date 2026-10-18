@@ -13,8 +13,7 @@ export function NotificationsScreen() {
   const [sent, setSent] = useState(false)
 
   return (
-    <Screen>
-      <PageHeader fallback="/profile">Уведомления</PageHeader>
+    <Screen header={<PageHeader fallback="/profile">Уведомления</PageHeader>}>
       <Text $tone="muted">Сообщения в чате, новые задания, награды, дни рождения, напоминания об уроках и тренировках.</Text>
 
       {!state && <Text $tone="muted">Загрузка…</Text>}

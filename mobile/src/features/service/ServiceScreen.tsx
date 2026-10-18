@@ -47,8 +47,7 @@ export function ServiceScreen() {
   if (data && !isAdmin) return <Redirect href="/profile" />
 
   return (
-    <Screen>
-      <PageHeader fallback="/profile">Сервис</PageHeader>
+    <Screen header={<PageHeader fallback="/profile">Сервис</PageHeader>}>
       {isError && !stats && <Notice tone="error">Не удалось загрузить статистику. Проверьте соединение.</Notice>}
       {!stats && !isError && <Text $tone="muted">Загрузка…</Text>}
       {stats && (

@@ -27,8 +27,7 @@ export function GoalsListScreen({ memberId }: { memberId: string }) {
   if (data && (!child || child.role !== 'child')) return <Redirect href="/family" />
 
   return (
-    <Screen>
-      <PageHeader fallback={{ pathname: '/family/[memberId]', params: { memberId } }}>{child ? `Цели: ${child.name}` : 'Цели'}</PageHeader>
+    <Screen header={<PageHeader fallback={{ pathname: '/family/[memberId]', params: { memberId } }}>{child ? `Цели: ${child.name}` : 'Цели'}</PageHeader>}>
       {failed && <Notice tone="error">Не удалось загрузить цели. Проверьте соединение.</Notice>}
       {!goals && !failed && <Text $tone="muted">Загрузка…</Text>}
       {goals && goals.length === 0 && <Notice>{`Целей пока нет.${canEdit ? ' Добавьте то, на что ребёнок будет копить монеты.' : ''}`}</Notice>}

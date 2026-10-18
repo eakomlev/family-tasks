@@ -49,8 +49,7 @@ export function LessonReportScreen({ subject: rawSubject }: { subject?: string }
   })
 
   return (
-    <Screen>
-      <PageHeader fallback="/">Что ты хочешь сообщить!</PageHeader>
+    <Screen header={<PageHeader fallback="/">Что ты хочешь сообщить!</PageHeader>}>
       <Text $weight="extraBold" $tone="accent">{`Урок «${subject}»`}</Text>
 
       <Stack>

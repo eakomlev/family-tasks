@@ -69,8 +69,7 @@ export function EventViewScreen({ id }: { id: string }) {
   const participants = event ? (event.allFamily ? members : members.filter((m) => event.memberIds.includes(m.id) || m.id === event.authorId)) : []
 
   return (
-    <Screen>
-      <PageHeader fallback={event ? { pathname: '/calendar', params: { date: event.startDate } } : '/calendar'}>{event?.title ?? ''}</PageHeader>
+    <Screen header={<PageHeader fallback={event ? { pathname: '/calendar', params: { date: event.startDate } } : '/calendar'}>{event?.title ?? ''}</PageHeader>}>
       {!event && <Text $tone="muted">Загрузка…</Text>}
       {event && (
         <>

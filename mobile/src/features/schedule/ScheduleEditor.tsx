@@ -188,8 +188,7 @@ export function ScheduleEditor<Row extends DraftRow>({ kind, memberId: paramId, 
   const fallback = isOwn ? '/profile' : ({ pathname: '/family/[memberId]', params: { memberId } } as const)
 
   return (
-    <Screen>
-      <PageHeader fallback={fallback}>{kind.title}</PageHeader>
+    <Screen header={<PageHeader fallback={fallback}>{kind.title}</PageHeader>}>
       {!isOwn && target && <Text $tone="muted">{target.name}</Text>}
 
       {loadFailed && <Notice tone="error">Не удалось загрузить расписание. Проверьте соединение.</Notice>}

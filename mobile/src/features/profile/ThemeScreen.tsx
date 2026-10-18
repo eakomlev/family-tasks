@@ -11,8 +11,7 @@ const LABELS: Record<ThemePreference, string> = { system: 'Как в систе�
 export function ThemeScreen() {
   const preference = useThemePreference()
   return (
-    <Screen>
-      <PageHeader fallback="/profile">Тема</PageHeader>
+    <Screen header={<PageHeader fallback="/profile">Тема</PageHeader>}>
       <Text $tone="muted">«Как в системе» следует за настройкой телефона.</Text>
       <Stack $gap={8}>
         {THEME_ORDER.map((option) => (
