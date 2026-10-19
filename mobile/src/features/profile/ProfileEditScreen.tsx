@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { View } from 'react-native'
 import { getRobloxAvatar, type ProfilePatch } from '@/api'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { DateTimeField } from '@/components/DateTimeField'
 import { Field } from '@/components/Field'
@@ -75,7 +75,7 @@ export function ProfileEditScreen() {
 
   if (!me) {
     return (
-      <Screen header={<BackLink fallback="/profile">← Профиль</BackLink>}>
+      <Screen header={<PageHeader fallback="/profile">Профиль</PageHeader>}>
         <Text $tone="muted">Загрузка…</Text>
       </Screen>
     )
@@ -117,7 +117,7 @@ export function ProfileEditScreen() {
   })
 
   return (
-    <Screen header={<BackLink fallback="/profile">← Профиль</BackLink>}>
+    <Screen header={<PageHeader fallback="/profile">Профиль</PageHeader>}>
 
       <View style={{ alignItems: 'center', gap: 8 }}>
         <Avatar name={me.name} seed={me.id} src={me.avatar} size={112} />

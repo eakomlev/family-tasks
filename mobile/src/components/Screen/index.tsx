@@ -1,9 +1,9 @@
-import type { ReactElement, ReactNode } from 'react'
-import { KeyboardAvoidingView, ScrollView, View, type RefreshControlProps } from 'react-native'
-import { usePathname } from 'expo-router'
+import { useEffect, useRef, type ReactElement, type ReactNode } from 'react'
+import { KeyboardAvoidingView, ScrollView, View, type ScrollViewInstance, type RefreshControlProps } from 'react-native'
+import { useIsFocused, usePathname } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import styled, { useTheme } from 'styled-components/native'
-import { TAB_BAR_RESERVE, tabBarVisible } from '@/lib/tabBar'
+import { TAB_BAR_RESERVE, onTabReselect, tabBarVisible } from '@/lib/tabBar'
 
 const Root = styled.View`
   flex: 1;
@@ -29,6 +29,12 @@ export function Screen({ children, bottomReserve, refreshControl, scroll = true,
   const { colors } = useTheme()
   const insets = useSafeAreaInsets()
   const pathname = usePathname()
+  const scrollRef = useRef<ScrollViewInstance>(null)
+  const focused = useIsFocused()
+  const focusedRef = useRef(focused)
+  focusedRef.current = focused
+  // повторное нажатие на таб прокручивает открытый экран в начало (соседние страницы пейджера не трогаем)
+  useEffect(() => onTabReselect(() => focusedRef.current && scrollRef.current?.scrollTo({ y: 0, animated: true })), [])
   const reserve = bottomReserve ?? (tabBarVisible(pathname) ? TAB_BAR_RESERVE : 0)
   const padding = { paddingTop: header ? 0 : insets.top + TOP_CORNER, paddingBottom: insets.bottom + 24 + reserve, paddingHorizontal: 20 }
   // у шапки свой фон и отступы: под ней при прокрутке скрывается содержимое
@@ -39,7 +45,7 @@ export function Screen({ children, bottomReserve, refreshControl, scroll = true,
     <Root>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         {scroll ? (
-          <ScrollView contentContainerStyle={[{ gap: 16 }, padding]} keyboardShouldPersistTaps="handled" refreshControl={refreshControl} stickyHeaderIndices={bar ? [0] : undefined}>
+          <ScrollView ref={scrollRef} contentContainerStyle={[{ gap: 16 }, padding]} keyboardShouldPersistTaps="handled" refreshControl={refreshControl} stickyHeaderIndices={bar ? [0] : undefined}>
             {bar}
             {children}
           </ScrollView>

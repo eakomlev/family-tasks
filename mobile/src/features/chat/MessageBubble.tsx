@@ -6,13 +6,15 @@ import type { ChatMessage } from '@/api'
 import { CoinIcon } from '@/components/Coins'
 import { Text } from '@/components/Text'
 import { formatFileSize } from '@/lib/files'
+import { hapticMenu } from '@/lib/haptics'
 import { saveRemoteFile } from '@/lib/saveFile'
 import { ReadTicks } from './ReadTicks'
 import { bubbleText, formatMessageTime, groupReactions, photoColumns, totalCoins, type MessageStatus } from './roomUtils'
 
-const Bubble = styled.View<{ $mine: boolean; $max: number }>`
+const Bubble = styled.View<{ $mine: boolean; $max: number; $flush: boolean }>`
   max-width: ${({ $max }) => $max}px;
-  padding: 8px 12px 6px;
+  padding: ${({ $flush }) => ($flush ? '0' : '8px 12px 6px')};
+  overflow: hidden;
   border-radius: 18px;
   border-bottom-right-radius: ${({ $mine }) => ($mine ? 6 : 18)}px;
   border-bottom-left-radius: ${({ $mine }) => ($mine ? 18 : 6)}px;
@@ -52,6 +54,8 @@ interface MessageBubbleProps {
 
 // Ширина пузыря с вложениями: фиксированная, иначе плитки фото вылезают за него
 const PHOTO_WIDTH = 240
+// Просвет между плитками фото; у самих плиток углов нет: края скругляет пузырь, как в Telegram
+const TILE_GAP = 2
 
 // Пузырь сообщения: свои справа акцентные, чужие слева; внутри фото (плитками) и файлы, под ним реакции и начисленные монеты
 export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, delivery, onFailedPress, onOpenPhoto, onFeedback }: MessageBubbleProps) {
@@ -62,10 +66,19 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
   const coins = totalCoins(message.awards)
   const text = bubbleText(message)
   const fg = mine ? '#ffffff' : colors.text
+  // долгое нажатие открывает окно реакции с лёгким виброоткликом
+  const onLongPress = onFeedback
+    ? () => {
+        hapticMenu()
+        onFeedback()
+      }
+    : undefined
   const photos = message.media ?? []
   const files = message.files ?? []
+  // только фото: пузырь без отступов, время поверх снимка
+  const photoOnly = photos.length > 0 && !text && files.length === 0
   const columns = photoColumns(photos.length)
-  const tile = columns === 1 ? PHOTO_WIDTH : Math.floor((PHOTO_WIDTH - 4 * (columns - 1)) / columns)
+  const tile = columns === 1 ? PHOTO_WIDTH : Math.floor((PHOTO_WIDTH - TILE_GAP * (columns - 1)) / columns)
   // какой файл сейчас сохраняется и не получилось ли (пока идёт загрузка, повторное нажатие ничего не делает)
   const [saving, setSaving] = useState<string>()
   const [saveFailed, setSaveFailed] = useState(false)
@@ -92,20 +105,20 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
           </Pressable>
         )}
       <Pressable
-        onLongPress={onFeedback}
+        onLongPress={onLongPress}
         delayLongPress={450}
         accessibilityRole={onFeedback ? 'button' : undefined}
         accessibilityHint={onFeedback ? 'Удерживайте, чтобы поставить реакцию' : undefined}
         style={{ maxWidth: '100%' }}
       >
-        <Bubble $mine={mine} $max={maxWidth}>
+        <Bubble $mine={mine} $max={maxWidth} $flush={photos.length > 0}>
           {showSender && !mine && (
-            <Text $weight="extraBold" $size={13} $tone="accent">
+            <Text $weight="extraBold" $size={13} $tone="accent" style={photos.length > 0 ? { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 } : undefined}>
               {`${senderName ?? 'Участник'}${senderMood ? ` ${senderMood}` : ''}`}
             </Text>
           )}
           {photos.length > 0 && (
-            <View style={{ width: PHOTO_WIDTH, flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
+            <View style={{ width: PHOTO_WIDTH, flexDirection: 'row', flexWrap: 'wrap', gap: TILE_GAP }}>
               {photos.map((photo, i) => {
                 // одно фото показываем по его пропорциям (не выше предела), несколько квадратными плитками
                 const ratio = photos.length === 1 ? Math.max(0.6, photo.width / photo.height) : 1
@@ -113,23 +126,25 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
                   <Pressable
                     key={photo.id}
                     onPress={() => onOpenPhoto?.(i)}
-                    onLongPress={onFeedback}
+                    onLongPress={onLongPress}
                     delayLongPress={450}
                     accessibilityRole="button"
                     accessibilityLabel={photos.length === 1 ? 'Открыть фото' : `Открыть фото ${i + 1} из ${photos.length}`}
                   >
-                    <Image source={{ uri: photos.length === 1 ? photo.fullUrl : photo.thumbUrl }} style={{ width: tile, height: tile / ratio, borderRadius: 10 }} resizeMode="cover" />
+                    <Image source={{ uri: photos.length === 1 ? photo.fullUrl : photo.thumbUrl }} style={{ width: tile, height: tile / ratio }} resizeMode="cover" />
                   </Pressable>
                 )
               })}
             </View>
           )}
+          {!photoOnly && (
+          <View style={photos.length > 0 ? { paddingHorizontal: 12, paddingTop: 6, paddingBottom: 6 } : undefined}>
           {files.map((file) => (
             <Pressable
               key={file.id}
               disabled={saving === file.id}
               onPress={() => void save(file.id, file.url, file.name)}
-              onLongPress={onFeedback}
+              onLongPress={onLongPress}
               delayLongPress={450}
               accessibilityRole="button"
               accessibilityLabel={`Скачать файл ${file.name}`}
@@ -163,6 +178,20 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
             {mine && delivery === 'sending' && <Ionicons name="time-outline" size={13} color={fg} style={{ opacity: 0.7 }} accessibilityLabel="Отправляется" />}
             {mine && !delivery && status && <ReadTicks status={status} color={fg} dim />}
           </View>
+          </View>
+          )}
+          {photoOnly && (
+            <View
+              pointerEvents="none"
+              style={{ position: 'absolute', right: 6, bottom: 6, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.45)' }}
+            >
+              <Text $size={11} style={{ color: '#ffffff' }}>
+                {formatMessageTime(message.createdAt)}
+              </Text>
+              {mine && delivery === 'sending' && <Ionicons name="time-outline" size={13} color="#ffffff" accessibilityLabel="Отправляется" />}
+              {mine && !delivery && status && <ReadTicks status={status} color="#ffffff" />}
+            </View>
+          )}
         </Bubble>
       </Pressable>
       </View>

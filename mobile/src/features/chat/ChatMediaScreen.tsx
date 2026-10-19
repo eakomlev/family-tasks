@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FlatList, Image, Pressable, useWindowDimensions, View } from 'react-native'
 import { Redirect } from 'expo-router'
+import { useTheme } from 'styled-components/native'
 import { listChatMedia, type ChatMediaItem } from '@/api'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
@@ -22,6 +23,7 @@ export function ChatMediaScreen({ chat }: { chat: string }) {
   const { identity } = useIdentity()
   const { data } = useProfile()
   const insets = useSafeAreaInsets()
+  const { colors } = useTheme()
   const { width } = useWindowDimensions()
   const token = identity?.token
 
@@ -66,7 +68,8 @@ export function ChatMediaScreen({ chat }: { chat: string }) {
   const side = (width - 40 - GAP * (COLUMNS - 1)) / COLUMNS
 
   return (
-    <>
+    // фон из темы: без него экран белый в тёмной теме
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <FlatList
         data={items ?? []}
         numColumns={COLUMNS}
@@ -92,6 +95,6 @@ export function ChatMediaScreen({ chat }: { chat: string }) {
         ListFooterComponent={hasMore && !failed ? <Button variant="text" disabled={loading} onPress={() => items?.length && void load(items[items.length - 1].id)}>{loading ? 'Загрузка…' : 'Показать ещё'}</Button> : <View />}
       />
       {viewing !== undefined && items && <PhotoViewer photos={items} index={viewing} onClose={() => setViewing(undefined)} />}
-    </>
+    </View>
   )
 }

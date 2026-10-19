@@ -1,12 +1,17 @@
 import { useEffect } from 'react'
 import * as Notifications from 'expo-notifications'
 import { useRouter, type Href } from 'expo-router'
+import { isChatOpenFor } from '@/realtime/viewing'
 import { routeFromNotificationData } from './route'
 import { usePush } from './usePush'
 
-// Пока приложение открыто, уведомления показываются сверху и в списке (без звука); о сообщениях открытого чата сервер уведомление не шлёт
+// Пока приложение открыто, уведомления показываются сверху и в списке (без звука); о сообщениях открытого чата не показываем
+// (сервер их тоже не шлёт, но после обрыва сокета в фоне он мог считать чат закрытым)
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }),
+  handleNotification: async (notification) => {
+    const open = isChatOpenFor(routeFromNotificationData(notification.request.content.data))
+    return { shouldShowBanner: !open, shouldShowList: !open, shouldPlaySound: false, shouldSetBadge: false }
+  },
 })
 
 // Невидимый компонент в оболочке вошедшего: переходы по нажатию на уведомление и тихая регистрация токена устройства при запуске.

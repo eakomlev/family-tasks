@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { RefreshControl, ScrollView, View } from 'react-native'
-import { useRouter } from 'expo-router'
+import { Pressable, RefreshControl, View } from 'react-native'
 import { useDispatch } from 'react-redux'
-import { Button } from '@/components/Button'
+import { useTheme } from 'styled-components/native'
+import { Avatar } from '@/components/Avatar'
 import { Chip } from '@/components/Chip'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
@@ -11,11 +11,12 @@ import { Heading, Text, PageTitle } from '@/components/Text'
 import { PendingReview } from '@/features/tasks/PendingReview'
 import { TaskItem } from '@/features/tasks/TaskItem'
 import type { Tab } from '@/features/tasks/types'
+import { loadTasksView, saveTasksView } from '@/features/tasks/viewState'
 import { buildDone, buildSections } from '@/features/tasks/sections'
 import { useIdentity } from '@/identity/context'
 import { addDays, todayIso } from '@/lib/date'
 import { occurrenceKey, type TaskEntry } from '@/lib/occurrences'
-import { isParent } from '@/lib/roles'
+import { isParent, memberLabel } from '@/lib/roles'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
 import { api } from '@/store/api'
@@ -24,18 +25,44 @@ import { useListDoneTasksQuery, useListTasksQuery } from '@/store/tasks'
 // сколько дней вперёд показываем в «Предстоящих»
 const DAYS_AHEAD = 7
 
+// Фильтр по человеку: фото и имя (как выбор участников в форме события)
+function MemberPill({ name, seed, src, active, onPress }: { name: string; seed: string; src?: string | null; active: boolean; onPress: () => void }) {
+  const { colors } = useTheme()
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, paddingVertical: 6, paddingLeft: 8, paddingRight: 14, borderRadius: 999, borderWidth: 1.5, borderColor: active ? colors.accent : colors.border, backgroundColor: active ? colors.accent : colors.surface }}
+    >
+      <Avatar name={name} seed={seed} src={src} size={26} />
+      <Text $weight="extraBold" $size={14} style={active ? { color: '#ffffff' } : undefined}>
+        {name}
+      </Text>
+    </Pressable>
+  )
+}
+
 export default function Tasks() {
   const { identity } = useIdentity()
   const { data } = useProfile()
-  const router = useRouter()
   const dispatch = useDispatch()
   const today = todayIso(useNow())
 
-  const [tab, setTab] = useState<Tab>('upcoming')
-  // null — все; иначе id участника, чьи задания показываем
-  const [filter, setFilter] = useState<string | null>(null)
   const me = identity?.memberId
+  // вкладка и фильтр запоминаются на устройстве; null в фильтре — все, иначе id участника, чьи задания показываем
+  const [view, setView] = useState(() => loadTasksView(me))
   const members = data?.members ?? []
+  const tab = view.tab
+  // участника, которого уже нет в семье, считаем неизвестным: показываем всех
+  const filter = view.filter && (view.filter === me || members.some((m) => m.id === view.filter)) ? view.filter : null
+  const change = (next: Partial<typeof view>) => {
+    const value = { ...view, ...next }
+    setView(value)
+    saveTasksView(me, value)
+  }
+  const setTab = (next: Tab) => change({ tab: next })
+  const setFilter = (next: string | null) => change({ filter: next })
   const memberById = new Map(members.map((m) => [m.id, m]))
 
   // у каждой вкладки свой запрос в кэше; вторая вкладка запрашивается, только когда открыта
@@ -83,23 +110,17 @@ export default function Tasks() {
 
       {/* ребёнок видит только свои задания (сервер другие не отдаёт), фильтр по людям ему не нужен */}
       {identity?.role !== 'child' && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} style={{ flexGrow: 0 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <Chip active={filter === null} onPress={() => setFilter(null)}>
             Все
           </Chip>
-          {me && (
-            <Chip active={filter === me} onPress={() => setFilter(me)}>
-              Мои
-            </Chip>
-          )}
+          {me && <MemberPill name="Мои" seed={me} src={data?.me.avatar} active={filter === me} onPress={() => setFilter(me)} />}
           {members
             .filter((m) => m.id !== me)
             .map((m) => (
-              <Chip key={m.id} active={filter === m.id} onPress={() => setFilter(m.id)}>
-                {m.name}
-              </Chip>
+              <MemberPill key={m.id} name={memberLabel(m, identity?.role ?? 'child')} seed={m.id} src={m.avatar} active={filter === m.id} onPress={() => setFilter(m.id)} />
             ))}
-        </ScrollView>
+        </View>
       )}
 
       {loadFailed && <Notice tone="error">Не удалось загрузить задания. Проверьте соединение.</Notice>}
@@ -123,11 +144,6 @@ export default function Tasks() {
         </Stack>
       ))}
       {doneEntries.length > 0 && <Stack $gap={10}>{doneEntries.map(renderItem)}</Stack>}
-
-      {/* выбран человек в фильтре: в новом задании он уже стоит исполнителем */}
-      <Button variant="primary" onPress={() => router.push(filter ? { pathname: '/tasks/new', params: { assignee: filter } } : '/tasks/new')}>
-        ＋ Новая задача
-      </Button>
     </Screen>
   )
 }

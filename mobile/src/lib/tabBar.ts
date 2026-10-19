@@ -6,3 +6,15 @@ export const TAB_BAR_RESERVE = 88
 export function tabBarVisible(pathname: string): boolean {
   return ['/', '/tasks', '/chat', '/family'].includes(pathname)
 }
+
+// Повторное нажатие на уже открытый таб: открытый экран прокручивается в начало
+const reselectListeners = new Set<() => void>()
+
+export function onTabReselect(listener: () => void): () => void {
+  reselectListeners.add(listener)
+  return () => void reselectListeners.delete(listener)
+}
+
+export function emitTabReselect() {
+  reselectListeners.forEach((listener) => listener())
+}

@@ -11,6 +11,7 @@ import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Text, PageTitle } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
+import { hapticMenu } from '@/lib/haptics'
 import { currentMood } from '@/lib/mood'
 import { memberLabel, type Role } from '@/lib/roles'
 import { useNow } from '@/lib/useNow'
@@ -59,7 +60,10 @@ function ChatRow({ chat, member, members, me, viewerRole, now }: { chat: ChatSum
     <>
       <Pressable
         onPress={() => router.push({ pathname: '/chat/[chat]', params: { chat: chat.id } })}
-        onLongPress={() => setMenu(true)}
+        onLongPress={() => {
+          hapticMenu()
+          setMenu(true)
+        }}
         delayLongPress={450}
         accessibilityRole="button"
         style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 }}

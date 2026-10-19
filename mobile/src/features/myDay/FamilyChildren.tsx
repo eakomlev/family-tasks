@@ -58,7 +58,7 @@ function ChildTasks({ tasks }: { tasks: ChildTaskList | undefined }) {
       <Divider />
       <View style={{ gap: 8 }}>
         <SectionLabel icon="checkbox-outline" title="Задания" hint={`выполнено ${done} из ${all.length}`} />
-        {all.map(({ task, occurrence }) => {
+        {all.filter(({ occurrence }) => occurrence.done === null).map(({ task, occurrence }) => {
           const isDone = occurrence.done !== null
           const mark = isDone ? '✅' : occurrence.pending !== null ? '⏳' : '⚪'
           return (

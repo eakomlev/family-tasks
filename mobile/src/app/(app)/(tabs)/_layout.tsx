@@ -9,6 +9,7 @@ import { useIdentity } from '@/identity/context'
 import { todayIso } from '@/lib/date'
 import { countActionable } from '@/lib/occurrences'
 import { isParent } from '@/lib/roles'
+import { emitTabReselect } from '@/lib/tabBar'
 import { useNow } from '@/lib/useNow'
 import { useListPendingTasksQuery, useListTasksQuery } from '@/store/tasks'
 import { FONT_FAMILY } from '@/theme/fonts'
@@ -36,7 +37,7 @@ type BarProps = MaterialTopTabBarProps & {
   badges: Record<string, number | undefined>
 }
 
-// Плавающая тёмная панель табов («Квест»): значки и подписи; выбранный таб лежит на лаймовой капсуле с тёмным значком, остальные приглушены.
+// Плавающая тёмная панель табов («Квест»): значки и подписи; выбранный таб лежит на золотой капсуле (цвет домика на значке) с тёмным значком, остальные приглушены.
 // Лежит поверх листаемых страниц.
 function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
   const { colors, dark } = useTheme()
@@ -101,6 +102,7 @@ function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
             <Pressable
               key={route.key}
               onPress={() => {
+                if (state.index === index) emitTabReselect()
                 setNear(index)
                 navigateToTab(route.key)
               }}
@@ -116,7 +118,7 @@ function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
               }}
             >
               <View>
-                <Ionicons name={focused ? (tab.icon.replace('-outline', '') as IconName) : tab.icon} size={23} color={color} />
+                <Ionicons name={tab.icon} size={23} color={color} />
                 {badge ? (
                   <View
                     style={{

@@ -1,4 +1,5 @@
-import { View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { useRouter } from 'expo-router'
 import Svg, { Circle } from 'react-native-svg'
 import styled from 'styled-components/native'
 import { Text } from '@/components/Text'
@@ -39,6 +40,7 @@ const Fill = styled.View<{ $share: number }>`
 
 // Яркий блок «Квеста» наверху «Моего дня»: кольцо выполненных сегодня заданий и у ребёнка путь к ближайшей цели
 export function DayProgressCard({ now }: { now: Date }) {
+  const router = useRouter()
   const { identity } = useIdentity()
   const { data: profile } = useProfile()
   const today = todayIso(now)
@@ -58,6 +60,7 @@ export function DayProgressCard({ now }: { now: Date }) {
   const path = goal ? goalProgress(goal, balance) : null
 
   return (
+    <Pressable onPress={() => router.push('/tasks')} accessibilityRole="button" accessibilityHint="Открыть задачи">
     <Box accessibilityLabel={`Прогресс дня. Сделано заданий: ${count.done} из ${count.total}`}>
       <View style={{ width: 86, height: 86, alignItems: 'center', justifyContent: 'center' }}>
         <Svg width={86} height={86} viewBox="0 0 86 86" style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
@@ -95,5 +98,6 @@ export function DayProgressCard({ now }: { now: Date }) {
         )}
       </View>
     </Box>
+    </Pressable>
   )
 }

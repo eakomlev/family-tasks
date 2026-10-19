@@ -18,10 +18,9 @@ export function TodayTasks({ now }: { now: Date }) {
   const failed = isError && !list
 
   const all = list && me ? toEntries(list, me) : []
-  // у ребёнка выполненные (подтверждённые) задания на этой странице не показываем: остаётся то, что ещё надо сделать
-  const hideDone = identity?.role === 'child'
-  const mine = hideDone ? all.filter(({ occurrence }) => occurrence.done === null) : all
-  const allDone = hideDone && all.length > 0 && mine.length === 0
+  // выполненные (подтверждённые) задания на этой странице не показываем никому: остаётся то, что ещё надо сделать
+  const mine = all.filter(({ occurrence }) => occurrence.done === null)
+  const allDone = all.length > 0 && mine.length === 0
   // сначала просроченные, потом сегодняшние по времени, в конце без срока; будущие дни здесь не показываем
   const rank = (entry: TaskEntry) => (entry.occurrence.date === null ? 2 : entry.occurrence.date < today ? 0 : 1)
   const items = mine

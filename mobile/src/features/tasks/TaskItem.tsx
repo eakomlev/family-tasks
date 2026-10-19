@@ -66,7 +66,7 @@ interface TaskItemProps {
   review?: ReviewActions
 }
 
-// Карточка задания: нажатие открывает страницу задания; значок показывает, выполнено ли оно, просрочено или ждёт проверки родителем
+// Карточка задания: нажатие открывает страницу задания; слева фото исполнителя, значок на нём показывает, выполнено ли задание, просрочено или ждёт проверки родителем
 export function TaskItem({ task, occurrence, assignee, showAssignee, author, doneBy, showDate, today, review }: TaskItemProps) {
   const router = useRouter()
   const { colors } = useTheme()
@@ -101,16 +101,27 @@ export function TaskItem({ task, occurrence, assignee, showAssignee, author, don
         accessibilityLabel={`${STATE_LABELS[state]}${task.title}`}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}
       >
-        <Badge $bg={badge.bg}>
-          <Ionicons name={badge.icon} size={22} color={badge.color} />
-        </Badge>
+        {assignee ? (
+          // фото исполнителя: сразу видно, чьё задание; состояние (выполнено, просрочено, на проверке) отмечено значком на углу фото
+          <View>
+            <Avatar name={assignee.name} seed={assignee.id} src={assignee.avatar} size={44} />
+            {state !== 'todo' && (
+              <View style={{ position: 'absolute', right: -4, bottom: -4, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: badge.bg, borderWidth: 2, borderColor: colors.surface }}>
+                <Ionicons name={badge.icon} size={12} color={badge.color} />
+              </View>
+            )}
+          </View>
+        ) : (
+          <Badge $bg={badge.bg}>
+            <Ionicons name={badge.icon} size={22} color={badge.color} />
+          </Badge>
+        )}
         <View style={{ flex: 1, gap: 2 }}>
           <Text $weight="extraBold" $size={16} style={{ textDecorationLine: done ? 'line-through' : 'none' }}>
             {task.title}
           </Text>
           {metaLines.length > 0 && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 8 }}>
-              {showAssignee && assignee && <Avatar name={assignee.name} seed={assignee.id} src={assignee.avatar} size={18} />}
               <Text $size={13} $tone={late ? 'error' : 'muted'} style={{ flexShrink: 1 }}>
                 {metaLines.join(' · ')}
               </Text>

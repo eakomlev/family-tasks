@@ -3,7 +3,7 @@ import { Redirect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from 'styled-components/native'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { CoinBalanceCard } from '@/components/Coins'
 import { MenuLink } from '@/components/MenuLink'
 import { Notice } from '@/components/Notice'
@@ -39,7 +39,7 @@ export function MemberScreen({ memberId }: { memberId: string }) {
   if (data && !member) return <Redirect href="/family" />
 
   return (
-    <Screen header={<BackLink fallback="/family">← Моя семья</BackLink>}>
+    <Screen header={<PageHeader fallback="/family">Профиль</PageHeader>}>
       {!member && failed && <Notice tone="error">Не удалось загрузить участника. Проверьте соединение.</Notice>}
       {!member && !failed && <Text $tone="muted">Загрузка…</Text>}
       {member && (

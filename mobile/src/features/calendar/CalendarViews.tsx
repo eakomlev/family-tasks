@@ -136,7 +136,7 @@ const HOURS = Array.from({ length: 24 }, (_, hour) => hour)
 const DEFAULT_TOP_HOUR = 8
 const minutesOf = (date: Date) => date.getHours() * 60 + date.getMinutes()
 
-// Вид «День» как в Teams: сверху записи на весь день, ниже сутки полосой с часами и блоками записей по времени и длительности.
+// Вид «День» как в Teams (занимает всё свободное место): сверху записи на весь день, ниже сутки полосой с часами и блоками записей по времени и длительности.
 // Пересекающиеся записи стоят рядом колонками. В сегодняшнем дне красная линия «сейчас».
 export function DayTimeline({ day, items, now, isToday }: { day: string; items: CalendarItem[]; now: Date; isToday: boolean }) {
   const { colors } = useTheme()
@@ -157,9 +157,9 @@ export function DayTimeline({ day, items, now, isToday }: { day: string; items: 
   }, [day])
 
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: 8, flex: 1 }}>
       {allDay.length > 0 && <AgendaList items={allDay} />}
-      <ScrollView ref={scroller as never} style={{ height: 420 }} nestedScrollEnabled accessibilityLabel="Сутки по часам">
+      <ScrollView ref={scroller as never} style={{ flex: 1 }} nestedScrollEnabled accessibilityLabel="Сутки по часам">
         <View style={{ height: 24 * HOUR_PX, marginLeft: 48 }} onLayout={setLaneWidth}>
           {HOURS.map((hour) => (
             <View key={hour} style={{ position: 'absolute', top: hour * HOUR_PX, left: -48, right: 0, flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border }}>

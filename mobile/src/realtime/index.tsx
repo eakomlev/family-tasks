@@ -4,6 +4,7 @@ import NetInfo from '@react-native-community/netinfo'
 import { RealtimeContext } from './context'
 import type { Listener, RealtimeContextValue } from './types'
 import { CLOSE_UNAUTHORIZED, nextDelay, parseMessage, socketUrl } from './utils'
+import { setViewingChat } from './viewing'
 
 // после такой паузы в фоне считаем, что события могли пропасть
 const RESYNC_AFTER_BACKGROUND_MS = 5000
@@ -24,6 +25,7 @@ export function RealtimeProvider({ token, children }: { token: string; children:
       },
       setViewing(chat) {
         viewing.current = chat
+        setViewingChat(chat)
         reportViewing.current()
       },
     }),
