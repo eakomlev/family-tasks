@@ -37,6 +37,8 @@ interface ComposerProps {
   onUpload: (photo: Blob) => Promise<string>
   // загружает один файл и возвращает его идентификатор; бросает ошибку, если не вышло
   onUploadFile: (file: { blob: Blob; name: string }) => Promise<string>
+  // под полем стоит своя панель (чат внутри страницы события): отступ безопасной зоны не нужен
+  flushBottom?: boolean
 }
 
 // Вложение (фото или файл) на пути от выбора до отправки
@@ -54,11 +56,18 @@ interface Attachment {
   retryable?: boolean
 }
 
+// Поле растёт по высоте вместе с текстом, как в Telegram: до пяти строк, дальше внутри него появляется прокрутка
+const LINE_HEIGHT = 22
+const MAX_LINES = 5
+const FIELD_PADDING = 10
+
+// без flex: 1: в колонке он схлопывал бы поле до min-height и оно переставало расти
 const Field = styled(TextInput)`
-  flex: 1;
-  max-height: 140px;
+  line-height: ${({ theme }) => Math.round(LINE_HEIGHT * theme.fontScale)}px;
+  max-height: ${({ theme }) => Math.round(LINE_HEIGHT * theme.fontScale) * MAX_LINES + FIELD_PADDING * 2}px;
   min-height: 44px;
-  padding: 10px 16px;
+  padding: ${FIELD_PADDING}px 16px;
+  text-align-vertical: top;
   border-radius: 22px;
   border-width: 1.5px;
   border-color: ${({ theme }) => theme.colors.border};
@@ -85,7 +94,7 @@ const nextKey = () => `att-${++counter}`
 
 // Поле ввода сообщения. Скрепка прикладывает фото (до 10; галерея или камера) и файлы (до 5): фото уменьшаются на устройстве,
 // всё сразу загружается, а к сообщению прикрепляется кнопкой отправки. Ошибка загрузки показана на самом вложении.
-export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
+export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false }: ComposerProps) {
   const guard = useInFlight()
   const insets = useSafeAreaInsets()
   const { colors } = useTheme()
@@ -251,7 +260,7 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
   })
 
   return (
-    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg, paddingBottom: keyboard || emojiOpen ? 0 : insets.bottom }}>
+    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg, paddingBottom: keyboard || emojiOpen || flushBottom ? 0 : insets.bottom }}>
       {(photos.length > 0 || files.length > 0) && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, padding: 10 }} keyboardShouldPersistTaps="handled">
           {photos.map((p) => (

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage, ChatSummary, Member } from '@/api'
+import { eventChatId, isEventChat } from '@/api'
 import { memberLabel } from '@/lib/roles'
 import { chatPreview, chatPreviewParts, chatTitle, formatChatTime, lastMessageStatus } from '@/features/chat/listUtils'
 import { appendMessage, canSend, dayLabel, groupByDay, mergeLatest, messageStatus, participantsLabel, visitLabel } from '@/features/chat/roomUtils'
@@ -100,6 +101,15 @@ describe('canSend', () => {
   })
 })
 
+describe('адрес чата события', () => {
+  it('собирается из id события и узнаётся', () => {
+    expect(eventChatId('abc')).toBe('event-abc')
+    expect(isEventChat('event-abc')).toBe(true)
+    expect(isEventChat('family')).toBe(false)
+    expect(isEventChat('0f3c1e52-0000-4000-8000-000000000000')).toBe(false)
+  })
+})
+
 describe('список чатов', () => {
   const members: Member[] = [
     { id: 'me', name: 'Лена', role: 'mama', avatar: null, isOwner: true },
@@ -148,6 +158,14 @@ describe('список чатов', () => {
     expect(chatPreview(chat('m2', msg('x', undefined, 'm2', 'как\nдела')), 'me', members, 'mama')).toBe('как дела')
     expect(chatPreview(chat('family', msg('x', undefined, 'm2', 'ужин')), 'me', members, 'mama')).toBe('Миша: ужин')
     expect(chatPreview(chat('family', msg('x', undefined, 'me', 'ужин')), 'me', members, 'mama')).toBe('Вы: ужин')
+  })
+
+  it('чат события: название события и подпись автора в превью', () => {
+    const event = { id: 'e1', title: 'Театр' }
+    expect(chatTitle('event-e1', members, 'mama', event.title)).toBe('Театр')
+    expect(chatTitle('event-e1', members, 'mama')).toBe('Чат')
+    expect(chatPreviewParts({ ...chat('event-e1', msg('x', undefined, 'm2', 'билеты')), event }, 'me', members, 'mama')).toEqual({ prefix: 'Миша:', mine: false, text: 'билеты' })
+    expect(chatPreviewParts({ ...chat('event-e1', msg('x', undefined, 'me', 'ок')), event }, 'me', members, 'mama')).toEqual({ prefix: 'Вы:', mine: true, text: 'ок' })
   })
 
   it('chatPreviewParts: подпись и текст отдельно (подпись выделяется цветом)', () => {

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AppState, FlatList, KeyboardAvoidingView, Pressable, View } from 'react-native'
+import { AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Pressable, View } from 'react-native'
 import { Redirect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import styled, { useTheme } from 'styled-components/native'
-import { FAMILY_CHAT, listMessages, uploadChatFile, uploadChatPhoto, type ChatMessage, type MessageFeedback } from '@/api'
+import { FAMILY_CHAT, isEventChat, listMessages, uploadChatFile, uploadChatPhoto, type ChatMessage, type MessageFeedback } from '@/api'
 import { useChats } from '@/chat/context'
 import { ActionSheet } from '@/components/ActionSheet'
 import { Avatar } from '@/components/Avatar'
@@ -50,7 +50,16 @@ function ChatMenu({ chat, onClose }: { chat: string; onClose: () => void }) {
 
 // Переписка: /chat/family или /chat/<id собеседника>. Лента перевёрнутая (`inverted`): она сама держит низ, клавиатуру и подгрузку старых
 // сообщений вверху без прыжков.
-export function ChatRoomScreen({ chat }: { chat: string }) {
+interface ChatRoomProps {
+  chat: string
+  // внутри страницы события: без своей шапки и без отступа под системную строку; название события и признак «вкладка открыта» приходят от страницы
+  embedded?: boolean
+  // вкладка с чатом на виду: только тогда чат считается открытым (пуши молчат, сообщения помечаются прочитанными)
+  active?: boolean
+  eventTitle?: string
+}
+
+export function ChatRoomScreen({ chat, embedded = false, active = true, eventTitle }: ChatRoomProps) {
   const { identity } = useIdentity()
   const router = useRouter()
   const insets = useSafeAreaInsets()
@@ -89,13 +98,26 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
   const [viewing, setViewing] = useState<{ message: ChatMessage; index: number }>()
   // чужое сообщение, до которого уже отметили прочитанное: без этого отметка вызывает событие, событие новый запрос, и так по кругу
   const markedRef = useRef<string | undefined>(undefined)
+  // Внутри страницы события экран стоит внутри пейджера, а KeyboardAvoidingView не знает своего смещения от верха экрана и поднимает поле
+  // ввода не до конца: там отступ снизу равен части экрана под верхним краем клавиатуры (вместе с системной панелью внизу;
+  // нижняя панель вкладок на это время прячется)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
+  useEffect(() => {
+    if (!embedded) return
+    const show = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardHeight(Math.max(e.endCoordinates.height, Dimensions.get('screen').height - e.endCoordinates.screenY)))
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0))
+    return () => {
+      show.remove()
+      hide.remove()
+    }
+  }, [embedded])
 
   const queryError = query.error
   const missing = !!queryError && 'status' in queryError && (queryError.status === 404 || queryError.status === 400)
   const failed = olderFailed || (!!queryError && !missing && !thread)
 
   // пока чат открыт, пуши о его сообщениях не нужны
-  useViewingChat(chat)
+  useViewingChat(active ? chat : undefined)
 
   // Прочитано: список чатов и значок на табе обновятся сами (мутация сбрасывает кэш списка чатов)
   const markRead = useCallback(async () => {
@@ -115,11 +137,11 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
     }))
     setOlderFailed(false)
     const newest = [...page.messages].reverse().find((m) => m.senderId !== me)
-    if (newest && markedRef.current !== `${chat}:${newest.id}`) {
+    if (active && newest && markedRef.current !== `${chat}:${newest.id}`) {
       markedRef.current = `${chat}:${newest.id}`
       void markRead()
     }
-  }, [page, chat, me, markRead])
+  }, [page, chat, me, markRead, active])
 
   // ушедшее сообщение переезжает из «ждущих» в ленту одним шагом, без мигания
   useEffect(() => {
@@ -135,9 +157,23 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
 
   // вернулись в приложение: пока читали что-то другое, могли прийти сообщения
   useEffect(() => {
+    if (!active) return
     const sub = AppState.addEventListener('change', (state) => state === 'active' && void markRead())
     return () => sub.remove()
-  }, [markRead])
+  }, [markRead, active])
+
+  // вкладка с чатом открыта после того, как сообщения уже пришли: отметить прочитанным сейчас
+  useEffect(() => {
+    if (active && page) {
+      const newest = [...page.messages].reverse().find((m) => m.senderId !== me)
+      if (newest && markedRef.current !== `${chat}:${newest.id}`) {
+        markedRef.current = `${chat}:${newest.id}`
+        void markRead()
+      }
+    }
+    // только при открытии вкладки
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active])
 
   // строки ленты: от свежих к старым (список перевёрнут), подпись дня стоит после сообщений своего дня
   const rows = useMemo<Row[]>(() => {
@@ -155,9 +191,10 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
   }, [messages, pending, now, me])
 
   if (!identity || !me || !token) return null
-  if (missing) return <Redirect href="/chat" />
+  if (missing) return embedded ? null : <Redirect href="/chat" />
 
-  const other = chat === FAMILY_CHAT ? undefined : members.find((m) => m.id === chat)
+  const isEvent = isEventChat(chat)
+  const other = chat === FAMILY_CHAT || isEvent ? undefined : members.find((m) => m.id === chat)
   // подпись автора в общем чате: ребёнок видит родителей как «Мама» и «Папа»
   const sender = (id: string) => {
     const member = members.find((m) => m.id === id)
@@ -211,27 +248,30 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
     setFeedbackFor(undefined)
   }
 
-  const title = chatTitle(chat, members, identity.role)
-  const subtitle = chat === FAMILY_CHAT ? participantsLabel(members.length) : visitLabel(peer, now)
-  const muted = chats?.find((c) => c.id === chat)?.muted
+  const summary = chats?.find((c) => c.id === chat)
+  const title = chatTitle(chat, members, identity.role, eventTitle ?? summary?.event?.title)
+  // у чата события участников больше одного: число не знаем, подпись не показываем
+  const subtitle = chat === FAMILY_CHAT ? participantsLabel(members.length) : isEvent ? 'Чат события' : visitLabel(peer, now)
+  const muted = summary?.muted
   const otherMood = other ? currentMood(other.mood, now)?.emoji : undefined
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior="padding">
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg, paddingBottom: keyboardHeight }} behavior={embedded ? undefined : 'padding'}>
+      {!embedded && (
       <Header style={{ paddingTop: insets.top + 8 }}>
         <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/chat'))} accessibilityRole="button" accessibilityLabel="К списку чатов" hitSlop={10}>
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Pressable
-          disabled={!other}
-          onPress={() => other && router.push({ pathname: '/family/[memberId]', params: { memberId: other.id } })}
+          disabled={!other && !isEvent}
+          onPress={() => (isEvent ? router.push({ pathname: '/calendar/events/[id]', params: { id: chat.slice('event-'.length) } }) : other && router.push({ pathname: '/family/[memberId]', params: { memberId: other.id } }))}
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}
         >
           {other ? (
             <Avatar name={memberLabel(other, identity.role)} seed={other.id} src={other.avatar} size={38} />
           ) : (
             <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft }}>
-              <Ionicons name="people" size={20} color={colors.accent} />
+              <Ionicons name={isEvent ? 'calendar' : 'people'} size={20} color={colors.accent} />
             </View>
           )}
           <View style={{ flex: 1 }}>
@@ -250,6 +290,7 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
           <Ionicons name="ellipsis-vertical" size={22} color={colors.text} />
         </Pressable>
       </Header>
+      )}
 
       <FlatList
         data={rows}
@@ -270,7 +311,7 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
               mine={row.message.senderId === me}
               senderName={sender(row.message.senderId)}
               senderMood={currentMood(members.find((m) => m.id === row.message.senderId)?.mood, now)?.emoji}
-              showSender={chat === FAMILY_CHAT}
+              showSender={chat === FAMILY_CHAT || isEvent}
               status={row.message.senderId === me && !row.pendingId ? messageStatus(row.message, thread?.readUpTo ?? null) : undefined}
               delivery={row.delivery}
               onFailedPress={() => setFailedMenu(row.pendingId)}
@@ -296,10 +337,10 @@ export function ChatRoomScreen({ chat }: { chat: string }) {
         style={{ flex: 1 }}
       />
 
-      <Composer onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} />
+      <Composer onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} flushBottom={embedded} />
 
       {viewing && <PhotoViewer photos={viewing.message.media} index={viewing.index} onClose={() => setViewing(undefined)} />}
-      {menuOpen && <ChatMenu chat={chat} onClose={() => setMenuOpen(false)} />}
+      {menuOpen && !embedded && <ChatMenu chat={chat} onClose={() => setMenuOpen(false)} />}
       {failedMenu && (
         <ActionSheet
           title="Сообщение не отправлено"

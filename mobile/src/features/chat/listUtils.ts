@@ -31,7 +31,8 @@ export function chatPreviewParts(chat: ChatSummary, me: string, members: Member[
         ? `📎 ${caption || fileLabel}`
         : last.text.replace(/\s+/g, ' ').trim()
   if (chat.last.senderId === me) return { prefix: 'Вы:', mine: true, text }
-  if (chat.id === 'family') {
+  // в общем чате и в чате события пишут многие: подпись автора
+  if (chat.id === 'family' || chat.event) {
     const sender = members.find((m) => m.id === chat.last!.senderId)
     const name = sender && memberLabel(sender, viewerRole)
     return name ? { prefix: `${name}:`, mine: false, text } : { mine: false, text }
@@ -52,7 +53,8 @@ export function chatPreview(chat: ChatSummary, me: string, members: Member[], vi
 }
 
 // Названия чатов: общий и по имени собеседника.
-export function chatTitle(id: string, members: Member[], viewerRole: Role): string {
+export function chatTitle(id: string, members: Member[], viewerRole: Role, eventTitle?: string | null): string {
+  if (eventTitle) return eventTitle
   if (id === 'family') return FAMILY_TITLE
   const member = members.find((m) => m.id === id)
   return member ? memberLabel(member, viewerRole) : 'Чат'

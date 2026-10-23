@@ -9,6 +9,6 @@ export function ChatsProvider({ children }: { children: ReactNode }) {
   const { data } = useListChatsQuery()
   const chats = data?.chats
 
-  const value = useMemo(() => ({ chats, unread: chats?.reduce((sum, c) => sum + c.unread, 0) ?? 0 }), [chats])
+  const value = useMemo(() => ({ chats, unread: chats?.reduce((sum, c) => (c.archived ? sum : sum + c.unread), 0) ?? 0 }), [chats])
   return <ChatsContext value={value}>{children}</ChatsContext>
 }

@@ -1,22 +1,24 @@
-import { useState } from 'react'
-import { View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { Animated, Keyboard, ScrollView, View } from 'react-native'
+import PagerView from 'react-native-pager-view'
 import { Redirect, useRouter } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useTheme } from 'styled-components/native'
 import { Avatar } from '@/components/Avatar'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
-import { useConfirm } from '@/components/ConfirmDialog'
-import { Notice } from '@/components/Notice'
-import { Screen } from '@/components/Screen'
+import { PillTabs, type PillTab } from '@/components/PillTabs'
+import { TOP_CORNER } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
 import { Text } from '@/components/Text'
+import { eventChatId } from '@/api'
+import { useChats } from '@/chat/context'
+import { ChatRoomScreen } from '@/features/chat/ChatRoomScreen'
 import { useIdentity } from '@/identity/context'
 import { formatDayMonth } from '@/lib/date'
 import { memberLabel } from '@/lib/roles'
-import { useInFlight } from '@/lib/useInFlight'
 import { useProfile } from '@/profile/context'
-import { toApiError } from '@/store/api'
-import { useDeleteEventMutation, useGetEventQuery } from '@/store/events'
-import { describeEventError } from './eventErrors'
+import { useGetEventQuery } from '@/store/events'
 
 // Когда идёт событие: «7 ноября, 18:00–20:30», «10–14 ноября», «7 ноября, весь день»
 function whenText(event: { startDate: string; endDate: string; startTime: string | null; endTime: string | null }): string {
@@ -37,29 +39,45 @@ function Row({ label, children }: { label: string; children: string }) {
   )
 }
 
-// Страница события: все детали, участники; автору «Изменить» и «Удалить»
-export function EventViewScreen({ id }: { id: string }) {
+const TABS: PillTab[] = [
+  { key: 'event', label: 'Событие', icon: 'calendar-outline' },
+  { key: 'chat', label: 'Чат', icon: 'chatbubbles-outline' },
+]
+
+// Страница события: две вкладки внизу. «Событие» (по умолчанию): все детали и участники, автору «Изменить» справа сверху и «Удалить».
+// «Чат»: переписка участников события; в списке чатов она появляется после первого сообщения. Вкладки листаются пальцем.
+export function EventViewScreen({ id, tab }: { id: string; tab?: string }) {
   const router = useRouter()
-  const guard = useInFlight()
-  const confirm = useConfirm()
+  const { colors } = useTheme()
+  const insets = useSafeAreaInsets()
   const { identity } = useIdentity()
   const { data: profile } = useProfile()
+  const { chats } = useChats()
   const query = useGetEventQuery(id, { skip: !identity })
-  const [deleteEvent] = useDeleteEventMutation()
-  const [error, setError] = useState<string>()
+
+  // страницы: «Событие» и «Чат»; нижняя панель следует за листанием
+  const pager = useRef<PagerView>(null)
+  const startIndex = tab === 'chat' ? 1 : 0
+  const [index, setIndex] = useState(startIndex)
+  const position = useRef(new Animated.Value(startIndex)).current
+  // пока клавиатура открыта, нижняя панель вкладок прячется: поле ввода стоит прямо над клавиатурой
+  const [keyboard, setKeyboard] = useState(false)
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboard(true))
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboard(false))
+    return () => {
+      show.remove()
+      hide.remove()
+    }
+  }, [])
 
   const event = query.data?.event
   const missing = !!query.error && 'status' in query.error && query.error.status === 404
+  const chatId = eventChatId(id)
+  const unread = chats?.find((c) => c.id === chatId)?.unread ?? 0
 
-  const remove = guard(async () => {
-    if (!(await confirm({ title: 'Удалить событие?', message: 'Событие пропадёт у всех участников.', confirmLabel: 'Удалить', danger: true }))) return
-    try {
-      await deleteEvent(id).unwrap().catch(toApiError)
-      router.dismissTo('/calendar')
-    } catch (err) {
-      setError(describeEventError(err))
-    }
-  })
+  // удаление подтверждается на отдельной странице: там сказано, что вместе с событием уйдёт и его чат
+  const remove = () => router.push({ pathname: '/calendar/events/[id]/delete', params: { id } })
 
   if (!identity) return null
   if (missing) return <Redirect href="/calendar" />
@@ -67,40 +85,72 @@ export function EventViewScreen({ id }: { id: string }) {
   const members = profile?.members ?? []
   const author = members.find((m) => m.id === event?.authorId)
   const participants = event ? (event.allFamily ? members : members.filter((m) => event.memberIds.includes(m.id) || m.id === event.authorId)) : []
+  const isAuthor = !!event && event.authorId === identity.memberId
 
   return (
-    <Screen header={<PageHeader fallback={event ? { pathname: '/calendar', params: { date: event.startDate } } : '/calendar'}>{event?.title ?? ''}</PageHeader>}>
-      {!event && <Text $tone="muted">Загрузка…</Text>}
-      {event && (
-        <>
-          <Stack $gap={8}>
-            <Row label="Когда">{whenText(event)}</Row>
-            <Row label="Кто видит">{event.allFamily ? 'Вся семья' : participants.length <= 1 ? 'Только автор' : 'Выбранные участники'}</Row>
-            {author && <Row label="Автор">{memberLabel(author, identity.role)}</Row>}
-          </Stack>
-          {participants.length > 0 && (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }} accessibilityLabel="Участники">
-              {participants.map((member) => (
-                <View key={member.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Avatar name={memberLabel(member, identity.role)} seed={member.id} src={member.avatar} size={32} />
-                  <Text>{memberLabel(member, identity.role)}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-          {error && <Notice tone="error">{error}</Notice>}
-          {event.authorId === identity.memberId && (
-            <Stack $gap={8}>
-              <Button variant="primary" onPress={() => router.push({ pathname: '/calendar/events/[id]/edit', params: { id: event.id } })}>
+    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top + TOP_CORNER }}>
+      <View style={{ paddingHorizontal: 20, paddingBottom: 6 }}>
+        <PageHeader
+          fallback={event ? { pathname: '/calendar', params: { date: event.startDate } } : '/calendar'}
+          right={
+            isAuthor ? (
+              <Button variant="text" onPress={() => router.push({ pathname: '/calendar/events/[id]/edit', params: { id } })}>
                 Изменить
               </Button>
-              <Button variant="danger" onPress={remove}>
-                Удалить событие
-              </Button>
-            </Stack>
-          )}
-        </>
+            ) : undefined
+          }
+        >
+          {event?.title ?? ''}
+        </PageHeader>
+      </View>
+
+      <PagerView
+        ref={pager}
+        style={{ flex: 1 }}
+        initialPage={startIndex}
+        onPageScroll={(e) => position.setValue(e.nativeEvent.position + e.nativeEvent.offset)}
+        onPageSelected={(e) => setIndex(e.nativeEvent.position)}
+      >
+        <View key="event" style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={{ gap: 16, padding: 20, paddingTop: 8 }} keyboardShouldPersistTaps="handled">
+            {!event && <Text $tone="muted">Загрузка…</Text>}
+            {event && (
+              <>
+                <Stack $gap={8}>
+                  <Row label="Когда">{whenText(event)}</Row>
+                  <Row label="Кто видит">{event.allFamily ? 'Вся семья' : participants.length <= 1 ? 'Только автор' : 'Выбранные участники'}</Row>
+                  {author && <Row label="Автор">{memberLabel(author, identity.role)}</Row>}
+                </Stack>
+                {participants.length > 0 && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }} accessibilityLabel="Участники">
+                    {participants.map((member) => (
+                      <View key={member.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Avatar name={memberLabel(member, identity.role)} seed={member.id} src={member.avatar} size={32} />
+                        <Text>{memberLabel(member, identity.role)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {isAuthor && (
+                  <Button variant="danger" onPress={remove}>
+                    Удалить событие
+                  </Button>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </View>
+
+        <View key="chat" style={{ flex: 1 }}>
+          {event && <ChatRoomScreen chat={chatId} embedded active={index === 1} eventTitle={event.title} />}
+        </View>
+      </PagerView>
+
+      {!keyboard && (
+        <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: insets.bottom + 12 }}>
+          <PillTabs tabs={TABS.map((t) => (t.key === 'chat' && index !== 1 ? { ...t, badge: unread } : t))} index={index} position={position} onPress={(i) => pager.current?.setPage(i)} />
+        </View>
       )}
-    </Screen>
+    </View>
   )
 }

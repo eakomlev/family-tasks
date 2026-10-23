@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Animated, Pressable, RefreshControl, ScrollView, View } from 'react-native'
 import PagerView from 'react-native-pager-view'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useDispatch } from 'react-redux'
 import { useTheme } from 'styled-components/native'
 import { PageHeader } from '@/components/PageHeader'
+import { PillTabs, type PillTab } from '@/components/PillTabs'
 import { Screen } from '@/components/Screen'
 import { Heading, Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
@@ -37,12 +38,10 @@ import { useListEventsQuery } from '@/store/events'
 import { useListTasksQuery } from '@/store/tasks'
 import { AgendaList, DayTimeline, kindColor, MonthView } from './CalendarViews'
 
-type IconName = keyof typeof Ionicons.glyphMap
-
-const VIEWS: { view: CalendarView; label: string; icon: IconName }[] = [
-  { view: 'day', label: 'День', icon: 'today-outline' },
-  { view: 'week', label: 'Неделя', icon: 'calendar-outline' },
-  { view: 'month', label: 'Месяц', icon: 'grid-outline' },
+const VIEWS: (PillTab & { view: CalendarView })[] = [
+  { key: 'day', view: 'day', label: 'День', icon: 'today-outline' },
+  { key: 'week', view: 'week', label: 'Неделя', icon: 'calendar-outline' },
+  { key: 'month', view: 'month', label: 'Месяц', icon: 'grid-outline' },
 ]
 
 const isIsoDate = (value?: string | null): value is string => !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value))
@@ -98,7 +97,6 @@ export function CalendarScreen() {
   const index = VIEWS.findIndex((v) => v.view === view)
   const page = useRef(index)
   const position = useRef(new Animated.Value(index)).current
-  const [barWidth, setBarWidth] = useState(0)
   // вид сменился снаружи (адрес, «Сегодня»): страница переходит следом
   useEffect(() => {
     if (page.current === index) return
@@ -144,9 +142,6 @@ export function CalendarScreen() {
   )
 
   const dayItems = byDay.get(anchor) ?? []
-  const GAP = 4
-  const PAD = 5
-  const tabWidth = barWidth > 0 ? (barWidth - 2 * PAD - 2 - GAP * (VIEWS.length - 1)) / VIEWS.length : 0
 
   return (
     <Screen
@@ -218,44 +213,7 @@ export function CalendarScreen() {
         </View>
       </PagerView>
 
-      <View
-        onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
-        style={{ height: 56, borderRadius: 28, padding: PAD, flexDirection: 'row', gap: GAP, backgroundColor: colors.tabbarBg, borderWidth: 1, borderColor: colors.tabbarBorder }}
-      >
-        {tabWidth > 0 && (
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              left: PAD,
-              top: PAD,
-              bottom: PAD,
-              width: tabWidth,
-              borderRadius: 23,
-              backgroundColor: colors.tabbarActiveBg,
-              transform: [{ translateX: position.interpolate({ inputRange: [0, VIEWS.length - 1], outputRange: [0, (VIEWS.length - 1) * (tabWidth + GAP)], extrapolate: 'clamp' }) }],
-            }}
-          />
-        )}
-        {VIEWS.map((v, i) => {
-          const active = i === index
-          const color = active ? colors.tabbarActiveText : colors.tabbarIcon
-          return (
-            <Pressable
-              key={v.view}
-              onPress={() => pager.current?.setPage(i)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-            >
-              <Ionicons name={v.icon} size={20} color={color} />
-              <Text $weight="extraBold" $size={13} style={{ color }}>
-                {v.label}
-              </Text>
-            </Pressable>
-          )
-        })}
-      </View>
+      <PillTabs tabs={VIEWS} index={index} position={position} onPress={(i) => pager.current?.setPage(i)} />
     </Screen>
   )
 }

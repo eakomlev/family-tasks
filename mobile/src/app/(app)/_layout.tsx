@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { Pressable, View } from 'react-native'
 import { Redirect, Stack, usePathname, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from 'styled-components/native'
 import { ChatsProvider } from '@/chat'
+import { ActionSheet } from '@/components/ActionSheet'
 import { Avatar } from '@/components/Avatar'
 import { CoinBalance } from '@/components/Coins'
 import { loadTasksView } from '@/features/tasks/viewState'
@@ -17,7 +19,7 @@ import { RealtimeBridge } from '@/store/RealtimeBridge'
 // переписка (/chat/<чат>) занимает весь экран
 const inChatRoom = (pathname: string) => pathname.startsWith('/chat/') && pathname.length > '/chat/'.length
 
-// Правый верхний угол: баланс монет ребёнка и значок профиля (только на «Моём дне») или «＋» новой задачи (на «Заданиях»)
+// Правый верхний угол: баланс монет ребёнка и значок профиля (только на «Моём дне»), «＋» новой задачи (на «Заданиях») или меню чатов с архивом
 function TopRight() {
   const { identity } = useIdentity()
   const { data } = useProfile()
@@ -25,15 +27,18 @@ function TopRight() {
   const router = useRouter()
   const { colors } = useTheme()
   const pathname = usePathname()
+  const [chatMenu, setChatMenu] = useState(false)
   if (!identity) return null
   // в переписке угол не нужен: он перекрыл бы шапку
   if (inChatRoom(pathname)) return null
   // у календаря справа свои кнопки («＋» и настройки)
-  if (pathname === '/calendar') return null
+  if (pathname === '/calendar' || pathname.startsWith('/calendar/events')) return null
   // значок профиля только на «Моём дне»; в остальных разделах в профиль попадают из «Семьи»
   const showAvatar = pathname === '/'
   // на «Заданиях» вместо значка профиля кнопка «＋»: новое задание (выбранный в фильтре человек сразу становится исполнителем)
   const showAdd = pathname === '/tasks'
+  // на списке чатов вместо значка профиля меню: пока в нём «Архив»
+  const showChatMenu = pathname === '/chat'
   const coins = data?.me.coins
 
   return (
@@ -51,6 +56,19 @@ function TopRight() {
         >
           <Ionicons name="add" size={26} color="#ffffff" />
         </Pressable>
+      )}
+      {showChatMenu && (
+        <>
+          <Pressable
+            onPress={() => setChatMenu(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Меню"
+            style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.track }}
+          >
+            <Ionicons name="ellipsis-vertical" size={22} color={colors.text} />
+          </Pressable>
+          {chatMenu && <ActionSheet actions={[{ key: 'archive', label: 'Архив', onSelect: () => router.push('/chat/archive') }]} onClose={() => setChatMenu(false)} />}
+        </>
       )}
       {showAvatar && (
         <Pressable onPress={() => router.push('/profile')} accessibilityRole="button" accessibilityLabel={`Профиль: ${identity.name}`}>

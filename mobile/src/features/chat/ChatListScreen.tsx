@@ -46,7 +46,7 @@ function RowMenu({ chat, onClose }: { chat: string; onClose: () => void }) {
 }
 
 // строка списка чатов: кто, последнее сообщение, время и число непрочитанных
-function ChatRow({ chat, member, members, me, viewerRole, now }: { chat: ChatSummary; member?: Member; members: Member[]; me: string; viewerRole: Role; now: Date }) {
+export function ChatRow({ chat, member, members, me, viewerRole, now }: { chat: ChatSummary; member?: Member; members: Member[]; me: string; viewerRole: Role; now: Date }) {
   const router = useRouter()
   const { colors } = useTheme()
   const unread = chat.unread > 0
@@ -72,13 +72,13 @@ function ChatRow({ chat, member, members, me, viewerRole, now }: { chat: ChatSum
           <Avatar name={memberLabel(member, viewerRole)} seed={member.id} src={member.avatar} size={54} />
         ) : (
           <FamilyIcon>
-            <Ionicons name="people" size={26} color={colors.accent} />
+            <Ionicons name={chat.event ? 'calendar' : 'people'} size={26} color={colors.accent} />
           </FamilyIcon>
         )}
         <View style={{ flex: 1, gap: 2 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text $weight={unread ? 'black' : 'extraBold'} $size={16} style={{ flexShrink: 1 }} numberOfLines={1}>
-              {chatTitle(chat.id, members, viewerRole)}
+              {chatTitle(chat.id, members, viewerRole, chat.event?.title)}
             </Text>
             {muted && <Ionicons name="notifications-off-outline" size={14} color={colors.muted} />}
             {mood && <Text $size={14}>{mood.emoji}</Text>}
@@ -110,7 +110,7 @@ function ChatRow({ chat, member, members, me, viewerRole, now }: { chat: ChatSum
   )
 }
 
-// Список чатов: общий чат семьи и по одному с каждым участником; сверху те, где недавно писали
+// Список чатов: общий чат семьи, по одному с каждым участником и чаты событий, где уже писали; сверху те, где недавно писали
 export function ChatListScreen() {
   const { identity } = useIdentity()
   const { data } = useProfile()
@@ -123,9 +123,10 @@ export function ChatListScreen() {
       <PageTitle>Чат</PageTitle>
       {!chats && <Text $tone="muted">Загрузка…</Text>}
       {chats && members.length === 0 && <Notice>В семье пока никого нет.</Notice>}
+      {chats && chats.length > 0 && chats.every((chat) => chat.archived) && <Notice>Все чаты в архиве. Откройте его из меню справа сверху.</Notice>}
       {chats && members.length > 0 && identity && (
         <View>
-          {chats.map((chat) => (
+          {chats.filter((chat) => !chat.archived).map((chat) => (
             <ChatRow key={chat.id} chat={chat} member={members.find((m) => m.id === chat.id)} members={members} me={identity.memberId} viewerRole={identity.role} now={now} />
           ))}
         </View>
