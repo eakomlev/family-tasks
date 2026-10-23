@@ -4,6 +4,7 @@ import { useDispatch } from 'react-redux'
 import { useTheme } from 'styled-components/native'
 import { Avatar } from '@/components/Avatar'
 import { Chip } from '@/components/Chip'
+import { SlidingTabs } from '@/components/SlidingTabs'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
@@ -99,14 +100,14 @@ export default function Tasks() {
       refreshControl={<RefreshControl refreshing={false} onRefresh={() => void dispatch(api.util.invalidateTags(['Tasks', 'Pending', 'Done']))} />}
     >
       <PageTitle>Задания</PageTitle>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Chip active={tab === 'upcoming'} onPress={() => setTab('upcoming')}>
-          Предстоящие
-        </Chip>
-        <Chip active={tab === 'done'} onPress={() => setTab('done')}>
-          Выполненные
-        </Chip>
-      </View>
+      <SlidingTabs
+        selected={tab}
+        onSelect={(key) => setTab(key as typeof tab)}
+        tabs={[
+          { key: 'upcoming', render: (active) => <Text $weight="extraBold" $size={14} style={active ? { color: '#ffffff' } : undefined}>Предстоящие</Text> },
+          { key: 'done', render: (active) => <Text $weight="extraBold" $size={14} style={active ? { color: '#ffffff' } : undefined}>Выполненные</Text> },
+        ]}
+      />
 
       {/* ребёнок видит только свои задания (сервер другие не отдаёт), фильтр по людям ему не нужен */}
       {identity?.role !== 'child' && (

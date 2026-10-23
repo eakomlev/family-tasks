@@ -10,6 +10,7 @@ import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
 import { Heading, Text } from '@/components/Text'
+import { SlidingTabs } from '@/components/SlidingTabs'
 import { useIdentity } from '@/identity/context'
 import { isAdult, isParent } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
@@ -60,17 +61,6 @@ interface Props<Row extends DraftRow> {
   onSave: (memberId: string, days: Record<number, Row[]>) => Promise<void>
 }
 
-const Tab = styled(Pressable)<{ $active: boolean }>`
-  flex: 1;
-  min-width: 44px;
-  align-items: center;
-  padding: 8px 4px;
-  border-radius: 14px;
-  background-color: ${({ theme, $active }) => ($active ? theme.colors.accent : theme.colors.surface)};
-  border-width: 1.5px;
-  border-color: ${({ theme, $active }) => ($active ? theme.colors.accent : theme.colors.border)};
-`
-
 const RowCard = styled.View`
   gap: 8px;
   padding: 12px;
@@ -83,21 +73,25 @@ const RowCard = styled.View`
 // Вкладки дней недели со счётчиком записей в каждом
 function DayTabs({ days, selected, counts, unit, onSelect }: { days: DayInfo[]; selected: number; counts: Record<number, number>; unit: string; onSelect: (day: number) => void }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 6 }} accessibilityRole="tablist">
-      {days.map((day) => {
-        const active = selected === day.value
-        return (
-          <Tab key={day.value} $active={active} onPress={() => onSelect(day.value)} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={`${day.full}, ${unit}: ${counts[day.value] ?? 0}`}>
+    <SlidingTabs
+      selected={String(selected)}
+      onSelect={(key) => onSelect(Number(key))}
+      radius={12}
+      tabs={days.map((day) => ({
+        key: String(day.value),
+        accessibilityLabel: `${day.full}, ${unit}: ${counts[day.value] ?? 0}`,
+        render: (active) => (
+          <>
             <Text $weight="extraBold" $size={14} style={active ? { color: '#ffffff' } : undefined}>
               {day.short}
             </Text>
             <Text $size={12} $weight="bold" style={active ? { color: '#ffffff', opacity: 0.8 } : { opacity: 0.8 }}>
               {counts[day.value] ? String(counts[day.value]) : '·'}
             </Text>
-          </Tab>
-        )
-      })}
-    </View>
+          </>
+        ),
+      }))}
+    />
   )
 }
 
