@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import type { WebSocket } from 'ws'
 import { authenticateToken } from './auth.js'
-import { directKey } from './chatKey.js'
+import { directKey, isEventChat } from './chatKey.js'
 import { hashToken } from './codes.js'
 import { pool } from './db.js'
 
@@ -80,7 +80,8 @@ export function isViewingChat(memberId: string, chat: string) {
 
 // Запоминает визит в личный чат (вход или выход) и даёт знать собеседнику, чтобы шапка у него обновилась.
 async function recordVisit(memberId: string, chat: string | null) {
-  if (!chat || chat === 'family') return
+  // визиты и «был в чате» только у личных чатов
+  if (!chat || chat === 'family' || isEventChat(chat)) return
   try {
     await pool.query(
       `insert into chat_visits (member_id, chat_key, visited_at) values ($1, $2, now())

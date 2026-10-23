@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
 import { authenticate } from './auth.js'
-import { directKey } from './chatKey.js'
+import { directKey, eventChatId, eventChatKey, EVENT_CHAT_PREFIX } from './chatKey.js'
 import { MediaRejected, type MediaClient } from './media/client.js'
 import {
   attachmentPlaceholder,
@@ -43,7 +43,7 @@ export { directKey }
 const chatParams = {
   type: 'object',
   required: ['chat'],
-  properties: { chat: { type: 'string', pattern: '^(family|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$' } },
+  properties: { chat: { type: 'string', pattern: '^(family|(event-)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$' } },
 }
 const listMessagesSchema = {
   params: chatParams,
@@ -93,8 +93,13 @@ interface Chat {
   key: string
   // кто участвует (для рассылки)
   participants: string[]
-  // собеседник для личного чата, null для общего
+  // собеседник для личного чата, null для общего и для чата события
   otherId: string | null
+  // название события, если это чат события
+  eventTitle: string | null
+  // как чат называется в адресе у участника participantId, когда действие совершил actorId: общий и событие у всех одинаковые,
+  // личный виден собеседником
+  view: (participantId: string, actorId: string) => string
 }
 
 interface MessageRow {
@@ -168,11 +173,11 @@ export function senderLabel(sender: { name: string; role: string }, recipientRol
 }
 
 // «Имя · Общий чат» для общего чата, просто имя для личного. Текст сжат до одной строки.
-export function chatPushMessage(senderName: string, chatId: string, text: string): PushMessage {
+export function chatPushMessage(senderName: string, chatId: string, text: string, eventTitle?: string | null): PushMessage {
   const oneLine = text.replace(/\s+/g, ' ').trim()
   const body = oneLine.length > PREVIEW_LENGTH ? `${oneLine.slice(0, PREVIEW_LENGTH - 1)}…` : oneLine
   return {
-    title: chatId === FAMILY_CHAT ? `${senderName} · Общий чат` : senderName,
+    title: eventTitle ? `${senderName} · ${eventTitle}` : chatId === FAMILY_CHAT ? `${senderName} · Общий чат` : senderName,
     body,
     url: `/chat/${chatId}`,
     tag: `chat-${chatId}`,
@@ -231,7 +236,28 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
   async function resolveChat(member: Member, chat: string, reply: FastifyReply): Promise<Chat | null> {
     if (chat === FAMILY_CHAT) {
       const { rows } = await pool.query('select id from members where family_id = $1', [member.family_id])
-      return { key: FAMILY_CHAT, participants: rows.map((r) => r.id as string), otherId: null }
+      return { key: FAMILY_CHAT, participants: rows.map((r) => r.id as string), otherId: null, eventTitle: null, view: () => FAMILY_CHAT }
+    }
+    if (chat.startsWith(EVENT_CHAT_PREFIX)) {
+      // чат события доступен тем, кому видно само событие; чужое и несуществующее одинаково «не найдено»
+      const eventId = chat.slice(EVENT_CHAT_PREFIX.length)
+      const { rows: events } = await pool.query<{ title: string; allFamily: boolean; authorId: string }>(
+        `select e.title, e.all_family as "allFamily", e.author_id as "authorId" from events e
+         where e.id = $1 and e.family_id = $2
+           and (e.all_family or e.author_id = $3 or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = $3))`,
+        [eventId, member.family_id, member.id],
+      )
+      if (!events[0]) {
+        reply.code(404).send({ error: 'chat_not_found' })
+        return null
+      }
+      const { rows: people } = await pool.query<{ id: string }>(
+        `select m.id from members m
+         where m.family_id = $1
+           and ($2 or m.id = $3 or exists (select 1 from event_members em where em.event_id = $4 and em.member_id = m.id))`,
+        [member.family_id, events[0].allFamily, events[0].authorId, eventId],
+      )
+      return { key: eventChatKey(eventId), participants: people.map((p) => p.id), otherId: null, eventTitle: events[0].title, view: () => chat }
     }
     if (chat === member.id) {
       reply.code(400).send({ error: 'invalid_chat' })
@@ -242,7 +268,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       reply.code(404).send({ error: 'chat_not_found' })
       return null
     }
-    return { key: directKey(member.id, chat), participants: [member.id, chat], otherId: chat }
+    return { key: directKey(member.id, chat), participants: [member.id, chat], otherId: chat, eventTitle: null, view: (participantId, actorId) => (participantId === actorId ? chat : actorId) }
   }
 
   // Список чатов: общий и по одному с каждым участником, свежая активность выше.
@@ -255,9 +281,18 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       'select id, name, created_at as "createdAt" from members where family_id = $1 and id <> $2 order by lower(name)',
       [member.family_id, member.id],
     )
-    const chats = [
+    // чаты событий появляются в списке, когда в них написали первое сообщение (и только у тех, кому видно событие)
+    const { rows: eventChats } = await pool.query<{ id: string; title: string }>(
+      `select e.id, e.title from events e
+       where e.family_id = $1
+         and (e.all_family or e.author_id = $2 or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = $2))
+         and exists (select 1 from messages m where m.family_id = e.family_id and m.chat_key = 'event:' || e.id)`,
+      [member.family_id, member.id],
+    )
+    const chats: { id: string; key: string; event?: { id: string; title: string } }[] = [
       { id: FAMILY_CHAT, key: FAMILY_CHAT },
       ...others.map((o) => ({ id: o.id as string, key: directKey(member.id, o.id) })),
+      ...eventChats.map((e) => ({ id: eventChatId(e.id), key: eventChatKey(e.id), event: { id: e.id, title: e.title } })),
     ]
     const keys = chats.map((c) => c.key)
 
@@ -277,6 +312,8 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     )
     const { rows: mutes } = await pool.query<{ chatKey: string }>('select chat_key as "chatKey" from chat_mutes where member_id = $1 and chat_key = any($2)', [member.id, keys])
     const mutedKeys = new Set(mutes.map((m) => m.chatKey))
+    const { rows: archives } = await pool.query<{ chatKey: string }>('select chat_key as "chatKey" from chat_archives where member_id = $1 and chat_key = any($2)', [member.id, keys])
+    const archivedKeys = new Set(archives.map((a) => a.chatKey))
     // До какого момента прочитали остальные участники чата (как в самом чате: в общем самое позднее прочтение, кто чат не открывал,
     // читает с момента появления в семье). По нему в списке у моего последнего сообщения видна галочка «прочитано».
     const { rows: reads } = await pool.query<{ memberId: string; chatKey: string; at: Date }>(
@@ -284,7 +321,19 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       [keys, member.id],
     )
     const readAt = new Map(reads.map((r) => [`${r.chatKey}|${r.memberId}`, r.at]))
-    const readUpTo = (chat: { id: string; key: string }): Date | null => {
+    // участники чатов событий, кроме меня, и их прочтения (у не открывавшего чат отсчёт с появления в семье)
+    const { rows: eventPeers } = await pool.query<{ chatKey: string; at: Date }>(
+      `select 'event:' || e.id as "chatKey", max(coalesce(r.last_read_at, mb.created_at)) as at
+       from events e
+       join members mb on mb.family_id = e.family_id and mb.id <> $2
+         and (e.all_family or mb.id = e.author_id or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = mb.id))
+       left join chat_reads r on r.member_id = mb.id and r.chat_key = 'event:' || e.id
+       where e.id = any($1) group by e.id`,
+      [eventChats.map((e) => e.id), member.id],
+    )
+    const eventReadAt = new Map(eventPeers.map((p) => [p.chatKey, p.at]))
+    const readUpTo = (chat: { id: string; key: string; event?: unknown }): Date | null => {
+      if (chat.event) return eventReadAt.get(chat.key) ?? null
       const peers = chat.id === FAMILY_CHAT ? others : others.filter((o) => o.id === chat.id)
       let best: Date | null = null
       for (const p of peers) {
@@ -300,7 +349,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
 
     const list = chats.map((c) => {
       const last = lastBy.get(c.key)
-      return { id: c.id, last: last ?? null, unread: unreadBy.get(c.key) ?? 0, muted: mutedKeys.has(c.key), readUpTo: readUpTo(c) }
+      return { id: c.id, last: last ?? null, unread: unreadBy.get(c.key) ?? 0, muted: mutedKeys.has(c.key), archived: archivedKeys.has(c.key), readUpTo: readUpTo(c), event: c.event ?? null }
     })
     // порядок по времени последнего сообщения; без сообщений: порядок исходного списка (общий, затем по имени)
     const order = new Map(list.map((c, i) => [c.id, i]))
@@ -544,10 +593,10 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       const { rows: muted } = await pool.query<{ id: string }>('select member_id as id from chat_mutes where chat_key = $1 and member_id = any($2)', [chat.key, chat.participants])
       const mutedIds = new Set(muted.map((m) => m.id))
       for (const id of chat.participants) {
-        const view = chat.otherId === null ? FAMILY_CHAT : id === member.id ? chat.otherId : member.id
+        const view = chat.view(id, member.id)
         publishTo(id, { type: 'chat', chat: view })
         // если получатель прямо сейчас смотрит этот чат, пуш не нужен: сообщение появится на экране
-        if (id !== member.id && !mutedIds.has(id) && !isViewingChat(id, view)) void enqueueToMember(pool, id, chatPushMessage(senderLabel(member, roleOf.get(id) ?? ''), view, pushText))
+        if (id !== member.id && !mutedIds.has(id) && !isViewingChat(id, view)) void enqueueToMember(pool, id, chatPushMessage(senderLabel(member, roleOf.get(id) ?? ''), view, pushText, chat.eventTitle))
       }
       return reply.code(201).send({ message })
     },
@@ -566,6 +615,27 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
         await pool.query('insert into chat_mutes (member_id, chat_key) values ($1, $2) on conflict do nothing', [member.id, chat.key])
       } else {
         await pool.query('delete from chat_mutes where member_id = $1 and chat_key = $2', [member.id, chat.key])
+      }
+      // другие устройства этого же участника обновят список чатов
+      publishTo(member.id, { type: 'chat', chat: req.params.chat })
+      return reply.code(204).send()
+    },
+  )
+
+  // В архив и обратно (только для себя, на всех своих устройствах). Архивный чат не показывается в списке, но остаётся полноценным:
+  // в него можно писать, сообщения приходят, уведомления идут как обычно (их отключают отдельно).
+  app.put<{ Params: { chat: string }; Body: { archived: boolean } }>(
+    '/api/chats/:chat/archive',
+    { schema: { params: chatParams, body: { type: 'object', required: ['archived'], additionalProperties: false, properties: { archived: { type: 'boolean' } } } } },
+    async (req, reply) => {
+      const member = await me(req, reply)
+      if (!member) return
+      const chat = await resolveChat(member, req.params.chat, reply)
+      if (!chat) return
+      if (req.body.archived) {
+        await pool.query('insert into chat_archives (member_id, chat_key) values ($1, $2) on conflict do nothing', [member.id, chat.key])
+      } else {
+        await pool.query('delete from chat_archives where member_id = $1 and chat_key = $2', [member.id, chat.key])
       }
       // другие устройства этого же участника обновят список чатов
       publishTo(member.id, { type: 'chat', chat: req.params.chat })
@@ -613,7 +683,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     }
     // каждый участник обновит чат и список (чат глазами получателя)
     for (const id of chat.participants) {
-      publishTo(id, { type: 'chat', chat: chat.otherId === null ? FAMILY_CHAT : id === member.id ? chat.otherId : member.id })
+      publishTo(id, { type: 'chat', chat: chat.view(id, member.id) })
     }
     return reply.code(204).send()
   })
@@ -641,7 +711,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       publishTo(member.id, { type: 'chat', chat: req.params.chat })
       // собеседники видят, что прочитано (галочки у их сообщений)
       for (const id of chat.participants) {
-        if (id !== member.id) publishTo(id, { type: 'chat', chat: chat.otherId === null ? FAMILY_CHAT : member.id })
+        if (id !== member.id) publishTo(id, { type: 'chat', chat: chat.view(id, member.id) })
       }
     }
     return reply.code(204).send()
@@ -699,14 +769,12 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
 
       // всем участникам чата: под сообщением появились реакции и монеты
       for (const id of chat.participants) {
-        const view = chat.otherId === null ? FAMILY_CHAT : id === member.id ? chat.otherId : member.id
-        publishTo(id, { type: 'chat', chat: view })
+        publishTo(id, { type: 'chat', chat: chat.view(id, member.id) })
       }
       if (coins !== undefined) {
         // баланс ребёнка изменился; ему приходит уведомление о начислении
         publish(member.family_id, { type: 'members' })
-        const view = chat.otherId === null ? FAMILY_CHAT : member.id
-        void enqueueToMember(pool, row.senderId, awardPushMessage(senderLabel(member, 'child'), view, row.id, coins, emoji ?? undefined))
+        void enqueueToMember(pool, row.senderId, awardPushMessage(senderLabel(member, 'child'), chat.view(row.senderId, member.id), row.id, coins, emoji ?? undefined))
       }
 
       const [message] = await decorate(pool, [toMessage(row)], secret)
