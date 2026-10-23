@@ -11,7 +11,7 @@ const COLUMNS = 8
 
 // Панель эмодзи вместо клавиатуры: вкладки категорий («Недавние» первой, когда уже что-то выбирали), сетка, «стереть» справа внизу.
 export function EmojiPanel({ recent, onPick, onBackspace }: { recent: string[]; onPick: (emoji: string) => void; onBackspace: () => void }) {
-  const { colors } = useTheme()
+  const { colors, fontScale } = useTheme()
   const insets = useSafeAreaInsets()
   const tabs = useMemo(() => {
     const list = EMOJI_CATEGORIES.map((c) => ({ key: c.key, icon: c.icon, title: c.title, items: c.items }))
@@ -45,7 +45,7 @@ export function EmojiPanel({ recent, onPick, onBackspace }: { recent: string[]; 
         contentContainerStyle={{ padding: 6, paddingBottom: 60 }}
         renderItem={({ item }) => (
           <Pressable onPress={() => onPick(item)} accessibilityRole="button" accessibilityLabel={item} style={{ flex: 1 / COLUMNS, height: 46, alignItems: 'center', justifyContent: 'center' }}>
-            <Text $size={28} style={{ lineHeight: 36 }}>
+            <Text $size={28} style={{ lineHeight: Math.round(36 * fontScale) }}>
               {item}
             </Text>
           </Pressable>

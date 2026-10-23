@@ -65,7 +65,7 @@ const Field = styled(TextInput)`
   background-color: ${({ theme }) => theme.colors.surface};
   color: ${({ theme }) => theme.colors.text};
   font-family: ${FONT_FAMILY.regular};
-  font-size: 16px;
+  font-size: ${({ theme }) => 16 * theme.fontScale}px;
 `
 
 const RoundButton = styled(Pressable)<{ $on?: boolean }>`

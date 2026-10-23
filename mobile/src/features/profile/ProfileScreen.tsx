@@ -71,6 +71,7 @@ export function ProfileScreen() {
           )}
           <MenuLink to="/profile/notifications">Уведомления</MenuLink>
           <MenuLink to="/profile/theme">Тема</MenuLink>
+          <MenuLink to="/profile/settings">Настройки</MenuLink>
           {me.isAdmin && <MenuLink to="/profile/service">Сервис</MenuLink>}
         </>
       )}

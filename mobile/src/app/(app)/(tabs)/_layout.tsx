@@ -40,7 +40,7 @@ type BarProps = MaterialTopTabBarProps & {
 // Плавающая тёмная панель табов («Квест»): значки и подписи; выбранный таб лежит на золотой капсуле (цвет домика на значке) с тёмным значком, остальные приглушены.
 // Лежит поверх листаемых страниц.
 function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
-  const { colors, dark } = useTheme()
+  const { colors, dark, fontScale } = useTheme()
   const insets = useSafeAreaInsets()
   // Подсветка идёт за самой страницей, а не за состоянием навигации: оно обновляется, когда пролистывание закончилось, и подсветка отставала.
   // «Ближайший» таб считаем по положению страниц (меняется на полпути между соседями), по нажатию подсвечиваем сразу.
@@ -135,11 +135,11 @@ function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
                       justifyContent: 'center',
                     }}
                   >
-                    <Text style={{ fontFamily: FONT_FAMILY.black, fontSize: 10, color: focused ? colors.tabbarActiveBg : colors.onLime }}>{badge}</Text>
+                    <Text style={{ fontFamily: FONT_FAMILY.black, fontSize: 10 * fontScale, color: focused ? colors.tabbarActiveBg : colors.onLime }}>{badge}</Text>
                   </View>
                 ) : null}
               </View>
-              <Text style={{ fontFamily: FONT_FAMILY.extraBold, fontSize: 11, color }}>{tab.title}</Text>
+              <Text style={{ fontFamily: FONT_FAMILY.extraBold, fontSize: 11 * fontScale, color }}>{tab.title}</Text>
             </Pressable>
           )
         })}

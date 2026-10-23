@@ -3,12 +3,15 @@ import { Appearance, useColorScheme } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { ThemeProvider as StyledThemeProvider } from 'styled-components/native'
 import { darkPalette, lightPalette, type Palette } from './palettes'
+import { useFontScale } from './fontScale'
 import { useThemePreference } from './preference'
 
 export interface AppTheme {
   colors: Palette
   dark: boolean
   radiusCard: number
+  // множитель размеров текста из «Настроек» профиля (1 — стандартный)
+  fontScale: number
 }
 
 declare module 'styled-components/native' {
@@ -16,14 +19,15 @@ declare module 'styled-components/native' {
   export interface DefaultTheme extends AppTheme {}
 }
 
-export const makeTheme = (dark: boolean): AppTheme => ({ colors: dark ? darkPalette : lightPalette, dark, radiusCard: 22 })
+export const makeTheme = (dark: boolean, fontScale = 1): AppTheme => ({ colors: dark ? darkPalette : lightPalette, dark, radiusCard: 22, fontScale })
 
 // Тема: явный выбор из профиля («светлая», «тёмная») или системная
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const scheme = useColorScheme()
   const preference = useThemePreference()
   const dark = preference === 'system' ? scheme === 'dark' : preference === 'dark'
-  const theme = useMemo(() => makeTheme(dark), [dark])
+  const fontScale = useFontScale()
+  const theme = useMemo(() => makeTheme(dark, fontScale), [dark, fontScale])
   // Явный выбор темы в приложении распространяем на систему (окна выбора фото, клавиатура, диалоги); «как в системе» возвращает управление ей
   useEffect(() => {
     Appearance.setColorScheme(preference === 'system' ? 'unspecified' : preference)

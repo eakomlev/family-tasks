@@ -10,8 +10,8 @@ interface TextProps {
 // Базовый текст приложения: Nunito, цвет из темы. Заголовки и числа жирные ($weight="black"), основной текст обычный.
 export const Text = styled.Text<TextProps>`
   font-family: ${({ $weight = 'regular' }) => FONT_FAMILY[$weight]};
-  font-size: ${({ $size = 16 }) => $size}px;
-  line-height: ${({ $size = 16 }) => Math.round($size * 1.4)}px;
+  font-size: ${({ $size = 16, theme }) => $size * theme.fontScale}px;
+  line-height: ${({ $size = 16, theme }) => Math.round($size * theme.fontScale * 1.4)}px;
   color: ${({ theme, $tone = 'default' }) =>
     $tone === 'muted' ? theme.colors.muted : $tone === 'error' ? theme.colors.error : $tone === 'accent' ? theme.colors.accent : theme.colors.text};
 `

@@ -13,5 +13,5 @@ export const Input = styled.TextInput.attrs(({ theme }) => ({
   color: ${({ theme }) => theme.colors.text};
   padding-horizontal: 16px;
   font-family: ${FONT_FAMILY.regular};
-  font-size: 16px;
+  font-size: ${({ theme }) => 16 * theme.fontScale}px;
 `
