@@ -64,10 +64,13 @@ export const updatedMessage = (task: TaskDto, authorName: string): PushMessage =
   tag: `task:${task.id}`,
 })
 
-export const completedMessage = (task: TaskDto, doneByName: string): PushMessage => ({
+// Адрес задания в уведомлении; у повторяющегося задания с датой вхождения (`?date=`), чтобы открылось нужное, а не первое
+const taskUrl = (task: TaskDto, date?: string | null) => (date ? `/tasks/${task.id}?date=${date}` : `/tasks/${task.id}`)
+
+export const completedMessage = (task: TaskDto, doneByName: string, date?: string | null): PushMessage => ({
   title: 'Задание выполнено',
   body: `${doneByName}: ${task.title}`,
-  url: `/tasks/${task.id}`,
+  url: taskUrl(task, date),
   tag: `task-done:${task.id}`,
 })
 
@@ -90,9 +93,9 @@ export const rewardMessage = (task: TaskDto): PushMessage => ({
 })
 
 // Родителям: ребёнок отправил задание с наградой на проверку.
-export const reviewMessage = (task: TaskDto, childName: string): PushMessage => ({
+export const reviewMessage = (task: TaskDto, childName: string, date?: string | null): PushMessage => ({
   title: 'Задание на проверку',
   body: `${childName}: ${task.title}`,
-  url: `/tasks/${task.id}`,
+  url: taskUrl(task, date),
   tag: `review-${task.id}`,
 })

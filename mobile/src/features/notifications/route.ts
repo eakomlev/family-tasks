@@ -1,5 +1,5 @@
 // Куда вести нажатие на уведомление. Сервер кладёт в данные уведомления адрес экрана (`url`, как в веб-версии: /tasks, /chat/<чат>,
-// /coins, /goals/<id>, /profile/notifications). Принимаем только внутренние адреса приложения: данные пришли по сети, и открыть чужую
+// /coins, /goals/<id>, /profile/notifications, /my-day; в маршрут приложения их переводит deepLink.ts). Принимаем только внутренние адреса приложения: данные пришли по сети, и открыть чужую
 // ссылку или другой раздел по ним нельзя.
 export function routeFromNotificationData(data: unknown): string | null {
   if (!data || typeof data !== 'object') return null

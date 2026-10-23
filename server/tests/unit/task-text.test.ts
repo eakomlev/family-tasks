@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { coinsWord, completedMessage, createdMessage, dueText, rewardMessage, updatedMessage, type TaskDto } from '../../src/tasks/text.js'
+import { coinsWord, completedMessage, createdMessage, dueText, reviewMessage, rewardMessage, updatedMessage, type TaskDto } from '../../src/tasks/text.js'
 
 const task = (over: Partial<TaskDto> = {}): TaskDto => ({
   id: 't1',
@@ -37,6 +37,14 @@ describe('тексты уведомлений', () => {
 
   it('изменённое задание', () => {
     expect(updatedMessage(task({ date: null, time: null }), 'Лена')).toMatchObject({ title: 'Задание изменено', body: 'Лена: Вынести мусор' })
+  })
+
+  it('выполнение и проверка ведут к нужному вхождению повторяющегося задания', () => {
+    expect(completedMessage(task(), 'Миша', '2026-10-12').url).toBe('/tasks/t1?date=2026-10-12')
+    expect(reviewMessage(task(), 'Миша', '2026-10-12').url).toBe('/tasks/t1?date=2026-10-12')
+    // без даты (задание без срока) адрес прежний
+    expect(reviewMessage(task(), 'Миша', null).url).toBe('/tasks/t1')
+    expect(completedMessage(task(), 'Миша').url).toBe('/tasks/t1')
   })
 
   it('выполненное задание называет того, кто выполнил', () => {

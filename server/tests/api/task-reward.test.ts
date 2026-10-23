@@ -319,7 +319,7 @@ describe('ребёнок отправляет на проверку, родит�
         await complete(f.kid.token, id)
         await new Promise((r) => setTimeout(r, 200))
         const to = async (ep: string) => (await sentTo([ep])).map((x) => x.payload)
-        expect(await to(eps.mom)).toContainEqual({ title: 'Задание на проверку', body: 'Ребёнок: Уборка', url: `/tasks/${id}`, tag: `review-${id}` })
+        expect(await to(eps.mom)).toContainEqual({ title: 'Задание на проверку', body: 'Ребёнок: Уборка', url: `/tasks/${id}?date=2026-10-12`, tag: `review-${id}` })
         expect((await to(eps.dad)).map((x) => x.title)).toContain('Задание на проверку')
         expect((await to(eps.kid)).map((x) => x.title)).not.toContain('Задание на проверку')
       } finally {
