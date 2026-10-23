@@ -12,6 +12,7 @@ import { loadTasksView } from '@/features/tasks/viewState'
 import { useIdentity } from '@/identity/context'
 import { ProfileProvider } from '@/profile'
 import { NotificationsBridge } from '@/features/notifications/NotificationsBridge'
+import { ShareReceiver } from '@/features/share/ShareReceiver'
 import { useProfile } from '@/profile/context'
 import { RealtimeProvider } from '@/realtime'
 import { RealtimeBridge } from '@/store/RealtimeBridge'
@@ -90,6 +91,7 @@ export default function AppLayout() {
       <ProfileProvider>
         <RealtimeBridge />
         <NotificationsBridge />
+        <ShareReceiver />
         <ChatsProvider>
           <Stack screenOptions={{ headerShown: false }} />
           <TopRight />

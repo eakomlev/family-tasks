@@ -43,7 +43,25 @@
       ],
       "./plugins/withReleaseSigning",
       "@react-native-community/datetimepicker",
-      "expo-sharing",
+      [
+        "expo-sharing",
+        {
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": ["text/plain", "image/*", "*/*"],
+            "multipleShareMimeTypes": ["image/*", "*/*"]
+          },
+          "ios": {
+            "enabled": true,
+            "activationRule": {
+              "supportsText": true,
+              "supportsWebUrlWithMaxCount": 1,
+              "supportsImageWithMaxCount": 10,
+              "supportsFileWithMaxCount": 5
+            }
+          }
+        }
+      ],
       [
         "expo-notifications",
         {

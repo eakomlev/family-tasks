@@ -21,6 +21,7 @@ import { useViewingChat } from '@/realtime/context'
 import { toApiError } from '@/store/api'
 import { useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, useSendMessageMutation } from '@/store/chat'
 import { playSendSound } from '@/lib/sound'
+import { takePendingShare } from '@/lib/incomingShare'
 import { Composer, type OutgoingMessage } from './Composer'
 import { FeedbackDialog } from './FeedbackDialog'
 import { MessageBubble } from './MessageBubble'
@@ -98,6 +99,8 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   const [viewing, setViewing] = useState<{ message: ChatMessage; index: number }>()
   // чужое сообщение, до которого уже отметили прочитанное: без этого отметка вызывает событие, событие новый запрос, и так по кругу
   const markedRef = useRef<string | undefined>(undefined)
+  // поделились из другого приложения и выбрали этот чат: полученное ложится в поле ввода (читается один раз при открытии)
+  const [incoming] = useState(() => (embedded ? null : takePendingShare()))
   // Внутри страницы события экран стоит внутри пейджера, а KeyboardAvoidingView не знает своего смещения от верха экрана и поднимает поле
   // ввода не до конца: там отступ снизу равен части экрана под верхним краем клавиатуры (вместе с системной панелью внизу;
   // нижняя панель вкладок на это время прячется)
@@ -337,7 +340,7 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
         style={{ flex: 1 }}
       />
 
-      <Composer onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} flushBottom={embedded} />
+      <Composer incoming={incoming} onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} flushBottom={embedded} />
 
       {viewing && <PhotoViewer photos={viewing.message.media} index={viewing.index} onClose={() => setViewing(undefined)} />}
       {menuOpen && !embedded && <ChatMenu chat={chat} onClose={() => setMenuOpen(false)} />}

@@ -11,6 +11,7 @@ import { Text } from '@/components/Text'
 import { withType } from '@/lib/blob'
 import { describeFileError, describePhotoError } from '@/lib/errors'
 import { fileProblem, formatFileSize, MAX_FILES } from '@/lib/files'
+import type { SharedContent } from '@/lib/incomingShare'
 import { preparePhoto } from '@/lib/photos'
 import { useInFlight } from '@/lib/useInFlight'
 import { FONT_FAMILY } from '@/theme/fonts'
@@ -39,6 +40,8 @@ interface ComposerProps {
   onUploadFile: (file: { blob: Blob; name: string }) => Promise<string>
   // под полем стоит своя панель (чат внутри страницы события): отступ безопасной зоны не нужен
   flushBottom?: boolean
+  // поделились из другого приложения: текст, фото и файлы ложатся в поле при открытии чата (читается один раз)
+  incoming?: SharedContent | null
 }
 
 // Вложение (фото или файл) на пути от выбора до отправки
@@ -94,7 +97,7 @@ const nextKey = () => `att-${++counter}`
 
 // Поле ввода сообщения. Скрепка прикладывает фото (до 10; галерея или камера) и файлы (до 5): фото уменьшаются на устройстве,
 // всё сразу загружается, а к сообщению прикрепляется кнопкой отправки. Ошибка загрузки показана на самом вложении.
-export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false }: ComposerProps) {
+export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, incoming = null }: ComposerProps) {
   const guard = useInFlight()
   const insets = useSafeAreaInsets()
   const { colors } = useTheme()
@@ -151,7 +154,7 @@ export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false }
     }
   }
 
-  function addPhotos(assets: ImagePicker.ImagePickerAsset[]) {
+  function addPhotos(assets: { uri: string; width: number; height: number }[]) {
     const room = MAX_PHOTOS - photos.length
     if (assets.length > room) setNotice(`К сообщению можно приложить до ${MAX_PHOTOS} фото.`)
     else setNotice(undefined)
@@ -188,14 +191,13 @@ export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false }
     if (!shot.canceled) addPhotos(shot.assets)
   })
 
-  const pickFiles = guard(async () => {
-    const picked = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true })
-    if (picked.canceled) return
+  // файлы к сообщению: выбранные в проводнике или полученные из другого приложения
+  async function addFiles(assets: { uri: string; name: string; size: number }[]) {
     const room = MAX_FILES - files.length
-    setNotice(picked.assets.length > room ? `К сообщению можно приложить до ${MAX_FILES} файлов.` : undefined)
-    for (const asset of picked.assets.slice(0, Math.max(room, 0))) {
+    setNotice(assets.length > room ? `К сообщению можно приложить до ${MAX_FILES} файлов.` : undefined)
+    for (const asset of assets.slice(0, Math.max(room, 0))) {
       const key = nextKey()
-      const size = asset.size ?? 0
+      const size = asset.size
       const problem = fileProblem({ name: asset.name, size })
       if (problem) {
         setItems((current) => [...current, { key, kind: 'file', name: asset.name, size, status: 'failed', error: problem, retryable: false }])
@@ -210,7 +212,35 @@ export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false }
         patch(key, { status: 'failed', error: 'Не удалось прочитать файл.', retryable: false })
       }
     }
+  }
+
+  const pickFiles = guard(async () => {
+    const picked = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true })
+    if (picked.canceled) return
+    await addFiles(picked.assets.map((a) => ({ uri: a.uri, name: a.name, size: a.size ?? 0 })))
   })
+
+  // Полученное из другого приложения (экран «Поделиться»): текст в поле, картинки как фото (размер узнаём сами: у такого содержимого его нет),
+  // остальное файлами. Применяется один раз при открытии чата.
+  const incomingApplied = useRef(false)
+  useEffect(() => {
+    if (!incoming || incomingApplied.current) return
+    incomingApplied.current = true
+    if (incoming.text) setText(incoming.text.slice(0, MAX_LENGTH))
+    void (async () => {
+      const sized: { uri: string; width: number; height: number }[] = []
+      for (const image of incoming.images) {
+        const size = await new Promise<{ width: number; height: number }>((resolve) => {
+          Image.getSize(image.uri, (width, height) => resolve({ width, height }), () => resolve({ width: 1600, height: 1600 }))
+        })
+        sized.push({ uri: image.uri, ...size })
+      }
+      if (sized.length > 0) addPhotos(sized)
+      if (incoming.files.length > 0) await addFiles(incoming.files)
+    })()
+    // один раз
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const remove = (key: string) => {
     blobs.delete(key)
