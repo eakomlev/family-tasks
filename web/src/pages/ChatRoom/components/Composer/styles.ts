@@ -279,3 +279,39 @@ export const FileRemove = styled.button`
     cursor: not-allowed;
   }
 `
+
+// над полем: на какое сообщение отвечаем или какое правим
+export const ContextBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  div {
+    flex: 1;
+    min-width: 0;
+    padding-left: 0.5rem;
+    border-left: 3px solid var(--accent);
+    font-size: 0.85rem;
+  }
+
+  strong {
+    display: block;
+    color: var(--accent);
+  }
+
+  span {
+    display: block;
+    overflow: hidden;
+    color: var(--muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  button {
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+  }
+`

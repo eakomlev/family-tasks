@@ -19,7 +19,7 @@ import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
 import { useViewingChat } from '@/realtime/context'
 import { toApiError } from '@/store/api'
-import { useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, useSendMessageMutation } from '@/store/chat'
+import { useDeleteMessageMutation, useEditMessageMutation, useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, useSendMessageMutation } from '@/store/chat'
 import { playSendSound } from '@/lib/sound'
 import { takePendingShare } from '@/lib/incomingShare'
 import { Composer, type OutgoingMessage } from './Composer'
@@ -40,6 +40,9 @@ const Header = styled.View`
   border-bottom-color: ${({ theme }) => theme.colors.border};
   background-color: ${({ theme }) => theme.colors.bg};
 `
+
+// Выдержка из сообщения для ответа: текст или, у сообщения только с вложениями, заглушка
+const replyPreview = (message: ChatMessage) => (message.caption || message.text).replace(/s+/g, ' ').trim().slice(0, 140)
 
 // элемент ленты: сообщение или подпись дня (лента перевёрнута: новые внизу)
 type Row = { kind: 'day'; key: string; label: string } | { kind: 'message'; key: string; message: ChatMessage; delivery?: 'sending' | 'failed'; pendingId?: string }
@@ -79,6 +82,8 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   const page = query.data
   const [sendMessage] = useSendMessageMutation()
   const [giveFeedback] = useGiveFeedbackMutation()
+  const [editMessage] = useEditMessageMutation()
+  const [deleteMessage] = useDeleteMessageMutation()
   const [markChatRead] = useMarkChatReadMutation()
 
   const [thread, setThread] = useState<{ messages: ChatMessage[]; hasMore: boolean; readUpTo: string | null } | undefined>(
@@ -91,6 +96,9 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [feedbackFor, setFeedbackFor] = useState<ChatMessage>()
   const [menuOpen, setMenuOpen] = useState(false)
+  // на какое сообщение отвечаем и какое правим (одновременно только одно из двух)
+  const [replyingTo, setReplyingTo] = useState<ChatMessage>()
+  const [editing, setEditing] = useState<ChatMessage>()
   // не отправленное сообщение, для которого открыто меню («Отправить ещё раз» и «Удалить»)
   const [failedMenu, setFailedMenu] = useState<string>()
   // свои сообщения, которые ещё уходят или не ушли (лежат вне экрана, отправка идёт и после выхода из чата)
@@ -232,8 +240,10 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   // Сообщение появляется в ленте сразу и уходит в фоне; не ушло, значит красная иконка с повторной отправкой
   function handleSend({ text, mediaIds, fileIds, photoUris, files }: OutgoingMessage) {
     playSendSound()
-    startSend({ chat, text, mediaIds, fileIds, photoUris, files }, (draft) =>
-      sendMessage({ chat, text: draft.text, mediaIds: draft.mediaIds, fileIds: draft.fileIds })
+    const reply = replyingTo && { id: replyingTo.id, senderId: replyingTo.senderId, text: replyPreview(replyingTo) }
+    setReplyingTo(undefined)
+    startSend({ chat, text, mediaIds, fileIds, photoUris, files, replyTo: reply }, (draft) =>
+      sendMessage({ chat, text: draft.text, mediaIds: draft.mediaIds, fileIds: draft.fileIds, replyTo: draft.replyTo?.id })
         .unwrap()
         .then((res) => res.message)
         .catch(toApiError),
@@ -248,6 +258,21 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
     if (!target) return
     const { message } = await giveFeedback({ chat, messageId: target.id, feedback }).unwrap().catch(toApiError)
     setThread((current) => current && { ...current, messages: replaceMessage(current.messages, message) })
+    setFeedbackFor(undefined)
+  }
+
+  async function handleEdit(text: string) {
+    if (!editing) return
+    const { message } = await editMessage({ chat, messageId: editing.id, text }).unwrap().catch(toApiError)
+    setThread((current) => current && { ...current, messages: replaceMessage(current.messages, message) })
+    setEditing(undefined)
+  }
+
+  async function handleDelete() {
+    const target = feedbackFor
+    if (!target) return
+    await deleteMessage({ chat, messageId: target.id }).unwrap().catch(toApiError)
+    setThread((current) => current && { ...current, messages: current.messages.filter((m) => m.id !== target.id) })
     setFeedbackFor(undefined)
   }
 
@@ -313,6 +338,7 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
               message={row.message}
               mine={row.message.senderId === me}
               senderName={sender(row.message.senderId)}
+              replyAuthor={row.message.replyTo ? sender(row.message.replyTo.senderId) : undefined}
               senderMood={currentMood(members.find((m) => m.id === row.message.senderId)?.mood, now)?.emoji}
               showSender={chat === FAMILY_CHAT || isEvent}
               status={row.message.senderId === me && !row.pendingId ? messageStatus(row.message, thread?.readUpTo ?? null) : undefined}
@@ -340,7 +366,14 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
         style={{ flex: 1 }}
       />
 
-      <Composer incoming={incoming} onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} flushBottom={embedded} />
+      <Composer
+        incoming={incoming}
+        reply={replyingTo && { name: sender(replyingTo.senderId) ?? 'Участник', text: replyPreview(replyingTo) }}
+        onCancelReply={() => setReplyingTo(undefined)}
+        editing={editing && { id: editing.id, text: editing.caption }}
+        onCancelEdit={() => setEditing(undefined)}
+        onEditSubmit={handleEdit}
+        onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} flushBottom={embedded} />
 
       {viewing && <PhotoViewer photos={viewing.message.media} index={viewing.index} onClose={() => setViewing(undefined)} />}
       {menuOpen && !embedded && <ChatMenu chat={chat} onClose={() => setMenuOpen(false)} />}
@@ -360,6 +393,17 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
           canAward={canAward(feedbackFor)}
           myEmoji={feedbackFor.reactions.find((r) => r.memberId === me)?.emoji}
           onSubmit={handleFeedback}
+          onReply={() => {
+            setEditing(undefined)
+            setReplyingTo(feedbackFor)
+            setFeedbackFor(undefined)
+          }}
+          onEdit={feedbackFor.senderId === me && feedbackFor.caption ? () => {
+            setReplyingTo(undefined)
+            setEditing(feedbackFor)
+            setFeedbackFor(undefined)
+          } : undefined}
+          onDelete={feedbackFor.senderId === me ? handleDelete : undefined}
           onClose={() => setFeedbackFor(undefined)}
         />
       )}

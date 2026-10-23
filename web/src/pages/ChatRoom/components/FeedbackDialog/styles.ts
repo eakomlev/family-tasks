@@ -107,3 +107,26 @@ export const CoinButton = styled.button`
     outline-offset: 1px;
   }
 `
+
+// действия над сообщением: ответить, изменить, удалить
+export const Actions = styled.div`
+  display: flex;
+  flex-direction: column;
+  padding-top: 0.3rem;
+  border-top: 1px solid var(--border);
+`
+
+export const ActionButton = styled.button<{ $danger?: boolean }>`
+  padding: 0.65rem 0.4rem;
+  border: 0;
+  background: none;
+  color: ${({ $danger }) => ($danger ? 'var(--error, #d33)' : 'var(--text)')};
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+  }
+`

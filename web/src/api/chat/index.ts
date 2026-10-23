@@ -15,10 +15,10 @@ export const listChatMedia = (token: string, chat: string, before?: string) =>
   request<{ items: ChatMediaItem[]; hasMore: boolean }>(`/chats/${chat}/media${before ? `?before=${before}` : ''}`, {}, token)
 
 // text может быть пустым, если есть фото (mediaIds из uploadChatPhoto, в порядке показа)
-export const sendMessage = (token: string, chat: string, text: string, mediaIds?: string[], fileIds?: string[]) =>
+export const sendMessage = (token: string, chat: string, text: string, mediaIds?: string[], fileIds?: string[], replyTo?: string) =>
   request<{ message: ChatMessage }>(
     `/chats/${chat}/messages`,
-    send('POST', { text, ...(mediaIds?.length ? { mediaIds } : {}), ...(fileIds?.length ? { fileIds } : {}) }),
+    send('POST', { text, ...(mediaIds?.length ? { mediaIds } : {}), ...(fileIds?.length ? { fileIds } : {}), ...(replyTo ? { replyTo } : {}) }),
     token,
   )
 
@@ -42,6 +42,13 @@ export const uploadChatFile = (token: string, chat: string, file: File) =>
 // Реакция и/или монеты родителя на сообщение ребёнка; возвращает сообщение с обновлёнными реакциями и начислениями
 export const giveFeedback = (token: string, chat: string, messageId: string, feedback: MessageFeedback) =>
   request<{ message: ChatMessage }>(`/chats/${chat}/messages/${messageId}/feedback`, send('POST', feedback), token)
+
+// Правка текста своего сообщения
+export const editMessage = (token: string, chat: string, messageId: string, text: string) =>
+  request<{ message: ChatMessage }>(`/chats/${chat}/messages/${messageId}`, send('PATCH', { text }), token)
+
+// Удаление своего сообщения у всех участников
+export const deleteMessage = (token: string, chat: string, messageId: string) => request<void>(`/chats/${chat}/messages/${messageId}`, { method: 'DELETE' }, token)
 
 export const markChatRead = (token: string, chat: string) => request<void>(`/chats/${chat}/read`, send('POST'), token)
 

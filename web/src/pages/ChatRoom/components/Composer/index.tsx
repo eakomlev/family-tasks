@@ -4,7 +4,7 @@ import { describeFileError, describePhotoError } from '@/lib/errors'
 import { fileProblem, formatFileSize, MAX_FILES } from '@/lib/files'
 import { resizeToPhoto } from '@/lib/image'
 import { canSendMessage, MAX_LENGTH, MAX_PHOTOS } from '../../utils'
-import { AttachButton, Bar, Field, FileChip, FileInfo, FileList, FileRemove, FileRetry, Row, SendButton, Strip, Thumb, ThumbRemove, ThumbRetry, ThumbState } from './styles'
+import { AttachButton, Bar, ContextBar, Field, FileChip, FileInfo, FileList, FileRemove, FileRetry, Row, SendButton, Strip, Thumb, ThumbRemove, ThumbRetry, ThumbState } from './styles'
 import type { Attachment, ComposerProps, FileAttachment } from './types'
 import { useInFlight } from '@/lib/useInFlight'
 
@@ -13,7 +13,7 @@ const nextKey = () => `photo-${++counter}`
 
 // Поле ввода сообщения: растёт по мере набора, Enter отправляет, Shift+Enter переносит строку. Скрепка прикладывает фото (до 10):
 // выбранные уменьшаются на устройстве и сразу загружаются, а к сообщению прикрепляются кнопкой отправки.
-export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
+export function Composer({ onSend, onUpload, onUploadFile, reply = null, onCancelReply, editing = null, onCancelEdit, onEditSubmit }: ComposerProps) {
   const guard = useInFlight()
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -175,7 +175,23 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
 
   const shiftRef = useRef(false)
   const submitRef = useRef<() => Promise<void>>(async () => {})
-  const canSend = canSendMessage(text, [...photos, ...files])
+  const canSend = editing ? text.trim().length > 0 : canSendMessage(text, [...photos, ...files])
+
+  // начали править сообщение: его текст ложится в поле, вложения не нужны
+  useEffect(() => {
+    if (!editing) return
+    // oxlint-disable-next-line react/set-state-in-effect -- подставляем текст правимого сообщения
+    setText(editing.text)
+    clearPhotos()
+    field.current?.focus()
+    // только при выборе другого сообщения
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.id])
+
+  function cancelEdit() {
+    setText('')
+    onCancelEdit?.()
+  }
 
   const submit = guard(async (e?: FormEvent) => {
     e?.preventDefault()
@@ -183,6 +199,11 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
     setBusy(true)
     setFailed(false)
     try {
+      if (editing) {
+        await onEditSubmit?.(text.trim())
+        setText('')
+        return
+      }
       await onSend({ text: text.trim(), mediaIds: photos.map((p) => p.mediaId!), fileIds: files.map((f) => f.fileId!) })
       setText('')
       clearPhotos()
@@ -244,6 +265,17 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
         <Notice $tone="error">{files.find((f) => f.status === 'failed')?.error} Повторите загрузку или уберите этот файл.</Notice>
       )}
       <Bar onSubmit={submit}>
+        {(editing || reply) && (
+          <ContextBar>
+            <div>
+              <strong>{editing ? 'Изменение сообщения' : reply!.name}</strong>
+              <span>{editing ? editing.text : reply!.text}</span>
+            </div>
+            <button type="button" aria-label={editing ? 'Отменить изменение' : 'Отменить ответ'} onClick={editing ? cancelEdit : onCancelReply}>
+              ×
+            </button>
+          </ContextBar>
+        )}
         {photos.length > 0 && (
           <Strip aria-label="Выбранные фото">
             {photos.map((photo, i) => (
@@ -291,7 +323,7 @@ export function Composer({ onSend, onUpload, onUploadFile }: ComposerProps) {
         )}
         <Row>
           <input ref={picker} type="file" multiple hidden aria-label="Выбрать фото или файл" onChange={onPick} />
-          <AttachButton type="button" aria-label="Прикрепить фото или файл" disabled={busy || (photos.length >= MAX_PHOTOS && files.length >= MAX_FILES)} onClick={() => picker.current?.click()}>
+          <AttachButton type="button" style={editing ? { display: 'none' } : undefined} aria-label="Прикрепить фото или файл" disabled={busy || (photos.length >= MAX_PHOTOS && files.length >= MAX_FILES)} onClick={() => picker.current?.click()}>
             <svg viewBox="0 0 24 24" aria-hidden focusable="false">
               <path d="m20 11-8.2 8.2a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7l-8.3 8.3a1.7 1.7 0 0 1-2.4-2.4L14.5 7" />
             </svg>

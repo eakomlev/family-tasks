@@ -76,6 +76,8 @@ const sendSchema = {
       mediaIds: { type: 'array', items: { type: 'string', format: 'uuid' }, maxItems: MAX_PHOTOS, uniqueItems: true },
       // файлы, загруженные через POST /api/chats/:chat/files, в порядке показа (после фото)
       fileIds: { type: 'array', items: { type: 'string', format: 'uuid' }, maxItems: MAX_FILES, uniqueItems: true },
+      // сообщение этого же чата, на которое отвечаем
+      replyTo: { type: 'string', format: 'uuid' },
     },
   },
 }
@@ -109,11 +111,17 @@ interface MessageRow {
   createdAt: string
   // только фото без подписи: в text лежит заглушка для старых клиентов
   photoOnly?: boolean
+  // сообщение, на которое это ответ, и момент правки
+  replyToId?: string | null
+  editedAt?: string | null
 }
 
 // Реакция и начисление монет родителем под сообщением ребёнка.
 export interface Reaction { memberId: string; emoji: string }
 export interface Award { amount: number; by: string | null }
+
+// Короткая выдержка из исходного сообщения, на которое ответили.
+export interface ReplyDto { id: string; senderId: string; text: string }
 
 export interface MessageDto {
   id: string
@@ -126,6 +134,10 @@ export interface MessageDto {
   media: MediaDto[]
   // обычные файлы (документы, архивы…); у сообщений без файлов пусто
   files: FileDto[]
+  // ответ на сообщение; null, если это не ответ или исходное удалено
+  replyTo: ReplyDto | null
+  // когда сообщение изменили; null, если не менялось
+  editedAt: string | null
   reactions: Reaction[]
   awards: Award[]
 }
@@ -138,6 +150,9 @@ const toMessage = (row: MessageRow): MessageDto => ({
   caption: row.photoOnly ? '' : row.text,
   media: [],
   files: [],
+  // заглушка с id: выдержку подставляет decorate
+  replyTo: row.replyToId ? { id: row.replyToId, senderId: '', text: '' } : null,
+  editedAt: row.editedAt ?? null,
   reactions: [],
   awards: [],
 })
@@ -156,8 +171,14 @@ async function decorate(db: Pick<Pool, 'query'>, messages: MessageDto[], secret:
     `select message_id as "messageId", amount, created_by as "by" from coin_transactions where message_id = any($1) order by created_at`,
     [ids],
   )
+  const replyIds = [...new Set(messages.flatMap((m) => (m.replyTo ? [m.replyTo.id] : [])))]
+  const { rows: originals } = replyIds.length
+    ? await db.query<{ id: string; senderId: string; text: string }>('select id, sender_id as "senderId", text from messages where id = any($1)', [replyIds])
+    : { rows: [] }
+  const originalOf = new Map(originals.map((o) => [o.id, { id: o.id, senderId: o.senderId, text: snippet(o.text, PREVIEW_LENGTH) }]))
   return messages.map((m) => ({
     ...m,
+    replyTo: m.replyTo ? (originalOf.get(m.replyTo.id) ?? null) : null,
     media: media.get(m.id) ?? [],
     files: files.get(m.id) ?? [],
     reactions: reactions.filter((x) => x.messageId === m.id).map(({ memberId, emoji }) => ({ memberId, emoji })),
@@ -413,7 +434,8 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
 
       const limit = req.query.limit ?? PAGE_SIZE
       const { rows } = await pool.query<MessageRow>(
-        `select id, sender_id as "senderId", text, created_at as "createdAt", photo_only as "photoOnly"
+        `select id, sender_id as "senderId", text, created_at as "createdAt", photo_only as "photoOnly",
+                reply_to as "replyToId", edited_at as "editedAt"
          from messages
          where family_id = $1 and chat_key = $2
            and ($3::uuid is null or (created_at, id) < (select created_at, id from messages where id = $3 and chat_key = $2))
@@ -521,7 +543,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     },
   )
 
-  app.post<{ Params: { chat: string }; Body: { text?: string; mediaIds?: string[]; fileIds?: string[] } }>(
+  app.post<{ Params: { chat: string }; Body: { text?: string; mediaIds?: string[]; fileIds?: string[]; replyTo?: string } }>(
     '/api/chats/:chat/messages',
     { schema: sendSchema },
     async (req, reply) => {
@@ -529,6 +551,13 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       if (!member) return
       const chat = await resolveChat(member, req.params.chat, reply)
       if (!chat) return
+
+      // отвечать можно только на сообщение этого же чата
+      const replyTo = req.body.replyTo ?? null
+      if (replyTo) {
+        const { rows } = await pool.query('select 1 from messages where id = $1 and family_id = $2 and chat_key = $3', [replyTo, member.family_id, chat.key])
+        if (!rows[0]) return reply.code(400).send({ error: 'invalid_reply' })
+      }
 
       const caption = (req.body.text ?? '').trim()
       const photoIds = req.body.mediaIds ?? []
@@ -561,9 +590,9 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
           if (photoOnly) text = attachmentPlaceholder(photoIds.length, fileNames)
         }
         const { rows } = await tx.query<MessageRow>(
-          `insert into messages (family_id, chat_key, sender_id, text, photo_only) values ($1, $2, $3, $4, $5)
-           returning id, sender_id as "senderId", text, created_at as "createdAt", photo_only as "photoOnly"`,
-          [member.family_id, chat.key, member.id, text, photoOnly],
+          `insert into messages (family_id, chat_key, sender_id, text, photo_only, reply_to) values ($1, $2, $3, $4, $5, $6)
+           returning id, sender_id as "senderId", text, created_at as "createdAt", photo_only as "photoOnly", reply_to as "replyToId"`,
+          [member.family_id, chat.key, member.id, text, photoOnly, replyTo],
         )
         message = toMessage(rows[0])
         for (const [position, mediaId] of mediaIds.entries()) {
@@ -688,6 +717,92 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     return reply.code(204).send()
   })
 
+  const messageParams = {
+    type: 'object',
+    required: ['chat', 'messageId'],
+    properties: { chat: chatParams.properties.chat, messageId: { type: 'string', format: 'uuid' } },
+  }
+
+  // Сообщение чата для правки или удаления: только своё (чужое 403), несуществующее 404.
+  async function ownMessage(req: FastifyRequest<{ Params: { chat: string; messageId: string } }>, reply: FastifyReply) {
+    const member = await me(req, reply)
+    if (!member) return null
+    const chat = await resolveChat(member, req.params.chat, reply)
+    if (!chat) return null
+    const { rows } = await pool.query<MessageRow>(
+      `select id, sender_id as "senderId", text, created_at as "createdAt", photo_only as "photoOnly", reply_to as "replyToId", edited_at as "editedAt"
+       from messages where id = $1 and family_id = $2 and chat_key = $3`,
+      [req.params.messageId, member.family_id, chat.key],
+    )
+    if (!rows[0]) {
+      reply.code(404).send({ error: 'message_not_found' })
+      return null
+    }
+    if (rows[0].senderId !== member.id) {
+      reply.code(403).send({ error: 'forbidden' })
+      return null
+    }
+    return { member, chat, row: rows[0] }
+  }
+
+  // Правка текста своего сообщения. Сообщение только с вложениями без подписи править нельзя (текста нет); подпись можно.
+  app.patch<{ Params: { chat: string; messageId: string }; Body: { text: string } }>(
+    '/api/chats/:chat/messages/:messageId',
+    { schema: { params: messageParams, body: { type: 'object', required: ['text'], additionalProperties: false, properties: { text: { type: 'string', maxLength: MAX_TEXT + 2000 } } } } },
+    async (req, reply) => {
+      const found = await ownMessage(req, reply)
+      if (!found) return
+      const { member, chat, row } = found
+      if (row.photoOnly) return reply.code(400).send({ error: 'not_editable' })
+      const text = req.body.text.trim()
+      if (text.length === 0 || text.length > MAX_TEXT) return reply.code(400).send({ error: 'invalid_text' })
+
+      const { rows } = await pool.query<MessageRow>(
+        `update messages set text = $2, edited_at = now() where id = $1
+         returning id, sender_id as "senderId", text, created_at as "createdAt", photo_only as "photoOnly", reply_to as "replyToId", edited_at as "editedAt"`,
+        [row.id, text],
+      )
+      for (const id of chat.participants) publishTo(id, { type: 'chat', chat: chat.view(id, member.id) })
+      const [message] = await decorate(pool, [toMessage(rows[0])], secret)
+      return { message }
+    },
+  )
+
+  // Удаление своего сообщения у всех участников. Реакции пропадают, ответы на него остаются без цитаты, монеты остаются,
+  // вложения убираются вместе с записями (файлы в хранилище после фиксации).
+  app.delete<{ Params: { chat: string; messageId: string } }>('/api/chats/:chat/messages/:messageId', { schema: { params: messageParams } }, async (req, reply) => {
+    const found = await ownMessage(req, reply)
+    if (!found) return
+    const { member, chat, row } = found
+
+    const client = await pool.connect()
+    let files: { id: string }[]
+    try {
+      await client.query('begin')
+      const { rows } = await client.query<{ id: string }>('select media_id as id from message_media where message_id = $1', [row.id])
+      files = rows
+      await client.query('delete from messages where id = $1', [row.id])
+      if (files.length > 0) await client.query('delete from media where id = any($1)', [files.map((f) => f.id)])
+      await client.query('commit')
+    } catch (err) {
+      await client.query('rollback').catch(() => {})
+      throw err
+    } finally {
+      client.release()
+    }
+    if (media) {
+      for (const f of files) {
+        try {
+          await media.client.delete(member.family_id, f.id)
+        } catch (err) {
+          req.log.warn(err)
+        }
+      }
+    }
+    for (const id of chat.participants) publishTo(id, { type: 'chat', chat: chat.view(id, member.id) })
+    return reply.code(204).send()
+  })
+
   // Отметить чат прочитанным до этого момента.
   app.post<{ Params: { chat: string } }>('/api/chats/:chat/read', { schema: { params: chatParams } }, async (req, reply) => {
     const member = await me(req, reply)
@@ -732,7 +847,8 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       const chat = await resolveChat(member, req.params.chat, reply)
       if (!chat) return
       const { rows: found } = await pool.query<MessageRow & { senderRole: string }>(
-        `select m.id, m.sender_id as "senderId", m.text, m.created_at as "createdAt", m.photo_only as "photoOnly", s.role as "senderRole"
+        `select m.id, m.sender_id as "senderId", m.text, m.created_at as "createdAt", m.photo_only as "photoOnly",
+                m.reply_to as "replyToId", m.edited_at as "editedAt", s.role as "senderRole"
          from messages m join members s on s.id = m.sender_id
          where m.id = $1 and m.family_id = $2 and m.chat_key = $3`,
         [req.params.messageId, member.family_id, chat.key],

@@ -2,8 +2,12 @@ import type pg from 'pg'
 import type { Db } from './db.js'
 import {
   birthdayMessages,
+  eventMessages,
   lessonsMessage,
+  taskMessages,
+  type EventInfo,
   type LessonInfo,
+  type TaskInfo,
   type MemberInfo,
   trainingMessages,
   type PlannedMessage,
@@ -57,6 +61,31 @@ async function loadLessons(db: Db, memberId: string): Promise<LessonInfo[]> {
   return rows
 }
 
+// События, которые видит участник и которые начинаются в этот день: автор, участник или событие всей семьи.
+async function loadEvents(db: Db, memberId: string, familyId: string, day: string): Promise<EventInfo[]> {
+  const { rows } = await db.query(
+    `select e.id, e.title, to_char(e.start_date, 'YYYY-MM-DD') as "startDate", to_char(e.start_time, 'HH24:MI') as "startTime"
+     from events e
+     where e.family_id = $2 and e.start_date = $3::date
+       and (e.all_family or e.author_id = $1 or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = $1))`,
+    [memberId, familyId, day],
+  )
+  return rows
+}
+
+// Невыполненные задания участника, которые бывают в этот день (отметка, в том числе «на проверке», значит «сделано»).
+async function loadTasks(db: Db, memberId: string, day: string): Promise<TaskInfo[]> {
+  const { rows } = await db.query(
+    `select t.id, t.title, to_char(t.due_date, 'YYYY-MM-DD') as date, to_char(t.due_time, 'HH24:MI') as "dueTime",
+            t.repeat_type as "repeatType", t.repeat_days as "repeatDays", to_char(t.repeat_until, 'YYYY-MM-DD') as "repeatUntil"
+     from tasks t
+     where t.assignee_id = $1 and t.due_date is not null and t.due_date <= $2::date
+       and not exists (select 1 from task_completions c where c.task_id = t.id and c.occurrence_date = $2::date)`,
+    [memberId, day],
+  )
+  return rows
+}
+
 // Один проход: смотрит все подписки и ставит в очередь то, что по их местному времени пора отправить.
 // now передаётся параметром, чтобы проход можно было проверить на любом времени.
 export async function runTick(pool: pg.Pool, now = new Date()): Promise<{ sent: number }> {
@@ -68,6 +97,8 @@ export async function runTick(pool: pg.Pool, now = new Date()): Promise<{ sent: 
   const families = new Map<string, MemberInfo[]>()
   const schedules = new Map<string, LessonInfo[]>()
   const trainings = new Map<string, TrainingInfo[]>()
+  const events = new Map<string, EventInfo[]>()
+  const tasks = new Map<string, TaskInfo[]>()
   let sent = 0
 
   // Запись в журнал и постановка в очередь идут в одной транзакции: если очередь недоступна, журнал откатывается,
@@ -100,6 +131,13 @@ export async function runTick(pool: pg.Pool, now = new Date()): Promise<{ sent: 
         if (!trainings.has(sub.member_id)) trainings.set(sub.member_id, await loadTrainings(pool, sub.member_id))
         planned.push(...trainingMessages(trainings.get(sub.member_id)!, local))
       }
+
+      // события и задания: загружаем по участнику и дню (подписки одного человека на разных устройствах делят запрос)
+      const cacheKey = `${sub.member_id}|${local.date}`
+      if (!events.has(cacheKey)) events.set(cacheKey, await loadEvents(pool, sub.member_id, sub.family_id, local.date))
+      planned.push(...eventMessages(events.get(cacheKey)!, local))
+      if (!tasks.has(cacheKey)) tasks.set(cacheKey, await loadTasks(pool, sub.member_id, local.date))
+      planned.push(...taskMessages(tasks.get(cacheKey)!, local))
 
       for (const { kind, message, day } of planned) {
         await tx.query('begin')

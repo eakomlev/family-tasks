@@ -34,6 +34,13 @@ export interface ChatFile {
   url: string
 }
 
+// Выдержка из сообщения, на которое ответили
+export interface ChatReply {
+  id: string
+  senderId: string
+  text: string
+}
+
 export interface ChatMessage {
   id: string
   senderId: string
@@ -46,6 +53,10 @@ export interface ChatMessage {
   files?: ChatFile[]
   // ISO-время
   createdAt: string
+  // ответ на сообщение (нет, если это не ответ, исходное удалено или сервер прежней версии)
+  replyTo?: ChatReply | null
+  // ISO-время правки; нет, если сообщение не менялось
+  editedAt?: string | null
   reactions: Reaction[]
   awards: Award[]
 }

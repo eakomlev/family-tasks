@@ -3,7 +3,7 @@ import { CoinIcon } from '@/components/CoinBalance'
 import { Notice } from '@/components/Notice'
 import { REWARD_CHOICES } from '@/lib/coins'
 import { REACTIONS } from '@/lib/reactions'
-import { Backdrop, CoinButton, Coins, Emoji, Emojis, Sheet } from './styles'
+import { ActionButton, Actions, Backdrop, CoinButton, Coins, Emoji, Emojis, Sheet } from './styles'
 import type { FeedbackDialogProps } from './types'
 import { useInFlight } from '@/lib/useInFlight'
 
@@ -12,10 +12,12 @@ const COIN_CHOICES = REWARD_CHOICES.filter((n) => n > 0)
 
 // Компактное окно над сообщением (открывается долгим нажатием): реакция и, если это родитель и сообщение ребёнка, монеты автору.
 // Выбор применяется сразу, кнопки «Отправить» нет: повторное нажатие на свою реакцию снимает её.
-export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onClose }: FeedbackDialogProps) {
+export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onReply, onEdit, onDelete, onClose }: FeedbackDialogProps) {
   const guard = useInFlight()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  // удаление необратимо: первое нажатие просит подтвердить
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const sheet = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -38,6 +40,20 @@ export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onClos
     } catch {
       setError('Не удалось отправить. Попробуйте ещё раз.')
       setBusy(false)
+    }
+  })
+
+  const remove = guard(async () => {
+    if (busy || !onDelete) return
+    if (!confirmDelete) return setConfirmDelete(true)
+    setBusy(true)
+    setError(undefined)
+    try {
+      await onDelete()
+    } catch {
+      setError('Не удалось удалить. Попробуйте ещё раз.')
+      setBusy(false)
+      setConfirmDelete(false)
     }
   })
 
@@ -75,6 +91,18 @@ export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onClos
               ))}
             </div>
           </Coins>
+        )}
+
+        {(onReply || onEdit || onDelete) && (
+          <Actions role="group" aria-label="Действия">
+            {onReply && <ActionButton type="button" disabled={busy} onClick={onReply}>Ответить</ActionButton>}
+            {onEdit && <ActionButton type="button" disabled={busy} onClick={onEdit}>Изменить</ActionButton>}
+            {onDelete && (
+              <ActionButton type="button" $danger disabled={busy} onClick={() => void remove()}>
+                {confirmDelete ? 'Нажмите ещё раз, чтобы удалить' : 'Удалить'}
+              </ActionButton>
+            )}
+          </Actions>
         )}
 
         {error && <Notice $tone="error">{error}</Notice>}

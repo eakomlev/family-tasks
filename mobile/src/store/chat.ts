@@ -1,5 +1,14 @@
-import { clearChat, giveFeedback, listChats, listMessages, markChatRead, sendMessage, setChatArchived, setChatMuted, type ChatMessage, type ChatSummary, type MessageFeedback, type MessagePage } from '@/api'
+import { clearChat, deleteMessage, editMessage, giveFeedback, listChats, listMessages, markChatRead, sendMessage, setChatArchived, setChatMuted, type ChatMessage, type ChatSummary, type MessageFeedback, type MessagePage } from '@/api'
 import { api, fromApi } from './api'
+
+interface SendArgs {
+  chat: string
+  text: string
+  mediaIds?: string[]
+  fileIds?: string[]
+  // id сообщения, на которое отвечаем
+  replyTo?: string
+}
 
 // Чаты. Список чатов (с непрочитанным и последним сообщением) и свежая первая страница переписки лежат в кэше:
 // после перезапуска они видны сразу. Старые страницы переписки экран подгружает сам и держит у себя.
@@ -15,10 +24,8 @@ export const chatApi = api.injectEndpoints({
     }),
 
     // Своё сообщение сразу ложится в кэш переписки, список чатов обновляется после
-    sendMessage: build.mutation<{ message: ChatMessage }, { chat: string; text: string; mediaIds?: string[]; fileIds?: string[] }>({
-      queryFn: fromApi((token, { chat, text, mediaIds, fileIds }: { chat: string; text: string; mediaIds?: string[]; fileIds?: string[] }) =>
-        fileIds?.length ? sendMessage(token, chat, text, mediaIds, fileIds) : mediaIds?.length ? sendMessage(token, chat, text, mediaIds) : sendMessage(token, chat, text),
-      ),
+    sendMessage: build.mutation<{ message: ChatMessage }, SendArgs>({
+      queryFn: fromApi((token, { chat, text, mediaIds, fileIds, replyTo }: SendArgs) => sendMessage(token, chat, text, mediaIds, fileIds, replyTo)),
       async onQueryStarted({ chat }, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled
@@ -51,6 +58,41 @@ export const chatApi = api.injectEndpoints({
           /* ошибку показывает окно реакции */
         }
       },
+    }),
+    // Правка своего сообщения: новое сообщение заменяет прежнее в кэше
+    editMessage: build.mutation<{ message: ChatMessage }, { chat: string; messageId: string; text: string }>({
+      queryFn: fromApi((token, { chat, messageId, text }: { chat: string; messageId: string; text: string }) => editMessage(token, chat, messageId, text)),
+      async onQueryStarted({ chat }, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled
+          dispatch(
+            chatApi.util.updateQueryData('getMessages', chat, (draft) => {
+              const i = draft.messages.findIndex((m) => m.id === data.message.id)
+              if (i >= 0) draft.messages[i] = data.message
+            }),
+          )
+        } catch {
+          /* ошибку показывает экран */
+        }
+      },
+      invalidatesTags: (_result, error) => (error ? [] : ['Chats']),
+    }),
+    // Удаление своего сообщения: пропадает из кэша переписки сразу после ответа сервера
+    deleteMessage: build.mutation<void, { chat: string; messageId: string }>({
+      queryFn: fromApi((token, { chat, messageId }: { chat: string; messageId: string }) => deleteMessage(token, chat, messageId)),
+      async onQueryStarted({ chat, messageId }, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled
+          dispatch(
+            chatApi.util.updateQueryData('getMessages', chat, (draft) => {
+              draft.messages = draft.messages.filter((m) => m.id !== messageId)
+            }),
+          )
+        } catch {
+          /* ошибку показывает экран */
+        }
+      },
+      invalidatesTags: (_result, error) => (error ? [] : ['Chats']),
     }),
     // Прочитано: непрочитанное в списке чатов и значок на табе пересчитываются
     markChatRead: build.mutation<void, string>({
@@ -112,4 +154,4 @@ export const chatApi = api.injectEndpoints({
   }),
 })
 
-export const { useListChatsQuery, useGetMessagesQuery, useSendMessageMutation, useGiveFeedbackMutation, useMarkChatReadMutation, useSetChatMutedMutation, useSetChatArchivedMutation, useClearChatMutation } = chatApi
+export const { useListChatsQuery, useGetMessagesQuery, useSendMessageMutation, useEditMessageMutation, useDeleteMessageMutation, useGiveFeedbackMutation, useMarkChatReadMutation, useSetChatMutedMutation, useSetChatArchivedMutation, useClearChatMutation } = chatApi

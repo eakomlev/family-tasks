@@ -13,7 +13,7 @@ import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
 import { useViewingChat } from '@/realtime/context'
 import { toApiError } from '@/store/api'
-import { useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, useSendMessageMutation } from '@/store/chat'
+import { useDeleteMessageMutation, useEditMessageMutation, useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, useSendMessageMutation } from '@/store/chat'
 import { currentMood } from '@/lib/mood'
 import { isParent, memberLabel } from '@/lib/roles'
 import { retryRead } from '@/lib/retry'
@@ -40,6 +40,9 @@ const scrollToBottom = (feed: HTMLElement | null) => {
 }
 const isNearBottom = (feed: HTMLElement | null) => !feed || feed.scrollHeight - feed.scrollTop - feed.clientHeight < NEAR_BOTTOM_PX
 
+// Выдержка из сообщения для ответа: текст или, у сообщения только с вложениями, заглушка
+const replyPreview = (message: ChatMessage) => (message.caption || message.text).replace(/\s+/g, ' ').trim().slice(0, 140)
+
 // Переписка: /chat/family или /chat/<id собеседника>. У каждого чата своё состояние (подгруженные страницы, прокрутка).
 export default function ChatRoom() {
   const { chat } = useParams()
@@ -65,6 +68,8 @@ function Conversation({ chat }: { chat: string | undefined }) {
   const page = query.data
   const [sendMessage] = useSendMessageMutation()
   const [giveFeedback] = useGiveFeedbackMutation()
+  const [editMessage] = useEditMessageMutation()
+  const [deleteMessage] = useDeleteMessageMutation()
   const [markChatRead] = useMarkChatReadMutation()
 
   // загруженная переписка: старые сверху; hasMore — есть ли ещё более старые (с первого кадра из кэша, если он есть)
@@ -79,6 +84,9 @@ function Conversation({ chat }: { chat: string | undefined }) {
   // сообщение ребёнка, над которым родитель открыл окно реакции и монет
   const [feedbackFor, setFeedbackFor] = useState<ChatMessage>()
   const [menuOpen, setMenuOpen] = useState(false)
+  // на какое сообщение отвечаем и какое правим (одновременно только одно из двух)
+  const [replyingTo, setReplyingTo] = useState<ChatMessage>()
+  const [editing, setEditing] = useState<ChatMessage>()
   // открытый просмотр фото: сообщение и номер фото в нём
   const [viewing, setViewing] = useState<{ message: ChatMessage; index: number }>()
   const stick = useRef(true)
@@ -205,7 +213,8 @@ function Conversation({ chat }: { chat: string | undefined }) {
   }
 
   async function handleSend({ text, mediaIds, fileIds }: OutgoingMessage) {
-    const { message } = await sendMessage({ chat: chat!, text, mediaIds, fileIds }).unwrap().catch(toApiError)
+    const { message } = await sendMessage({ chat: chat!, text, mediaIds, fileIds, replyTo: replyingTo?.id }).unwrap().catch(toApiError)
+    setReplyingTo(undefined)
     stick.current = true
     setThread((current) => ({ messages: appendMessage(current?.messages ?? [], message), hasMore: current?.hasMore ?? false, readUpTo: current?.readUpTo ?? null }))
   }
@@ -221,6 +230,21 @@ function Conversation({ chat }: { chat: string | undefined }) {
     setThread((current) => current && { ...current, messages: replaceMessage(current.messages, message) })
     setFeedbackFor(undefined)
     // монеты изменили баланс, а список чатов не меняется; профиль обновит сигнал сервера
+  }
+
+  async function handleEdit(text: string) {
+    if (!editing) return
+    const { message } = await editMessage({ chat: chat!, messageId: editing.id, text }).unwrap().catch(toApiError)
+    setThread((current) => current && { ...current, messages: replaceMessage(current.messages, message) })
+    setEditing(undefined)
+  }
+
+  async function handleDelete() {
+    const target = feedbackFor
+    if (!target) return
+    await deleteMessage({ chat: chat!, messageId: target.id }).unwrap().catch(toApiError)
+    setThread((current) => current && { ...current, messages: current.messages.filter((m) => m.id !== target.id) })
+    setFeedbackFor(undefined)
   }
 
   const groups = messages ? groupByDay(messages, now) : []
@@ -277,6 +301,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
                       message={message}
                       mine={message.senderId === me}
                       senderName={sender(message.senderId)}
+                      replyAuthor={message.replyTo ? sender(message.replyTo.senderId) : undefined}
                       senderMood={currentMood(members.find((m) => m.id === message.senderId)?.mood, now)?.emoji}
                       showSender={chat === FAMILY_CHAT}
                       status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
@@ -291,7 +316,13 @@ function Conversation({ chat }: { chat: string | undefined }) {
         </FeedContent>
       </Feed>
 
-      <Composer onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} />
+      <Composer
+        reply={replyingTo && { name: sender(replyingTo.senderId) ?? 'Участник', text: replyPreview(replyingTo) }}
+        onCancelReply={() => setReplyingTo(undefined)}
+        editing={editing && { id: editing.id, text: editing.caption }}
+        onCancelEdit={() => setEditing(undefined)}
+        onEditSubmit={handleEdit}
+        onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} />
 
       {viewing && (
         <PhotoViewer
@@ -311,6 +342,21 @@ function Conversation({ chat }: { chat: string | undefined }) {
           canAward={canAward(feedbackFor)}
           myEmoji={feedbackFor.reactions.find((r) => r.memberId === me)?.emoji}
           onSubmit={handleFeedback}
+          onReply={() => {
+            setEditing(undefined)
+            setReplyingTo(feedbackFor)
+            setFeedbackFor(undefined)
+          }}
+          onEdit={
+            feedbackFor.senderId === me && feedbackFor.caption
+              ? () => {
+                  setReplyingTo(undefined)
+                  setEditing(feedbackFor)
+                  setFeedbackFor(undefined)
+                }
+              : undefined
+          }
+          onDelete={feedbackFor.senderId === me ? handleDelete : undefined}
           onClose={() => setFeedbackFor(undefined)}
         />
       )}

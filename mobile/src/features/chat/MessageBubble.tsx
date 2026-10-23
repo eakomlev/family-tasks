@@ -50,6 +50,8 @@ interface MessageBubbleProps {
   onFeedback?: () => void
   // нажатие на фото: номер фото в сообщении
   onOpenPhoto?: (index: number) => void
+  // как подписать автора исходного сообщения, если это ответ
+  replyAuthor?: string
 }
 
 // Ширина пузыря с вложениями: фиксированная, иначе плитки фото вылезают за него
@@ -58,7 +60,7 @@ const PHOTO_WIDTH = 240
 const TILE_GAP = 2
 
 // Пузырь сообщения: свои справа акцентные, чужие слева; внутри фото (плитками) и файлы, под ним реакции и начисленные монеты
-export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, delivery, onFailedPress, onOpenPhoto, onFeedback }: MessageBubbleProps) {
+export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, delivery, onFailedPress, onOpenPhoto, onFeedback, replyAuthor }: MessageBubbleProps) {
   const { colors } = useTheme()
   // ширина пузыря в пикселях: проценты внутри строки с иконкой ошибки считались бы от самого пузыря и ужимали его
   const maxWidth = Math.round(useWindowDimensions().width * 0.82)
@@ -117,6 +119,19 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
               {`${senderName ?? 'Участник'}${senderMood ? ` ${senderMood}` : ''}`}
             </Text>
           )}
+          {message.replyTo && (
+            <View
+              style={{ borderLeftWidth: 3, borderLeftColor: mine ? '#ffffff' : colors.accent, paddingLeft: 8, marginBottom: 4, marginHorizontal: photos.length > 0 ? 12 : 0, marginTop: photos.length > 0 ? 6 : 0, maxWidth: PHOTO_WIDTH }}
+              accessibilityLabel="Ответ на сообщение"
+            >
+              <Text $weight="extraBold" $size={12} numberOfLines={1} style={{ color: mine ? '#ffffff' : colors.accent }}>
+                {replyAuthor ?? 'Участник'}
+              </Text>
+              <Text $size={13} numberOfLines={2} style={{ color: fg, opacity: 0.8 }}>
+                {message.replyTo.text}
+              </Text>
+            </View>
+          )}
           {photos.length > 0 && (
             <View style={{ width: PHOTO_WIDTH, flexDirection: 'row', flexWrap: 'wrap', gap: TILE_GAP }}>
               {photos.map((photo, i) => {
@@ -173,7 +188,7 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
           ) : null}
           <View style={{ flexDirection: 'row', alignSelf: 'flex-end', alignItems: 'center', gap: 4, marginTop: 2 }}>
             <Text $size={11} style={{ color: fg, opacity: 0.7 }}>
-              {formatMessageTime(message.createdAt)}
+              {`${message.editedAt ? 'изменено ' : ''}${formatMessageTime(message.createdAt)}`}
             </Text>
             {mine && delivery === 'sending' && <Ionicons name="time-outline" size={13} color={fg} style={{ opacity: 0.7 }} accessibilityLabel="Отправляется" />}
             {mine && !delivery && status && <ReadTicks status={status} color={fg} dim />}

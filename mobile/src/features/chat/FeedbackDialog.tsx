@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Modal, Pressable, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import styled, { useTheme } from 'styled-components/native'
 import type { MessageFeedback } from '@/api'
 import { CoinIcon } from '@/components/Coins'
@@ -54,16 +55,30 @@ interface FeedbackDialogProps {
   myEmoji?: string
   // должен бросить ошибку, если не удалось
   onSubmit: (feedback: MessageFeedback) => Promise<void>
+  // действия над сообщением: ответить (любое), изменить и удалить (только своё); кнопки показываются, если действие передано
+  onReply?: () => void
+  onEdit?: () => void
+  // должен бросить ошибку, если не удалось
+  onDelete?: () => Promise<void>
   onClose: () => void
 }
 
+const Row = styled(Pressable)`
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 6px;
+`
+
 // Компактное окно над сообщением (открывается долгим нажатием): реакция и, если это родитель и сообщение ребёнка, монеты автору.
 // Выбор применяется сразу, кнопки «Отправить» нет: повторное нажатие на свою реакцию снимает её.
-export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onClose }: FeedbackDialogProps) {
+export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onReply, onEdit, onDelete, onClose }: FeedbackDialogProps) {
   const { colors } = useTheme()
   const guard = useInFlight()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  // удаление необратимо: первое нажатие просит подтвердить
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const apply = guard(async (feedback: MessageFeedback) => {
     if (busy) return
@@ -74,6 +89,20 @@ export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onClos
     } catch {
       setError('Не удалось отправить. Попробуйте ещё раз.')
       setBusy(false)
+    }
+  })
+
+  const remove = guard(async () => {
+    if (busy || !onDelete) return
+    if (!confirmDelete) return setConfirmDelete(true)
+    setBusy(true)
+    setError(undefined)
+    try {
+      await onDelete()
+    } catch {
+      setError('Не удалось удалить. Попробуйте ещё раз.')
+      setBusy(false)
+      setConfirmDelete(false)
     }
   })
 
@@ -101,6 +130,29 @@ export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onClos
                     </CoinButton>
                   ))}
                 </View>
+              </View>
+            )}
+
+            {(onReply || onEdit || onDelete) && (
+              <View>
+                {onReply && (
+                  <Row disabled={busy} accessibilityRole="button" onPress={onReply}>
+                    <Ionicons name="arrow-undo-outline" size={22} color={colors.text} />
+                    <Text $weight="bold">Ответить</Text>
+                  </Row>
+                )}
+                {onEdit && (
+                  <Row disabled={busy} accessibilityRole="button" onPress={onEdit}>
+                    <Ionicons name="create-outline" size={22} color={colors.text} />
+                    <Text $weight="bold">Изменить</Text>
+                  </Row>
+                )}
+                {onDelete && (
+                  <Row disabled={busy} accessibilityRole="button" onPress={() => void remove()}>
+                    <Ionicons name="trash-outline" size={22} color={colors.error} />
+                    <Text $weight="bold" style={{ color: colors.error }}>{confirmDelete ? 'Нажмите ещё раз, чтобы удалить' : 'Удалить'}</Text>
+                  </Row>
+                )}
               </View>
             )}
 

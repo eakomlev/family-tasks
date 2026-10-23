@@ -1,5 +1,15 @@
 import type { PushMessage } from './contract.js'
-import { addDays, TRAINING_LEAD_MINUTES, TRAINING_WINDOW_MINUTES, type LocalTime } from './time.js'
+import { occursOn, type Schedule } from './recurrence.js'
+import {
+  addDays,
+  EVENT_LEAD_MINUTES,
+  isDue,
+  REMINDER_WINDOW_MINUTES,
+  SLOTS,
+  TRAINING_LEAD_MINUTES,
+  TRAINING_WINDOW_MINUTES,
+  type LocalTime,
+} from './time.js'
 
 export interface MemberInfo {
   id: string
@@ -128,6 +138,62 @@ export function lessonsMessage(lessons: LessonInfo[], local: LocalTime): Planned
 }
 
 const minutesOf = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
+
+export interface EventInfo {
+  id: string
+  title: string
+  // YYYY-MM-DD
+  startDate: string
+  // HH:MM или null (событие на весь день)
+  startTime: string | null
+}
+
+export interface TaskInfo extends Schedule {
+  id: string
+  title: string
+  // HH:MM или null
+  dueTime: string | null
+}
+
+// Попадает ли текущая минута в окно [from, from + REMINDER_WINDOW_MINUTES)
+const inWindow = (local: LocalTime, from: number) => {
+  const now = local.hour * 60 + local.minute
+  return now >= from && now < from + REMINDER_WINDOW_MINUTES
+}
+
+// События, которые начинаются сегодня: со временем за час до начала, на весь день утром.
+export function eventMessages(events: EventInfo[], local: LocalTime): PlannedMessage[] {
+  const result: PlannedMessage[] = []
+  for (const event of events) {
+    if (event.startDate !== local.date) continue
+    const kind = `event:${event.id}`
+    const url = `/calendar/events/${event.id}`
+    if (event.startTime) {
+      if (!inWindow(local, Math.max(0, minutesOf(event.startTime) - EVENT_LEAD_MINUTES))) continue
+      result.push({ kind, message: { title: 'Скоро событие', body: `${event.title} в ${event.startTime}`, url, tag: kind } })
+    } else if (isDue(local, SLOTS.morning)) {
+      result.push({ kind, message: { title: 'Сегодня событие', body: event.title, url, tag: kind } })
+    }
+  }
+  return result
+}
+
+// Задания на сегодня: со временем напоминаем в назначенную минуту, без времени утром.
+export function taskMessages(tasks: TaskInfo[], local: LocalTime): PlannedMessage[] {
+  const result: PlannedMessage[] = []
+  for (const task of tasks) {
+    if (!occursOn(task, local.date)) continue
+    const kind = `task:${task.id}`
+    const url = `/tasks/${task.id}?date=${local.date}`
+    if (task.dueTime) {
+      if (!inWindow(local, minutesOf(task.dueTime))) continue
+      result.push({ kind, message: { title: 'Пора выполнить задание', body: `${task.title} · ${task.dueTime}`, url, tag: kind } })
+    } else if (isDue(local, SLOTS.morning)) {
+      result.push({ kind, message: { title: 'Задание на сегодня', body: task.title, url, tag: kind } })
+    }
+  }
+  return result
+}
 
 // Напоминание за два часа до начала тренировки. Тренировки без времени начала не напоминаем.
 // Смотрим сегодняшние тренировки и завтрашние: у тех, что начинаются сразу после полуночи,

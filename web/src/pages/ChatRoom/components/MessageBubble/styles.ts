@@ -207,3 +207,25 @@ export const FileInfo = styled.span`
     font-size: 0.75rem;
   }
 `
+
+// Цитата сообщения, на которое ответили
+export const Quote = styled.div`
+  margin: 0.1rem 0 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 3px solid currentColor;
+  font-size: 0.85rem;
+  line-height: 1.25;
+
+  strong {
+    display: block;
+    font-weight: 700;
+  }
+
+  span {
+    display: -webkit-box;
+    overflow: hidden;
+    opacity: 0.8;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+`

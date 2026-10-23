@@ -5,10 +5,10 @@ import { formatFileSize } from '@/lib/files'
 import { saveFile } from '@/lib/saveFile'
 import { useLongPress } from '../../useLongPress'
 import { bubbleText, formatMessageTime, groupReactions, photoColumns, totalCoins } from '../../utils'
-import { Bubble, CoinPill, Extras, FileButton, FileInfo, Files, Footer, PhotoButton, Photos, ReactionChip, Sender, Text, Time, Wrap } from './styles'
+import { Bubble, CoinPill, Extras, FileButton, FileInfo, Files, Footer, PhotoButton, Photos, Quote, ReactionChip, Sender, Text, Time, Wrap } from './styles'
 import type { MessageBubbleProps } from './types'
 
-export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, onFeedback, onOpenPhoto }: MessageBubbleProps) {
+export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, onFeedback, onOpenPhoto, replyAuthor }: MessageBubbleProps) {
   const reactions = groupReactions(message.reactions)
   const coins = totalCoins(message.awards)
 
@@ -61,6 +61,12 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
     <Wrap $mine={mine}>
       <Bubble $mine={mine} $interactive={!!onFeedback} $photoColumns={photos.length > 0 ? photoColumns(photos.length) : undefined} {...interactive}>
         {showSender && !mine && <Sender>{senderName ?? 'Участник'}{senderMood && <span aria-hidden> {senderMood}</span>}</Sender>}
+        {message.replyTo && (
+          <Quote aria-label="Ответ на сообщение">
+            <strong>{replyAuthor ?? 'Участник'}</strong>
+            <span>{message.replyTo.text}</span>
+          </Quote>
+        )}
         {photos.length > 0 && (
           <Photos $columns={photoColumns(photos.length)}>
             {photos.map((photo, i) => (
@@ -96,7 +102,7 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
         )}
         {text && <Text>{text}</Text>}
         <Footer>
-          <Time>{formatMessageTime(message.createdAt)}</Time>
+          <Time>{message.editedAt ? 'изменено ' : ''}{formatMessageTime(message.createdAt)}</Time>
           {mine && status && <ReadTicks status={status} dim />}
         </Footer>
       </Bubble>

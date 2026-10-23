@@ -10,5 +10,10 @@ export interface FeedbackDialogProps {
   myEmoji?: string
   // применяет выбор сразу; бросает ошибку, если не вышло (окно остаётся открытым и показывает её)
   onSubmit: (feedback: MessageFeedback) => Promise<void>
+  // действия над сообщением: ответить (любое), изменить и удалить (только своё); кнопки есть, если действие передано
+  onReply?: () => void
+  onEdit?: () => void
+  // бросает ошибку, если не вышло
+  onDelete?: () => Promise<void>
   onClose: () => void
 }

@@ -42,6 +42,13 @@ interface ComposerProps {
   flushBottom?: boolean
   // поделились из другого приложения: текст, фото и файлы ложатся в поле при открытии чата (читается один раз)
   incoming?: SharedContent | null
+  // отвечаем на сообщение: над полем показана цитата, отправка уйдёт ответом
+  reply?: { name: string; text: string } | null
+  onCancelReply?: () => void
+  // правим своё сообщение: текст ложится в поле, вложений нет, отправка сохраняет правку (бросает ошибку, если не вышло)
+  editing?: { id: string; text: string } | null
+  onCancelEdit?: () => void
+  onEditSubmit?: (text: string) => Promise<void>
 }
 
 // Вложение (фото или файл) на пути от выбора до отправки
@@ -97,7 +104,7 @@ const nextKey = () => `att-${++counter}`
 
 // Поле ввода сообщения. Скрепка прикладывает фото (до 10; галерея или камера) и файлы (до 5): фото уменьшаются на устройстве,
 // всё сразу загружается, а к сообщению прикрепляется кнопкой отправки. Ошибка загрузки показана на самом вложении.
-export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, incoming = null }: ComposerProps) {
+export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, incoming = null, reply = null, onCancelReply, editing = null, onCancelEdit, onEditSubmit }: ComposerProps) {
   const guard = useInFlight()
   const insets = useSafeAreaInsets()
   const { colors } = useTheme()
@@ -247,7 +254,24 @@ export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, 
     setItems((current) => current.filter((i) => i.key !== key))
   }
 
-  const ready = canSendMessage(text, items)
+  const ready = editing ? text.trim().length > 0 : canSendMessage(text, items)
+
+  // начали править сообщение: его текст ложится в поле, вложения не нужны
+  useEffect(() => {
+    if (!editing) return
+    setText(editing.text)
+    setItems([])
+    blobs.clear()
+    setNotice(undefined)
+    input.current?.focus()
+    // только при выборе другого сообщения
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.id])
+
+  function cancelEdit() {
+    setText('')
+    onCancelEdit?.()
+  }
 
   function applyEdit(next: { text: string; cursor: number }) {
     if (next.text.length > MAX_LENGTH) return
@@ -275,6 +299,16 @@ export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, 
 
   const send = guard(async () => {
     if (!ready) return
+    if (editing) {
+      try {
+        await onEditSubmit?.(text.trim())
+        setText('')
+        setNotice(undefined)
+      } catch {
+        setNotice('Не удалось сохранить изменения. Попробуйте ещё раз.')
+      }
+      return
+    }
     onSend({
       text: text.trim(),
       mediaIds: photos.map((p) => p.id!).filter(Boolean),
@@ -337,15 +371,33 @@ export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, 
           ))}
         </ScrollView>
       )}
+      {(editing || reply) && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 8 }}>
+          <Ionicons name={editing ? 'create-outline' : 'arrow-undo-outline'} size={20} color={colors.accent} />
+          <View style={{ flex: 1, borderLeftWidth: 3, borderLeftColor: colors.accent, paddingLeft: 8 }}>
+            <Text $size={12} $weight="extraBold" $tone="accent" numberOfLines={1}>
+              {editing ? 'Изменение сообщения' : reply!.name}
+            </Text>
+            <Text $size={13} $tone="muted" numberOfLines={1}>
+              {editing ? editing.text : reply!.text}
+            </Text>
+          </View>
+          <Pressable onPress={editing ? cancelEdit : onCancelReply} accessibilityRole="button" accessibilityLabel={editing ? 'Отменить изменение' : 'Отменить ответ'} hitSlop={8}>
+            <Ionicons name="close" size={22} color={colors.muted} />
+          </Pressable>
+        </View>
+      )}
       {notice && (
         <View style={{ paddingHorizontal: 12 }}>
           <Notice tone="warning">{notice}</Notice>
         </View>
       )}
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 10 }}>
-        <RoundButton onPress={() => setMenu(true)} accessibilityRole="button" accessibilityLabel="Прикрепить">
-          <Ionicons name="attach" size={24} color={colors.text} />
-        </RoundButton>
+        {!editing && (
+          <RoundButton onPress={() => setMenu(true)} accessibilityRole="button" accessibilityLabel="Прикрепить">
+            <Ionicons name="attach" size={24} color={colors.text} />
+          </RoundButton>
+        )}
         <View style={{ flex: 1 }}>
         <Field
           ref={input as never}

@@ -1,5 +1,5 @@
 import { useMemo, useSyncExternalStore } from 'react'
-import type { ChatMessage } from '@/api'
+import type { ChatMessage, ChatReply } from '@/api'
 
 // Своё сообщение, которое ещё уходит на сервер или не ушло. Лежит вне экрана переписки (в памяти приложения): отправка продолжается,
 // даже если человек вышел из чата, а неудавшееся сообщение ждёт повторной отправки, когда он вернётся.
@@ -13,6 +13,8 @@ export interface PendingMessage {
   // что показать в пузыре, пока сообщения нет на сервере: адреса превью фото и имена файлов
   photoUris: string[]
   files: { name: string; size: number }[]
+  // ответ на сообщение (выдержка показывается в пузыре сразу)
+  replyTo?: ChatReply
   // ISO-время нажатия «Отправить»
   createdAt: string
   // sending — уходит, failed — не удалось (красная иконка), done — ушло, экран переписки заберёт `sent` в ленту и вызовет `consume`
@@ -20,7 +22,7 @@ export interface PendingMessage {
   sent?: ChatMessage
 }
 
-export type PendingDraft = Pick<PendingMessage, 'chat' | 'text' | 'mediaIds' | 'fileIds' | 'photoUris' | 'files'>
+export type PendingDraft = Pick<PendingMessage, 'chat' | 'text' | 'mediaIds' | 'fileIds' | 'photoUris' | 'files' | 'replyTo'>
 
 type Deliver = (draft: PendingDraft) => Promise<ChatMessage>
 
@@ -116,6 +118,7 @@ export function pendingToMessage(p: PendingMessage, senderId: string): ChatMessa
     media: p.photoUris.map((uri, i) => ({ id: `${p.id}-photo-${i}`, width: 1, height: 1, thumbUrl: uri, fullUrl: uri })),
     files: p.files.map((f, i) => ({ id: `${p.id}-file-${i}`, name: f.name, size: f.size, url: '' })),
     createdAt: p.createdAt,
+    replyTo: p.replyTo ?? null,
     reactions: [],
     awards: [],
   }

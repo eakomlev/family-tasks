@@ -14,6 +14,13 @@ export interface ComposerProps {
   onUpload: (photo: Blob) => Promise<string>
   // загружает один файл (не фото) и возвращает его идентификатор; бросает ошибку, если не вышло
   onUploadFile: (file: File) => Promise<string>
+  // отвечаем на сообщение: над полем цитата, отправка уйдёт ответом (сбрасывает ответ родитель после отправки)
+  reply?: { name: string; text: string } | null
+  onCancelReply?: () => void
+  // правим своё сообщение: текст ложится в поле, вложений нет, отправка сохраняет правку (бросает ошибку, если не вышло)
+  editing?: { id: string; text: string } | null
+  onCancelEdit?: () => void
+  onEditSubmit?: (text: string) => Promise<void>
 }
 
 // Фото, приложенное к сообщению, на пути от выбора до отправки.
