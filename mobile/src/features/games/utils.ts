@@ -1,0 +1,59 @@
+import type { Game, GameResult } from '@/api'
+
+export interface GameInfo {
+  // chess — единственная готовая игра, остальные пока заглушки
+  kind: string
+  title: string
+  emoji: string
+  available: boolean
+}
+
+export const GAMES: GameInfo[] = [
+  { kind: 'chess', title: 'Шахматы', emoji: '♟️', available: true },
+  { kind: 'checkers', title: 'Шашки', emoji: '⚪', available: false },
+  { kind: 'tictactoe', title: 'Крестики-нолики', emoji: '❌', available: false },
+  { kind: 'battleship', title: 'Морской бой', emoji: '🚢', available: false },
+]
+
+export const gameTitle = (kind: string) => GAMES.find((g) => g.kind === kind)?.title ?? 'Игра'
+
+// Итог игры глазами участника viewerId
+export function resultText(result: GameResult, viewerId: string): string {
+  if (result.reason === 'resign') return result.winnerId === viewerId ? 'Соперник сдался. Вы победили!' : 'Вы сдались'
+  if (!result.winnerId) return result.reason === 'stalemate' ? 'Пат. Ничья' : 'Ничья'
+  return result.winnerId === viewerId ? 'Мат. Вы победили!' : 'Мат. Вы проиграли'
+}
+
+export const opponentOf = (game: Game, me: string) => (game.inviterId === me ? game.inviteeId : game.inviterId)
+
+// Короткая строка состояния игры для списков («Ваш ход», «Ждём ответа»…)
+export function gameStatusLine(game: Game, me: string): string {
+  switch (game.status) {
+    case 'invited':
+      return game.inviteeId === me ? 'Приглашает вас сыграть' : 'Ждём ответа'
+    case 'active':
+      return game.turnId === me ? 'Ваш ход' : 'Ход соперника'
+    case 'finished':
+      return game.result ? resultText(game.result, me) : 'Игра окончена'
+    case 'declined':
+      return 'Приглашение отклонено'
+    case 'cancelled':
+      return 'Приглашение отозвано'
+  }
+}
+
+// Нужно ли участнику что-то сделать в этой игре (ответить на приглашение или сходить)
+export const needsMyAction = (game: Game, me: string) => game.turnId === me || (game.status === 'invited' && game.inviteeId === me)
+
+// Игры, которые ещё не закончились: приглашения и идущие партии; те, где ждут меня, выше
+export function openGames(games: Game[], me: string): Game[] {
+  return games
+    .filter((g) => g.status === 'invited' || g.status === 'active')
+    .sort((a, b) => Number(needsMyAction(b, me)) - Number(needsMyAction(a, me)))
+}
+
+// Последний ход словами: «Последний ход белых: Nf3» (нечётные ходы белых)
+export function lastMoveText(game: Game): string | null {
+  if (!game.lastMove) return null
+  return `Последний ход ${game.moves.length % 2 === 1 ? 'белых' : 'чёрных'}: ${game.lastMove.san}`
+}

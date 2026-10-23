@@ -6,7 +6,7 @@ import { retryRead } from '@/lib/retry'
 import { getSession } from './session'
 
 // Теги инвалидации: события сокета (store/invalidate.ts) и мутации сбрасывают нужные данные по ним
-export const TAGS = ['Me', 'Tasks', 'Pending', 'Done', 'Schedule', 'Trainings', 'Goals', 'Coins', 'Earned', 'Chats', 'Messages', 'Events'] as const
+export const TAGS = ['Me', 'Tasks', 'Pending', 'Done', 'Schedule', 'Trainings', 'Goals', 'Coins', 'Earned', 'Chats', 'Messages', 'Events', 'Games'] as const
 export type Tag = (typeof TAGS)[number]
 
 export interface ApiRequest {

@@ -7,6 +7,7 @@ import { useDispatch } from 'react-redux'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
 import { Text, Title } from '@/components/Text'
+import { ActiveGames } from '@/features/games/ActiveGames'
 import { DayProgressCard } from '@/features/myDay/DayProgressCard'
 import { EarnedToday } from '@/features/myDay/EarnedToday'
 import { FamilyChildren } from '@/features/myDay/FamilyChildren'
@@ -74,6 +75,7 @@ export default function MyDay() {
       <DayProgressCard now={now} />
       <EarnedToday now={now} />
       <PendingReview />
+      <ActiveGames />
       <TodayTasks now={now} />
       <TodayLessons now={now} />
       <TodayTrainings now={now} />

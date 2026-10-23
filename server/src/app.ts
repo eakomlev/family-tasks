@@ -5,6 +5,7 @@ import { authenticate } from './auth.js'
 import { adminRoutes } from './admin.js'
 import { captchaFromEnv, type CaptchaVerifier } from './captcha.js'
 import { chatRoutes } from './chat.js'
+import { gameRoutes } from './games.js'
 import { coinRoutes } from './coins.js'
 import { eventRoutes } from './events.js'
 import { familyDeletionRoutes } from './familyDeletion.js'
@@ -89,6 +90,7 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
   await app.register(taskRoutes)
   await app.register(pushRoutes)
   await app.register(chatRoutes, { media })
+  await app.register(gameRoutes)
   await app.register(coinRoutes)
   await app.register(robloxRoutes)
   await app.register(goalRoutes)

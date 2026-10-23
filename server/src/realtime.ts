@@ -17,6 +17,8 @@ export type RealtimeEvent =
   | { type: 'events' }
   // в чате изменение: chat — собеседник («family» для общего чата) с точки зрения получателя
   | { type: 'chat'; chat: string }
+  // игры участника: приглашение, ход, итог (кто что видит, определяет сам запрос)
+  | { type: 'games' }
 
 interface Client {
   socket: WebSocket
@@ -81,7 +83,7 @@ export function isViewingChat(memberId: string, chat: string) {
 // Запоминает визит в личный чат (вход или выход) и даёт знать собеседнику, чтобы шапка у него обновилась.
 async function recordVisit(memberId: string, chat: string | null) {
   // визиты и «был в чате» только у личных чатов
-  if (!chat || chat === 'family' || isEventChat(chat)) return
+  if (!chat || chat === 'family' || isEventChat(chat) || chat.startsWith('game-')) return
   try {
     await pool.query(
       `insert into chat_visits (member_id, chat_key, visited_at) values ($1, $2, now())

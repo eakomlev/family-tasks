@@ -50,17 +50,30 @@ export function MemberScreen({ memberId }: { memberId: string }) {
             {`${ROLE_LABELS[member.role]}${member.isOwner ? ' · создатель семьи' : ''}`}
           </Text>
           {member.birthDate && <Notice>{`${formatBirthDate(member.birthDate)} · ${formatAge(ageFromBirthDate(member.birthDate))}`}</Notice>}
-          <Pressable
-            onPress={() => router.push({ pathname: '/chat/[chat]', params: { chat: member.id } })}
-            accessibilityRole="button"
-            accessibilityLabel={`Написать: ${member.name}`}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 999, backgroundColor: colors.accent }}
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color="#ffffff" />
-            <Text $weight="extraBold" style={{ color: '#ffffff' }}>
-              Написать
-            </Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+            <Pressable
+              onPress={() => router.push({ pathname: '/chat/[chat]', params: { chat: member.id } })}
+              accessibilityRole="button"
+              accessibilityLabel={`Написать: ${member.name}`}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 999, backgroundColor: colors.accent }}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#ffffff" />
+              <Text $weight="extraBold" style={{ color: '#ffffff' }}>
+                Написать
+              </Text>
+            </Pressable>
+              <Pressable
+              onPress={() => router.push({ pathname: '/family/[memberId]/games', params: { memberId: member.id } })}
+              accessibilityRole="button"
+              accessibilityLabel={`Играть: ${member.name}`}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 999, backgroundColor: colors.lime }}
+            >
+              <Ionicons name="game-controller-outline" size={20} color={colors.onLime} />
+              <Text $weight="extraBold" style={{ color: colors.onLime }}>
+                Играть
+              </Text>
+            </Pressable>
+          </View>
         </View>
       )}
       {/* монеты, цели и расписания ребёнка видят взрослые (расписания правят только родители) */}

@@ -81,3 +81,15 @@ export function describeFileError(err: unknown): string {
   }
   return 'Не удалось загрузить файл. Попробуйте ещё раз.'
 }
+
+// Ошибки действий в игре (приглашение, ход, ответ на приглашение)
+export function describeGameError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.code === 'network') return 'Нет связи с сервером. Попробуйте ещё раз.'
+    if (err.code === 'game_exists') return 'С этим участником такая игра уже идёт или ждёт ответа.'
+    if (err.code === 'not_your_turn') return 'Сейчас ход соперника.'
+    if (err.code === 'illegal_move') return 'Так ходить нельзя.'
+    if (err.code === 'not_active' || err.code === 'not_invited') return 'Состояние игры уже изменилось. Обновите экран.'
+  }
+  return 'Не удалось выполнить действие. Попробуйте ещё раз.'
+}

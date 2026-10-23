@@ -5,7 +5,7 @@ import { routeFromNotificationData } from './route'
 //   /my-day                  → «Мой день» (корень приложения)
 //   /chat/event-<id>         → страница события, вкладка «Чат»
 //   /tasks/<id>?date=…       → задание (нужное вхождение повторяющегося)
-//   /chat/…, /family/…, /goals/…, /coins, /profile/…, /calendar/… → как есть
+//   /chat/…, /family/…, /goals/…, /games/<id>, /coins, /profile/…, /calendar/… → как есть
 // Незнакомый адрес не открываем (приложение просто откроется на том экране, где было), а не показываем «экран не найден».
 
 export interface NotificationTarget {
@@ -15,7 +15,7 @@ export interface NotificationTarget {
   tab: boolean
 }
 
-const SECTIONS = ['tasks', 'chat', 'family', 'profile', 'coins', 'goals', 'calendar']
+const SECTIONS = ['tasks', 'chat', 'family', 'profile', 'coins', 'goals', 'calendar', 'games']
 const TAB_ROOTS = new Set(['/', '/tasks', '/chat', '/family'])
 const EVENT_CHAT = /^\/chat\/event-([0-9a-f-]{36})\/?$/i
 

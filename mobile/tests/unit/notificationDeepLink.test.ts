@@ -14,6 +14,7 @@ describe('адреса из уведомлений превращаются в �
     ['нужное вхождение повторяющегося задания', '/tasks/abc?date=2026-10-12', { href: '/tasks/abc?date=2026-10-12', tab: false }],
     ['монеты', '/coins', { href: '/coins', tab: false }],
     ['цель', '/goals/g1', { href: '/goals/g1', tab: false }],
+    ['игра', '/games/00000000-0000-4000-8000-000000000001', { href: '/games/00000000-0000-4000-8000-000000000001', tab: false }],
     ['профиль именинника', '/profile', { href: '/profile', tab: false }],
     ['уведомления в профиле', '/profile/notifications', { href: '/profile/notifications', tab: false }],
     ['страница члена семьи', '/family/m1', { href: '/family/m1', tab: false }],

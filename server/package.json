@@ -18,6 +18,7 @@
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",
     "@fastify/websocket": "^11.3.4",
+    "chess.js": "^1.4.0",
     "fastify": "^5.12.5",
     "node-pg-migrate": "^9.0.0",
     "pg": "^8.23.1"
