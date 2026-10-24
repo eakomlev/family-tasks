@@ -31,10 +31,21 @@ export function ChatRow({ chat, member, members, me, viewerRole, now }: ChatRowP
   return (
     <>
     <Row to={`/chat/${chat.id}`} onClick={onClick} {...press}>
-      {member ? <Avatar name={memberLabel(member, viewerRole)} seed={member.id} src={member.avatar} size="3.4rem" /> : <FamilyIcon aria-hidden><TabIcon name="family" /></FamilyIcon>}
+      {member ? (
+        <Avatar name={memberLabel(member, viewerRole)} seed={member.id} src={member.avatar} size="3.4rem" />
+      ) : chat.event ? (
+        <FamilyIcon aria-hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="5.5" width="16" height="14" rx="2.5" />
+            <path d="M4 10h16M9 3.5v4M15 3.5v4" />
+          </svg>
+        </FamilyIcon>
+      ) : (
+        <FamilyIcon aria-hidden><TabIcon name="family" /></FamilyIcon>
+      )}
       <Body>
         <Top>
-          <Name $unread={unread}>{chatTitle(chat.id, members, viewerRole)}{muted && <MutedMark aria-label="Уведомления отключены" />}{member && <> <MoodMark mood={member.mood} now={now} /></>}</Name>
+          <Name $unread={unread}>{chatTitle(chat.id, members, viewerRole, chat.event?.title)}{muted && <MutedMark aria-label="Уведомления отключены" />}{member && <> <MoodMark mood={member.mood} now={now} /></>}</Name>
           {chat.last && (
             <Meta>
               {status && <Status $read={status === 'read'}><ReadTicks status={status} /></Status>}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Navigate, useParams } from 'react-router-dom'
-import { FAMILY_CHAT, listMessages, uploadChatFile, uploadChatPhoto, type ChatMessage, type MessageFeedback } from '@/api'
+import { Navigate, useLocation, useParams } from 'react-router-dom'
+import { FAMILY_CHAT, isEventChat, listMessages, uploadChatFile, uploadChatPhoto, type ChatMessage, type MessageFeedback } from '@/api'
 import { Avatar } from '@/components/Avatar'
 import { TabIcon } from '@/components/TabBar/TabIcon'
 import { MoodMark } from '@/components/MoodMark'
@@ -13,6 +13,7 @@ import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
 import { useViewingChat } from '@/realtime/context'
 import { toApiError } from '@/store/api'
+import { useGetEventQuery } from '@/store/events'
 import { useDeleteMessageMutation, useEditMessageMutation, useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, useSendMessageMutation } from '@/store/chat'
 import { currentMood } from '@/lib/mood'
 import { isParent, memberLabel } from '@/lib/roles'
@@ -26,6 +27,7 @@ import { Composer } from './components/Composer'
 import { FeedbackDialog } from './components/FeedbackDialog'
 import { MessageBubble } from './components/MessageBubble'
 import { MessagesSkeleton } from './components/MessagesSkeleton'
+import { PendingMessages, type PendingMessage } from './components/PendingMessages'
 import { PhotoViewer } from './components/PhotoViewer'
 import type { OutgoingMessage } from './components/Composer/types'
 import { BackButton, DayLabel, Title, Empty, Feed, FeedContent, FamilyIcon, Header, MenuButton, Room, WhoLink } from './styles'
@@ -174,10 +176,21 @@ function Conversation({ chat }: { chat: string | undefined }) {
     } else if (stick.current) scrollToBottom(feed)
   }, [messages])
 
+  // чат события: название берём из списка чатов, а у ещё пустого чата из самого события
+  const eventId = chat && isEventChat(chat) ? chat.slice('event-'.length) : undefined
+  const eventQuery = useGetEventQuery(eventId ?? '', { skip: !eventId })
+
+  // текст, переданный через «Поделиться»
+  const sharedText = (useLocation().state as { share?: string } | null)?.share
+
+  // мои сообщения, которые уходят или не ушли: показываются в ленте сразу
+  const [pending, setPending] = useState<PendingMessage[]>([])
+
   if (!chat || !identity || !me) return null
   if (missing) return <Navigate to="/chat" replace />
 
-  const other = chat === FAMILY_CHAT ? undefined : members.find((m) => m.id === chat)
+  const other = chat === FAMILY_CHAT || eventId ? undefined : members.find((m) => m.id === chat)
+  const eventTitle = eventId ? (chats?.find((c) => c.id === chat)?.event?.title ?? eventQuery.data?.event.title ?? 'Событие') : undefined
   // подпись автора в общем чате: ребёнок видит родителей как «Мама» и «Папа»
   const sender = (id: string) => {
     const member = members.find((m) => m.id === id)
@@ -212,11 +225,26 @@ function Conversation({ chat }: { chat: string | undefined }) {
     return fileId
   }
 
+  // Отправка мгновенная: сообщение сразу в ленте, уходит в фоне; не удалось — остаётся с «Отправить ещё раз» и «Удалить».
+  // Вложения уже загружены, поэтому повтор их заново не грузит.
+  async function deliver(item: PendingMessage) {
+    setPending((list) => list.map((p) => (p.key === item.key ? { ...p, status: 'sending' } : p)))
+    try {
+      const { message } = await sendMessage({ chat: chat!, text: item.text, mediaIds: item.mediaIds, fileIds: item.fileIds, replyTo: item.replyTo }).unwrap().catch(toApiError)
+      stick.current = true
+      setThread((current) => ({ messages: appendMessage(current?.messages ?? [], message), hasMore: current?.hasMore ?? false, readUpTo: current?.readUpTo ?? null }))
+      setPending((list) => list.filter((p) => p.key !== item.key))
+    } catch {
+      setPending((list) => list.map((p) => (p.key === item.key ? { ...p, status: 'failed' } : p)))
+    }
+  }
+
   async function handleSend({ text, mediaIds, fileIds }: OutgoingMessage) {
-    const { message } = await sendMessage({ chat: chat!, text, mediaIds, fileIds, replyTo: replyingTo?.id }).unwrap().catch(toApiError)
+    const item: PendingMessage = { key: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`, text, mediaIds, fileIds, replyTo: replyingTo?.id, status: 'sending' }
+    setPending((list) => [...list, item])
     setReplyingTo(undefined)
     stick.current = true
-    setThread((current) => ({ messages: appendMessage(current?.messages ?? [], message), hasMore: current?.hasMore ?? false, readUpTo: current?.readUpTo ?? null }))
+    void deliver(item)
   }
 
   // Реакцию можно поставить на любое сообщение, а монеты начисляют только родители (мама, папа) и только за сообщения детей.
@@ -251,11 +279,22 @@ function Conversation({ chat }: { chat: string | undefined }) {
 
   const who = (
     <>
-      {other ? <Avatar name={memberLabel(other, identity.role)} seed={other.id} src={other.avatar} size="2.25rem" /> : <FamilyIcon aria-hidden><TabIcon name="family" /></FamilyIcon>}
+      {other ? (
+        <Avatar name={memberLabel(other, identity.role)} seed={other.id} src={other.avatar} size="2.25rem" />
+      ) : eventId ? (
+        <FamilyIcon aria-hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="5.5" width="16" height="14" rx="2.5" />
+            <path d="M4 10h16M9 3.5v4M15 3.5v4" />
+          </svg>
+        </FamilyIcon>
+      ) : (
+        <FamilyIcon aria-hidden><TabIcon name="family" /></FamilyIcon>
+      )}
       <Title>
-        <h1>{chatTitle(chat, members, identity.role)}{chats?.find((c) => c.id === chat)?.muted && <MutedMark aria-label="Уведомления отключены" />}{other && <> <MoodMark mood={other.mood} now={now} /></>}</h1>
+        <h1>{chatTitle(chat, members, identity.role, eventTitle)}{chats?.find((c) => c.id === chat)?.muted && <MutedMark aria-label="Уведомления отключены" />}{other && <> <MoodMark mood={other.mood} now={now} /></>}</h1>
         {/* под заголовком: в общем чате число участников, в личном когда собеседник был в чате */}
-        {chat === FAMILY_CHAT ? participantsLabel(members.length) && <small>{participantsLabel(members.length)}</small> : visitLabel(peer, now) && <small>{visitLabel(peer, now)}</small>}
+        {eventId ? <small>Чат события</small> : chat === FAMILY_CHAT ? participantsLabel(members.length) && <small>{participantsLabel(members.length)}</small> : visitLabel(peer, now) && <small>{visitLabel(peer, now)}</small>}
       </Title>
     </>
   )
@@ -263,7 +302,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
   return (
     <Room $slide={slideIn}>
       <Header>
-        <BackButton to="/chat" aria-label="К списку чатов">
+        <BackButton to={eventId ? `/calendar/events/${eventId}` : '/chat'} aria-label={eventId ? 'К событию' : 'К списку чатов'}>
           <svg viewBox="0 0 24 24" aria-hidden>
             <path d="M15 5l-7 7 7 7" />
           </svg>
@@ -303,7 +342,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
                       senderName={sender(message.senderId)}
                       replyAuthor={message.replyTo ? sender(message.replyTo.senderId) : undefined}
                       senderMood={currentMood(members.find((m) => m.id === message.senderId)?.mood, now)?.emoji}
-                      showSender={chat === FAMILY_CHAT}
+                      showSender={chat === FAMILY_CHAT || !!eventId}
                       status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
                       onFeedback={() => setFeedbackFor(message)}
                       onOpenPhoto={(index) => setViewing({ message, index })}
@@ -311,12 +350,14 @@ function Conversation({ chat }: { chat: string | undefined }) {
                   ))}
                 </section>
               ))}
+              <PendingMessages items={pending} onRetry={(key) => { const item = pending.find((p) => p.key === key); if (item) void deliver(item) }} onRemove={(key) => setPending((list) => list.filter((p) => p.key !== key))} />
             </>
           )}
         </FeedContent>
       </Feed>
 
       <Composer
+        initialText={sharedText}
         reply={replyingTo && { name: sender(replyingTo.senderId) ?? 'Участник', text: replyPreview(replyingTo) }}
         onCancelReply={() => setReplyingTo(undefined)}
         editing={editing && { id: editing.id, text: editing.caption }}

@@ -55,7 +55,8 @@ describe('капча перед отправкой кода', () => {
     expect(await getCaptchaToken()).toBe('token-1')
     expect(await getCaptchaToken()).toBe('token-2')
     expect(widget.render).toHaveBeenCalledTimes(1)
-    expect(widget.render.mock.calls[0][1]).toMatchObject({ sitekey: 'site-key', invisible: true })
+    // плашка Яндекса в углу страницы скрыта: вместо неё строка со ссылками (CaptchaNotice)
+    expect(widget.render.mock.calls[0][1]).toMatchObject({ sitekey: 'site-key', invisible: true, hideShield: true })
     expect(widget.reset).toHaveBeenCalledTimes(2)
     expect(widget.execute).toHaveBeenCalledTimes(2)
     // ключ клиента запрашивается один раз

@@ -229,3 +229,12 @@ export const MutedMark = styled.span`
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 8a6 6 0 0 1 9.3-5M18 8c0 4 1 6 2 7H4c1-1 2-3 2-7M10 20a2 2 0 0 0 4 0M3 3l18 18%22/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 8a6 6 0 0 1 9.3-5M18 8c0 4 1 6 2 7H4c1-1 2-3 2-7M10 20a2 2 0 0 0 4 0M3 3l18 18%22/%3E%3C/svg%3E") center / contain no-repeat;
 `
+
+// заголовок слева, меню «три точки» справа (справа вверху может лежать баланс монет ребёнка)
+export const Header = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-right: var(--topbar-reserve, 0);
+`

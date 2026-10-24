@@ -94,14 +94,35 @@ export const Arrow = styled.button`
   }
 `
 
+// переключатель День / Неделя / Месяц: плавающая «таблетка» внизу, как в приложении
 export const Switch = styled.div`
+  position: fixed;
+  left: 50%;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 20;
   display: flex;
   gap: 0.35rem;
   align-items: center;
+  padding: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+`
+
+// запас под плавающим переключателем
+export const SwitchSpace = styled.div`
+  height: 4.5rem;
+`
+
+// область, листаемая пальцем влево и вправо
+export const SwipeArea = styled.div`
+  touch-action: pan-y;
 `
 
 export const Today = styled.button`
-  margin-left: auto;
+  margin-left: 0.2rem;
   padding: 0.3rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: 999px;

@@ -1,4 +1,4 @@
-import { clearChat, deleteMessage, editMessage, giveFeedback, listChats, listMessages, markChatRead, sendMessage, setChatMuted, type ChatMessage, type ChatSummary, type MessageFeedback, type MessagePage } from '@/api'
+import { clearChat, deleteMessage, editMessage, giveFeedback, listChats, listMessages, markChatRead, sendMessage, setChatArchived, setChatMuted, type ChatMessage, type ChatSummary, type MessageFeedback, type MessagePage } from '@/api'
 import { api, fromApi } from './api'
 
 interface SendArgs {
@@ -125,6 +125,23 @@ export const chatApi = api.injectEndpoints({
         }
       },
     }),
+    // В архив и обратно: чат уходит из списка (или возвращается) сразу, при ошибке возвращается как был
+    setChatArchived: build.mutation<void, { chat: string; archived: boolean }>({
+      queryFn: fromApi((token, { chat, archived }: { chat: string; archived: boolean }) => setChatArchived(token, chat, archived)),
+      async onQueryStarted({ chat, archived }, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          chatApi.util.updateQueryData('listChats', undefined, (draft) => {
+            const item = draft.chats.find((c) => c.id === chat)
+            if (item) item.archived = archived
+          }),
+        )
+        try {
+          await queryFulfilled
+        } catch {
+          patch.undo()
+        }
+      },
+    }),
     // Очистка чата: переписка в кэше пустеет сразу, список чатов запрашивается заново
     clearChat: build.mutation<void, string>({
       queryFn: fromApi((token, chat: string) => clearChat(token, chat)),
@@ -146,4 +163,4 @@ export const chatApi = api.injectEndpoints({
   }),
 })
 
-export const { useListChatsQuery, useGetMessagesQuery, useSendMessageMutation, useEditMessageMutation, useDeleteMessageMutation, useGiveFeedbackMutation, useMarkChatReadMutation, useSetChatMutedMutation, useClearChatMutation } = chatApi
+export const { useListChatsQuery, useGetMessagesQuery, useSendMessageMutation, useEditMessageMutation, useDeleteMessageMutation, useGiveFeedbackMutation, useMarkChatReadMutation, useSetChatMutedMutation, useSetChatArchivedMutation, useClearChatMutation } = chatApi

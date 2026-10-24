@@ -63,7 +63,8 @@ function ensureWidget(key: string, captcha: SmartCaptcha): Promise<number> {
   widget ??= Promise.resolve().then(() => {
     const container = document.createElement('div')
     document.body.append(container)
-    return captcha.render(container, { sitekey: key, invisible: true, hl: 'ru' })
+    // hideShield: без плашки в углу страницы, вместо неё строка со ссылками под кнопкой (components/CaptchaNotice)
+    return captcha.render(container, { sitekey: key, invisible: true, hideShield: true, hl: 'ru' })
   })
   return widget
 }
@@ -96,6 +97,11 @@ async function run(): Promise<string | undefined> {
     captcha.reset(id)
     captcha.execute(id)
   })
+}
+
+// Включена ли капча на сервере (нужно, чтобы показать строку со ссылками); сбой запроса бросает ошибку
+export async function isCaptchaEnabled(): Promise<boolean> {
+  return (await loadSiteKey()) !== null
 }
 
 // Токен капчи для запроса кода или undefined, если капча выключена. Одновременные вызовы делят одну проверку.

@@ -3,6 +3,8 @@ import { Notice } from '@/components/Notice'
 import { describeFileError, describePhotoError } from '@/lib/errors'
 import { fileProblem, formatFileSize, MAX_FILES } from '@/lib/files'
 import { resizeToPhoto } from '@/lib/image'
+import { EmojiPanel } from '../EmojiPanel'
+import { deleteBefore, insertAt, loadRecent, pushRecent, saveRecent } from '../EmojiPanel/emoji'
 import { canSendMessage, MAX_LENGTH, MAX_PHOTOS } from '../../utils'
 import { AttachButton, Bar, ContextBar, Field, FileChip, FileInfo, FileList, FileRemove, FileRetry, Row, SendButton, Strip, Thumb, ThumbRemove, ThumbRetry, ThumbState } from './styles'
 import type { Attachment, ComposerProps, FileAttachment } from './types'
@@ -13,14 +15,16 @@ const nextKey = () => `photo-${++counter}`
 
 // Поле ввода сообщения: растёт по мере набора, Enter отправляет, Shift+Enter переносит строку. Скрепка прикладывает фото (до 10):
 // выбранные уменьшаются на устройстве и сразу загружаются, а к сообщению прикрепляются кнопкой отправки.
-export function Composer({ onSend, onUpload, onUploadFile, reply = null, onCancelReply, editing = null, onCancelEdit, onEditSubmit }: ComposerProps) {
+export function Composer({ initialText = '', onSend, onUpload, onUploadFile, reply = null, onCancelReply, editing = null, onCancelEdit, onEditSubmit }: ComposerProps) {
   const guard = useInFlight()
-  const [text, setText] = useState('')
+  const [text, setText] = useState(initialText)
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
   const [photos, setPhotos] = useState<Attachment[]>([])
   const [files, setFiles] = useState<FileAttachment[]>([])
   const [photoNotice, setPhotoNotice] = useState<string>()
+  const [emojiOpen, setEmojiOpen] = useState(false)
+  const [recent, setRecent] = useState<string[]>(loadRecent)
   const field = useRef<HTMLTextAreaElement>(null)
   const picker = useRef<HTMLInputElement>(null)
   // уменьшенные файлы по ключу (для повтора загрузки) и очередь обработки: фото готовятся и грузятся по одному
@@ -130,6 +134,25 @@ export function Composer({ onSend, onUpload, onUploadFile, reply = null, onCance
         queue.current = queue.current.then(() => uploadAttachedFile(key, file))
       }
     }
+  }
+
+  // вставка и стирание эмодзи по курсору; после правки курсор возвращается на место
+  function editText(change: (selection: { start: number; end: number }) => { text: string; cursor: number }) {
+    const el = field.current
+    const next = change({ start: el?.selectionStart ?? text.length, end: el?.selectionEnd ?? text.length })
+    setText(next.text.slice(0, MAX_LENGTH))
+    setFailed(false)
+    requestAnimationFrame(() => {
+      el?.focus()
+      el?.setSelectionRange(next.cursor, next.cursor)
+    })
+  }
+
+  function pickEmoji(emoji: string) {
+    editText((selection) => insertAt(text, selection, emoji))
+    const list = pushRecent(recent, emoji)
+    setRecent(list)
+    saveRecent(list)
   }
 
   function onPick(e: ChangeEvent<HTMLInputElement>) {
@@ -342,12 +365,19 @@ export function Composer({ onSend, onUpload, onUploadFile, reply = null, onCance
             }}
             onKeyDown={onKeyDown}
           />
+          <AttachButton type="button" aria-label="Эмодзи" aria-pressed={emojiOpen} onClick={() => setEmojiOpen((v) => !v)}>
+            <svg viewBox="0 0 24 24" aria-hidden focusable="false">
+              <circle cx="12" cy="12" r="8.5" />
+              <path d="M8.5 14c.8 1.4 2 2.1 3.5 2.1s2.7-.7 3.5-2.1M9 9.8h.01M15 9.8h.01" />
+            </svg>
+          </AttachButton>
           <SendButton type="submit" aria-label="Отправить" disabled={busy || !canSend} title={uploading ? 'Вложения ещё загружаются' : undefined}>
             <svg viewBox="0 0 24 24" aria-hidden focusable="false">
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </SendButton>
         </Row>
+        {emojiOpen && <EmojiPanel recent={recent} onPick={pickEmoji} onBackspace={() => editText((selection) => deleteBefore(text, selection))} />}
       </Bar>
     </>
   )

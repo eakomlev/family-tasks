@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import { Button } from '@/components/Button'
+import { CaptchaNotice } from '@/components/CaptchaNotice'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
@@ -30,6 +31,7 @@ export function EmailStep({ email, busy, error, onEmailChange, onSubmit }: Email
       <Button $variant="primary" type="submit" disabled={!isValidEmail(email) || busy}>
         {busy ? 'Подождите…' : 'Получить код'}
       </Button>
+      <CaptchaNotice />
     </Stack>
   )
 }

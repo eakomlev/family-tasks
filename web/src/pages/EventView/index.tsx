@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { eventChatId } from '@/api'
+import { useListChatsQuery } from '@/store/chat'
 import { Avatar } from '@/components/Avatar'
 import { BodyTitle, PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
@@ -34,6 +36,7 @@ export default function EventView() {
   const { identity } = useIdentity()
   const { data: profile } = useProfile()
   const query = useGetEventQuery(id, { skip: !identity })
+  const chats = useListChatsQuery().data?.chats
   const [deleteEvent] = useDeleteEventMutation()
   const [error, setError] = useState<string>()
 
@@ -86,6 +89,10 @@ export default function EventView() {
               ))}
             </People>
           )}
+          {/* у события свой чат для участников; непрочитанное видно на кнопке */}
+          <Button $variant="lime" as={Link} to={`/chat/${eventChatId(event.id)}`}>
+            Чат события{(chats?.find((c) => c.id === eventChatId(event.id))?.unread ?? 0) > 0 && ` (${chats!.find((c) => c.id === eventChatId(event.id))!.unread})`}
+          </Button>
           {error && <Notice $tone="error">{error}</Notice>}
           {event.authorId === identity.memberId && (
             <Stack>

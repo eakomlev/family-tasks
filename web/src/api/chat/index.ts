@@ -3,6 +3,11 @@ import type { ChatLink, ChatMediaItem, ChatSearchResult, ChatMessage, ChatSummar
 
 export const FAMILY_CHAT = 'family'
 
+// Чат события календаря: в адресе «event-<id события>»
+export const EVENT_CHAT_PREFIX = 'event-'
+export const eventChatId = (eventId: string) => `${EVENT_CHAT_PREFIX}${eventId}`
+export const isEventChat = (chat: string) => chat.startsWith(EVENT_CHAT_PREFIX)
+
 // все чаты, свежая активность выше
 export const listChats = (token: string) => request<{ chats: ChatSummary[] }>('/chats', {}, token)
 
@@ -62,6 +67,9 @@ export const markChatRead = (token: string, chat: string) => request<void>(`/cha
 
 // Уведомления чата: отключить или включить (только для себя, на всех своих устройствах)
 export const setChatMuted = (token: string, chat: string, muted: boolean) => request<void>(`/chats/${chat}/mute`, send('PUT', { muted }), token)
+
+// В архив и обратно (только для себя, на всех своих устройствах)
+export const setChatArchived = (token: string, chat: string, archived: boolean) => request<void>(`/chats/${chat}/archive`, send('PUT', { archived }), token)
 
 // Очистка чата: удаляет все сообщения и фото у всех участников, безвозвратно (только родитель)
 export const clearChat = (token: string, chat: string) => request<void>(`/chats/${chat}/messages`, { method: 'DELETE' }, token)

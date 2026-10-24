@@ -14,7 +14,7 @@ import { useTasksView } from '@/lib/tasksView'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
 import { useListDoneTasksQuery, useListTasksQuery } from '@/store/tasks'
-import { AddButton, Filters, Header, List, ListEnd, SectionTitle } from './styles'
+import { Actions, AddLink, Filters, Header, List, SectionTitle } from './styles'
 import { buildDone, buildSections } from './utils'
 
 // сколько дней вперёд показываем в предстоящих
@@ -65,7 +65,15 @@ export default function Tasks() {
     <Page>
       <Header>
         <h1>Задания</h1>
-        <MenuButton actions={[{ key: 'done', label: 'Показать завершённые', checked: showDone, onSelect: () => changeView({ showDone: !showDone }) }]} />
+        <Actions>
+          <MenuButton actions={[{ key: 'done', label: 'Показать завершённые', checked: showDone, onSelect: () => changeView({ showDone: !showDone }) }]} />
+          {/* выбран человек в фильтре: в новом задании он уже стоит исполнителем */}
+          <AddLink to={filter ? `/tasks/new?assignee=${encodeURIComponent(filter)}` : '/tasks/new'} aria-label="Новая задача" title="Новая задача">
+            <svg viewBox="0 0 24 24" aria-hidden>
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </AddLink>
+        </Actions>
       </Header>
 
       {/* ребёнок видит только свои задания (сервер другие не отдаёт), фильтр по людям ему не нужен */}
@@ -103,9 +111,6 @@ export default function Tasks() {
         )}
       </Stack>
 
-      <ListEnd />
-      {/* выбран человек в фильтре: в новом задании он уже стоит исполнителем */}
-      <AddButton to={filter ? `/tasks/new?assignee=${encodeURIComponent(filter)}` : '/tasks/new'}>＋ Новая задача</AddButton>
     </Page>
   )
 }

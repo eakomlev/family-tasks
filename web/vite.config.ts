@@ -34,6 +34,8 @@ export default defineConfig({
         theme_color: '#4b3bff',
         background_color: '#0b0e1f',
         display: 'standalone',
+        // «Поделиться» из других приложений на Android: текст и ссылки открывают выбор чата
+        share_target: { action: '/share', method: 'GET', params: { title: 'title', text: 'text', url: 'url' } },
         icons: [
           { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },

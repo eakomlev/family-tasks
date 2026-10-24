@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import { Button } from '@/components/Button'
+import { CaptchaNotice } from '@/components/CaptchaNotice'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
@@ -64,6 +65,7 @@ export function DetailsStep({
       <Button $variant="primary" type="submit" disabled={!ready}>
         {busy ? 'Подождите…' : 'Получить код'}
       </Button>
+      <CaptchaNotice />
     </Stack>
   )
 }

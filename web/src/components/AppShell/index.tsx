@@ -1,4 +1,5 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { useRef, type TouchEvent } from 'react'
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ChatsProvider } from '@/chat'
 import { Avatar } from '@/components/Avatar'
 import { PushPrompt } from '@/components/PushPrompt'
@@ -18,9 +19,11 @@ function Shell() {
   const { identity } = useIdentity()
   const { data } = useProfile()
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const touch = useRef<{ x: number; y: number; ok: boolean } | null>(null)
   if (!identity) return null
   // переписка (/chat/:chat) занимает весь экран, без панели табов (информация о чате обычная страница)
-  const chatRoom = pathname.startsWith('/chat/') && !pathname.endsWith('/info')
+  const chatRoom = pathname.startsWith('/chat/') && !pathname.endsWith('/info') && pathname !== '/chat/archive'
   // как в приложении: панель табов только на четырёх главных разделах, на вложенных страницах её нет (там шапка со стрелкой «назад»)
   const rootPage = TABS.some((tab) => tab.path === pathname)
   const noTabs = chatRoom || !rootPage
@@ -29,8 +32,29 @@ function Shell() {
   // монеты есть только у детей; в переписке баланс скрыт (он только отвлекает и перекрывает шапку)
   const showCoins = data?.me.coins !== undefined && !chatRoom
 
+  // Главные разделы листаются пальцем влево и вправо. Жест не трогаем там, где палец начался на поле ввода,
+  // полосе прокрутки вбок или своём слайдере (помечено data-no-swipe или role=tablist/slider).
+  const swipe = {
+    start: (e: TouchEvent) => {
+      const target = e.target as HTMLElement
+      const blocked = !!target.closest('input, textarea, select, [data-no-swipe], [role=tablist], [role=slider]')
+      touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, ok: rootPage && !blocked }
+    },
+    end: (e: TouchEvent) => {
+      const from = touch.current
+      touch.current = null
+      if (!from?.ok) return
+      const dx = e.changedTouches[0].clientX - from.x
+      const dy = e.changedTouches[0].clientY - from.y
+      if (Math.abs(dx) < 90 || Math.abs(dy) > Math.abs(dx) / 2) return
+      const index = TABS.findIndex((tab) => tab.path === pathname)
+      const next = TABS[index + (dx < 0 ? 1 : -1)]
+      if (next) navigate(next.path)
+    },
+  }
+
   return (
-    <Root $noTabs={noTabs} $reserve={showCoins ? (hideAvatar ? '6.5rem' : '9.5rem') : hideAvatar ? '0rem' : '3.25rem'}>
+    <Root onTouchStart={swipe.start} onTouchEnd={swipe.end} $noTabs={noTabs} $reserve={showCoins ? (hideAvatar ? '6.5rem' : '9.5rem') : hideAvatar ? '0rem' : '3.25rem'}>
       <PushPrompt />
       <TopRight $fixed={chatRoom}>
         {showCoins && <CoinBalance coins={data.me.coins!} />}

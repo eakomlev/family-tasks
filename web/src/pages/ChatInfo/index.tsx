@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { FAMILY_CHAT, listChatLinks, listChatMedia, searchChatMessages, type ChatLink, type ChatMediaItem, type ChatSearchResult } from '@/api'
+import { FAMILY_CHAT, isEventChat, listChatLinks, listChatMedia, searchChatMessages, type ChatLink, type ChatMediaItem, type ChatSearchResult } from '@/api'
 import { useChats } from '@/chat/context'
 import { Avatar } from '@/components/Avatar'
 import { PageHeader } from '@/components/PageHeader'
@@ -88,8 +88,9 @@ export default function ChatInfo() {
 
   if (!identity || !chat) return <Navigate to="/chat" replace />
   const members = data?.members ?? []
-  const other = chat === FAMILY_CHAT ? undefined : members.find((m) => m.id === chat)
-  const title = chatTitle(chat, members, identity.role)
+  const eventId = isEventChat(chat) ? chat.slice('event-'.length) : undefined
+  const other = chat === FAMILY_CHAT || eventId ? undefined : members.find((m) => m.id === chat)
+  const title = chatTitle(chat, members, identity.role, chats?.find((c) => c.id === chat)?.event?.title ?? (eventId ? 'Событие' : undefined))
   const muted = chats?.find((c) => c.id === chat)?.muted ?? false
   const nameOf = (id: string) => {
     const member = members.find((m) => m.id === id)
@@ -137,6 +138,7 @@ export default function ChatInfo() {
           </>
         )}
         {chat === FAMILY_CHAT && <p>{participantsLabel(members.length)}</p>}
+        {eventId && <Button as={Link} $variant="text" to={`/calendar/events/${eventId}`}>Открыть событие</Button>}
       </Profile>
 
       <Panel>

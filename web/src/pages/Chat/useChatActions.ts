@@ -1,11 +1,11 @@
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import type { SheetAction } from '@/components/ActionSheet/types'
-import { FAMILY_CHAT } from '@/api'
+import { FAMILY_CHAT, isEventChat } from '@/api'
 import { useChats } from '@/chat/context'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
-import { useClearChatMutation, useSetChatMutedMutation } from '@/store/chat'
+import { useClearChatMutation, useSetChatArchivedMutation, useSetChatMutedMutation } from '@/store/chat'
 import { chatTitle } from './utils'
 
 // Действия над чатом для меню (три точки в переписке, долгое нажатие в списке): отключить или включить уведомления (всем)
@@ -17,12 +17,22 @@ export function useChatActions(chat: string): SheetAction[] {
   const { chats } = useChats()
   const [setMuted] = useSetChatMutedMutation()
   const [clear] = useClearChatMutation()
+  const [setArchived] = useSetChatArchivedMutation()
 
-  const muted = chats?.find((c) => c.id === chat)?.muted ?? false
+  const summary = chats?.find((c) => c.id === chat)
+  const muted = summary?.muted ?? false
+  const archived = summary?.archived ?? false
   const isParent = identity?.role === 'mama' || identity?.role === 'papa'
-  const title = identity ? chatTitle(chat, data?.members ?? [], identity.role) : ''
+  const title = identity ? chatTitle(chat, data?.members ?? [], identity.role, summary?.event?.title) : ''
 
   const actions: SheetAction[] = [
+    {
+      key: 'archive',
+      label: archived ? 'Вернуть из архива' : 'В архив',
+      onSelect: async () => {
+        await setArchived({ chat, archived: !archived }).unwrap().catch(toApiError)
+      },
+    },
     {
       key: 'mute',
       label: muted ? 'Включить уведомления' : 'Отключить уведомления',
@@ -42,7 +52,9 @@ export function useChatActions(chat: string): SheetAction[] {
           message:
             chat === FAMILY_CHAT
               ? 'Все сообщения и фото общего чата будут удалены у всех участников. Это нельзя отменить.'
-              : `Вся переписка с «${title}» (сообщения и фото) будет удалена у вас обоих. Это нельзя отменить.`,
+              : isEventChat(chat)
+                ? 'Все сообщения и фото чата события будут удалены у всех участников. Это нельзя отменить.'
+                : `Вся переписка с «${title}» (сообщения и фото) будет удалена у вас обоих. Это нельзя отменить.`,
           confirmLabel: 'Очистить',
           danger: true,
         })

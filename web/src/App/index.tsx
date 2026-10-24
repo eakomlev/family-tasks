@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Provider } from 'react-redux'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/AppShell'
@@ -8,8 +9,10 @@ import { UpdateBanner } from '@/components/UpdateBanner'
 import { IdentityProvider } from '@/identity'
 import { store } from '@/store'
 import { SessionSync } from '@/store/SessionSync'
+import { applyFontScale, getFontScale } from '@/lib/fontScale'
 import { useThemeSync } from '@/lib/useThemeSync'
 import Chat from '@/pages/Chat'
+import ChatArchive from '@/pages/ChatArchive'
 import Coins from '@/pages/Coins'
 import Calendar from '@/pages/Calendar'
 import CalendarSettings from '@/pages/CalendarSettings'
@@ -35,6 +38,8 @@ import MyDay from '@/pages/MyDay'
 import Profile from '@/pages/Profile'
 import ProfileEdit from '@/pages/ProfileEdit'
 import ProfileNotifications from '@/pages/ProfileNotifications'
+import Share from '@/pages/Share'
+import ProfileSettings from '@/pages/ProfileSettings'
 import ProfileTheme from '@/pages/ProfileTheme'
 import Schedule from '@/pages/Schedule'
 import Service from '@/pages/Service'
@@ -46,6 +51,8 @@ import Welcome from '@/pages/Welcome'
 
 export default function App() {
   useThemeSync()
+  // размер шрифта, выбранный в настройках
+  useEffect(() => applyFontScale(getFontScale()), [])
 
   return (
     <Provider store={store}>
@@ -75,6 +82,8 @@ export default function App() {
               <Route path="/goals/:goalId/edit" element={<GoalForm />} />
               <Route path="/lesson-report" element={<LessonReport />} />
               <Route path="/chat" element={<Chat />} />
+              <Route path="/share" element={<Share />} />
+              <Route path="/chat/archive" element={<ChatArchive />} />
               <Route path="/chat/:chat" element={<ChatRoom />} />
               <Route path="/chat/:chat/info" element={<ChatInfo />} />
               <Route path="/family/:memberId/games" element={<GamesList />} />
@@ -94,6 +103,7 @@ export default function App() {
               <Route path="/profile/edit" element={<ProfileEdit />} />
               <Route path="/profile/notifications" element={<ProfileNotifications />} />
               <Route path="/profile/theme" element={<ProfileTheme />} />
+              <Route path="/profile/settings" element={<ProfileSettings />} />
               <Route path="/profile/service" element={<Service />} />
               {/* прежние адреса настроек (закладки, уже отправленные уведомления) */}
               <Route path="/settings" element={<Navigate to="/profile" replace />} />

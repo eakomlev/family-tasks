@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, type TouchEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Chip } from '@/components/Chip'
 import { Page } from '@/components/Page'
@@ -32,7 +32,7 @@ import { useListTasksQuery } from '@/store/tasks'
 import { AgendaList } from './components/AgendaList'
 import { DayTimeline } from './components/DayTimeline'
 import { MonthView } from './components/MonthView'
-import { Arrow, DayHeading, DaySection, Dot, Empty, IconLink, Legend, Period, SettingsLink, Switch, Today } from './styles'
+import { Arrow, DayHeading, DaySection, Dot, Empty, IconLink, Legend, Period, SettingsLink, Switch, SwipeArea, SwitchSpace, Today } from './styles'
 
 const VIEWS: { view: CalendarView; label: string }[] = [
   { view: 'day', label: 'День' },
@@ -82,6 +82,22 @@ export default function Calendar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventData, taskData, members, trainings, range.from, range.to, settings, viewerRole, identity?.memberId])
 
+  // листание пальцем: влево — вперёд, вправо — назад (только заметное движение по горизонтали)
+  const touch = useRef<{ x: number; y: number }>(null)
+  const swipe = {
+    start: (e: TouchEvent) => {
+      touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    },
+    end: (e: TouchEvent) => {
+      const from = touch.current
+      touch.current = null
+      if (!from) return
+      const dx = e.changedTouches[0].clientX - from.x
+      const dy = e.changedTouches[0].clientY - from.y
+      if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) / 1.5) return
+      go(view, shiftAnchor(view, anchor, dx < 0 ? 1 : -1))
+    },
+  }
   const go = (nextView: CalendarView, date: string) => setParams({ view: nextView, date }, { replace: true })
   const loading = (!eventData && events.isFetching) || (!taskData && tasks.isFetching)
 
@@ -125,21 +141,9 @@ export default function Calendar() {
         </Arrow>
       </Period>
 
-      <Switch role="group" aria-label="Вид календаря">
-        {VIEWS.map((v) => (
-          <Chip key={v.view} type="button" aria-pressed={view === v.view} $active={view === v.view} onClick={() => go(v.view, anchor)}>
-            {v.label}
-          </Chip>
-        ))}
-        {anchor !== today && (
-          <Today type="button" onClick={() => go(view, today)}>
-            Сегодня
-          </Today>
-        )}
-      </Switch>
-
       {loading && <Empty role="status">Загрузка…</Empty>}
 
+      <SwipeArea onTouchStart={swipe.start} onTouchEnd={swipe.end}>
       <Stack>
         {view === 'month' && (
           <>
@@ -168,6 +172,7 @@ export default function Calendar() {
           </>
         )}
       </Stack>
+      </SwipeArea>
 
       <Legend aria-label="Обозначения">
         {CALENDAR_KINDS.filter(({ kind }) => settings.kinds[kind]).map(({ kind, label }) => (
@@ -177,6 +182,20 @@ export default function Calendar() {
           </span>
         ))}
       </Legend>
+      <SwitchSpace />
+
+      <Switch role="group" aria-label="Вид календаря">
+        {VIEWS.map((v) => (
+          <Chip key={v.view} type="button" aria-pressed={view === v.view} $active={view === v.view} onClick={() => go(v.view, anchor)}>
+            {v.label}
+          </Chip>
+        ))}
+        {anchor !== today && (
+          <Today type="button" onClick={() => go(view, today)}>
+            Сегодня
+          </Today>
+        )}
+      </Switch>
     </Page>
   )
 }

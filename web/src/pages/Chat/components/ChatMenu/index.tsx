@@ -1,4 +1,5 @@
 import { ActionSheet } from '@/components/ActionSheet'
+import { useChats } from '@/chat/context'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
 import { chatTitle } from '../../utils'
@@ -9,5 +10,6 @@ export function ChatMenu({ chat, onClose }: { chat: string; onClose: () => void 
   const actions = useChatActions(chat)
   const { identity } = useIdentity()
   const { data } = useProfile()
-  return <ActionSheet title={identity ? chatTitle(chat, data?.members ?? [], identity.role) : undefined} actions={actions} onClose={onClose} />
+  const { chats } = useChats()
+  return <ActionSheet title={identity ? chatTitle(chat, data?.members ?? [], identity.role, chats?.find((c) => c.id === chat)?.event?.title) : undefined} actions={actions} onClose={onClose} />
 }
