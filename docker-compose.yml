@@ -25,6 +25,7 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       # push на телефон приложения: серверу нужен только признак, ключ сервисного аккаунта у notifier
       FCM_ENABLED: ${FCM_ENABLED:-}
+      APNS_ENABLED: ${APNS_ENABLED:-}
       # администраторы сервиса (раздел «Сервис» в профиле), email через запятую
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       # адрес сайта для ссылок в письмах-приглашениях: PUBLIC_URL или https://DOMAIN
@@ -62,6 +63,12 @@ services:
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@family-tasks.local}
       # Firebase Cloud Messaging (push в приложение на Android): ключ сервисного аккаунта одной строкой base64
       FCM_SERVICE_ACCOUNT_BASE64: ${FCM_SERVICE_ACCOUNT_BASE64:-}
+      # Apple Push Notification service (push на iPhone): ключ .p8 одной строкой base64, его идентификатор, команда и bundle id
+      APNS_KEY_BASE64: ${APNS_KEY_BASE64:-}
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-ru.familytasks.mobile}
+      APNS_PRODUCTION: ${APNS_PRODUCTION:-true}
       # лимиты провайдеров (подробности в .env.example)
       MAIL_DAILY_LIMIT: ${MAIL_DAILY_LIMIT:-2800}
       MAIL_RATE_PER_SECOND: ${MAIL_RATE_PER_SECOND:-2}
@@ -87,6 +94,7 @@ services:
       # без публичного ключа VAPID и без FCM_ENABLED уведомления выключены, как у server
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       FCM_ENABLED: ${FCM_ENABLED:-}
+      APNS_ENABLED: ${APNS_ENABLED:-}
       # удаление семьи: сначала файлы в сервисе media, потом данные в базе
       MEDIA_URL: http://media:3000
       MEDIA_INTERNAL_TOKEN: ${MEDIA_INTERNAL_TOKEN:-}

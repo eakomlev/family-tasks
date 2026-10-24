@@ -186,7 +186,7 @@ describe('выбор провайдера по виду подписки', () =>
   it('браузерная подписка идёт в Web Push, устройство в FCM, удалённая пропускается', async () => {
     const web = vi.fn(async () => ({ kind: 'sent' as const }))
     const fcm = vi.fn(async () => ({ kind: 'sent' as const }))
-    const route = createPushRouter(pool, { web, fcm })
+    const route = createPushRouter(pool, { web, fcm, apns: async () => ({ kind: 'sent' as const }) })
 
     const browser = await subscribe(memberId)
     const device = await subscribeDevice(memberId)

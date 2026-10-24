@@ -9,8 +9,8 @@ export const subscribePush = (token: string, payload: PushSubscriptionPayload) =
 export const unsubscribePush = (token: string, endpoint: string) =>
   request<void>('/push/unsubscribe', send('POST', { endpoint }), token)
 
-// Устройство с приложением: токен Firebase и часовой пояс (по нему считаются 10:00 и 17:00); повтор обновляет пояс и привязку к участнику
-export const registerDevice = (token: string, payload: { token: string; timeZone: string }) =>
+// Устройство с приложением: токен Firebase (Android) или Apple Push Notification service (iPhone, platform: ios) и часовой пояс (по нему считаются 10:00 и 17:00); повтор обновляет пояс и привязку к участнику
+export const registerDevice = (token: string, payload: { token: string; timeZone: string; platform?: 'android' | 'ios' }) =>
   request<void>('/push/devices', send('POST', payload), token)
 
 // тестовое уведомление на все устройства участника

@@ -13,8 +13,8 @@ const instance = hostname()
 const pool = createPool()
 
 // Без публичного ключа VAPID и без FCM_ENABLED уведомления выключены (как у server): notifier всё равно отбросил бы такие сообщения.
-const enabled = Boolean(process.env.VAPID_PUBLIC_KEY) || process.env.FCM_ENABLED === 'true'
-if (!enabled) log('warn', 'push_disabled', { hint: 'neither VAPID_PUBLIC_KEY nor FCM_ENABLED is set: nothing will be planned' })
+const enabled = Boolean(process.env.VAPID_PUBLIC_KEY) || process.env.FCM_ENABLED === 'true' || process.env.APNS_ENABLED === 'true'
+if (!enabled) log('warn', 'push_disabled', { hint: 'none of VAPID_PUBLIC_KEY, FCM_ENABLED, APNS_ENABLED is set: nothing will be planned' })
 
 // Файлы удаляемых семей убирает сервис media (без его настроек удалять в хранилище нечего)
 const media = mediaCleanerFromEnv()

@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "ru.familytasks.mobile"
+      "bundleIdentifier": "ru.familytasks.mobile",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "ru.familytasks.mobile",
@@ -48,11 +52,18 @@
         {
           "android": {
             "enabled": true,
-            "singleShareMimeTypes": ["text/plain", "image/*", "*/*"],
-            "multipleShareMimeTypes": ["image/*", "*/*"]
+            "singleShareMimeTypes": [
+              "text/plain",
+              "image/*",
+              "*/*"
+            ],
+            "multipleShareMimeTypes": [
+              "image/*",
+              "*/*"
+            ]
           },
           "ios": {
-            "enabled": true,
+            "enabled": false,
             "activationRule": {
               "supportsText": true,
               "supportsWebUrlWithMaxCount": 1,
@@ -65,7 +76,8 @@
       [
         "expo-notifications",
         {
-          "color": "#10133a"
+          "color": "#10133a",
+          "mode": "production"
         }
       ],
       [
@@ -74,7 +86,20 @@
           "contactsPermission": "Нужен доступ к контактам, чтобы вы могли пригласить человека по его email."
         }
       ],
-      "expo-audio"
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Нужен доступ к фотографиям, чтобы вы могли отправлять фото в чат и выбирать аватар.",
+          "cameraPermission": "Нужен доступ к камере, чтобы вы могли снять фото для чата.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

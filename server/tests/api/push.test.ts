@@ -146,6 +146,17 @@ describe('устройство с приложением', () => {
     expect((await device(fam.kid.token, 'short')).status).toBe(400)
   })
 
+  it('iPhone: токен APNs регистрируется видом apns, другой токен отклоняется', async () => {
+    const token = 'ab12'.repeat(16)
+    const ios = (deviceToken: string) => api(app, fam.kid.token, 'POST', '/api/push/devices', { token: deviceToken, timeZone: 'Europe/Moscow', platform: 'ios' })
+    expect((await ios(token)).status).toBe(204)
+    expect(await storedDevice(token)).toEqual([{ member_id: fam.kid.id, time_zone: 'Europe/Moscow', kind: 'apns', p256dh: null, auth: null }])
+    // токен Firebase не годится: из токена APNs формируется адрес запроса к Apple
+    const rejected = await ios('fcm-token-with-dashes-and-letters-xyz')
+    expect(rejected.status).toBe(400)
+    expect(rejected.body.error).toBe('invalid_token')
+  })
+
   it('отписаться от токена можно только от своего', async () => {
     const token = `${TOKEN}-4`
     await device(fam.kid.token, token)

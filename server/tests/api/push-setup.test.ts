@@ -16,6 +16,7 @@ it('push включён, когда задан публичный ключ VAPID
 it('без публичного ключа и FCM push выключен, даже если приватный ключ VAPID задан', async () => {
   vi.stubEnv('VAPID_PUBLIC_KEY', '')
   vi.stubEnv('FCM_ENABLED', '')
+  vi.stubEnv('APNS_ENABLED', '')
   vi.stubEnv('VAPID_PRIVATE_KEY', 'private-key')
   vi.resetModules()
   expect((await import('../../src/push.js')).pushEnabled).toBe(false)

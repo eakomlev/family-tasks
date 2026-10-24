@@ -15,7 +15,7 @@ const app = await buildApp()
 const port = Number(process.env.PORT ?? 3000)
 await app.listen({ port, host: '0.0.0.0' })
 
-if (!pushEnabled) app.log.warn('VAPID keys and FCM_ENABLED are not set: push notifications are disabled (run `npm run vapid` in server/)')
+if (!pushEnabled) app.log.warn('VAPID keys, FCM_ENABLED and APNS_ENABLED are not set: push notifications are disabled (run `npm run vapid` in server/)')
 // истёкшие сессии удаляем при старте и раз в сутки
 const cleanSessions = () => deleteExpiredSessions().catch((err) => app.log.error(err, 'session cleanup failed'))
 void cleanSessions()

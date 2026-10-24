@@ -62,3 +62,27 @@ powershell -ExecutionPolicy Bypass -File scriptsuild-apk-windows.ps1 -ApiUrl ht
 - Собираются архитектуры `arm64-v8a` и `armeabi-v7a` (современные телефоны); эмуляторам x86 такой APK не подходит.
 - Сборка идёт 10–20 минут. Новая сборка отменяет ещё идущую. Релиз пересоздаётся каждый раз, ссылка остаётся той же.
 - Push-уведомления в этой сборке пока не работают (нужен Firebase, фаза 6 плана).
+
+## Сборка для iPhone и TestFlight
+
+Сборку запускает вручную workflow `.github/workflows/mobile-ios.yml` (Actions → «Мобильное приложение: сборка iOS и TestFlight» → Run workflow), на каждый пуш он не запускается: минуты macOS в частных репозиториях считаются с множителем 10. Он собирает приложение на macOS-раннере, подписывает его автоматически и отправляет в TestFlight. После обработки Apple (10–30 минут) сборка появится в App Store Connect → TestFlight.
+
+### Настройка (один раз)
+
+1. **Аккаунт Apple Developer Program** ($99 в год): https://developer.apple.com/programs/enroll. Для личного аккаунта одобрение занимает от часа до пары дней. Team ID смотрите в developer.apple.com → Membership details.
+2. **Запись приложения** в https://appstoreconnect.apple.com → Apps → «+» → New App: платформа iOS, название «Моя Семья», основной язык русский, **Bundle ID `ru.familytasks.mobile`** (если его нет в списке, сначала создайте в developer.apple.com → Certificates, Identifiers & Profiles → Identifiers → «+» → App IDs → App; capability Push Notifications включится при подписи), любой SKU. Без этой записи отправка сборки не пройдёт.
+3. **Ключ App Store Connect API** (им Xcode сам выпускает сертификат и профиль и загружает сборку): App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys → «+», доступ **Admin** (или App Manager). Скачайте файл `AuthKey_XXXXXXXXXX.p8` (он скачивается один раз), запишите Key ID и Issuer ID со страницы.
+4. **Секреты репозитория** (Settings → Secrets and variables → Actions): `APPLE_TEAM_ID`, `APPSTORE_KEY_ID`, `APPSTORE_ISSUER_ID` и `APPSTORE_KEY_P8_BASE64` (содержимое файла `.p8` одной строкой base64: в PowerShell `[Convert]::ToBase64String([IO.File]::ReadAllBytes("AuthKey_XXXXXXXXXX.p8"))`). Переменная репозитория `MOBILE_API_URL` та же, что для APK.
+5. **Тестировщики:** в App Store Connect → TestFlight → Internal Testing создайте группу и добавьте людей (им нужен Apple ID, приглашённый в App Store Connect → Users and Access, роль хотя бы Customer Support/Marketing) или внешнюю группу по ссылке (первую внешнюю сборку Apple проверяет вручную). Тестировщик ставит приложение TestFlight из App Store и открывает приглашение.
+
+### Push на iPhone (APNs)
+
+Ключ для push отдельный: developer.apple.com → Certificates, Identifiers & Profiles → Keys → «+» → **Apple Push Notifications service (APNs)** → скачайте `.p8`. В `.env` сервера задайте `APNS_ENABLED=true`, `APNS_KEY_BASE64` (файл одной строкой base64), `APNS_KEY_ID`, `APNS_TEAM_ID` (`APNS_BUNDLE_ID` по умолчанию `ru.familytasks.mobile`), перезапустите `server`, `scheduler` и `notifier` (`./update.sh`). Сборки из TestFlight и App Store используют боевой APNs (`APNS_PRODUCTION=true`). Токен регистрируется, когда человек включает уведомления в приложении.
+
+### Как устроено
+
+- **Нативный проект** (`ios/`, в репозитории его нет) создаёт `expo prebuild` на раннере; название приложения кириллицей, поэтому workflow сам находит `*.xcworkspace` и схему.
+- **Подпись автоматическая:** `xcodebuild -allowProvisioningUpdates` с ключом App Store Connect API выпускает облачный сертификат распространения и профиль, ничего хранить не нужно. `-exportArchive` с `destination upload` сразу загружает сборку в App Store Connect.
+- **Номер сборки** (`CFBundleVersion`) равен номеру запуска workflow, версия (`CFBundleShortVersionString`) берётся из `version` в `app.json`. Описание шифрования заранее задано (`usesNonExemptEncryption: false`), вопросов про экспорт в TestFlight не будет.
+- **Расширение «Поделиться»** на iPhone выключено (`expo-sharing`, `ios.enabled: false`): ему нужна отдельная подпись и группа приложений. Включите после первой успешной сборки и зарегистрируйте группу `group.ru.familytasks.mobile`.
+- **Prebuild iOS на Windows не работает**, проверять сборку можно только на macOS или в этом workflow.

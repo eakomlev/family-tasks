@@ -1,0 +1,125 @@
+name: "Мобильное приложение: сборка iOS и TestFlight"
+
+# Собирает приложение для iPhone и отправляет сборку в TestFlight. Запускается вручную (Actions → эта сборка → Run workflow):
+# минуты macOS-раннеров в частных репозиториях считаются с множителем 10, поэтому на каждый пуш в main сборка не запускается.
+# Один раз нужны аккаунт Apple Developer, запись приложения в App Store Connect и секреты репозитория (инструкция: mobile/README.md,
+# раздел «Сборка для iPhone и TestFlight»). Подпись автоматическая: Xcode сам выпускает сертификат и профиль по ключу App Store Connect API.
+on:
+  workflow_dispatch:
+
+# новая сборка отменяет ещё идущую: нужен только свежий билд
+concurrency:
+  group: mobile-ios
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: "Сборка и отправка в TestFlight"
+    runs-on: macos-15
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      # адрес сервера вшивается в приложение при сборке (Settings → Secrets and variables → Actions → Variables)
+      EXPO_PUBLIC_API_URL: ${{ vars.MOBILE_API_URL }}
+      # растёт с каждой сборкой: TestFlight принимает только номер сборки больше прежних
+      IOS_BUILD_NUMBER: ${{ github.run_number }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+      APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+      APPSTORE_KEY_P8_BASE64: ${{ secrets.APPSTORE_KEY_P8_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Проверка настроек
+        run: |
+          missing=""
+          [ -z "$EXPO_PUBLIC_API_URL" ] && missing="$missing переменная MOBILE_API_URL;"
+          [ -z "$APPLE_TEAM_ID" ] && missing="$missing секрет APPLE_TEAM_ID;"
+          [ -z "$APPSTORE_KEY_ID" ] && missing="$missing секрет APPSTORE_KEY_ID;"
+          [ -z "$APPSTORE_ISSUER_ID" ] && missing="$missing секрет APPSTORE_ISSUER_ID;"
+          [ -z "$APPSTORE_KEY_P8_BASE64" ] && missing="$missing секрет APPSTORE_KEY_P8_BASE64;"
+          if [ -n "$missing" ]; then
+            echo "::error::Не заданы:$missing см. mobile/README.md, раздел «Сборка для iPhone и TestFlight»"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      # нативный проект создаётся на лету (в репозитории его нет); название приложения кириллицей, поэтому имя проекта находим сами
+      - name: Нативный проект iOS
+        run: |
+          npx expo prebuild --platform ios --no-install
+          cd ios && pod install
+
+      - name: Номер сборки
+        run: |
+          plist=$(ls ios/*/Info.plist | head -1)
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $IOS_BUILD_NUMBER" "$plist"
+          echo "Info.plist: $plist, сборка $IOS_BUILD_NUMBER"
+
+      - name: Ключ App Store Connect
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          echo "$APPSTORE_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/keys/AuthKey_$APPSTORE_KEY_ID.p8"
+
+      - name: Архив
+        run: |
+          workspace=$(ls -d ios/*.xcworkspace | head -1)
+          scheme=$(basename "$workspace" .xcworkspace)
+          echo "workspace=$workspace scheme=$scheme"
+          set -o pipefail
+          xcodebuild archive \
+            -workspace "$workspace" \
+            -scheme "$scheme" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$APPSTORE_KEY_ID.p8" \
+            -authenticationKeyID "$APPSTORE_KEY_ID" \
+            -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            | tail -n 60
+
+      # destination upload: Xcode сам отправляет собранный ipa в App Store Connect, он появляется в TestFlight после обработки (10–30 минут)
+      - name: Экспорт и отправка в TestFlight
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$APPLE_TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          EOF
+          set -o pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$APPSTORE_KEY_ID.p8" \
+            -authenticationKeyID "$APPSTORE_KEY_ID" \
+            -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID" \
+            | tail -n 40
+
+      - name: Убрать ключ
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"

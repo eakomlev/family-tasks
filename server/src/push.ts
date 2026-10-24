@@ -11,10 +11,12 @@ const publicKey = process.env.VAPID_PUBLIC_KEY
 // Push на телефон приложения (Android через Firebase Cloud Messaging): сервер знает только признак «включено», ключ сервисного аккаунта
 // есть у notifier. Подписка-токен хранится рядом с веб-подписками (kind = 'fcm').
 export const fcmEnabled = process.env.FCM_ENABLED === 'true'
+// То же для iPhone (Apple Push Notification service, kind = 'apns'): ключ APNs у notifier
+export const apnsEnabled = process.env.APNS_ENABLED === 'true'
 export const webPushEnabled = Boolean(publicKey)
 
 // push включён, если работает хотя бы один способ доставки
-export const pushEnabled = webPushEnabled || fcmEnabled
+export const pushEnabled = webPushEnabled || fcmEnabled || apnsEnabled
 
 // Сервер сам делает запрос на адрес из подписки, поэтому принимаем только адреса известных push-сервисов:
 // иначе любой участник мог бы заставить сервер обращаться к произвольным https-адресам (SSRF).
@@ -65,6 +67,8 @@ const deviceSchema = {
       // токен Firebase длиной около 150–200 знаков; запас с избытком
       token: { type: 'string', minLength: 20, maxLength: 4096 },
       timeZone: { type: 'string', minLength: 1, maxLength: 64 },
+      // телефон: android (токен Firebase, по умолчанию) или ios (токен APNs)
+      platform: { type: 'string', enum: ['android', 'ios'] },
     },
   },
 }
@@ -112,20 +116,22 @@ export async function pushRoutes(app: FastifyInstance) {
 
   // Устройство с приложением: токен Firebase и часовой пояс (по нему считаются 10:00 и 17:00). Токен переходит к тому, кто вошёл на
   // устройстве последним. Адрес по токену никто не запрашивает, поэтому проверка адреса (SSRF) здесь не нужна.
-  app.post<{ Body: { token: string; timeZone: string } }>('/api/push/devices', { schema: deviceSchema, config: strictLimit }, async (req, reply) => {
+  app.post<{ Body: { token: string; timeZone: string; platform?: 'android' | 'ios' } }>('/api/push/devices', { schema: deviceSchema, config: strictLimit }, async (req, reply) => {
     const me = await authenticate(req)
     if (!me) return reply.code(401).send({ error: 'unauthorized' })
-    if (!fcmEnabled) return reply.code(503).send({ error: 'push_not_configured' })
-
     const { token, timeZone } = req.body
+    const kind = req.body.platform === 'ios' ? 'apns' : 'fcm'
+    if (!(kind === 'apns' ? apnsEnabled : fcmEnabled)) return reply.code(503).send({ error: 'push_not_configured' })
     if (!isValidTimeZone(timeZone)) return reply.code(400).send({ error: 'invalid_time_zone' })
+    // токен APNs это шестнадцатеричная строка: из неё потом формируется адрес запроса к Apple
+    if (kind === 'apns' && !/^[0-9a-f]{32,200}$/i.test(token)) return reply.code(400).send({ error: 'invalid_token' })
 
     await pool.query(
       `insert into push_subscriptions (member_id, endpoint, p256dh, auth, time_zone, kind)
-       values ($1, $2, null, null, $3, 'fcm')
+       values ($1, $2, null, null, $3, $4)
        on conflict (endpoint) do update
-         set member_id = excluded.member_id, p256dh = null, auth = null, time_zone = excluded.time_zone, kind = 'fcm'`,
-      [me.id, token, timeZone],
+         set member_id = excluded.member_id, p256dh = null, auth = null, time_zone = excluded.time_zone, kind = excluded.kind`,
+      [me.id, token, timeZone, kind],
     )
     return reply.code(204).send()
   })

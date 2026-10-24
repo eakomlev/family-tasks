@@ -5,7 +5,7 @@ import { registerDevice, sendTestPush, unsubscribePush } from '@/api'
 import { useIdentity } from '@/identity/context'
 import { getKv } from '@/lib/kv'
 
-// Состояние уведомлений на этом устройстве: `unsupported` (не Android, пока iPhone ждёт ключ APNs), `denied` (запрещено в настройках
+// Состояние уведомлений на этом устройстве: `unsupported` (не телефон, например браузер), `denied` (запрещено в настройках
 // телефона), `off` (не включены), `on` (включены, токен зарегистрирован на сервере).
 export type PushState = 'unsupported' | 'denied' | 'off' | 'on'
 
@@ -13,11 +13,13 @@ const TOKEN_KEY = 'push-device-token'
 const DISMISSED_KEY = 'push-prompt-dismissed'
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
-const supported = Platform.OS === 'android'
+const supported = Platform.OS === 'android' || Platform.OS === 'ios'
 const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 
 // Канал уведомлений Android: сообщения с сервера идут в него (channel_id = default)
 async function ensureChannel() {
+  // каналов уведомлений на iPhone нет
+  if (Platform.OS !== 'android') return
   await Notifications.setNotificationChannelAsync('default', {
     name: 'Уведомления',
     importance: Notifications.AndroidImportance.MAX,
@@ -30,11 +32,12 @@ export async function registerThisDevice(sessionToken: string): Promise<void> {
   await ensureChannel()
   const device = await Notifications.getDevicePushTokenAsync()
   const token = String(device.data)
-  await registerDevice(sessionToken, { token, timeZone: timeZone() })
+  // на Android токен Firebase, на iPhone токен APNs: сервер отправляет каждому своим способом
+  await registerDevice(sessionToken, { token, timeZone: timeZone(), platform: Platform.OS === 'ios' ? 'ios' : 'android' })
   getKv().setItem(TOKEN_KEY, token)
 }
 
-// Включение по нажатию: запрос разрешения (Android 13 и новее), затем регистрация
+// Включение по нажатию: запрос разрешения (Android 13 и новее, iPhone), затем регистрация
 export async function enablePush(sessionToken: string): Promise<PushState> {
   if (!supported) return 'unsupported'
   const permission = await Notifications.requestPermissionsAsync()
