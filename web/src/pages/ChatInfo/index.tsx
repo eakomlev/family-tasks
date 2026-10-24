@@ -3,7 +3,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { FAMILY_CHAT, listChatLinks, listChatMedia, searchChatMessages, type ChatLink, type ChatMediaItem, type ChatSearchResult } from '@/api'
 import { useChats } from '@/chat/context'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
@@ -116,7 +116,7 @@ export default function ChatInfo() {
 
   return (
     <Page>
-      <BackLink to={`/chat/${chat}`}>← Чат</BackLink>
+      <PageHeader to={`/chat/${chat}`}>Информация</PageHeader>
 
       <Profile>
         {other ? (
@@ -128,7 +128,7 @@ export default function ChatInfo() {
             </svg>
           </GroupIcon>
         )}
-        <h1>{title}</h1>
+        <h2>{title}</h2>
         {other && (
           <>
             <Role>{ROLE_LABELS[other.role]}</Role>

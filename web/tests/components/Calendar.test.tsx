@@ -94,7 +94,7 @@ describe('календарь: виды', () => {
   it('месяц: сетка, сегодняшний выбранный день, праздник, день рождения, событие в списке выбранного дня', async () => {
     vi.mocked(api.listEvents).mockResolvedValue({ events: [event({ startDate: '2026-11-04', endDate: '2026-11-04', title: 'Субботник' })] })
     renderAt('/calendar?view=month&date=2026-11-04')
-    expect(screen.getByRole('heading', { level: 1, name: 'Ноябрь 2026' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Ноябрь 2026' })).toBeInTheDocument()
     // выбранный день: праздник и событие
     const section = await screen.findByRole('region', { name: 'Ср, 4 ноября' })
     expect(await within(section).findByText('Субботник')).toBeInTheDocument()
@@ -110,7 +110,7 @@ describe('календарь: виды', () => {
   it('неделя: семь дней, записи по дням; нажатие на день открывает его', async () => {
     vi.mocked(api.listEvents).mockResolvedValue({ events: [event()] })
     renderAt('/calendar?view=week&date=2026-11-07')
-    expect(screen.getByRole('heading', { level: 1, name: '2–8 ноября' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: '2–8 ноября' })).toBeInTheDocument()
     const sat = await screen.findByRole('region', { name: 'Сб, 7 ноября' })
     expect(await within(sat).findByText('Поход в театр')).toBeInTheDocument()
     expect(within(sat).getByText('18:00–20:30')).toBeInTheDocument()
@@ -121,13 +121,13 @@ describe('календарь: виды', () => {
 
   it('день: записи списком, без записей подсказка; стрелки и «Сегодня»', async () => {
     renderAt('/calendar?view=day&date=2026-11-05')
-    expect(screen.getByRole('heading', { level: 1, name: 'Четверг, 5 ноября' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Четверг, 5 ноября' })).toBeInTheDocument()
     expect(await screen.findByText('В этот день записей нет')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Вперёд' }))
-    expect(screen.getByRole('heading', { level: 1, name: 'Пятница, 6 ноября' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Пятница, 6 ноября' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Назад' }))
     await userEvent.click(screen.getByRole('button', { name: 'Назад' }))
-    expect(screen.getByRole('heading', { level: 1, name: 'Среда, 4 ноября' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Среда, 4 ноября' })).toBeInTheDocument()
     expect(await screen.findByText('День народного единства')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Сегодня' }))
     expect(screen.getByTestId('where')).not.toHaveTextContent('2026-11-04')

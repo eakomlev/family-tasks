@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { isParent } from '@/lib/roles'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { CoinIcon } from '@/components/CoinBalance'
 import { useConfirm } from '@/components/ConfirmDialog/context'
@@ -94,14 +94,14 @@ export default function GoalView() {
 
   return (
     <Page>
-      <BackLink to={back}>← {isChild ? 'Монеты' : 'Цели'}</BackLink>
+      <PageHeader to={back}>Цель</PageHeader>
       {state === 'loading' && <p>Загрузка…</p>}
       {state === 'failed' && !goal && <Notice $tone="error">Не удалось загрузить цель. Проверьте соединение.</Notice>}
       {goal && (
         <>
           <GoalImage goal={goal} large />
           <Details>
-            <h1>{goal.title}</h1>
+            <h2>{goal.title}</h2>
             <PriceLine>
               <CoinIcon />
               {goal.price}

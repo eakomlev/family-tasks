@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { FAMILY_CHAT } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Field } from '@/components/Field'
 import { Notice } from '@/components/Notice'
@@ -51,8 +51,7 @@ export default function LessonReport() {
 
   return (
     <Page>
-      <BackLink to={START_PATH}>← Мой день</BackLink>
-      <h1>Что ты хочешь сообщить!</h1>
+      <PageHeader to={START_PATH}>Что ты хочешь сообщить!</PageHeader>
       <Subject>Урок «{subject}»</Subject>
 
       <Stack as="form" onSubmit={(e) => { e.preventDefault(); void send() }}>

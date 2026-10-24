@@ -1,6 +1,6 @@
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { type TaskInput } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
@@ -56,8 +56,7 @@ export default function TaskForm() {
 
   return (
     <Page>
-      <BackLink to={taskId ? `/tasks/${taskId}` : '/tasks'}>{taskId ? '← Задание' : '← Задания'}</BackLink>
-      <h1>{taskId ? 'Изменить задание' : 'Новое задание'}</h1>
+      <PageHeader to={taskId ? `/tasks/${taskId}` : '/tasks'}>{taskId ? 'Изменить задание' : 'Новое задание'}</PageHeader>
 
       {!taskId && members.length > 0 && (
         <TaskEditor initial={emptyForm(members.some((m) => m.id === preselected) ? preselected! : me)} members={members} me={me} submitLabel="Создать" onSubmit={create} />

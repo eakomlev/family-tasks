@@ -39,7 +39,6 @@ export function NotificationsSetting({ token }: NotificationsSettingProps) {
 
   return (
     <Stack as="section">
-      <h1>Уведомления</h1>
       {hint && <Notice $tone="muted">{hint}</Notice>}
       {error && <Notice $tone="error">{error}</Notice>}
 

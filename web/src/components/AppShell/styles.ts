@@ -2,13 +2,13 @@ import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 // переменная нужна и панели табов, и содержимому, чтобы оно не пряталось под панелью
-export const Root = styled.div<{ $reserve: string; $chatRoom: boolean }>`
+export const Root = styled.div<{ $reserve: string; $noTabs: boolean }>`
   /* плавающая панель табов: высота овала, зазор под ним и часть нижнего отступа iPhone (индикатор «Домой» остаётся ниже) */
   --tabbar-bottom: calc(env(safe-area-inset-bottom) * 0.4);
   --tabbar-bar-height: 4rem;
   --tabbar-gap: 0.6rem;
-  /* в переписке панели табов нет: остаётся лишь часть нижнего отступа под индикатор «Домой», поле ввода почти у края экрана */
-  --tabbar-height: ${({ $chatRoom }) => ($chatRoom ? 'var(--tabbar-bottom)' : 'calc(var(--tabbar-bar-height) + var(--tabbar-gap) + var(--tabbar-bottom) + 0.6rem)')};
+  /* в переписке и на вложенных страницах панели табов нет: остаётся лишь часть нижнего отступа под индикатор «Домой» */
+  --tabbar-height: ${({ $noTabs }) => ($noTabs ? 'var(--tabbar-bottom)' : 'calc(var(--tabbar-bar-height) + var(--tabbar-gap) + var(--tabbar-bottom) + 0.6rem)')};
   /* сколько места справа вверху занимают баланс монет (у детей) и значок профиля: шапки страниц не должны под них заезжать */
   --topbar-reserve: ${({ $reserve }) => $reserve};
   position: relative;

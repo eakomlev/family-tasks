@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
@@ -17,8 +17,7 @@ export default function Invite() {
 
   return (
     <Page>
-      <BackLink to="/family">← Моя семья</BackLink>
-      <h1>Пригласить в семью</h1>
+      <PageHeader to="/family">Пригласить в семью</PageHeader>
       <p>По приглашению можно присоединиться как мама, папа, бабушка, дедушка или ребёнок.</p>
       {identity && data && (
         <>

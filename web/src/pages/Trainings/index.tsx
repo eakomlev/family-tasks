@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { DayTabs } from '@/components/DayTabs'
@@ -125,8 +125,7 @@ export default function Trainings() {
 
   return (
     <Page>
-      <BackLink to={isOwn ? '/profile' : `/family/${memberId}`}>← Назад</BackLink>
-      <h1>Расписание тренировок</h1>
+      <PageHeader to={isOwn ? '/profile' : `/family/${memberId}`}>Расписание тренировок</PageHeader>
       {!isOwn && target && <Subtitle>{target.name}</Subtitle>}
 
       {loadFailed && <Notice $tone="error">Не удалось загрузить расписание тренировок. Проверьте соединение.</Notice>}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { BodyTitle, PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Notice } from '@/components/Notice'
@@ -59,11 +59,11 @@ export default function EventView() {
 
   return (
     <Page>
-      <BackLink to={event ? `/calendar?date=${event.startDate}` : '/calendar'}>← Календарь</BackLink>
+      <PageHeader to={event ? `/calendar?date=${event.startDate}` : '/calendar'}>Событие</PageHeader>
       {!event && <p>Загрузка…</p>}
       {event && (
         <>
-          <h1>{event.title}</h1>
+          <BodyTitle>{event.title}</BodyTitle>
           <Details>
             <dt>Когда</dt>
             <dd>{whenText(event)}</dd>

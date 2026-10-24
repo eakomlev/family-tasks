@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { getRobloxAvatar, type ProfilePatch } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { SlideInPage as Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { dataUrlToFile, resizeToAvatar } from '@/lib/image'
@@ -58,12 +58,11 @@ export default function ProfileEdit() {
     if (patch.name && identity) await save({ ...identity, name: patch.name })
   }
 
-  if (!data) return <Page><BackLink to="/profile">← Профиль</BackLink><h1>Изменить профиль</h1><p>Загрузка…</p></Page>
+  if (!data) return <Page><PageHeader to="/profile">Изменить профиль</PageHeader><p>Загрузка…</p></Page>
 
   return (
     <Page>
-      <BackLink to="/profile">← Профиль</BackLink>
-      <h1>Изменить профиль</h1>
+      <PageHeader to="/profile">Изменить профиль</PageHeader>
       <AvatarEditor
         name={data.me.name}
         seed={data.me.id}

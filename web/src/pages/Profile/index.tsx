@@ -5,11 +5,13 @@ import { CoinBalanceCard } from '@/components/CoinBalance'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { MenuLink } from '@/components/MenuLink'
 import { SlideInPage as Page } from '@/components/Page'
+import { PageHeader } from '@/components/PageHeader'
 import { useIdentity } from '@/identity/context'
+import { START_PATH } from '@/lib/routes'
 import { ageFromBirthDate, formatAge, formatBirthDate } from '@/lib/date'
 import { ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
-import { Badge, EditLink, Facts, Header, Hero, LogoutBox, Menu } from './styles'
+import { Badge, EditLink, Facts, Hero, LogoutBox, Menu } from './styles'
 
 // Профиль кратко: фото, имя, роль, дата рождения и email; ниже пункты (расписания у детей, уведомления, тема) и «Выйти».
 // Править имя, дату рождения и фото: «Изменить» справа сверху.
@@ -38,10 +40,9 @@ export default function Profile() {
 
   return (
     <Page>
-      <Header>
-        <h1>Профиль</h1>
-        {me && <EditLink to="/profile/edit">Изменить</EditLink>}
-      </Header>
+      <PageHeader to={START_PATH} right={me ? <EditLink to="/profile/edit">Изменить</EditLink> : undefined}>
+        Профиль
+      </PageHeader>
       {!me && <p>Загрузка…</p>}
       {me && (
         <>

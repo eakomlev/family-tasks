@@ -8,6 +8,12 @@ export const Hero = styled.section`
   gap: 0.5rem;
   padding-top: 1rem;
   text-align: center;
+
+  h2 {
+    margin: 0;
+    font-size: 1.65rem;
+    line-height: 1.15;
+  }
 `
 
 export const Badge = styled.span`

@@ -29,8 +29,9 @@ function renderPage(page: React.ReactNode) {
 }
 
 describe('таб-бар без «Настроек»', () => {
-  it('четыре таба: задачи, чат, мой день, семья', () => {
-    expect(TABS.map((t) => t.path)).toEqual(['/tasks', '/chat', '/my-day', '/family'])
+  it('четыре таба, как в приложении: мой день, задачи, чат, семья', () => {
+    expect(TABS.map((t) => t.path)).toEqual(['/my-day', '/tasks', '/chat', '/family'])
+    expect(TABS.map((t) => t.label)).toEqual(['Мой день', 'Задачи', 'Чат', 'Семья'])
     render(
       <ChatsContext.Provider value={{ chats: [], unread: 0 }}>
         <MemoryRouter><TabBar /></MemoryRouter>
@@ -46,18 +47,19 @@ describe('страницы профиля', () => {
     renderPage(<ProfileEdit />)
     expect(screen.getByLabelText('Имя')).toHaveValue('Лена')
     expect(screen.getByLabelText(/^Дата рождения/)).toHaveValue('1990-05-01')
-    expect(screen.getByRole('link', { name: /Профиль/ })).toHaveAttribute('href', '/profile')
+    expect(screen.getByRole('link', { name: 'Назад' })).toHaveAttribute('href', '/profile')
+    expect(screen.getByRole('heading', { name: 'Изменить профиль' })).toBeInTheDocument()
   })
 
   it('«Уведомления» и «Тема» открываются отдельными страницами со ссылкой назад', () => {
     renderPage(<ProfileNotifications />)
     expect(screen.getByRole('heading', { name: 'Уведомления' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Профиль/ })).toHaveAttribute('href', '/profile')
+    expect(screen.getByRole('link', { name: 'Назад' })).toHaveAttribute('href', '/profile')
   })
 
   it('тема: три варианта выбора', () => {
     renderPage(<ProfileTheme />)
-    expect(screen.getByRole('heading', { name: 'Тема оформления' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Тема' })).toBeInTheDocument()
     expect(screen.getAllByRole('radio')).toHaveLength(3)
   })
 })

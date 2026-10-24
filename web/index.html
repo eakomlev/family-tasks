@@ -8,7 +8,7 @@
     <link rel="icon" type="image/png" href="/pwa-192x192.png" sizes="192x192" />
     <!-- viewport-fit=cover: без него iOS не сообщает безопасные отступы (env(safe-area-inset-*)), и панель табов уходит под индикатор «Домой» и скруглённые углы -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#f1f4ff" />
+    <meta name="theme-color" content="#f5f6fb" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <!-- подпись под значком на «Домой» в iOS -->
     <meta name="apple-mobile-web-app-title" content="Моя Семья" />
@@ -19,7 +19,7 @@
         var saved = localStorage.getItem('theme')
         if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved
         var dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
-        document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#0b0e1f' : '#f1f4ff')
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#0b0e1f' : '#f5f6fb')
       } catch (e) {}
     </script>
   </head>

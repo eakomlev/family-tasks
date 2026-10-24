@@ -2,8 +2,10 @@ import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Chip } from '@/components/Chip'
 import { Page } from '@/components/Page'
+import { PageHeader } from '@/components/PageHeader'
 import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
+import { START_PATH } from '@/lib/routes'
 import {
   birthdayItems,
   compareItems,
@@ -30,7 +32,7 @@ import { useListTasksQuery } from '@/store/tasks'
 import { AgendaList } from './components/AgendaList'
 import { DayTimeline } from './components/DayTimeline'
 import { MonthView } from './components/MonthView'
-import { Arrow, DayHeading, DaySection, Dot, Empty, IconLink, Legend, Period, SettingsLink, Switch, Today, TopBar } from './styles'
+import { Arrow, DayHeading, DaySection, Dot, Empty, IconLink, Legend, Period, SettingsLink, Switch, Today } from './styles'
 
 const VIEWS: { view: CalendarView; label: string }[] = [
   { view: 'day', label: 'День' },
@@ -87,33 +89,41 @@ export default function Calendar() {
 
   return (
     <Page>
-      <TopBar>
-        <IconLink to={`/calendar/events/new?date=${anchor}`} aria-label="Новое событие">
+      <PageHeader
+        to={START_PATH}
+        right={
+          <>
+            <IconLink to={`/calendar/events/new?date=${anchor}`} aria-label="Новое событие">
+              <svg viewBox="0 0 24 24" aria-hidden>
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </IconLink>
+            <SettingsLink to="/calendar/settings" aria-label="Настройки календаря">
+              <svg viewBox="0 0 24 24" aria-hidden>
+                <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+                <circle cx="16" cy="7" r="2" />
+                <circle cx="8" cy="17" r="2" />
+              </svg>
+            </SettingsLink>
+          </>
+        }
+      >
+        Календарь
+      </PageHeader>
+
+      <Period>
+        <Arrow type="button" aria-label="Назад" onClick={() => go(view, shiftAnchor(view, anchor, -1))}>
           <svg viewBox="0 0 24 24" aria-hidden>
-            <path d="M12 5v14M5 12h14" />
+            <path d="M15 5l-7 7 7 7" />
           </svg>
-        </IconLink>
-        <Period>
-          <Arrow type="button" aria-label="Назад" onClick={() => go(view, shiftAnchor(view, anchor, -1))}>
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <path d="M15 5l-7 7 7 7" />
-            </svg>
-          </Arrow>
-          <h1 aria-live="polite">{formatPeriod(view, anchor)}</h1>
-          <Arrow type="button" aria-label="Вперёд" onClick={() => go(view, shiftAnchor(view, anchor, 1))}>
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <path d="M9 5l7 7-7 7" />
-            </svg>
-          </Arrow>
-        </Period>
-        <SettingsLink to="/calendar/settings" aria-label="Настройки календаря">
+        </Arrow>
+        <h2 aria-live="polite">{formatPeriod(view, anchor)}</h2>
+        <Arrow type="button" aria-label="Вперёд" onClick={() => go(view, shiftAnchor(view, anchor, 1))}>
           <svg viewBox="0 0 24 24" aria-hidden>
-            <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
-            <circle cx="16" cy="7" r="2" />
-            <circle cx="8" cy="17" r="2" />
+            <path d="M9 5l7 7-7 7" />
           </svg>
-        </SettingsLink>
-      </TopBar>
+        </Arrow>
+      </Period>
 
       <Switch role="group" aria-label="Вид календаря">
         {VIEWS.map((v) => (

@@ -8,8 +8,10 @@ export const Profile = styled.div`
   padding: 0.5rem 0;
   text-align: center;
 
-  h1 {
+  h2 {
     margin: 0.3rem 0 0;
+    font-size: 1.65rem;
+    line-height: 1.15;
   }
 
   p {

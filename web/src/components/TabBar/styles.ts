@@ -54,11 +54,11 @@ export const TabLink = styled(NavLink)`
   -webkit-touch-callout: none;
   transition: background-color 0.2s ease, padding 0.25s cubic-bezier(0.3, 1.4, 0.5, 1);
 
-  /* выбранный таб: лаймовая капсула со значком и подписью */
+  /* выбранный таб: капсула со значком и подписью (в светлой теме мягкий индиго, в тёмной золотистая) */
   &.active {
     padding: 0 1rem 0 0.8rem;
-    background: var(--lime);
-    color: var(--on-lime);
+    background: var(--tabbar-active-bg);
+    color: var(--tabbar-active-text);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -66,7 +66,7 @@ export const TabLink = styled(NavLink)`
   }
 
   &:focus-visible {
-    outline: 2px solid var(--lime);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
 `
@@ -151,6 +151,6 @@ export const Badge = styled.span`
   ${TabLink}.active & {
     right: auto;
     left: -0.75rem;
-    border-color: var(--lime);
+    border-color: var(--tabbar-active-bg);
   }
 `

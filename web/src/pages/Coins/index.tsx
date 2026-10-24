@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { listCoinHistory, type CoinEntry } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { CoinIcon } from '@/components/CoinBalance'
 import { Notice } from '@/components/Notice'
@@ -98,12 +98,7 @@ export default function Coins() {
 
   return (
     <Page>
-      {isChild ? (
-        <BackLink to={START_PATH}>← Мой день</BackLink>
-      ) : (
-        <BackLink to={`/family/${memberId}`}>← {owner?.name ?? 'Назад'}</BackLink>
-      )}
-      <h1>{isChild || !owner ? 'Монеты' : `Монеты: ${owner.name}`}</h1>
+      <PageHeader to={isChild ? START_PATH : `/family/${memberId}`}>{isChild || !owner ? 'Монеты' : `Монеты: ${owner.name}`}</PageHeader>
 
       <Total aria-live="polite">
         <CoinIcon />

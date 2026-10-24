@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { ChessBoard } from '@/components/ChessBoard'
 import { useConfirm } from '@/components/ConfirmDialog/context'
@@ -69,8 +69,7 @@ export default function Game() {
 
   return (
     <Page>
-      <BackLink to="/">← {title}</BackLink>
-      <h1>{title}</h1>
+      <PageHeader to="/">{title}</PageHeader>
       {!game && !query.isError && <p>Загрузка…</p>}
       {!game && query.isError && <Notice $tone="error">Не удалось загрузить игру. Проверьте соединение.</Notice>}
 

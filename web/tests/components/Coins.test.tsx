@@ -217,7 +217,7 @@ describe('страница истории монет', () => {
       expect(await screen.findByRole('heading', { name: 'Монеты: Миша' })).toBeInTheDocument()
       expect(api.listCoinHistory).toHaveBeenCalledWith('tok', undefined, 'kid')
       expect(await screen.findByText('30')).toBeInTheDocument()
-      expect(screen.getByRole('link', { name: /Миша/ })).toHaveAttribute('href', '/family/kid')
+      expect(screen.getByRole('link', { name: 'Назад' })).toHaveAttribute('href', '/family/kid')
     })
 
     it('без выбранного ребёнка родителя уводит на стартовую страницу', () => {

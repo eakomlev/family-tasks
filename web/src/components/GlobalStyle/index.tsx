@@ -1,14 +1,14 @@
 import { createGlobalStyle, css } from 'styled-components'
 
 const lightColors = css`
-  --bg: #f1f4ff;
+  --bg: #f5f6fb;
   --surface: #fff;
-  --text: #141633;
-  --muted: #5f6487;
-  --border: #d9ddf2;
+  --text: #14162b;
+  --muted: #6b7090;
+  --border: #e6e8f2;
   --accent: #4b3bff;
   --accent-text: #fff;
-  --accent-soft: #e6e3ff;
+  --accent-soft: #e9e6ff;
   --accent-shadow: 0 10px 22px rgb(75 59 255 / 0.3);
   --error: #d32f2f;
   --success: #3e8e00;
@@ -18,18 +18,18 @@ const lightColors = css`
   --lime: #c4f04a;
   --on-lime: #1f2e00;
   --coin: #ffc233;
-  --coin-bg: #fff3cf;
+  --coin-bg: #fff4d6;
   --coin-text: #7a4b00;
   --done-bg: #e9fbc4;
   --done-text: #3e5b00;
   --review-bg: #e6e3ff;
   --review-text: #3424c9;
   /* карточки: в светлой теме белые с мягкой тенью, в тёмной с тонкой рамкой */
-  --card-border: transparent;
+  --card-border: #eceef6;
   --card-shadow: 0 6px 18px rgb(40 50 120 / 0.08);
   --radius-card: 1.35rem;
-  --track: #e3e6f7;
-  --check-border: #c9cde8;
+  --track: #eef0fa;
+  --check-border: #c3c8e3;
   /* яркий блок прогресса на «Моём дне» */
   --hero-bg: #4b3bff;
   --hero-border: transparent;
@@ -37,11 +37,13 @@ const lightColors = css`
   --hero-text: #fff;
   --hero-muted: #dcd7ff;
   --hero-track: rgb(255 255 255 / 0.22);
-  /* панель табов: тёмная «таблетка», выбранный таб лаймовый */
-  --tabbar-bg: #141633;
-  --tabbar-border: transparent;
-  --tabbar-shadow: 0 14px 30px rgb(20 22 51 / 0.3);
-  --tabbar-icon: #a8add6;
+  /* панель табов: в светлой теме белая «таблетка», выбранный таб мягкий индиго */
+  --tabbar-bg: #fff;
+  --tabbar-border: #e6e8f2;
+  --tabbar-shadow: 0 12px 28px rgb(40 50 120 / 0.14);
+  --tabbar-icon: #7a7fa0;
+  --tabbar-active-bg: #e9e6ff;
+  --tabbar-active-text: #4b3bff;
   /* цвета видов записей семейного календаря */
   --cal-event: #4b3bff;
   --cal-task: #d97706;
@@ -101,6 +103,8 @@ const darkColors = css`
   --tabbar-border: #2c3260;
   --tabbar-shadow: 0 14px 30px rgb(0 0 0 / 0.45);
   --tabbar-icon: #9aa0c7;
+  --tabbar-active-bg: #f2b94b;
+  --tabbar-active-text: #2b1a00;
   --cal-event: #8f84ff;
   --cal-task: #fbbf24;
   --cal-birthday: #f472b6;

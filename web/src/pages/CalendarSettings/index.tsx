@@ -1,5 +1,5 @@
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Checkbox } from '@/components/Checkbox'
 import { Chip } from '@/components/Chip'
 import { SlideInPage as Page } from '@/components/Page'
@@ -33,8 +33,7 @@ export default function CalendarSettings() {
 
   return (
     <Page>
-      <BackLink to="/calendar">← Календарь</BackLink>
-      <h1>Настройки календаря</h1>
+      <PageHeader to="/calendar">Настройки календаря</PageHeader>
 
       <Group as="section" aria-label="Что показывать">
         <h2>Что показывать</h2>

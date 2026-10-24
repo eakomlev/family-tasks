@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
 import { useNow } from '@/lib/useNow'
@@ -28,8 +28,7 @@ export default function Service() {
 
   return (
     <Page>
-      <BackLink to="/profile">← Профиль</BackLink>
-      <h1>Сервис</h1>
+      <PageHeader to="/profile">Сервис</PageHeader>
       {isError && !stats && <Notice $tone="error">Не удалось загрузить статистику. Проверьте соединение.</Notice>}
       {!stats && !isError && <p>Загрузка…</p>}
       {stats && (

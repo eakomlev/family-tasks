@@ -40,7 +40,7 @@ class QuietSocket {
 const kid = { id: 'kid', name: 'Миша', role: 'child' as const, avatar: null, isOwner: false }
 const mama = { id: 'mama', name: 'Лена', role: 'mama' as const, avatar: null, isOwner: true }
 
-function renderShell(who: typeof kid | typeof mama, coins: number | undefined, path = '/tasks') {
+function renderShell(who: typeof kid | typeof mama, coins: number | undefined, path = '/my-day') {
   const overview = {
     member: { ...who, email: 'x@y.z', ...(coins === undefined ? {} : { coins }) },
     family: { code: 'c' },
@@ -59,6 +59,7 @@ function renderShell(who: typeof kid | typeof mama, coins: number | undefined, p
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route element={<AppShell />}>
+            <Route path="/my-day" element={<p>Мой день</p>} />
             <Route path="/tasks" element={<p>Страница заданий</p>} />
             <Route path="/profile" element={<p>Страница профиля</p>} />
             <Route path="/calendar" element={<p>Страница календаря</p>} />
@@ -111,17 +112,33 @@ describe('баланс монет сверху', () => {
     expect(await screen.findByRole('link', { name: /Монеты: 120/ })).toBeInTheDocument()
   })
 
-  it('на странице календаря значка профиля нет (у ребёнка баланс остаётся), на его подстраницах значок есть', async () => {
-    const { unmount } = renderShell(mama, undefined, '/calendar')
-    await screen.findByText('Страница календаря')
-    expect(screen.queryByRole('link', { name: /^Профиль/ })).not.toBeInTheDocument()
-    unmount()
-    const child = renderShell(kid, 45, '/calendar')
+  it('значок профиля только на «Моём дне», в других разделах и на подстраницах его нет (баланс у ребёнка остаётся)', async () => {
+    const day = renderShell(mama, undefined, '/my-day')
+    expect(await screen.findByRole('link', { name: /^Профиль/ })).toBeInTheDocument()
+    day.unmount()
+    for (const path of ['/tasks', '/chat', '/calendar', '/calendar/settings']) {
+      const { unmount } = renderShell(mama, undefined, path)
+      await screen.findByText(/Страница заданий|Список чатов|Страница календаря|Настройки календаря/)
+      expect(screen.queryByRole('link', { name: /^Профиль/ })).not.toBeInTheDocument()
+      unmount()
+    }
+    renderShell(kid, 45, '/calendar')
     expect(await screen.findByRole('link', { name: /Монеты: 45/ })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /^Профиль/ })).not.toBeInTheDocument()
-    child.unmount()
-    renderShell(mama, undefined, '/calendar/settings')
-    expect(await screen.findByRole('link', { name: /^Профиль/ })).toBeInTheDocument()
+  })
+
+  it('панель табов только на главных разделах, на вложенных страницах и в переписке её нет', async () => {
+    for (const path of ['/my-day', '/tasks', '/chat']) {
+      const { unmount } = renderShell(mama, undefined, path)
+      expect(await screen.findByRole('navigation', { name: 'Разделы' })).toBeInTheDocument()
+      unmount()
+    }
+    for (const path of ['/calendar', '/calendar/settings', '/profile', '/chat/family']) {
+      const { unmount } = renderShell(mama, undefined, path)
+      await screen.findByText(/Страница календаря|Настройки календаря|Страница профиля|Переписка/)
+      expect(screen.queryByRole('navigation', { name: 'Разделы' })).not.toBeInTheDocument()
+      unmount()
+    }
   })
 
   it('нулевой баланс у ребёнка тоже виден', async () => {

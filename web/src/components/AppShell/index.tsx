@@ -10,6 +10,8 @@ import { RealtimeProvider } from '@/realtime'
 import { RealtimeBridge } from '@/store/RealtimeBridge'
 import { useProfile } from '@/profile/context'
 import { CoinBalance } from '@/components/CoinBalance'
+import { TABS } from '@/components/TabBar/utils'
+import { START_PATH } from '@/lib/routes'
 import { Content, ProfileLink, Root, TopRight } from './styles'
 
 function Shell() {
@@ -19,14 +21,16 @@ function Shell() {
   if (!identity) return null
   // переписка (/chat/:chat) занимает весь экран, без панели табов (информация о чате обычная страница)
   const chatRoom = pathname.startsWith('/chat/') && !pathname.endsWith('/info')
-  // на страницах профиля значок профиля не нужен (баланс монет остаётся)
-  // и на странице календаря: там своя шапка с кнопками, значок профиля ей мешал бы
-  const hideAvatar = chatRoom || pathname.startsWith('/profile') || pathname === '/calendar'
+  // как в приложении: панель табов только на четырёх главных разделах, на вложенных страницах её нет (там шапка со стрелкой «назад»)
+  const rootPage = TABS.some((tab) => tab.path === pathname)
+  const noTabs = chatRoom || !rootPage
+  // значок профиля только на «Моём дне», в остальные разделы профиль открывается из «Семьи»; баланс монет ребёнка остаётся везде, кроме переписки
+  const hideAvatar = pathname !== START_PATH
   // монеты есть только у детей; в переписке баланс скрыт (он только отвлекает и перекрывает шапку)
   const showCoins = data?.me.coins !== undefined && !chatRoom
 
   return (
-    <Root $chatRoom={chatRoom} $reserve={showCoins ? (hideAvatar ? '6.5rem' : '9.5rem') : hideAvatar ? '0rem' : '3.25rem'}>
+    <Root $noTabs={noTabs} $reserve={showCoins ? (hideAvatar ? '6.5rem' : '9.5rem') : hideAvatar ? '0rem' : '3.25rem'}>
       <PushPrompt />
       <TopRight $fixed={chatRoom}>
         {showCoins && <CoinBalance coins={data.me.coins!} />}
@@ -40,7 +44,7 @@ function Shell() {
       <Content>
         <Outlet />
       </Content>
-      {!chatRoom && <TabBar />}
+      {!noTabs && <TabBar />}
     </Root>
   )
 }

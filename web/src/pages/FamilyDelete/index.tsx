@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { ApiError, logout, requestFamilyDeletion } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Notice } from '@/components/Notice'
@@ -80,8 +80,7 @@ export default function FamilyDelete() {
 
   return (
     <Page>
-      <BackLink to="/family">← Моя семья</BackLink>
-      <h1>Удаление семейного аккаунта</h1>
+      <PageHeader to="/family">Удаление семейного аккаунта</PageHeader>
       <p>Вы собираетесь удалить семью. Будет удалено без возможности восстановления:</p>
       <Losses>
         <li>

@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { isParent } from '@/lib/roles'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Field } from '@/components/Field'
@@ -122,8 +122,7 @@ export default function GoalForm() {
 
   return (
     <Page>
-      <BackLink to={goal ? `/goals/${goal.id}` : `/family/${memberId}/goals`}>← {goal ? 'Цель' : 'Цели'}</BackLink>
-      <h1>{goal ? 'Изменить цель' : childName ? `Новая цель: ${childName}` : 'Новая цель'}</h1>
+      <PageHeader to={goal ? `/goals/${goal.id}` : `/family/${memberId}/goals`}>{goal ? 'Изменить цель' : childName ? `Новая цель: ${childName}` : 'Новая цель'}</PageHeader>
 
       {state === 'loading' && <p>Загрузка…</p>}
       {state === 'failed' && <Notice $tone="error">Не удалось загрузить цель. Проверьте соединение.</Notice>}

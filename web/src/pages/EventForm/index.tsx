@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Checkbox } from '@/components/Checkbox'
 import { useConfirm } from '@/components/ConfirmDialog/context'
@@ -99,8 +99,7 @@ export default function EventForm() {
 
   return (
     <Page>
-      <BackLink to={id ? `/calendar/events/${id}` : back}>{id ? '← Событие' : '← Календарь'}</BackLink>
-      <h1>{id ? 'Изменить событие' : 'Новое событие'}</h1>
+      <PageHeader to={id ? `/calendar/events/${id}` : back}>{id ? 'Изменить событие' : 'Новое событие'}</PageHeader>
       {loading && <p>Загрузка…</p>}
       {!loading && (
         <Stack as="form" onSubmit={save} noValidate>

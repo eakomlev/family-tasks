@@ -1,15 +1,7 @@
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
-// ---- шапка: «+» слева, период с переключателями, настройки справа ----
-
-export const TopBar = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  /* справа вверху лежит значок профиля оболочки */
-  padding-right: var(--topbar-reserve, 0);
-`
+// ---- шапка страницы (PageHeader): «+» и настройки справа; под ней период с переключателями ----
 
 // «+» просто знак без фона
 export const IconLink = styled(Link)`
@@ -40,7 +32,6 @@ export const IconLink = styled(Link)`
 
 // настройки: тот же размер, но без заливки
 export const SettingsLink = styled(IconLink)`
-  margin-left: auto;
   color: var(--muted);
   border: 1px solid var(--border);
 
@@ -58,10 +49,11 @@ export const SettingsLink = styled(IconLink)`
 export const Period = styled.div`
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.25rem;
   min-width: 0;
 
-  h1 {
+  h2 {
     margin: 0;
     overflow: hidden;
     font-size: 1.15rem;

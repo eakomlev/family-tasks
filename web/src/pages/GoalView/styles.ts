@@ -5,8 +5,10 @@ export const Details = styled.section`
   flex-direction: column;
   gap: 0.6rem;
 
-  h1 {
+  h2 {
     margin: 0;
+    font-size: 1.65rem;
+    line-height: 1.15;
     overflow-wrap: anywhere;
   }
 

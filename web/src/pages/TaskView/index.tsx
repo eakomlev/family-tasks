@@ -3,7 +3,7 @@ import { isParent } from '@/lib/roles'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError, type Occurrence, type Task } from '@/api'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { BodyTitle, PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Celebration } from '@/components/Celebration'
 import { Notice } from '@/components/Notice'
@@ -15,7 +15,7 @@ import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
 import { useCompleteTaskMutation, useConfirmTaskMutation, useGetTaskQuery, useUncompleteTaskMutation } from '@/store/tasks'
-import { Actions, Description, Details, EditLink, TopBar, Who } from './styles'
+import { Actions, Description, Details, EditLink, Who } from './styles'
 import { describeFullRepeat, describeOccurrenceDue } from './utils'
 import { useInFlight } from '@/lib/useInFlight'
 
@@ -128,10 +128,9 @@ export default function TaskView() {
 
   return (
     <Page>
-      <TopBar>
-        <BackLink to="/tasks">← Задание</BackLink>
-        {task && state === 'ready' && task.authorId === me && <EditLink to={`/tasks/${task.id}/edit`}>Изменить</EditLink>}
-      </TopBar>
+      <PageHeader to="/tasks" right={task && state === 'ready' && task.authorId === me ? <EditLink to={`/tasks/${task.id}/edit`}>Изменить</EditLink> : undefined}>
+        Задание
+      </PageHeader>
       {state === 'loading' && <p>Загрузка…</p>}
       {state === 'failed' && <Notice $tone="error">Не удалось загрузить задание. Проверьте соединение.</Notice>}
 
@@ -152,7 +151,7 @@ export default function TaskView() {
           )}
           {late && <Notice $tone="error">Просрочено</Notice>}
 
-          <h1>{task.title}</h1>
+          <BodyTitle>{task.title}</BodyTitle>
           {task.description && <Description>{task.description}</Description>}
 
           <Details>

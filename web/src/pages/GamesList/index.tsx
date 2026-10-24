@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
@@ -59,8 +59,7 @@ export default function GamesList() {
 
   return (
     <Page>
-      <BackLink to={`/family/${memberId}`}>← {name || 'Профиль'}</BackLink>
-      <h1>{name ? `Играть: ${name}` : 'Играть'}</h1>
+      <PageHeader to={`/family/${memberId}`}>{name ? `Играть: ${name}` : 'Играть'}</PageHeader>
       <List>
         {GAMES.map((info) => {
           const open = info.available ? openWith(info.kind) : undefined

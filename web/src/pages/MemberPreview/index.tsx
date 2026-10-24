@@ -1,6 +1,6 @@
 import { Navigate, useParams } from 'react-router-dom'
 import { Avatar } from '@/components/Avatar'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { MenuLink } from '@/components/MenuLink'
 import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
@@ -26,13 +26,13 @@ export default function MemberPreview() {
 
   return (
     <Page>
-      <BackLink to="/family">← Моя семья</BackLink>
+      <PageHeader to="/family">Профиль</PageHeader>
       {!member && failed && <Notice $tone="error">Не удалось загрузить участника. Проверьте соединение.</Notice>}
       {!member && !failed && <p>Загрузка…</p>}
       {member && (
         <Hero>
           <Avatar name={member.name} seed={member.id} src={member.avatar} size="7rem" />
-          <h1>{member.name}</h1>
+          <h2>{member.name}</h2>
           <Badge>{ROLE_LABELS[member.role]}{member.isOwner && ' · создатель семьи'}</Badge>
           {member.birthDate && (
             <Notice $tone="muted">

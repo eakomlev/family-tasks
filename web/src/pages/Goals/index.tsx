@@ -1,6 +1,6 @@
 import { Navigate, useParams } from 'react-router-dom'
 import { isAdult, isParent } from '@/lib/roles'
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { GoalCard } from '@/components/GoalCard'
 import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
@@ -28,8 +28,7 @@ export default function Goals() {
 
   return (
     <Page>
-      <BackLink to={`/family/${memberId}`}>← {child?.name ?? 'Назад'}</BackLink>
-      <h1>{child ? `Цели: ${child.name}` : 'Цели'}</h1>
+      <PageHeader to={`/family/${memberId}`}>{child ? `Цели: ${child.name}` : 'Цели'}</PageHeader>
       {failed && !goals && <Notice $tone="error">Не удалось загрузить цели. Проверьте соединение.</Notice>}
       {!goals && !failed && <p>Загрузка…</p>}
       {goals && goals.length === 0 && <Notice $tone="muted">Целей пока нет.{canEdit && ' Добавьте то, на что ребёнок будет копить монеты.'}</Notice>}

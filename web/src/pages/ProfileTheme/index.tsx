@@ -1,4 +1,4 @@
-import { BackLink } from '@/components/BackLink'
+import { PageHeader } from '@/components/PageHeader'
 import { SlideInPage as Page } from '@/components/Page'
 import { ThemeSetting } from './components/ThemeSetting'
 
@@ -6,7 +6,7 @@ import { ThemeSetting } from './components/ThemeSetting'
 export default function ProfileTheme() {
   return (
     <Page>
-      <BackLink to="/profile">← Профиль</BackLink>
+      <PageHeader to="/profile">Тема</PageHeader>
       <ThemeSetting />
     </Page>
   )
