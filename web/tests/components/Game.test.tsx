@@ -25,6 +25,7 @@ vi.mock('@/api', async (importOriginal) => ({
   declineGame: vi.fn(),
   cancelGame: vi.fn(),
   moveInGame: vi.fn(),
+  placeInGame: vi.fn(),
   resignGame: vi.fn(),
 }))
 
@@ -45,6 +46,9 @@ const game = (patch: Partial<GameDto> = {}): GameDto => ({
   fen: START,
   moves: [],
   lastMove: null,
+  board: null,
+  cells: [],
+  lastCell: null,
   result: null,
   createdAt: '2026-10-24T10:00:00Z',
   updatedAt: '2026-10-24T10:00:00Z',
@@ -115,6 +119,7 @@ function renderLive(path: string) {
 beforeEach(() => {
   vi.mocked(api.listGames).mockReset().mockResolvedValue({ games: [] })
   vi.mocked(api.getGame).mockReset()
+  vi.mocked(api.placeInGame).mockReset()
   vi.mocked(api.inviteToGame).mockReset()
   vi.mocked(api.acceptGame).mockReset()
   vi.mocked(api.declineGame).mockReset()
@@ -125,10 +130,11 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('приглашение в игру', () => {
-  it('список игр: шахматы доступны, остальные «Скоро»', async () => {
+  it('список игр: шахматы и крестики-нолики доступны, остальные «Скоро»', async () => {
     renderAt('/family/igor/games')
     expect(await screen.findByRole('button', { name: 'Шахматы: пригласить' })).toBeEnabled()
-    for (const name of ['Шашки', 'Крестики-нолики', 'Морской бой']) expect(screen.getByRole('button', { name: `${name}: скоро` })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Крестики-нолики: пригласить' })).toBeEnabled()
+    for (const name of ['Шашки', 'Морской бой']) expect(screen.getByRole('button', { name: `${name}: скоро` })).toBeDisabled()
   })
 
   it('выбор шахмат: подтверждение, приглашение уходит, открывается игра', async () => {
@@ -266,5 +272,42 @@ describe('экран игры', () => {
     await userEvent.click(await screen.findByRole('gridcell', { name: /^e2\b/ }))
     await userEvent.click(screen.getByRole('gridcell', { name: /^e4\b/ }))
     expect(await screen.findByText('Сейчас ход соперника.')).toBeInTheDocument()
+  })
+})
+
+describe('крестики-нолики', () => {
+  const ttt = (patch: Partial<GameDto> = {}) => game({ kind: 'tictactoe', fen: '', board: '---------', ...patch })
+
+  it('мой ход: нажатие на клетку отправляет ход, доска обновляется ответом', async () => {
+    serve(ttt())
+    vi.mocked(api.placeInGame).mockImplementation(answer(ttt({ board: '----X----', cells: [4], lastCell: 4, turnId: 'igor' })))
+    renderAt('/games/g1')
+    expect(await screen.findByText('Ваш ход')).toBeInTheDocument()
+    expect(screen.getByText(/Вы играете: ✕ · вы ходите первым/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('gridcell', { name: 'Клетка 5: пусто' }))
+    await waitFor(() => expect(api.placeInGame).toHaveBeenCalledWith('tok', 'g1', 4))
+    expect(await screen.findByRole('gridcell', { name: 'Клетка 5: крестик' })).toBeInTheDocument()
+    expect(screen.getByText('Ход: Игорь')).toBeInTheDocument()
+  })
+
+  it('ход соперника: клетки недоступны', async () => {
+    serve(ttt({ turnId: 'igor', board: '----X----', whiteId: 'igor' }))
+    renderAt('/games/g1')
+    expect(await screen.findByText('Ход: Игорь')).toBeInTheDocument()
+    expect(screen.getByRole('gridcell', { name: 'Клетка 1: пусто' })).toBeDisabled()
+  })
+
+  it('победа тремя в ряд: итог словами', async () => {
+    serve(ttt({ status: 'finished', turnId: null, board: 'XXXOO----', result: { winnerId: 'me', reason: 'line' } }))
+    renderAt('/games/g1')
+    expect(await screen.findByText('Три в ряд. Вы победили!')).toBeInTheDocument()
+  })
+
+  it('занятая клетка: понятная ошибка', async () => {
+    serve(ttt())
+    vi.mocked(api.placeInGame).mockRejectedValue(new api.ApiError(400, 'cell_taken'))
+    renderAt('/games/g1')
+    await userEvent.click(await screen.findByRole('gridcell', { name: 'Клетка 1: пусто' }))
+    expect(await screen.findByText('Эта клетка уже занята.')).toBeInTheDocument()
   })
 })

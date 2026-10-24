@@ -89,6 +89,7 @@ export function describeGameError(err: unknown): string {
     if (err.code === 'game_exists') return 'С этим участником такая игра уже идёт или ждёт ответа.'
     if (err.code === 'not_your_turn') return 'Сейчас ход соперника.'
     if (err.code === 'illegal_move') return 'Так ходить нельзя.'
+    if (err.code === 'cell_taken') return 'Эта клетка уже занята.'
     if (err.code === 'not_active' || err.code === 'not_invited') return 'Состояние игры уже изменилось. Обновите экран.'
   }
   return 'Не удалось выполнить действие. Попробуйте ещё раз.'

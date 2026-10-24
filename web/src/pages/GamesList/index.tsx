@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { ApiError } from '@/api'
+import { ApiError, type GameKind } from '@/api'
 import { PageHeader } from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Notice } from '@/components/Notice'
@@ -46,7 +46,7 @@ export default function GamesList() {
     if (!ok) return
     setBusy(true)
     try {
-      const { game } = await invite({ kind: info.kind as 'chess', opponentId: memberId }).unwrap().catch(toApiError)
+      const { game } = await invite({ kind: info.kind as GameKind, opponentId: memberId }).unwrap().catch(toApiError)
       navigate(`/games/${game.id}`)
     } catch (err) {
       const existingGame = err instanceof ApiError && err.code === 'game_exists' ? (err.body as { game?: { id: string } } | undefined)?.game : undefined

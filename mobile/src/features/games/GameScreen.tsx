@@ -16,9 +16,10 @@ import { useInFlight } from '@/lib/useInFlight'
 import { useProfile } from '@/profile/context'
 import { useViewingChat } from '@/realtime/context'
 import { toApiError } from '@/store/api'
-import { useAcceptGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, useResignGameMutation } from '@/store/games'
+import { useAcceptGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, usePlaceInGameMutation, useResignGameMutation } from '@/store/games'
 import { ChessBoard } from './ChessBoard'
-import { gameTitle, lastMoveText, opponentOf, resultText } from './utils'
+import { TicTacToeBoard } from './TicTacToeBoard'
+import { gameTitle, lastMoveText, myMark, opponentOf, resultText } from './utils'
 
 // Одна игра: приглашение (принять или отклонить), ожидание ответа, партия и итог.
 // Пока экран открыт, сервер знает об этом и не присылает уведомлений о ходах соперника: ход просто появляется на доске.
@@ -32,6 +33,7 @@ export function GameScreen({ id }: { id: string }) {
   const [decline] = useDeclineGameMutation()
   const [cancel] = useCancelGameMutation()
   const [move] = useMoveInGameMutation()
+  const [place] = usePlaceInGameMutation()
   const [resign] = useResignGameMutation()
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -88,7 +90,7 @@ export function GameScreen({ id }: { id: string }) {
 
           {game.status === 'invited' && game.inviteeId === me && (
             <>
-              <Notice>{`${opponentName} приглашает вас сыграть. ${game.kind === 'chess' ? 'Цвет фигур выберется случайно.' : ''}`}</Notice>
+              <Notice>{`${opponentName} приглашает вас сыграть. ${game.kind === 'chess' ? 'Цвет фигур выберется случайно.' : 'Кто ходит первым, выберется случайно.'}`}</Notice>
               <Button variant="lime" disabled={busy} onPress={() => void run(() => call(accept({ id })))}>
                 Принять
               </Button>
@@ -115,16 +117,32 @@ export function GameScreen({ id }: { id: string }) {
               <Heading style={{ textAlign: 'center' }}>
                 {game.status === 'finished' && game.result ? resultText(game.result, me) : game.turnId === me ? 'Ваш ход' : `Ход: ${opponentName}`}
               </Heading>
-              <ChessBoard
-                fen={game.fen}
-                orientation={game.whiteId === me ? 'w' : 'b'}
-                lastMove={game.lastMove}
-                canMove={game.status === 'active' && game.turnId === me && !busy}
-                onMove={(from, to) => void run(() => call(move({ id, from, to })))}
-              />
-              <Text $tone="muted" style={{ textAlign: 'center' }}>
-                {`${game.whiteId === me ? 'Вы играете белыми' : 'Вы играете чёрными'}${lastMoveText(game) ? ` · ${lastMoveText(game)}` : ''}`}
-              </Text>
+              {game.kind === 'tictactoe' ? (
+                <>
+                  <TicTacToeBoard
+                    board={game.board ?? '---------'}
+                    lastCell={game.lastCell}
+                    canMove={game.status === 'active' && game.turnId === me && !busy}
+                    onPlace={(cell) => void run(() => call(place({ id, cell })))}
+                  />
+                  <Text $tone="muted" style={{ textAlign: 'center' }}>
+                    {`Вы играете: ${myMark(game, me)}${game.whiteId === me ? ' · вы ходите первым' : ''}`}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <ChessBoard
+                    fen={game.fen}
+                    orientation={game.whiteId === me ? 'w' : 'b'}
+                    lastMove={game.lastMove}
+                    canMove={game.status === 'active' && game.turnId === me && !busy}
+                    onMove={(from, to) => void run(() => call(move({ id, from, to })))}
+                  />
+                  <Text $tone="muted" style={{ textAlign: 'center' }}>
+                    {`${game.whiteId === me ? 'Вы играете белыми' : 'Вы играете чёрными'}${lastMoveText(game) ? ` · ${lastMoveText(game)}` : ''}`}
+                  </Text>
+                </>
+              )}
               {game.status === 'active' && (
                 <Button variant="secondary" disabled={busy} onPress={() => void onResign()}>
                   Сдаться

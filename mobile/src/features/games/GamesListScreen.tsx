@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Pressable, View } from 'react-native'
 import { Redirect, useRouter } from 'expo-router'
 import { useTheme } from 'styled-components/native'
-import { ApiError } from '@/api'
+import { ApiError, type GameKind } from '@/api'
 import { Card } from '@/components/Card'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { Notice } from '@/components/Notice'
@@ -49,7 +49,7 @@ export function GamesListScreen({ memberId }: { memberId: string }) {
     if (!ok) return
     setBusy(true)
     try {
-      const { game } = await invite({ kind: info.kind as 'chess', opponentId: memberId }).unwrap().catch(toApiError)
+      const { game } = await invite({ kind: info.kind as GameKind, opponentId: memberId }).unwrap().catch(toApiError)
       router.push({ pathname: '/games/[id]', params: { id: game.id } })
     } catch (err) {
       const existingGame = err instanceof ApiError && err.code === 'game_exists' ? (err.body as { game?: { id: string } } | undefined)?.game : undefined

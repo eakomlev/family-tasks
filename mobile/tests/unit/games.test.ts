@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Game } from '../../src/api'
 import { gameStatusLine, lastMoveText, needsMyAction, openGames, resultText } from '../../src/features/games/utils'
+import { winningLine } from '../../src/features/games/ticTacToe'
 import { parseMessage } from '../../src/realtime/utils'
 import { tagsForEvent } from '../../src/store/invalidate'
 
@@ -15,6 +16,9 @@ const game = (patch: Partial<Game>): Game => ({
   fen: 'start',
   moves: [],
   lastMove: null,
+  board: null,
+  cells: [],
+  lastCell: null,
   result: null,
   createdAt: '2026-10-24T10:00:00Z',
   updatedAt: '2026-10-24T10:00:00Z',
@@ -53,5 +57,21 @@ describe('игры', () => {
   it('сигнал сокета games сбрасывает кэш игр', () => {
     expect(parseMessage('{"type":"games"}')).toEqual({ type: 'games' })
     expect(tagsForEvent({ type: 'games' })).toEqual(['Games'])
+  })
+})
+
+describe('крестики-нолики', () => {
+  it('итог тремя в ряд глазами каждого', () => {
+    expect(resultText({ winnerId: 'me', reason: 'line' }, 'me')).toBe('Три в ряд. Вы победили!')
+    expect(resultText({ winnerId: 'other', reason: 'line' }, 'me')).toBe('Соперник собрал три в ряд. Вы проиграли')
+  })
+
+  it('выигравшая линия по полю', () => {
+    expect(winningLine('XXXOO----')).toEqual([0, 1, 2])
+    expect(winningLine('XOXXOOOXX')).toBeNull()
+  })
+
+  it('шахматного «последнего хода» у крестиков-ноликов нет', () => {
+    expect(lastMoveText(game({ kind: 'tictactoe', lastCell: 4, lastMove: null }))).toBeNull()
   })
 })

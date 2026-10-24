@@ -19,6 +19,9 @@ export const cancelGame = (token: string, id: string) => request<{ game: Game }>
 // Ход в шахматах: клетки вроде «e2»; превращение пешки по умолчанию в ферзя
 export const moveInGame = (token: string, id: string, move: Pick<ChessMove, 'from' | 'to'>) => request<{ game: Game }>(`/games/${id}/move`, send('POST', move), token)
 
+// Ход в крестики-нолики: номер клетки 0–8 по строкам слева направо
+export const placeInGame = (token: string, id: string, cell: number) => request<{ game: Game }>(`/games/${id}/place`, send('POST', { cell }), token)
+
 export const resignGame = (token: string, id: string) => request<{ game: Game }>(`/games/${id}/resign`, send('POST'), token)
 
 export type * from './types'

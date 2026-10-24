@@ -9,11 +9,11 @@ import type { PushMessage } from './outbox/contract.js'
 import { enqueueToMember } from './outbox/index.js'
 import { isViewingChat, publishTo } from './realtime.js'
 
-// Доступные игры. Остальные (шашки, крестики-нолики, морской бой) пока заглушки на клиенте.
-export const GAME_KINDS = ['chess'] as const
+// Доступные игры. Остальные (шашки, морской бой) пока заглушки на клиенте.
+export const GAME_KINDS = ['chess', 'tictactoe'] as const
 export type GameKind = (typeof GAME_KINDS)[number]
 
-const GAME_TITLES: Record<GameKind, string> = { chess: 'Шахматы' }
+const GAME_TITLES: Record<GameKind, string> = { chess: 'Шахматы', tictactoe: 'Крестики-нолики' }
 // завершённая игра остаётся в списке ещё сутки, чтобы соперник увидел итог
 const FINISHED_VISIBLE_HOURS = 24
 
@@ -27,7 +27,7 @@ export interface ChessMove {
 export interface GameResult {
   // null — ничья
   winnerId: string | null
-  reason: 'checkmate' | 'stalemate' | 'draw' | 'resign'
+  reason: 'checkmate' | 'stalemate' | 'draw' | 'resign' | 'line'
 }
 
 interface GameRow {
@@ -39,7 +39,8 @@ interface GameRow {
   status: 'invited' | 'active' | 'finished' | 'declined' | 'cancelled'
   white_id: string | null
   turn_id: string | null
-  state: { moves?: ChessMove[]; fen?: string }
+  // шахматы: moves и fen; крестики-нолики: board (9 знаков по строкам: «X», «O» или «-») и cells (клетки в порядке ходов)
+  state: { moves?: ChessMove[]; fen?: string; board?: string; cells?: number[] }
   result: GameResult | null
   created_at: Date
   updated_at: Date
@@ -58,15 +59,29 @@ export interface GameDto {
   fen: string
   moves: ChessMove[]
   lastMove: ChessMove | null
+  // крестики-нолики: поле из 9 знаков («X» играет тот, кто в whiteId, «O» второй, «-» пусто), клетки по порядку ходов и последняя; у шахмат null и пусто
+  board: string | null
+  cells: number[]
+  lastCell: number | null
   result: GameResult | null
   createdAt: string
   updatedAt: string
 }
 
 const START_FEN = new Chess().fen()
+const EMPTY_BOARD = '-'.repeat(9)
+
+// Начальное состояние партии нужного вида
+const initialState = (kind: GameKind) => (kind === 'chess' ? { fen: START_FEN, moves: [] } : { board: EMPTY_BOARD, cells: [] })
+
+// Тройки клеток, выигрывающие в крестики-нолики
+const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]]
+const hasLine = (board: string, mark: string) => LINES.some((line) => line.every((i) => board[i] === mark))
 
 const toDto = (row: GameRow): GameDto => {
   const moves = row.state.moves ?? []
+  const tictactoe = row.kind === 'tictactoe'
+  const cells = row.state.cells ?? []
   return {
     id: row.id,
     kind: row.kind,
@@ -75,9 +90,12 @@ const toDto = (row: GameRow): GameDto => {
     inviteeId: row.invitee_id,
     whiteId: row.white_id,
     turnId: row.turn_id,
-    fen: row.state.fen ?? START_FEN,
+    fen: tictactoe ? '' : (row.state.fen ?? START_FEN),
     moves,
     lastMove: moves[moves.length - 1] ?? null,
+    board: tictactoe ? (row.state.board ?? EMPTY_BOARD) : null,
+    cells,
+    lastCell: cells[cells.length - 1] ?? null,
     result: row.result,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
@@ -206,7 +224,7 @@ export async function gameRoutes(app: FastifyInstance) {
       try {
         const { rows } = await pool.query<GameRow>(
           `insert into games (family_id, kind, inviter_id, invitee_id, state) values ($1, $2, $3, $4, $5) returning *`,
-          [member.family_id, kind, member.id, opponentId, JSON.stringify({ fen: START_FEN, moves: [] })],
+          [member.family_id, kind, member.id, opponentId, JSON.stringify(initialState(kind))],
         )
         row = rows[0]
       } catch (err) {
@@ -247,7 +265,8 @@ export async function gameRoutes(app: FastifyInstance) {
     })
     if (!updated) return
     signal(updated.row)
-    const first = updated.row.white_id === updated.row.inviter_id ? 'вы ходите белыми' : 'соперник ходит белыми'
+    const mine = updated.row.white_id === updated.row.inviter_id
+    const first = updated.row.kind === 'tictactoe' ? (mine ? 'вы ходите первым' : 'соперник ходит первым') : mine ? 'вы ходите белыми' : 'соперник ходит белыми'
     await notify(updated.row, updated.row.inviter_id, {
       title: `${senderLabel(updated.member, await roleOf(updated.row.inviter_id))} принял приглашение`,
       body: `${GAME_TITLES[updated.row.kind]}: ${first}`,
@@ -303,6 +322,10 @@ export async function gameRoutes(app: FastifyInstance) {
     },
     async (req, reply) => {
       const result = await withGame(req, reply, async (db, game, member) => {
+        if (game.kind !== 'chess') {
+          reply.code(400).send({ error: 'wrong_game' })
+          return null
+        }
         if (game.status !== 'active') {
           reply.code(409).send({ error: 'not_active' })
           return null
@@ -345,6 +368,61 @@ export async function gameRoutes(app: FastifyInstance) {
     },
   )
 
+  // Ход в крестики-нолики: cell — номер клетки 0–8 (по строкам слева направо); крестики у того, кто в white_id и ходит первым
+  app.post<{ Params: { id: string }; Body: { cell: number } }>(
+    '/api/games/:id/place',
+    {
+      schema: {
+        params: idParams,
+        body: { type: 'object', required: ['cell'], additionalProperties: false, properties: { cell: { type: 'integer', minimum: 0, maximum: 8 } } },
+      },
+    },
+    async (req, reply) => {
+      const result = await withGame(req, reply, async (db, game, member) => {
+        if (game.kind !== 'tictactoe') {
+          reply.code(400).send({ error: 'wrong_game' })
+          return null
+        }
+        if (game.status !== 'active') {
+          reply.code(409).send({ error: 'not_active' })
+          return null
+        }
+        if (game.turn_id !== member.id) {
+          reply.code(409).send({ error: 'not_your_turn' })
+          return null
+        }
+        const board = game.state.board ?? EMPTY_BOARD
+        const cells = game.state.cells ?? []
+        const { cell } = req.body
+        if (board[cell] !== '-') {
+          reply.code(400).send({ error: 'cell_taken' })
+          return null
+        }
+        const mark = game.white_id === member.id ? 'X' : 'O'
+        const next = board.slice(0, cell) + mark + board.slice(cell + 1)
+        const opponent = member.id === game.inviter_id ? game.invitee_id : game.inviter_id
+
+        let outcome: GameResult | null = null
+        if (hasLine(next, mark)) outcome = { winnerId: member.id, reason: 'line' }
+        else if (!next.includes('-')) outcome = { winnerId: null, reason: 'draw' }
+
+        const { rows } = await db.query<GameRow>(
+          `update games set state = $2, turn_id = $3, status = $4, result = $5, updated_at = now() where id = $1 returning *`,
+          [game.id, JSON.stringify({ board: next, cells: [...cells, cell] }), outcome ? null : opponent, outcome ? 'finished' : 'active', outcome ? JSON.stringify(outcome) : null],
+        )
+        return { row: rows[0], member, opponent }
+      })
+      if (!result) return
+      signal(result.row)
+      const finished = result.row.result
+      await notify(result.row, result.opponent, {
+        title: finished ? `${GAME_TITLES[result.row.kind]}: игра окончена` : `${senderLabel(result.member, await roleOf(result.opponent))}: ваш ход`,
+        body: finished ? resultText(finished, result.opponent) : GAME_TITLES[result.row.kind],
+      })
+      return { game: toDto(result.row) }
+    },
+  )
+
   // Сдаться: победа соперника
   app.post<{ Params: { id: string } }>('/api/games/:id/resign', { schema: { params: idParams } }, async (req, reply) => {
     const result = await withGame(req, reply, async (db, game, member) => {
@@ -367,6 +445,7 @@ export async function gameRoutes(app: FastifyInstance) {
 // Итог игры глазами участника viewerId
 export function resultText(result: GameResult, viewerId: string): string {
   if (result.reason === 'resign') return result.winnerId === viewerId ? 'Соперник сдался. Вы победили!' : 'Вы сдались'
+  if (result.reason === 'line') return result.winnerId === viewerId ? 'Три в ряд. Вы победили!' : 'Соперник собрал три в ряд. Вы проиграли'
   if (!result.winnerId) return result.reason === 'stalemate' ? 'Пат. Ничья' : 'Ничья'
   return result.winnerId === viewerId ? 'Мат. Вы победили!' : 'Мат. Вы проиграли'
 }

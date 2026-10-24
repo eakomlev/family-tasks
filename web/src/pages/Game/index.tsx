@@ -4,18 +4,19 @@ import { Avatar } from '@/components/Avatar'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { ChessBoard } from '@/components/ChessBoard'
+import { TicTacToeBoard } from '@/components/TicTacToeBoard'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { describeGameError } from '@/lib/errors'
-import { gameTitle, lastMoveText, opponentOf, resultText } from '@/lib/games'
+import { gameTitle, lastMoveText, myMark, opponentOf, resultText } from '@/lib/games'
 import { memberLabel } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
 import { useProfile } from '@/profile/context'
 import { useViewingChat } from '@/realtime/context'
 import { toApiError } from '@/store/api'
-import { useAcceptGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, useResignGameMutation } from '@/store/games'
+import { useAcceptGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, usePlaceInGameMutation, useResignGameMutation } from '@/store/games'
 import { Buttons, Caption, Opponent, Status } from './styles'
 
 // Одна игра: приглашение (принять или отклонить), ожидание ответа, партия и итог.
@@ -31,6 +32,7 @@ export default function Game() {
   const [decline] = useDeclineGameMutation()
   const [cancel] = useCancelGameMutation()
   const [move] = useMoveInGameMutation()
+  const [place] = usePlaceInGameMutation()
   const [resign] = useResignGameMutation()
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -85,7 +87,7 @@ export default function Game() {
 
           {game.status === 'invited' && game.inviteeId === me && (
             <>
-              <Notice $tone="muted">{`${opponentName} приглашает вас сыграть. ${game.kind === 'chess' ? 'Цвет фигур выберется случайно.' : ''}`}</Notice>
+              <Notice $tone="muted">{`${opponentName} приглашает вас сыграть. ${game.kind === 'chess' ? 'Цвет фигур выберется случайно.' : 'Кто ходит первым, выберется случайно.'}`}</Notice>
               <Buttons>
                 <Button $variant="primary" type="button" disabled={busy} onClick={() => void run(() => call(accept({ id })))}>
                   Принять
@@ -112,14 +114,28 @@ export default function Game() {
           {(game.status === 'active' || game.status === 'finished') && (
             <>
               <Status>{game.status === 'finished' && game.result ? resultText(game.result, me) : game.turnId === me ? 'Ваш ход' : `Ход: ${opponentName}`}</Status>
-              <ChessBoard
-                fen={game.fen}
-                orientation={game.whiteId === me ? 'w' : 'b'}
-                lastMove={game.lastMove}
-                canMove={game.status === 'active' && game.turnId === me && !busy}
-                onMove={(from, to) => void run(() => call(move({ id, from, to })))}
-              />
-              <Caption>{`${game.whiteId === me ? 'Вы играете белыми' : 'Вы играете чёрными'}${lastMoveText(game) ? ` · ${lastMoveText(game)}` : ''}`}</Caption>
+              {game.kind === 'tictactoe' ? (
+                <>
+                  <TicTacToeBoard
+                    board={game.board ?? '---------'}
+                    lastCell={game.lastCell}
+                    canMove={game.status === 'active' && game.turnId === me && !busy}
+                    onPlace={(cell) => void run(() => call(place({ id, cell })))}
+                  />
+                  <Caption>{`Вы играете: ${myMark(game, me)}${game.whiteId === me ? ' · вы ходите первым' : ''}`}</Caption>
+                </>
+              ) : (
+                <>
+                  <ChessBoard
+                    fen={game.fen}
+                    orientation={game.whiteId === me ? 'w' : 'b'}
+                    lastMove={game.lastMove}
+                    canMove={game.status === 'active' && game.turnId === me && !busy}
+                    onMove={(from, to) => void run(() => call(move({ id, from, to })))}
+                  />
+                  <Caption>{`${game.whiteId === me ? 'Вы играете белыми' : 'Вы играете чёрными'}${lastMoveText(game) ? ` · ${lastMoveText(game)}` : ''}`}</Caption>
+                </>
+              )}
               {game.status === 'active' && (
                 <Button type="button" disabled={busy} onClick={() => void onResign()}>
                   Сдаться

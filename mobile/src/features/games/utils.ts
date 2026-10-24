@@ -1,7 +1,7 @@
 import type { Game, GameResult } from '@/api'
 
 export interface GameInfo {
-  // chess — единственная готовая игра, остальные пока заглушки
+  // готовы шахматы и крестики-нолики, остальные пока заглушки
   kind: string
   title: string
   emoji: string
@@ -11,7 +11,7 @@ export interface GameInfo {
 export const GAMES: GameInfo[] = [
   { kind: 'chess', title: 'Шахматы', emoji: '♟️', available: true },
   { kind: 'checkers', title: 'Шашки', emoji: '⚪', available: false },
-  { kind: 'tictactoe', title: 'Крестики-нолики', emoji: '❌', available: false },
+  { kind: 'tictactoe', title: 'Крестики-нолики', emoji: '❌', available: true },
   { kind: 'battleship', title: 'Морской бой', emoji: '🚢', available: false },
 ]
 
@@ -20,6 +20,7 @@ export const gameTitle = (kind: string) => GAMES.find((g) => g.kind === kind)?.t
 // Итог игры глазами участника viewerId
 export function resultText(result: GameResult, viewerId: string): string {
   if (result.reason === 'resign') return result.winnerId === viewerId ? 'Соперник сдался. Вы победили!' : 'Вы сдались'
+  if (result.reason === 'line') return result.winnerId === viewerId ? 'Три в ряд. Вы победили!' : 'Соперник собрал три в ряд. Вы проиграли'
   if (!result.winnerId) return result.reason === 'stalemate' ? 'Пат. Ничья' : 'Ничья'
   return result.winnerId === viewerId ? 'Мат. Вы победили!' : 'Мат. Вы проиграли'
 }
@@ -54,6 +55,10 @@ export function openGames(games: Game[], me: string): Game[] {
 
 // Последний ход словами: «Последний ход белых: Nf3» (нечётные ходы белых)
 export function lastMoveText(game: Game): string | null {
+  if (game.kind === 'tictactoe') return null
   if (!game.lastMove) return null
   return `Последний ход ${game.moves.length % 2 === 1 ? 'белых' : 'чёрных'}: ${game.lastMove.san}`
 }
+
+// Чем играет участник в крестики-нолики: первым ходит тот, кто в whiteId (крестики)
+export const myMark = (game: Game, me: string) => (game.whiteId === me ? '✕' : '◯')

@@ -1,5 +1,5 @@
 // Доступные игры. Остальные (шашки, крестики-нолики, морской бой) пока заглушки.
-export type GameKind = 'chess'
+export type GameKind = 'chess' | 'tictactoe'
 
 export type GameStatus = 'invited' | 'active' | 'finished' | 'declined' | 'cancelled'
 
@@ -14,7 +14,7 @@ export interface ChessMove {
 export interface GameResult {
   // null — ничья
   winnerId: string | null
-  reason: 'checkmate' | 'stalemate' | 'draw' | 'resign'
+  reason: 'checkmate' | 'stalemate' | 'draw' | 'resign' | 'line'
 }
 
 export interface Game {
@@ -31,6 +31,10 @@ export interface Game {
   fen: string
   moves: ChessMove[]
   lastMove: ChessMove | null
+  // крестики-нолики: поле из 9 знаков по строкам («X» ходит первым, он же whiteId, «O», «-» пусто), клетки по порядку ходов и последняя; у шахмат null и пусто
+  board: string | null
+  cells: number[]
+  lastCell: number | null
   result: GameResult | null
   createdAt: string
   updatedAt: string
