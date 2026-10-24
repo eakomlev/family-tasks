@@ -10,7 +10,9 @@ export const Frame = styled.div`
 
 export const Grid = styled.div`
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  /* строки равные, иначе ряд без фигур сжимается до высоты пустой клетки */
+  grid-template-rows: repeat(8, minmax(0, 1fr));
   aspect-ratio: 1;
   overflow: hidden;
   border-radius: 0.4rem;
@@ -21,6 +23,7 @@ export const Square = styled.button<{ $dark: boolean; $mark?: 'last' | 'selected
   display: grid;
   place-items: center;
   min-width: 0;
+  min-height: 0;
   padding: 0;
   border: 0;
   background: ${({ $dark }) => ($dark ? '#a9835a' : '#eadfc8')};
