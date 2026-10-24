@@ -24,6 +24,8 @@ export function tagsForEvent(event: RealtimeEvent): readonly TagItem[] {
       return ['Events']
     case 'chat':
       return ['Chats', { type: 'Messages', id: event.chat }]
+    case 'games':
+      return ['Games']
     case 'resync':
       return TAGS
   }

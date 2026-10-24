@@ -13,7 +13,9 @@ import Chat from '@/pages/Chat'
 import Coins from '@/pages/Coins'
 import Calendar from '@/pages/Calendar'
 import CalendarSettings from '@/pages/CalendarSettings'
-import ChatMedia from '@/pages/ChatMedia'
+import ChatInfo from '@/pages/ChatInfo'
+import Game from '@/pages/Game'
+import GamesList from '@/pages/GamesList'
 import ChatRoom from '@/pages/ChatRoom'
 import EventForm from '@/pages/EventForm'
 import FamilyDelete from '@/pages/FamilyDelete'
@@ -74,7 +76,9 @@ export default function App() {
               <Route path="/lesson-report" element={<LessonReport />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/chat/:chat" element={<ChatRoom />} />
-              <Route path="/chat/:chat/media" element={<ChatMedia />} />
+              <Route path="/chat/:chat/info" element={<ChatInfo />} />
+              <Route path="/family/:memberId/games" element={<GamesList />} />
+              <Route path="/games/:id" element={<Game />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/calendar/settings" element={<CalendarSettings />} />
               <Route path="/calendar/events/new" element={<EventForm />} />

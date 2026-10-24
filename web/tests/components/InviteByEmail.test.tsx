@@ -21,7 +21,9 @@ afterEach(() => {
 })
 
 const renderIt = () => render(<MemoryRouter><InviteByEmail token="tok" /></MemoryRouter>)
+// адрес добавляется через небольшое окно по ссылке «Добавить адрес»; верный адрес закрывает окно
 const add = async (email: string) => {
+  await userEvent.click(screen.getByRole('button', { name: 'Добавить адрес' }))
   await userEvent.type(screen.getByLabelText('Email приглашаемого'), email)
   await userEvent.click(screen.getByRole('button', { name: 'Добавить' }))
 }
@@ -31,19 +33,21 @@ describe('приглашение по email', () => {
     renderIt()
     await add(' Guest@Example.com ')
     expect(screen.getByText('guest@example.com')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Отправить приглашение' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Пригласить: 1' }))
     await waitFor(() => expect(api.inviteByEmail).toHaveBeenCalledWith('tok', 'guest@example.com'))
     expect(await screen.findByText('Отправлено')).toBeInTheDocument()
     // отправленное из очереди на отправку ушло
-    expect(screen.queryByRole('button', { name: /Отправить приглашени/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Пригласить:/ })).not.toBeInTheDocument()
   })
 
   it('неверный адрес не добавляется, повтор адреса не дублируется', async () => {
     renderIt()
     await add('не-адрес')
-    expect(screen.getByText(/Не похоже на email/)).toBeInTheDocument()
+    // окно остаётся открытым с подсказкой, список пуст
+    expect(screen.getByRole('alert')).toHaveTextContent(/Не похоже на email/)
     expect(screen.queryByRole('list', { name: 'Кого пригласить' })).not.toBeInTheDocument()
-    await userEvent.clear(screen.getByLabelText('Email приглашаемого'))
+    await userEvent.click(screen.getByRole('button', { name: 'Отмена' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     await add('a@b.co')
     await add('A@B.co')
     expect(within(screen.getByRole('list', { name: 'Кого пригласить' })).getAllByRole('listitem')).toHaveLength(1)
@@ -56,13 +60,22 @@ describe('приглашение по email', () => {
     renderIt()
     await add('new@x.co')
     await add('in@family.co')
-    await userEvent.click(screen.getByRole('button', { name: 'Отправить приглашения: 2' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Пригласить: 2' }))
     expect(await screen.findByText('Уже в семье')).toBeInTheDocument()
     expect(screen.getByText('Отправлено')).toBeInTheDocument()
     // остался один адрес, его можно убрать
-    expect(screen.getByRole('button', { name: 'Отправить приглашение' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Пригласить: 1' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Убрать in@family.co' }))
     expect(screen.queryByText('in@family.co')).not.toBeInTheDocument()
+  })
+
+  it('кнопка «Пригласить» появляется, только когда есть адрес, окно закрывается по Escape', async () => {
+    renderIt()
+    expect(screen.queryByRole('button', { name: /^Пригласить:/ })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить адрес' }))
+    expect(screen.getByRole('dialog', { name: 'Добавить адрес' })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('кнопки «Выбрать из контактов» нет, если браузер не умеет', () => {

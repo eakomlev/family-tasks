@@ -30,11 +30,14 @@ export function parseMessage(data: unknown): ServerEvent | { type: 'ready' } | n
     case 'ready':
     case 'tasks':
     case 'members':
+    case 'games':
+    case 'events':
       return { type: message.type }
     case 'chat':
       return typeof message.chat === 'string' ? { type: 'chat', chat: message.chat } : null
     case 'schedule':
     case 'trainings':
+    case 'goals':
       return typeof message.memberId === 'string' ? { type: message.type, memberId: message.memberId } : null
     default:
       return null

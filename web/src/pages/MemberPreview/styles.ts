@@ -50,3 +50,40 @@ export const ChatLink = styled(Link)`
     outline-offset: 3px;
   }
 `
+
+// «Написать» и «Играть» рядом
+export const Actions = styled.div`
+  display: flex;
+  gap: 0.75rem;
+`
+
+// круглая кнопка-значок «Играть»: список игр с этим человеком
+export const PlayLink = styled(Link)`
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  margin-top: 0.25rem;
+  border-radius: 50%;
+  background: var(--lime);
+  color: var(--on-lime);
+
+  svg {
+    width: 1.6rem;
+    height: 1.6rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:hover {
+    filter: brightness(1.05);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+`

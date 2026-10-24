@@ -1,15 +1,5 @@
 import styled from 'styled-components'
 
-export const AddRow = styled.div`
-  display: flex;
-  gap: 0.5rem;
-
-  input {
-    flex: 1;
-    min-width: 0;
-  }
-`
-
 export const List = styled.ul`
   display: flex;
   flex-direction: column;
@@ -69,5 +59,21 @@ export const Remove = styled.button`
 
   &:hover {
     background: var(--border);
+  }
+`
+
+// ссылка-действие «Добавить адрес»
+export const AddLink = styled.button`
+  align-self: flex-start;
+  padding: 0.2rem 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
   }
 `

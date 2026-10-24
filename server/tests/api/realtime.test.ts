@@ -286,3 +286,36 @@ describe('события', () => {
     expect(await dad.quiet()).toBe(true)
   })
 })
+
+describe('игры', () => {
+  it('приглашение, принятие, ход и сдача: сигнал games получают оба игрока, остальные не получают', async () => {
+    const mom = await connectAuthed(fam.mom.token)
+    const kid = await connectAuthed(fam.kid.token)
+    const dad = await connectAuthed(fam.dad.token)
+    const stranger = await connectAuthed(other.mom.token)
+
+    const invited = await api(app, fam.mom.token, 'POST', '/api/games', { kind: 'chess', opponentId: fam.kid.id })
+    const id = invited.body.game.id as string
+    expect(await mom.next()).toEqual({ type: 'games' })
+    expect(await kid.next()).toEqual({ type: 'games' })
+
+    const accepted = await api(app, fam.kid.token, 'POST', `/api/games/${id}/accept`)
+    expect(await mom.next()).toEqual({ type: 'games' })
+    expect(await kid.next()).toEqual({ type: 'games' })
+
+    // ходит тот, кому достались белые
+    const whiteIsMom = accepted.body.game.whiteId === fam.mom.id
+    const white = whiteIsMom ? fam.mom : fam.kid
+    await api(app, white.token, 'POST', `/api/games/${id}/move`, { from: 'e2', to: 'e4' })
+    expect(await mom.next()).toEqual({ type: 'games' })
+    expect(await kid.next()).toEqual({ type: 'games' })
+
+    await api(app, white.token, 'POST', `/api/games/${id}/resign`)
+    expect(await mom.next()).toEqual({ type: 'games' })
+    expect(await kid.next()).toEqual({ type: 'games' })
+
+    // другие члены семьи и чужая семья о чужой партии не узнают
+    expect(await dad.quiet()).toBe(true)
+    expect(await stranger.quiet()).toBe(true)
+  })
+})

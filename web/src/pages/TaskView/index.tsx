@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { isParent } from '@/lib/roles'
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError, type Occurrence, type Task } from '@/api'
 import { Avatar } from '@/components/Avatar'
 import { BackLink } from '@/components/BackLink'
@@ -15,7 +15,7 @@ import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
 import { useCompleteTaskMutation, useConfirmTaskMutation, useGetTaskQuery, useUncompleteTaskMutation } from '@/store/tasks'
-import { Actions, Description, Details, Who } from './styles'
+import { Actions, Description, Details, EditLink, TopBar, Who } from './styles'
 import { describeFullRepeat, describeOccurrenceDue } from './utils'
 import { useInFlight } from '@/lib/useInFlight'
 
@@ -128,13 +128,15 @@ export default function TaskView() {
 
   return (
     <Page>
-      <BackLink to="/tasks">← Задания</BackLink>
+      <TopBar>
+        <BackLink to="/tasks">← Задание</BackLink>
+        {task && state === 'ready' && task.authorId === me && <EditLink to={`/tasks/${task.id}/edit`}>Изменить</EditLink>}
+      </TopBar>
       {state === 'loading' && <p>Загрузка…</p>}
       {state === 'failed' && <Notice $tone="error">Не удалось загрузить задание. Проверьте соединение.</Notice>}
 
       {task && state === 'ready' && (
         <>
-          <h1>{task.title}</h1>
           {done && (
             <Notice $tone="muted">
               ✓ Выполнено: {byId(done.memberId)?.name ?? 'участник семьи'}, {formatDateTime(done.at)}
@@ -150,6 +152,7 @@ export default function TaskView() {
           )}
           {late && <Notice $tone="error">Просрочено</Notice>}
 
+          <h1>{task.title}</h1>
           {task.description && <Description>{task.description}</Description>}
 
           <Details>
@@ -177,7 +180,6 @@ export default function TaskView() {
 
           {error && <Notice $tone="error">{error}</Notice>}
           <Actions>
-            {task.authorId === me && <Button as={Link} to={`/tasks/${task.id}/edit`}>Изменить</Button>}
             {occurrence && !done && !pending && (
               <Button $variant="primary" type="button" disabled={busy} onClick={() => void act('complete')}>
                 {needsReview ? 'Отправить на проверку' : 'Отметить выполненным'}

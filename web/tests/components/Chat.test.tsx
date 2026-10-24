@@ -425,15 +425,15 @@ describe('переписка', () => {
     expect(api.listMessages).toHaveBeenCalledWith('tok', 'family')
   })
 
-  it('личная переписка: аватар и имя сверху ведут в профиль собеседника, в общем чате ссылки нет', async () => {
+  it('аватар и имя сверху ведут на страницу информации о чате (и в личном, и в общем)', async () => {
     vi.mocked(api.listMessages).mockResolvedValue({ messages: [], hasMore: false, readUpTo: null, peer: null })
     renderRoom('m2')
     const heading = await screen.findByRole('heading', { name: /Миша/ })
-    expect(heading.closest('a')).toHaveAttribute('href', '/family/m2')
+    expect(heading.closest('a')).toHaveAttribute('href', '/chat/m2/info')
     cleanup()
     renderRoom('family')
     const family = await screen.findByRole('heading', { name: 'Общий чат' })
-    expect(family.closest('a')).toBeNull()
+    expect(family.closest('a')).toHaveAttribute('href', '/chat/family/info')
   })
 
   it('свои сообщения с галочками: «прочитано» до отметки собеседника, «отправлено» после; у чужих галочек нет', async () => {

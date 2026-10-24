@@ -52,7 +52,6 @@ function renderRoom(opts: { chat?: string; as?: 'me' | 'm2'; chats?: ChatSummary
       <MemoryRouter initialEntries={[`/chat/${opts.chat ?? 'family'}`]}>
         <Routes>
           <Route path="/chat/:chat" element={<ChatRoom />} />
-          <Route path="/chat/:chat/media" element={<p>Экран медиа</p>} />
         </Routes>
       </MemoryRouter>,
       opts,
@@ -72,7 +71,8 @@ describe('меню чата: три точки в переписке', () => {
   it('родитель: уведомления и очистка', async () => {
     renderRoom()
     await userEvent.click(await screen.findByRole('button', { name: 'Меню чата' }))
-    expect(screen.getByRole('button', { name: 'Медиа файлы' })).toBeInTheDocument()
+    // «Медиа файлы» переехали на страницу информации о чате
+    expect(screen.queryByRole('button', { name: 'Медиа файлы' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Отключить уведомления' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Очистить чат' })).toBeInTheDocument()
   })
@@ -80,16 +80,8 @@ describe('меню чата: три точки в переписке', () => {
   it('ребёнок: только уведомления, очистки нет', async () => {
     renderRoom({ as: 'm2' })
     await userEvent.click(await screen.findByRole('button', { name: 'Меню чата' }))
-    expect(screen.getByRole('button', { name: 'Медиа файлы' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Отключить уведомления' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Очистить чат' })).not.toBeInTheDocument()
-  })
-
-  it('«Медиа файлы» открывает экран фото этого чата', async () => {
-    renderRoom({ chat: 'm2' })
-    await userEvent.click(await screen.findByRole('button', { name: 'Меню чата' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Медиа файлы' }))
-    expect(await screen.findByText('Экран медиа')).toBeInTheDocument()
   })
 
   it('«Отключить уведомления» вызывает API и закрывает меню', async () => {

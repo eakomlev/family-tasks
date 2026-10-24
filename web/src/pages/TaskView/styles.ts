@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 export const Description = styled.p`
@@ -41,4 +42,23 @@ export const Actions = styled.div`
   gap: 0.6rem;
   margin-top: auto;
   padding-top: 1rem;
+`
+
+// верхняя строка: «← Задание» слева, ссылка «Изменить» справа (справа вверху лежат баланс монет и значок профиля, место им оставлено)
+export const TopBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-right: var(--topbar-reserve, 3rem);
+`
+
+export const EditLink = styled(Link)`
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
 `

@@ -106,7 +106,14 @@ export function eventItems(events: FamilyEvent[], from: string, to: string): Cal
   return items
 }
 
-export function taskItems(list: TaskList | undefined, from: string, to: string): CalendarItem[] {
+// Подпись задания в календаре: исполнитель (ребёнок видит родителей как «Мама» и «Папа»)
+function assigneeSubtitle(members: Member[], assigneeId: string, viewerRole: Role): string | undefined {
+  const assignee = members.find((m) => m.id === assigneeId)
+  return assignee ? `Исполнитель: ${memberLabel(assignee, viewerRole)}` : undefined
+}
+
+// Задания периода
+export function taskItems(list: TaskList | undefined, from: string, to: string, members: Member[] = [], viewerRole: Role = 'child'): CalendarItem[] {
   if (!list) return []
   const byId = new Map(list.tasks.map((task) => [task.id, task]))
   const items: CalendarItem[] = []
@@ -117,6 +124,7 @@ export function taskItems(list: TaskList | undefined, from: string, to: string):
       key: `task:${task.id}:${occurrence.date}`,
       kind: 'task',
       title: task.title,
+      subtitle: assigneeSubtitle(members, task.assigneeId, viewerRole),
       date: occurrence.date,
       start: task.time,
       end: null,
@@ -234,8 +242,8 @@ export function timeLabel(item: Pick<CalendarItem, 'start' | 'end'>): string {
 // ---- вид «День»: полоса суток с блоками ----
 
 export const MINUTES_IN_DAY = 24 * 60
-// короче этого блок не рисуется (иначе подпись не помещается, а соседи по времени накладывались бы незаметно)
-export const MIN_BLOCK_MINUTES = 30
+// короче этого блок не рисуется: в нём должны помещаться две строки (название и «время · для кого»), а соседи по времени не должны накладываться незаметно
+export const MIN_BLOCK_MINUTES = 50
 
 const toMinutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
 

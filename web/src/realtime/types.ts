@@ -10,6 +10,8 @@ export type ServerEvent =
   | { type: 'events' }
   // изменение в чате; chat — «family» или собеседник
   | { type: 'chat'; chat: string }
+  // игры: приглашение, ход или итог
+  | { type: 'games' }
 
 // resync: соединение восстановилось или вкладка снова открыта, события могли быть пропущены, обновите всё
 export type RealtimeEvent = ServerEvent | { type: 'resync' }

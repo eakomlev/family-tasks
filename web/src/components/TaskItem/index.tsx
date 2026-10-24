@@ -1,8 +1,12 @@
+import { useContext, useRef, useState } from 'react'
 import { Avatar } from '@/components/Avatar'
+import { IdentityContext } from '@/identity/context'
 import { coinsWord } from '@/lib/coins'
 import { formatDateTime } from '@/lib/date'
+import { useLongPress } from '@/lib/useLongPress'
 import { Actions, Body, Badge, Card, Chevron, Reward, Hidden, Inner, Meta, Row, Shell, Title, Who } from './styles'
 import { TaskIcon } from './TaskIcon'
+import { TaskMenu } from './TaskMenu'
 import type { TaskItemProps, TaskState } from './types'
 import { authorLabel, taskMeta } from './utils'
 
@@ -10,6 +14,27 @@ const STATE_LABELS: Record<TaskState, string> = { todo: '', done: 'Выполн�
 
 // карточка задания: вся целиком ссылка на страницу задания; значок показывает, выполнено ли оно или ждёт проверки родителем
 export function TaskItem({ task, occurrence, assignee, showAssignee, author, doneBy, showDate, today, review }: TaskItemProps) {
+  // без провайдера входа (карточка сама по себе) меню нет
+  const identity = useContext(IdentityContext)?.identity
+  const [menu, setMenu] = useState(false)
+  // менять и удалять может только автор: долгое нажатие (правая кнопка мыши) открывает «Изменить» и «Удалить»
+  const canManage = !!identity && task.authorId === identity.memberId
+  // после долгого нажатия палец отпускается над карточкой и даёт «клик»: переход по ссылке от него не нужен
+  const lastLong = useRef(0)
+  const press = useLongPress(
+    canManage
+      ? () => {
+          lastLong.current = Date.now()
+          setMenu(true)
+        }
+      : undefined,
+  )
+  const holdProps = {
+    ...press,
+    onClick: (e: React.MouseEvent) => {
+      if (Date.now() - lastLong.current < 700) e.preventDefault()
+    },
+  }
   const done = occurrence.done !== null
   const pending = occurrence.pending !== null
   const { parts, late } = taskMeta(task, occurrence, today, showDate)
@@ -56,12 +81,14 @@ export function TaskItem({ task, occurrence, assignee, showAssignee, author, don
     </>
   )
 
+  const sheet = menu && <TaskMenu task={task} onClose={() => setMenu(false)} />
+
   // родителю у карточки «на проверке» под ссылкой кнопки «Подтвердить» и «Вернуть»
   if (review && pending) {
     return (
       <Row>
         <Shell>
-          <Inner to={to}>{content}</Inner>
+          <Inner to={to} {...holdProps}>{content}</Inner>
           <Actions>
             <button type="button" data-primary disabled={review.busy} onClick={review.onConfirm}>
               Подтвердить{task.reward > 0 ? `: +${task.reward}` : ''}
@@ -69,13 +96,15 @@ export function TaskItem({ task, occurrence, assignee, showAssignee, author, don
             <button type="button" disabled={review.busy} onClick={review.onReject}>Вернуть</button>
           </Actions>
         </Shell>
+        {sheet}
       </Row>
     )
   }
 
   return (
     <Row>
-      <Card to={to}>{content}</Card>
+      <Card to={to} {...holdProps}>{content}</Card>
+      {sheet}
     </Row>
   )
 }

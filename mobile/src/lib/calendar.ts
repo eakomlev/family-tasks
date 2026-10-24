@@ -242,8 +242,8 @@ export function timeLabel(item: Pick<CalendarItem, 'start' | 'end'>): string {
 // ---- вид «День»: полоса суток с блоками ----
 
 export const MINUTES_IN_DAY = 24 * 60
-// короче этого блок не рисуется (иначе подпись не помещается, а соседи по времени накладывались бы незаметно)
-export const MIN_BLOCK_MINUTES = 30
+// короче этого блок не рисуется: в нём должны помещаться две строки (название и «время · для кого»), а соседи по времени не должны накладываться незаметно
+export const MIN_BLOCK_MINUTES = 50
 
 const toMinutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
 

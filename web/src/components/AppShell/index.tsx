@@ -17,8 +17,8 @@ function Shell() {
   const { data } = useProfile()
   const { pathname } = useLocation()
   if (!identity) return null
-  // переписка (/chat/:chat) занимает весь экран, без панели табов (экран «Медиа файлы» обычная страница)
-  const chatRoom = pathname.startsWith('/chat/') && !pathname.endsWith('/media')
+  // переписка (/chat/:chat) занимает весь экран, без панели табов (информация о чате обычная страница)
+  const chatRoom = pathname.startsWith('/chat/') && !pathname.endsWith('/info')
   // на страницах профиля значок профиля не нужен (баланс монет остаётся)
   // и на странице календаря: там своя шапка с кнопками, значок профиля ей мешал бы
   const hideAvatar = chatRoom || pathname.startsWith('/profile') || pathname === '/calendar'

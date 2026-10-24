@@ -1,3 +1,4 @@
+import type { ServerEvent } from '@/realtime/types'
 import { describe, expect, it } from 'vitest'
 import { nextDelay, parseMessage, socketUrl } from '@/realtime/utils'
 
@@ -43,5 +44,20 @@ describe('parseMessage', () => {
 
   it('лишние поля не пропускаются дальше', () => {
     expect(parseMessage('{"type":"tasks","secret":"x"}')).toEqual({ type: 'tasks' })
+  })
+})
+
+describe('все события сервера доходят до кэша', () => {
+  it('сообщения без данных и с адресом разбираются (раньше games, events и goals молча отбрасывались)', () => {
+    expect(parseMessage('{"type":"games"}')).toEqual({ type: 'games' })
+    expect(parseMessage('{"type":"events"}')).toEqual({ type: 'events' })
+    expect(parseMessage('{"type":"goals","memberId":"m1"}')).toEqual({ type: 'goals', memberId: 'm1' })
+    expect(parseMessage('{"type":"goals"}')).toBeNull()
+  })
+
+  it('мост подписан на каждый вид события: новый вид без подписки не обновит экран', async () => {
+    const { TOPICS } = await import('@/store/topics')
+    const all = { tasks: 1, members: 1, schedule: 1, trainings: 1, goals: 1, events: 1, chat: 1, games: 1 } satisfies Record<ServerEvent['type'], 1>
+    expect(TOPICS).toEqual(expect.arrayContaining(Object.keys(all) as ServerEvent['type'][]))
   })
 })

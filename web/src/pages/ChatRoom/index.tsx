@@ -28,7 +28,7 @@ import { MessageBubble } from './components/MessageBubble'
 import { MessagesSkeleton } from './components/MessagesSkeleton'
 import { PhotoViewer } from './components/PhotoViewer'
 import type { OutgoingMessage } from './components/Composer/types'
-import { BackButton, DayLabel, Title, Empty, Feed, FeedContent, FamilyIcon, Header, MenuButton, Room, Who, WhoLink } from './styles'
+import { BackButton, DayLabel, Title, Empty, Feed, FeedContent, FamilyIcon, Header, MenuButton, Room, WhoLink } from './styles'
 import { appendMessage, groupByDay, mergeLatest, messageStatus, participantsLabel, replaceMessage, visitLabel } from './utils'
 
 // «рядом с низом»: тогда новое сообщение прокручивает переписку само, а не сбивает чтение старых
@@ -269,7 +269,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
           </svg>
         </BackButton>
         {/* аватар и имя собеседника: нажатие открывает его профиль (в общем чате это просто подпись) */}
-        {other ? <WhoLink to={`/family/${other.id}`}>{who}</WhoLink> : <Who>{who}</Who>}
+        <WhoLink to={`/chat/${chat}/info`} aria-label="Информация о чате">{who}</WhoLink>
         <MenuButton type="button" aria-label="Меню чата" aria-haspopup="dialog" onClick={() => setMenuOpen(true)}>
           <svg viewBox="0 0 24 24" aria-hidden>
             <circle cx="12" cy="5" r="1.9" />

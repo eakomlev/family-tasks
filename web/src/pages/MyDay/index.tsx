@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CalendarIcon } from '@/components/CalendarIcon'
 import { MoodDialog } from '@/components/MoodDialog'
 import { Page } from '@/components/Page'
+import { ActiveGames } from '@/components/ActiveGames'
 import { PendingReview } from '@/components/PendingReview'
 import { useIdentity } from '@/identity/context'
 import { currentMood } from '@/lib/mood'
@@ -62,6 +63,7 @@ export default function MyDay() {
       <DailyFact now={now} />
       <EarnedToday now={now} />
       <PendingReview />
+      <ActiveGames />
       <TodayTasks now={now} />
       <TodayLessons now={now} />
       <TodayTrainings now={now} />

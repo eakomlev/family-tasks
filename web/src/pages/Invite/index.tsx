@@ -5,6 +5,7 @@ import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
 import { InviteByEmail } from './components/InviteByEmail'
 import { InviteSection } from './components/InviteSection'
+import { Card } from './styles'
 
 // приглашение в семью: ссылку видит и перевыпускает только создатель семьи
 export default function Invite() {
@@ -18,9 +19,19 @@ export default function Invite() {
     <Page>
       <BackLink to="/family">← Моя семья</BackLink>
       <h1>Пригласить в семью</h1>
-      <p>Отправьте ссылку тому, кого хотите добавить. По ней можно присоединиться как мама, папа, бабушка, дедушка или ребёнок.</p>
-      {identity && data && <InviteSection token={identity.token} />}
-      {identity && data && <InviteByEmail token={identity.token} />}
+      <p>По приглашению можно присоединиться как мама, папа, бабушка, дедушка или ребёнок.</p>
+      {identity && data && (
+        <>
+          <Card>
+            <InviteByEmail token={identity.token} />
+          </Card>
+          <Card>
+            <h2>Отправить ссылку вручную</h2>
+            <p>Скопируйте ссылку или поделитесь ею в любом мессенджере.</p>
+            <InviteSection token={identity.token} />
+          </Card>
+        </>
+      )}
     </Page>
   )
 }
