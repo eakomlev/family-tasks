@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Avatar } from '@/components/Avatar'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
@@ -15,9 +15,10 @@ import { memberLabel } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
 import { useProfile } from '@/profile/context'
 import { useViewingChat } from '@/realtime/context'
+import { ApiError } from '@/api'
 import { toApiError } from '@/store/api'
-import { useAcceptGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, usePlaceInGameMutation, useResignGameMutation } from '@/store/games'
-import { Buttons, Caption, Opponent, Status } from './styles'
+import { useAcceptGameMutation, useInviteToGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, usePlaceInGameMutation, useResignGameMutation } from '@/store/games'
+import { Buttons, Caption, Opponent, Result, Status } from './styles'
 
 // Одна игра: приглашение (принять или отклонить), ожидание ответа, партия и итог.
 // Пока страница открыта, сервер знает об этом и не присылает уведомлений о ходах соперника: ход просто появляется на доске.
@@ -33,6 +34,8 @@ export default function Game() {
   const [cancel] = useCancelGameMutation()
   const [move] = useMoveInGameMutation()
   const [place] = usePlaceInGameMutation()
+  const [invite] = useInviteToGameMutation()
+  const navigate = useNavigate()
   const [resign] = useResignGameMutation()
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -63,6 +66,21 @@ export default function Game() {
   })
 
   const call = (promise: { unwrap: () => Promise<unknown> }) => promise.unwrap().catch(toApiError)
+
+  // Новая партия с тем же соперником: приглашение уходит сразу (игра та же), открывается новая игра.
+  // Если с ним уже идёт такая игра (соперник успел позвать первым), открывается она.
+  const rematch = () =>
+    run(async () => {
+      if (!game) return
+      try {
+        const { game: next } = await invite({ kind: game.kind, opponentId: opponentOf(game, me) }).unwrap().catch(toApiError)
+        navigate(`/games/${next.id}`, { replace: true })
+      } catch (err) {
+        const existing = err instanceof ApiError && err.code === 'game_exists' ? (err.body as { game?: { id: string } } | undefined)?.game : undefined
+        if (!existing) throw err
+        navigate(`/games/${existing.id}`, { replace: true })
+      }
+    })
 
   async function onResign() {
     const ok = await confirm({ title: 'Сдаться?', message: 'Партия закончится вашим поражением.', confirmLabel: 'Сдаться', danger: true })
@@ -113,7 +131,7 @@ export default function Game() {
 
           {(game.status === 'active' || game.status === 'finished') && (
             <>
-              <Status>{game.status === 'finished' && game.result ? resultText(game.result, me) : game.turnId === me ? 'Ваш ход' : `Ход: ${opponentName}`}</Status>
+              {game.status === 'active' && <Status>{game.turnId === me ? 'Ваш ход' : `Ход: ${opponentName}`}</Status>}
               {game.kind === 'tictactoe' ? (
                 <>
                   <TicTacToeBoard
@@ -140,6 +158,19 @@ export default function Game() {
                 <Button type="button" disabled={busy} onClick={() => void onResign()}>
                   Сдаться
                 </Button>
+              )}
+              {game.status === 'finished' && (
+                <Result role="status">
+                  <Status>{game.result ? resultText(game.result, me) : 'Игра окончена'}</Status>
+                  <Buttons>
+                    <Button $variant="lime" type="button" disabled={busy} onClick={() => void rematch()}>
+                      Новая партия
+                    </Button>
+                    <Button type="button" disabled={busy} onClick={() => navigate('/')}>
+                      Выйти
+                    </Button>
+                  </Buttons>
+                </Result>
               )}
             </>
           )}

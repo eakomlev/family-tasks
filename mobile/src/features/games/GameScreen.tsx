@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { View } from 'react-native'
-import { Redirect } from 'expo-router'
+import { Redirect, useRouter } from 'expo-router'
 import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/Button'
 import { Card } from '@/components/Card'
@@ -15,8 +15,10 @@ import { memberLabel } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
 import { useProfile } from '@/profile/context'
 import { useViewingChat } from '@/realtime/context'
+import { ApiError } from '@/api'
+import { goBack } from '@/lib/navigation'
 import { toApiError } from '@/store/api'
-import { useAcceptGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, usePlaceInGameMutation, useResignGameMutation } from '@/store/games'
+import { useAcceptGameMutation, useInviteToGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, usePlaceInGameMutation, useResignGameMutation } from '@/store/games'
 import { ChessBoard } from './ChessBoard'
 import { TicTacToeBoard } from './TicTacToeBoard'
 import { gameTitle, lastMoveText, myMark, opponentOf, resultText } from './utils'
@@ -34,6 +36,8 @@ export function GameScreen({ id }: { id: string }) {
   const [cancel] = useCancelGameMutation()
   const [move] = useMoveInGameMutation()
   const [place] = usePlaceInGameMutation()
+  const [invite] = useInviteToGameMutation()
+  const router = useRouter()
   const [resign] = useResignGameMutation()
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -67,6 +71,21 @@ export function GameScreen({ id }: { id: string }) {
   })
 
   const call = (promise: { unwrap: () => Promise<unknown> }) => promise.unwrap().catch(toApiError)
+
+  // Новая партия с тем же соперником: приглашение уходит сразу (игра та же), открывается новая игра.
+  // Если с ним уже идёт такая игра (соперник успел позвать первым), открывается она.
+  const rematch = () =>
+    run(async () => {
+      if (!game) return
+      try {
+        const { game: next } = await invite({ kind: game.kind, opponentId: opponentOf(game, me) }).unwrap().catch(toApiError)
+        router.replace({ pathname: '/games/[id]', params: { id: next.id } })
+      } catch (err) {
+        const existing = err instanceof ApiError && err.code === 'game_exists' ? (err.body as { game?: { id: string } } | undefined)?.game : undefined
+        if (!existing) throw err
+        router.replace({ pathname: '/games/[id]', params: { id: existing.id } })
+      }
+    })
 
   async function onResign() {
     const ok = await confirm({ title: 'Сдаться?', message: 'Партия закончится вашим поражением.', confirmLabel: 'Сдаться', danger: true })
@@ -114,9 +133,7 @@ export function GameScreen({ id }: { id: string }) {
 
           {(game.status === 'active' || game.status === 'finished') && (
             <>
-              <Heading style={{ textAlign: 'center' }}>
-                {game.status === 'finished' && game.result ? resultText(game.result, me) : game.turnId === me ? 'Ваш ход' : `Ход: ${opponentName}`}
-              </Heading>
+              {game.status === 'active' && <Heading style={{ textAlign: 'center' }}>{game.turnId === me ? 'Ваш ход' : `Ход: ${opponentName}`}</Heading>}
               {game.kind === 'tictactoe' ? (
                 <>
                   <TicTacToeBoard
@@ -147,6 +164,17 @@ export function GameScreen({ id }: { id: string }) {
                 <Button variant="secondary" disabled={busy} onPress={() => void onResign()}>
                   Сдаться
                 </Button>
+              )}
+              {game.status === 'finished' && (
+                <Card style={{ gap: 12 }}>
+                  <Heading style={{ textAlign: 'center' }}>{game.result ? resultText(game.result, me) : 'Игра окончена'}</Heading>
+                  <Button variant="lime" disabled={busy} onPress={() => void rematch()}>
+                    Новая партия
+                  </Button>
+                  <Button variant="secondary" disabled={busy} onPress={() => goBack(router, '/')}>
+                    Выйти
+                  </Button>
+                </Card>
               )}
             </>
           )}

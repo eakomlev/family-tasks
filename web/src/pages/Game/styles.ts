@@ -40,3 +40,15 @@ export const Buttons = styled.div`
   flex-direction: column;
   gap: 0.6rem;
 `
+
+// итог игры: крупный результат и две кнопки под доской
+export const Result = styled.section`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.2rem 1rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+`

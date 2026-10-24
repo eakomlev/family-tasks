@@ -311,3 +311,40 @@ describe('крестики-нолики', () => {
     expect(await screen.findByText('Эта клетка уже занята.')).toBeInTheDocument()
   })
 })
+
+describe('после окончания игры', () => {
+  const finished = (patch: Partial<GameDto> = {}) => game({ status: 'finished', turnId: null, result: { winnerId: 'me', reason: 'checkmate' }, ...patch })
+
+  it('итог и две кнопки: «Новая партия» зовёт того же соперника в ту же игру и открывает её', async () => {
+    vi.mocked(api.getGame).mockImplementation(async (_t, id) => ({ game: id === 'g2' ? game({ id: 'g2', status: 'invited', whiteId: null, turnId: null }) : finished() }))
+    vi.mocked(api.inviteToGame).mockResolvedValue({ game: game({ id: 'g2', status: 'invited', whiteId: null, turnId: null }) })
+    renderAt('/games/g1')
+    expect(await screen.findByText('Мат. Вы победили!')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Выйти' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Новая партия' }))
+    await waitFor(() => expect(api.inviteToGame).toHaveBeenCalledWith('tok', 'chess', 'igor'))
+    expect(await screen.findByText(/Ждём ответа/)).toBeInTheDocument()
+  })
+
+  it('«Выйти» уводит с игры', async () => {
+    vi.mocked(api.getGame).mockResolvedValue({ game: finished() })
+    renderAt('/games/g1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Выйти' }))
+    expect(await screen.findByText('Мой день')).toBeInTheDocument()
+  })
+
+  it('соперник уже позвал сам: открывается та игра', async () => {
+    vi.mocked(api.getGame).mockImplementation(async (_t, id) => ({ game: id === 'g3' ? game({ id: 'g3', status: 'invited', inviterId: 'igor', inviteeId: 'me', whiteId: null, turnId: null }) : finished() }))
+    vi.mocked(api.inviteToGame).mockRejectedValue(new api.ApiError(409, 'game_exists', { game: { id: 'g3' } }))
+    renderAt('/games/g1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Новая партия' }))
+    expect(await screen.findByText(/приглашает вас сыграть/)).toBeInTheDocument()
+  })
+
+  it('у идущей игры этих кнопок нет', async () => {
+    vi.mocked(api.getGame).mockResolvedValue({ game: game() })
+    renderAt('/games/g1')
+    await screen.findByText('Ваш ход')
+    expect(screen.queryByRole('button', { name: 'Новая партия' })).not.toBeInTheDocument()
+  })
+})
