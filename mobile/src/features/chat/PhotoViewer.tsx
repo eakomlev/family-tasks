@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { FlatList, Image, Modal, Pressable, useWindowDimensions, View } from 'react-native'
+import { CachedImage } from '@/components/CachedImage'
+import { FlatList, Modal, Pressable, useWindowDimensions, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { ChatMedia } from '@/api'
@@ -41,7 +42,7 @@ export function PhotoViewer({ photos, index, onClose }: { photos: ChatMedia[]; i
           onMomentumScrollEnd={(e) => setCurrent(Math.round(e.nativeEvent.contentOffset.x / width))}
           renderItem={({ item }) => (
             <Pressable onPress={onClose} style={{ width, height, alignItems: 'center', justifyContent: 'center' }} accessibilityLabel="Фото. Нажмите, чтобы закрыть">
-              <Image source={{ uri: item.fullUrl }} style={{ width, height: height - 160 }} resizeMode="contain" />
+              <CachedImage uri={item.fullUrl} style={{ width, height: height - 160 }} contentFit="contain" />
             </Pressable>
           )}
         />

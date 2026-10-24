@@ -1,25 +1,39 @@
-import { useState } from 'react'
-import { Share } from 'react-native'
+import { useEffect, useState } from 'react'
+import { Pressable, Share, View } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
-import styled from 'styled-components/native'
+import { Ionicons } from '@expo/vector-icons'
+import styled, { useTheme } from 'styled-components/native'
 import { formatExpiry } from '@/lib/links'
 import { Button } from '../Button'
-import { Notice } from '../Notice'
-import { Stack } from '../Stack'
 import { Text } from '../Text'
 
 const Box = styled.View`
-  gap: 10px;
-  padding: 14px;
-  border-radius: 16px;
-  border-width: 1.5px;
-  border-color: ${({ theme }) => theme.colors.border};
-  background-color: ${({ theme }) => theme.colors.surface};
+  gap: 8px;
 `
 
-// Ссылка-приглашение: показать, скопировать или отправить через меню «Поделиться»
+const LinkRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  border-radius: 14px;
+  border-width: 1.5px;
+  border-color: ${({ theme }) => theme.colors.border};
+  background-color: ${({ theme }) => theme.colors.bg};
+`
+
+// Ссылка-приглашение: в одну строку со значком «копировать» справа, ниже срок и кнопка «Поделиться»
 export function LinkBox({ link, expiresAt }: { link: string; expiresAt: string }) {
+  const { colors } = useTheme()
   const [copied, setCopied] = useState(false)
+
+  // галочка «скопировано» держится недолго и сбрасывается, в том числе при смене ссылки
+  useEffect(() => {
+    if (!copied) return
+    const timer = setTimeout(() => setCopied(false), 2000)
+    return () => clearTimeout(timer)
+  }, [copied])
+  useEffect(() => setCopied(false), [link])
 
   async function copy() {
     try {
@@ -40,16 +54,20 @@ export function LinkBox({ link, expiresAt }: { link: string; expiresAt: string }
 
   return (
     <Box>
-      <Text $size={14} selectable>
-        {link}
-      </Text>
-      <Notice>{`Действует до ${formatExpiry(expiresAt)}`}</Notice>
-      <Stack $gap={8}>
-        <Button onPress={copy}>{copied ? 'Скопировано' : 'Копировать'}</Button>
-        <Button variant="primary" onPress={share}>
-          Поделиться
-        </Button>
-      </Stack>
+      <LinkRow>
+        <Text $size={14} numberOfLines={1} selectable style={{ flex: 1 }}>
+          {link}
+        </Text>
+        <Pressable onPress={copy} accessibilityRole="button" accessibilityLabel={copied ? 'Скопировано' : 'Копировать ссылку'} hitSlop={6} style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={22} color={copied ? colors.success : colors.accent} />
+        </Pressable>
+      </LinkRow>
+      <View style={{ paddingHorizontal: 4 }}>
+        <Text $size={13} $tone="muted">{`Действует до ${formatExpiry(expiresAt)}`}</Text>
+      </View>
+      <Button variant="primary" onPress={share}>
+        Поделиться
+      </Button>
     </Box>
   )
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FlatList, Image, Pressable, useWindowDimensions, View } from 'react-native'
+import { CachedImage } from '@/components/CachedImage'
+import { FlatList, Pressable, useWindowDimensions, View } from 'react-native'
 import { Redirect } from 'expo-router'
 import { useTheme } from 'styled-components/native'
 import { listChatMedia, type ChatMediaItem } from '@/api'
@@ -89,7 +90,7 @@ export function ChatMediaScreen({ chat }: { chat: string }) {
         }
         renderItem={({ item, index }) => (
           <Pressable onPress={() => setViewing(index)} accessibilityRole="button" accessibilityLabel="Открыть фото">
-            <Image source={{ uri: item.thumbUrl }} style={{ width: side, height: side, borderRadius: 8 }} />
+            <CachedImage uri={item.thumbUrl} style={{ width: side, height: side, borderRadius: 8 }} contentFit="cover" />
           </Pressable>
         )}
         ListFooterComponent={hasMore && !failed ? <Button variant="text" disabled={loading} onPress={() => items?.length && void load(items[items.length - 1].id)}>{loading ? 'Загрузка…' : 'Показать ещё'}</Button> : <View />}

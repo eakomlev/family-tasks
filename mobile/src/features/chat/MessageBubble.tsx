@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Image, Pressable, View, useWindowDimensions } from 'react-native'
+import { Pressable, View, useWindowDimensions } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import styled, { useTheme } from 'styled-components/native'
 import type { ChatMessage } from '@/api'
+import { CachedImage } from '@/components/CachedImage'
 import { CoinIcon } from '@/components/Coins'
 import { Text } from '@/components/Text'
 import { formatFileSize } from '@/lib/files'
@@ -146,7 +147,7 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
                     accessibilityRole="button"
                     accessibilityLabel={photos.length === 1 ? 'Открыть фото' : `Открыть фото ${i + 1} из ${photos.length}`}
                   >
-                    <Image source={{ uri: photos.length === 1 ? photo.fullUrl : photo.thumbUrl }} style={{ width: tile, height: tile / ratio }} resizeMode="cover" />
+                    <CachedImage uri={photos.length === 1 ? photo.fullUrl : photo.thumbUrl} style={{ width: tile, height: tile / ratio }} contentFit="cover" />
                   </Pressable>
                 )
               })}

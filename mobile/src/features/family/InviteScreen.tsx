@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { View } from 'react-native'
+import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native'
 import { Redirect } from 'expo-router'
 import { ApiError, getInvite, inviteByEmail, renewInvite, type Link } from '@/api'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
-import { Field } from '@/components/Field'
+import { Card } from '@/components/Card'
 import { Input } from '@/components/Input'
 import { LinkBox } from '@/components/LinkBox'
 import { Notice } from '@/components/Notice'
@@ -20,52 +20,54 @@ import { useInFlight } from '@/lib/useInFlight'
 import { isValidEmail } from '@/lib/validation'
 import { useProfile } from '@/profile/context'
 
-// Ссылка-приглашение: действующая показывается, новая заменяет прежнюю (так можно отозвать утёкшую ссылку)
+// Ссылка-приглашение: действующая показывается; если ссылки нет или она истекла, новая выпускается сама (в том числе когда срок
+// кончился, пока экран открыт)
 function InviteLink({ token }: { token: string }) {
-  const guard = useInFlight()
-  // undefined — загружаем, null — действующего приглашения нет
-  const [invite, setInvite] = useState<Link | null>()
-  const [busy, setBusy] = useState(false)
+  const [invite, setInvite] = useState<Link>()
   const [error, setError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
     const controller = new AbortController()
-    retryRead(() => getInvite(token), controller.signal)
-      .then((res) => !cancelled && setInvite(res))
-      .catch((err) => {
+
+    async function load() {
+      setError(false)
+      try {
+        let current: Link | null = await retryRead(() => getInvite(token), controller.signal).catch((err) => {
+          if (err instanceof ApiError && err.status === 404) return null
+          throw err
+        })
+        if (!current || new Date(current.expiresAt).getTime() <= Date.now()) current = await renewInvite(token)
         if (cancelled) return
-        if (err instanceof ApiError && err.status === 404) setInvite(null)
-        else setError(true)
-      })
+        setInvite(current)
+        // срок кончится, пока экран открыт: выпускаем новую (ограничение таймера около 24 суток, у ссылки 7)
+        const left = new Date(current.expiresAt).getTime() - Date.now()
+        timer = setTimeout(() => void load(), Math.min(Math.max(left, 1000), 2_000_000_000))
+      } catch {
+        if (!cancelled) setError(true)
+      }
+    }
+    void load()
     return () => {
       cancelled = true
+      if (timer) clearTimeout(timer)
       controller.abort()
     }
-  }, [token])
-
-  const renew = guard(async () => {
-    setBusy(true)
-    setError(false)
-    try {
-      setInvite(await renewInvite(token))
-    } catch {
-      setError(true)
-    } finally {
-      setBusy(false)
-    }
-  })
+  }, [token, attempt])
 
   return (
     <Stack>
-      {invite === undefined && !error && <Text $tone="muted">Загрузка…</Text>}
-      {invite === null && <Notice>Прошлое приглашение истекло.</Notice>}
+      {!invite && !error && <Text $tone="muted">Загрузка…</Text>}
       {invite && <LinkBox link={inviteLink(invite.code)} expiresAt={invite.expiresAt} />}
-      {error && <Notice tone="error">Не получилось. Попробуйте ещё раз.</Notice>}
-      {invite !== undefined && (
-        <Button disabled={busy} onPress={renew}>
-          {invite ? 'Новая ссылка (старая перестанет работать)' : 'Создать ссылку'}
-        </Button>
+      {error && (
+        <Notice tone="error">
+          Не получилось подготовить ссылку.{' '}
+          <Text $tone="accent" onPress={() => setAttempt((n) => n + 1)} accessibilityRole="button">
+            Повторить
+          </Text>
+        </Notice>
       )}
     </Stack>
   )
@@ -79,36 +81,81 @@ interface Recipient {
 
 const STATUS_TEXT = { idle: '', sending: 'Отправляем…', sent: 'Отправлено' } as const
 
-// Приглашение по email: адреса берут из контактов телефона или вводят по одному, потом на них уходят письма со ссылкой.
+// Небольшое окно для ввода адреса: «Добавить» проверяет адрес и закрывает окно, неверный адрес остаётся в поле с подсказкой
+function AddEmailDialog({ onAdd, onClose }: { onAdd: (email: string) => string | undefined; onClose: () => void }) {
+  const [value, setValue] = useState('')
+  const [error, setError] = useState<string>()
+
+  function submit() {
+    const problem = onAdd(value)
+    if (problem) setError(problem)
+    else onClose()
+  }
+
+  return (
+    <Modal transparent animationType="fade" onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <Pressable onPress={onClose} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: 'rgba(10, 12, 30, 0.6)' }}>
+          <Pressable onPress={() => {}} style={{ width: '100%', maxWidth: 380 }}>
+            <Card style={{ gap: 12, padding: 20, borderRadius: 26 }} accessibilityViewIsModal>
+              <Heading>Добавить адрес</Heading>
+              <Input
+                autoFocus
+                value={value}
+                onChangeText={(text) => {
+                  setValue(text)
+                  setError(undefined)
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="name@example.com"
+                accessibilityLabel="Email"
+                onSubmitEditing={submit}
+              />
+              {error && <Text $size={13} $tone="error">{error}</Text>}
+              <Button variant="primary" disabled={!value.trim()} onPress={submit}>
+                Добавить
+              </Button>
+              <Button variant="text" onPress={onClose}>
+                Отмена
+              </Button>
+            </Card>
+          </Pressable>
+        </Pressable>
+      </KeyboardAvoidingView>
+    </Modal>
+  )
+}
+
+// Приглашение по email: адреса берут из контактов телефона или добавляют вручную, как только есть хотя бы один, появляется «Пригласить».
 function InviteByEmail({ token }: { token: string }) {
   const guard = useInFlight()
   const [recipients, setRecipients] = useState<Recipient[]>([])
-  const [typed, setTyped] = useState('')
+  const [dialog, setDialog] = useState(false)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string>()
 
-  const addEmails = (emails: string[]) => {
+  // Добавляет адреса в список; возвращает текст ошибки, если какой-то адрес не похож на email
+  const addEmails = (emails: string[]): string | undefined => {
     const normalized = emails.map((e) => e.trim().toLowerCase()).filter(Boolean)
     const bad = normalized.filter((e) => !isValidEmail(e))
-    setNotice(bad.length > 0 ? `Не похоже на email: ${bad.join(', ')}` : undefined)
+    if (bad.length > 0) return `Не похоже на email: ${bad.join(', ')}`
     setRecipients((current) => {
       const next = [...current]
-      for (const email of normalized.filter(isValidEmail)) if (!next.some((r) => r.email === email)) next.push({ email, status: 'idle' })
+      for (const email of normalized) if (!next.some((r) => r.email === email)) next.push({ email, status: 'idle' })
       return next
     })
-    return bad.length === 0
-  }
-
-  function add() {
-    if (typed.trim() && addEmails([typed])) setTyped('')
+    return undefined
   }
 
   const pick = guard(async () => {
     setNotice(undefined)
     try {
-      addEmails((await pickContact()).map((c) => c.email))
+      const problem = addEmails((await pickContact()).map((c) => c.email))
+      if (problem) setNotice(problem)
     } catch (err) {
-      setNotice((err as Error).message === 'no_permission' ? 'Нет доступа к контактам. Разрешите его в настройках телефона или введите адрес вручную.' : 'Не удалось открыть контакты. Введите адрес вручную.')
+      setNotice((err as Error).message === 'no_permission' ? 'Нет доступа к контактам. Разрешите его в настройках телефона или добавьте адрес вручную.' : 'Не удалось открыть контакты. Добавьте адрес вручную.')
     }
   })
 
@@ -134,23 +181,12 @@ function InviteByEmail({ token }: { token: string }) {
 
   return (
     <Stack>
-      <Heading>Пригласить по email</Heading>
-      <Text>Мы отправим письмо со ссылкой. Человек откроет её, подтвердит свой email кодом и выберет, кто он в семье.</Text>
+      <Heading>Выбрать контакты</Heading>
+      <Text $tone="muted">Мы отправим письмо со ссылкой. Человек откроет её, подтвердит email кодом и выберет, кто он в семье.</Text>
       <Button onPress={pick}>Выбрать из контактов</Button>
-      <Field label="Или введите адрес">
-        <Input
-          value={typed}
-          onChangeText={setTyped}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="name@example.com"
-          onSubmitEditing={add}
-        />
-      </Field>
-      <Button disabled={!typed.trim()} onPress={add}>
+      <Text $tone="accent" $weight="extraBold" onPress={() => setDialog(true)} accessibilityRole="button" style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
         Добавить адрес
-      </Button>
+      </Text>
       {notice && <Notice tone="error">{notice}</Notice>}
       {recipients.map((r) => (
         <View key={r.email} style={{ gap: 2 }}>
@@ -174,14 +210,15 @@ function InviteByEmail({ token }: { token: string }) {
       ))}
       {pending.length > 0 && (
         <Button variant="primary" disabled={busy} onPress={send}>
-          {busy ? 'Отправляем…' : `Отправить письма: ${pending.length}`}
+          {busy ? 'Отправляем…' : `Пригласить: ${pending.length}`}
         </Button>
       )}
+      {dialog && <AddEmailDialog onAdd={(email) => addEmails([email])} onClose={() => setDialog(false)} />}
     </Stack>
   )
 }
 
-// Приглашение в семью: ссылку видит и перевыпускает только создатель семьи
+// Приглашение в семью: создатель семьи зовёт двумя способами, письмом по контактам или ссылкой вручную
 export function InviteScreen() {
   const { identity } = useIdentity()
   const { data } = useProfile()
@@ -191,9 +228,21 @@ export function InviteScreen() {
 
   return (
     <Screen header={<PageHeader fallback="/family">Пригласить в семью</PageHeader>}>
-      <Text>Отправьте ссылку тому, кого хотите добавить. По ней можно присоединиться как мама, папа, бабушка, дедушка или ребёнок.</Text>
-      {identity && data && <InviteLink token={identity.token} />}
-      {identity && data && <InviteByEmail token={identity.token} />}
+      <Text $tone="muted">По приглашению можно присоединиться как мама, папа, бабушка, дедушка или ребёнок.</Text>
+      {identity && data && (
+        <>
+          <Card>
+            <InviteByEmail token={identity.token} />
+          </Card>
+          <Card>
+            <Stack>
+              <Heading>Отправить ссылку вручную</Heading>
+              <Text $tone="muted">Скопируйте ссылку или поделитесь ею в любом мессенджере.</Text>
+              <InviteLink token={identity.token} />
+            </Stack>
+          </Card>
+        </>
+      )}
     </Screen>
   )
 }
