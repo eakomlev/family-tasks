@@ -185,6 +185,22 @@ export const FamilyIcon = styled.span`
 
 // Лента: своя прокрутка между шапкой и полем ввода (на всю ширину экрана, чтобы прокручивать можно было и у краёв).
 export const Feed = styled.div`
+  /* сообщение, к которому перешли из поиска, коротко подсвечивается */
+  [data-message-id][data-found] > div:first-child {
+    animation: found-flash 1.8s ease-out;
+  }
+
+  @keyframes found-flash {
+    0%,
+    60% {
+      box-shadow: 0 0 0 3px var(--accent);
+    }
+
+    100% {
+      box-shadow: 0 0 0 3px transparent;
+    }
+  }
+
   flex: 1;
   min-height: 0;
   margin: 0 -1rem;

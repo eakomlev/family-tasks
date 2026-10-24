@@ -128,6 +128,8 @@ describe('информация о чате', () => {
     await userEvent.type(screen.getByLabelText('Поиск по сообщениям'), 'молоко')
     const list = await screen.findByRole('list', { name: 'Найденные сообщения' }, { timeout: 3000 })
     expect(within(list).getByText(/купить молоко/)).toBeInTheDocument()
+    // нажатие на найденное открывает переписку на этом сообщении
+    expect(within(list).getByRole('link')).toHaveAttribute('href', '/chat/m2?message=s1')
     expect(api.searchChatMessages).toHaveBeenCalledWith('tok', 'm2', 'молоко', undefined)
     await userEvent.click(screen.getByRole('button', { name: 'Отмена' }))
     expect(await screen.findByRole('tablist')).toBeInTheDocument()

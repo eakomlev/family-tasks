@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 export const Profile = styled.div`
@@ -233,10 +234,6 @@ export const LinkRow = styled.a`
 `
 
 export const Found = styled.li`
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.7rem 0.9rem;
   border: 1px solid var(--card-border);
   border-radius: 0.9rem;
   background: var(--surface);
@@ -250,4 +247,17 @@ export const Found = styled.li`
 
 export const Sentinel = styled.div`
   height: 1px;
+`
+
+export const FoundLink = styled(Link)`
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.7rem 0.9rem;
+  color: inherit;
+  text-decoration: none;
+
+  small {
+    color: var(--muted);
+  }
 `

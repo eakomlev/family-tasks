@@ -2,12 +2,15 @@ import { useState } from 'react'
 import { SlideInPage as Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
+import { isSendSoundOn, setSendSoundOn } from '@/lib/sendFeedback'
+import { Checkbox } from '@/components/Checkbox'
 import { FONT_SCALE_STEP, MAX_FONT_SCALE, MIN_FONT_SCALE, getFontScale, setFontScale } from '@/lib/fontScale'
 import { Preview, Row } from './styles'
 
 // Настройки: размер шрифта (как в приложении, от 80% до 150%)
 export default function ProfileSettings() {
   const [scale, setScale] = useState(getFontScale)
+  const [sound, setSound] = useState(isSendSoundOn)
 
   return (
     <Page>
@@ -29,6 +32,11 @@ export default function ProfileSettings() {
             Стандартный размер
           </Button>
         )}
+      </Row>
+      <Row>
+        <Checkbox checked={sound} onChange={(e) => { setSound(e.target.checked); setSendSoundOn(e.target.checked) }}>
+          Звук и вибрация при отправке сообщения
+        </Checkbox>
       </Row>
     </Page>
   )

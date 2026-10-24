@@ -58,7 +58,7 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
     : {}
 
   return (
-    <Wrap $mine={mine}>
+    <Wrap $mine={mine} data-message-id={message.id}>
       <Bubble $mine={mine} $interactive={!!onFeedback} $photoColumns={photos.length > 0 ? photoColumns(photos.length) : undefined} {...interactive}>
         {showSender && !mine && <Sender>{senderName ?? 'Участник'}{senderMood && <span aria-hidden> {senderMood}</span>}</Sender>}
         {message.replyTo && (

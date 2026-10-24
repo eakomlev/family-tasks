@@ -19,7 +19,7 @@ import { useSetChatMutedMutation } from '@/store/chat'
 import { chatTitle } from '../Chat/utils'
 import { PhotoViewer } from '../ChatRoom/components/PhotoViewer'
 import { dayLabel, formatMessageTime, participantsLabel } from '../ChatRoom/utils'
-import { ActionRow, Found, GroupIcon, Grid, LinkRow, Panel, Profile, Role, Rows, SearchRow, Sentinel, Slider, Switch, Tab, Tabs, Thumb } from './styles'
+import { ActionRow, Found, FoundLink, GroupIcon, Grid, LinkRow, Panel, Profile, Role, Rows, SearchRow, Sentinel, Slider, Switch, Tab, Tabs, Thumb } from './styles'
 
 type TabKey = 'media' | 'links'
 
@@ -207,8 +207,11 @@ export default function ChatInfo() {
         <Rows aria-label="Найденные сообщения">
           {found.items.map((item) => (
             <Found key={item.id}>
-              <small>{nameOf(item.senderId)} · {when(item.createdAt)}</small>
-              {item.text}
+              {/* нажатие открывает переписку на этом сообщении */}
+              <FoundLink to={`/chat/${chat}?message=${item.id}`}>
+                <small>{nameOf(item.senderId)} · {when(item.createdAt)}</small>
+                {item.text}
+              </FoundLink>
             </Found>
           ))}
         </Rows>

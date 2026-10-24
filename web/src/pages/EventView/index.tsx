@@ -7,6 +7,7 @@ import { BodyTitle, PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Notice } from '@/components/Notice'
+import { PillTabs } from '@/components/PillTabs'
 import { SlideInPage as Page } from '@/components/Page'
 import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
@@ -63,6 +64,15 @@ export default function EventView() {
   return (
     <Page>
       <PageHeader to={event ? `/calendar?date=${event.startDate}` : '/calendar'}>Событие</PageHeader>
+      {event && (
+        <PillTabs
+          label="Событие и чат"
+          tabs={[
+            { to: `/calendar/events/${event.id}`, label: 'Событие', active: true },
+            { to: `/chat/${eventChatId(event.id)}`, label: 'Чат', active: false, badge: chats?.find((c) => c.id === eventChatId(event.id))?.unread },
+          ]}
+        />
+      )}
       {!event && <p>Загрузка…</p>}
       {event && (
         <>
@@ -89,10 +99,6 @@ export default function EventView() {
               ))}
             </People>
           )}
-          {/* у события свой чат для участников; непрочитанное видно на кнопке */}
-          <Button $variant="lime" as={Link} to={`/chat/${eventChatId(event.id)}`}>
-            Чат события{(chats?.find((c) => c.id === eventChatId(event.id))?.unread ?? 0) > 0 && ` (${chats!.find((c) => c.id === eventChatId(event.id))!.unread})`}
-          </Button>
           {error && <Notice $tone="error">{error}</Notice>}
           {event.authorId === identity.memberId && (
             <Stack>

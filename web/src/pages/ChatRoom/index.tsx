@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Navigate, useLocation, useParams } from 'react-router-dom'
+import { Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { FAMILY_CHAT, isEventChat, listMessages, uploadChatFile, uploadChatPhoto, type ChatMessage, type MessageFeedback } from '@/api'
 import { Avatar } from '@/components/Avatar'
 import { TabIcon } from '@/components/TabBar/TabIcon'
@@ -13,6 +13,8 @@ import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
 import { useViewingChat } from '@/realtime/context'
 import { toApiError } from '@/store/api'
+import { PillTabs } from '@/components/PillTabs'
+import { playSendFeedback } from '@/lib/sendFeedback'
 import { useGetEventQuery } from '@/store/events'
 import { useDeleteMessageMutation, useEditMessageMutation, useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, useSendMessageMutation } from '@/store/chat'
 import { currentMood } from '@/lib/mood'
@@ -126,6 +128,35 @@ function Conversation({ chat }: { chat: string | undefined }) {
       observer?.disconnect()
     }
   }, [])
+
+  // Переход из поиска (?message=<id>): подгружаем более ранние страницы, пока сообщение не найдётся, и прокручиваем к нему с подсветкой.
+  const [search, setSearch] = useSearchParams()
+  const target = search.get('message')
+  const jumping = useRef(false)
+  useEffect(() => {
+    if (!target || !messages || !token || !chat) return
+    const feed = feedRef.current
+    if (messages.some((m) => m.id === target)) {
+      stick.current = false
+      const el = feed?.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(target)}"]`)
+      el?.scrollIntoView({ block: 'center' })
+      el?.setAttribute('data-found', '')
+      if (el) setTimeout(() => el.removeAttribute('data-found'), 2000)
+      setSearch({}, { replace: true })
+    } else if (hasMore && !jumping.current) {
+      jumping.current = true
+      stick.current = false
+      retryRead(() => listMessages(token, chat, messages[0].id), abort.current?.signal)
+        .then((older) => setThread((current) => ({ messages: [...older.messages, ...(current?.messages ?? [])], hasMore: older.hasMore, readUpTo: current?.readUpTo ?? null })))
+        .catch(() => setOlderFailed(true))
+        .finally(() => {
+          jumping.current = false
+        })
+    } else if (!hasMore) {
+      // сообщения нет (удалено): остаёмся в переписке
+      setSearch({}, { replace: true })
+    }
+  }, [target, messages, hasMore, token, chat, abort, setSearch])
 
   // пока чат открыт, пуши о его сообщениях не нужны
   useViewingChat(chat)
@@ -244,6 +275,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
     setPending((list) => [...list, item])
     setReplyingTo(undefined)
     stick.current = true
+    playSendFeedback()
     void deliver(item)
   }
 
@@ -302,7 +334,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
   return (
     <Room $slide={slideIn}>
       <Header>
-        <BackButton to={eventId ? `/calendar/events/${eventId}` : '/chat'} aria-label={eventId ? 'К событию' : 'К списку чатов'}>
+        <BackButton to={eventId ? '/calendar' : '/chat'} aria-label={eventId ? 'К календарю' : 'К списку чатов'}>
           <svg viewBox="0 0 24 24" aria-hidden>
             <path d="M15 5l-7 7 7 7" />
           </svg>
@@ -317,6 +349,15 @@ function Conversation({ chat }: { chat: string | undefined }) {
           </svg>
         </MenuButton>
       </Header>
+      {eventId && (
+        <PillTabs
+          label="Событие и чат"
+          tabs={[
+            { to: `/calendar/events/${eventId}`, label: 'Событие', active: false },
+            { to: `/chat/event-${eventId}`, label: 'Чат', active: true },
+          ]}
+        />
+      )}
 
       {/* лента всегда на месте (растягивается между шапкой и полем ввода): пока грузится, в ней серые пузыри, при ошибке сообщение */}
       <Feed ref={feedRef}>

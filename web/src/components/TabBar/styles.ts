@@ -11,7 +11,7 @@ export const Bar = styled.nav`
   width: min(calc(100% - 1.5rem), 26rem);
   height: var(--tabbar-bar-height);
   margin: 0 auto;
-  padding: 0 0.5rem;
+  padding: 0.3rem;
   border: 1px solid var(--tabbar-border);
   border-radius: 999px;
   background: var(--tabbar-bg);
@@ -24,45 +24,62 @@ export const Bar = styled.nav`
 
 // выбранный таб шире (значок и подпись), остальные только значками: место делится поровну между ними
 export const Tabs = styled.ul`
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
   height: 100%;
   margin: 0;
   padding: 0;
   list-style: none;
+
+  li {
+    display: flex;
+  }
+`
+
+// подсветка выбранного таба: плавно переезжает между равными колонками
+export const Highlight = styled.li<{ $index: number; $count: number }>`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc((100% - 4px * (${({ $count }) => $count} - 1)) / ${({ $count }) => $count});
+  border-radius: 999px;
+  background: var(--tabbar-active-bg);
+  transform: translateX(calc(${({ $index }) => $index} * (100% + 4px)));
+  transition: transform 0.28s cubic-bezier(0.3, 1.2, 0.5, 1);
+  pointer-events: none;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 `
 
 export const TabLink = styled(NavLink)`
   position: relative;
-  min-width: 2.75rem;
-  height: 2.75rem;
+  flex: 1;
+  min-width: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 0 0.5rem;
+  gap: 1px;
   border-radius: 999px;
   color: var(--tabbar-icon);
-  font-size: 0.8rem;
-  font-weight: 900;
+  font-size: 0.7rem;
+  font-weight: 800;
   text-decoration: none;
   white-space: nowrap;
-  /* без серой вспышки браузера при нажатии: выделение таба рисуем сами */
+  /* без серой вспышки браузера при нажатии */
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-touch-callout: none;
-  transition: background-color 0.2s ease, padding 0.25s cubic-bezier(0.3, 1.4, 0.5, 1);
+  transition: color 0.2s ease;
 
-  /* выбранный таб: капсула со значком и подписью (в светлой теме мягкий индиго, в тёмной золотистая) */
   &.active {
-    padding: 0 1rem 0 0.8rem;
-    background: var(--tabbar-active-bg);
     color: var(--tabbar-active-text);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
   }
 
   &:focus-visible {
@@ -71,17 +88,9 @@ export const TabLink = styled(NavLink)`
   }
 `
 
-// подпись видна только у выбранного таба; у остальных она остаётся для скринридеров
+// подпись видна у всех табов
 export const Label = styled.span<{ $active: boolean }>`
-  ${({ $active }) =>
-    !$active &&
-    css`
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-    `}
+  line-height: 1.1;
 `
 
 // при выборе таба значок подпрыгивает
@@ -114,8 +123,8 @@ export const Icon = styled.span<{ $active: boolean }>`
   }
 
   svg {
-    width: ${({ $active }) => ($active ? '1.35rem' : '1.55rem')};
-    height: ${({ $active }) => ($active ? '1.35rem' : '1.55rem')};
+    width: 1.45rem;
+    height: 1.45rem;
     fill: none;
     stroke: currentColor;
     stroke-width: 2.2;
@@ -147,10 +156,7 @@ export const Badge = styled.span`
   line-height: 1.1rem;
   text-align: center;
 
-  /* у выбранного таба справа от значка подпись, поэтому число переезжает на левый край значка */
   ${TabLink}.active & {
-    right: auto;
-    left: -0.75rem;
     border-color: var(--tabbar-active-bg);
   }
 `
