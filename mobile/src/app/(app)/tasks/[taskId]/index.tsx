@@ -8,7 +8,7 @@ import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
-import { Text } from '@/components/Text'
+import { Text, Title } from '@/components/Text'
 import { Celebration } from '@/features/tasks/Celebration'
 import { describeFullRepeat, describeOccurrenceDue } from '@/features/tasks/viewText'
 import { useIdentity } from '@/identity/context'
@@ -141,7 +141,16 @@ export default function TaskView() {
   const repeat = task ? describeFullRepeat(task) : ''
 
   return (
-    <Screen header={<PageHeader fallback="/tasks">{task?.title ?? ''}</PageHeader>}>
+    <Screen
+      header={
+        <PageHeader
+          fallback="/tasks"
+          right={task && task.authorId === me ? <Button variant="text" onPress={() => router.push({ pathname: '/tasks/[taskId]/edit', params: { taskId: task.id } })}>Изменить</Button> : undefined}
+        >
+          Задание
+        </PageHeader>
+      }
+    >
       {state === 'loading' && <Text $tone="muted">Загрузка…</Text>}
       {state === 'failed' && <Notice tone="error">Не удалось загрузить задание. Проверьте соединение.</Notice>}
 
@@ -159,6 +168,7 @@ export default function TaskView() {
           )}
           {late && <Notice tone="error">Просрочено</Notice>}
 
+          <Title>{task.title}</Title>
           {task.description ? <Text>{task.description}</Text> : null}
 
           <Stack $gap={10}>
@@ -172,7 +182,6 @@ export default function TaskView() {
 
           {error && <Notice tone="error">{error}</Notice>}
           <Stack $gap={8}>
-            {task.authorId === me && <Button onPress={() => router.push({ pathname: '/tasks/[taskId]/edit', params: { taskId: task.id } })}>Изменить</Button>}
             {occurrence && !done && !pending && (
               <Button variant="lime" disabled={busy} onPress={() => void act('complete')}>
                 {needsReview ? 'Отправить на проверку' : 'Отметить выполненным'}

@@ -1,6 +1,6 @@
 import { API_URL } from '@/lib/config'
 import { request, send } from '../client'
-import type { ChatMediaItem, ChatMessage, ChatSummary, MessageFeedback, MessagePage } from './types'
+import type { ChatLink, ChatMediaItem, ChatSearchResult, ChatMessage, ChatSummary, MessageFeedback, MessagePage } from './types'
 
 export const FAMILY_CHAT = 'family'
 
@@ -33,6 +33,14 @@ export const listChatMedia = (token: string, chat: string, before?: string) =>
     ...res,
     items: res.items.map((item) => ({ ...item, thumbUrl: absoluteUrl(item.thumbUrl), fullUrl: absoluteUrl(item.fullUrl) })),
   }))
+
+// Поиск сообщений чата по тексту, свежие первыми; before — id самого старого найденного
+export const searchChatMessages = (token: string, chat: string, query: string, before?: string) =>
+  request<{ messages: ChatSearchResult[]; hasMore: boolean }>(`/chats/${chat}/search?q=${encodeURIComponent(query)}${before ? `&before=${before}` : ''}`, {}, token)
+
+// Все ссылки из сообщений чата, свежие первыми; before — lastMessageId прошлой страницы
+export const listChatLinks = (token: string, chat: string, before?: string) =>
+  request<{ items: ChatLink[]; hasMore: boolean; lastMessageId: string | null }>(`/chats/${chat}/links${before ? `?before=${before}` : ''}`, {}, token)
 
 // text может быть пустым, если есть фото (mediaIds из uploadChatPhoto, в порядке показа)
 export const sendMessage = (token: string, chat: string, text: string, mediaIds?: string[], fileIds?: string[], replyTo?: string) =>

@@ -27,7 +27,6 @@ export function useChatActions(chat: string): SheetAction[] {
   const title = identity ? chatTitle(chat, data?.members ?? [], identity.role) : ''
 
   const actions: SheetAction[] = [
-    { key: 'media', label: 'Медиа файлы', onSelect: () => router.push({ pathname: '/chat/[chat]/media', params: { chat } }) },
     {
       key: 'archive',
       label: archived ? 'Вернуть из архива' : 'В архив',

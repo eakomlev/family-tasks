@@ -145,6 +145,8 @@ describe('задания, дни рождения, тренировки', () => 
     expect(items).toHaveLength(1)
     expect(items[0]).toMatchObject({ kind: 'task', title: 'Убрать', date: '2026-11-05', start: '17:00', done: true, memberIds: ['kid'], href: '/tasks/a?date=2026-11-05' })
     expect(taskItems(undefined, '2026-11-01', '2026-11-30')).toEqual([])
+    // с составом семьи в подписи исполнитель
+    expect(taskItems(list, '2026-11-01', '2026-11-30', [member('kid', null)], 'mama')[0].subtitle).toBe('Исполнитель: kid')
   })
 
   it('день рождения повторяется каждый год, возраст считается; в год рождения записи нет', () => {

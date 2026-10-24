@@ -106,7 +106,14 @@ export function eventItems(events: FamilyEvent[], from: string, to: string): Cal
   return items
 }
 
-export function taskItems(list: TaskList | undefined, from: string, to: string): CalendarItem[] {
+// Подпись задания в календаре: исполнитель (ребёнок видит родителей как «Мама» и «Папа»)
+function assigneeSubtitle(members: Member[], assigneeId: string, viewerRole: Role): string | undefined {
+  const assignee = members.find((m) => m.id === assigneeId)
+  return assignee ? `Исполнитель: ${memberLabel(assignee, viewerRole)}` : undefined
+}
+
+// Задания периода
+export function taskItems(list: TaskList | undefined, from: string, to: string, members: Member[] = [], viewerRole: Role = 'child'): CalendarItem[] {
   if (!list) return []
   const byId = new Map(list.tasks.map((task) => [task.id, task]))
   const items: CalendarItem[] = []
@@ -117,6 +124,7 @@ export function taskItems(list: TaskList | undefined, from: string, to: string):
       key: `task:${task.id}:${occurrence.date}`,
       kind: 'task',
       title: task.title,
+      subtitle: assigneeSubtitle(members, task.assigneeId, viewerRole),
       date: occurrence.date,
       start: task.time,
       end: null,

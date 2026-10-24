@@ -7,6 +7,7 @@ import styled, { useTheme } from 'styled-components/native'
 import { FAMILY_CHAT, isEventChat, listMessages, uploadChatFile, uploadChatPhoto, type ChatMessage, type MessageFeedback } from '@/api'
 import { useChats } from '@/chat/context'
 import { ActionSheet } from '@/components/ActionSheet'
+import { MenuButton } from '@/components/PopupMenu'
 import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
@@ -47,9 +48,10 @@ const replyPreview = (message: ChatMessage) => (message.caption || message.text)
 // элемент ленты: сообщение или подпись дня (лента перевёрнута: новые внизу)
 type Row = { kind: 'day'; key: string; label: string } | { kind: 'message'; key: string; message: ChatMessage; delivery?: 'sending' | 'failed'; pendingId?: string }
 
-function ChatMenu({ chat, onClose }: { chat: string; onClose: () => void }) {
+// Три точки в шапке: меню раскрывается рядом со значком
+function ChatMenuButton({ chat }: { chat: string }) {
   const actions = useChatActions(chat)
-  return <ActionSheet actions={actions} onClose={onClose} />
+  return <MenuButton actions={actions} accessibilityLabel="Меню чата" filled={false} />
 }
 
 // Переписка: /chat/family или /chat/<id собеседника>. Лента перевёрнутая (`inverted`): она сама держит низ, клавиатуру и подгрузку старых
@@ -95,7 +97,6 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   const [olderFailed, setOlderFailed] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [feedbackFor, setFeedbackFor] = useState<ChatMessage>()
-  const [menuOpen, setMenuOpen] = useState(false)
   // на какое сообщение отвечаем и какое правим (одновременно только одно из двух)
   const [replyingTo, setReplyingTo] = useState<ChatMessage>()
   const [editing, setEditing] = useState<ChatMessage>()
@@ -291,8 +292,9 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Pressable
-          disabled={!other && !isEvent}
-          onPress={() => (isEvent ? router.push({ pathname: '/calendar/events/[id]', params: { id: chat.slice('event-'.length) } }) : other && router.push({ pathname: '/family/[memberId]', params: { memberId: other.id } }))}
+          onPress={() => router.push({ pathname: '/chat/[chat]/info', params: { chat } })}
+          accessibilityRole="button"
+          accessibilityLabel="Информация о чате"
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}
         >
           {other ? (
@@ -314,9 +316,7 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
           </View>
           {muted && <Ionicons name="notifications-off-outline" size={16} color={colors.muted} />}
         </Pressable>
-        <Pressable onPress={() => setMenuOpen(true)} accessibilityRole="button" accessibilityLabel="Меню чата" hitSlop={10}>
-          <Ionicons name="ellipsis-vertical" size={22} color={colors.text} />
-        </Pressable>
+        <ChatMenuButton chat={chat} />
       </Header>
       )}
 
@@ -376,7 +376,6 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
         onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} flushBottom={embedded} />
 
       {viewing && <PhotoViewer photos={viewing.message.media} index={viewing.index} onClose={() => setViewing(undefined)} />}
-      {menuOpen && !embedded && <ChatMenu chat={chat} onClose={() => setMenuOpen(false)} />}
       {failedMenu && (
         <ActionSheet
           title="Сообщение не отправлено"

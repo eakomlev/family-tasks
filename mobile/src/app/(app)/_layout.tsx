@@ -1,14 +1,13 @@
-import { useState } from 'react'
 import { Pressable, View } from 'react-native'
 import { Redirect, Stack, usePathname, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from 'styled-components/native'
 import { ChatsProvider } from '@/chat'
-import { ActionSheet } from '@/components/ActionSheet'
 import { Avatar } from '@/components/Avatar'
 import { CoinBalance } from '@/components/Coins'
-import { loadTasksView } from '@/features/tasks/viewState'
+import { MenuButton } from '@/components/PopupMenu'
+import { loadTasksView, useTasksView } from '@/features/tasks/viewState'
 import { useIdentity } from '@/identity/context'
 import { ProfileProvider } from '@/profile'
 import { NotificationsBridge } from '@/features/notifications/NotificationsBridge'
@@ -28,7 +27,7 @@ function TopRight() {
   const router = useRouter()
   const { colors } = useTheme()
   const pathname = usePathname()
-  const [chatMenu, setChatMenu] = useState(false)
+  const [tasksView, changeTasksView] = useTasksView(identity?.memberId)
   if (!identity) return null
   // в переписке угол не нужен: он перекрыл бы шапку
   if (inChatRoom(pathname)) return null
@@ -46,6 +45,11 @@ function TopRight() {
     <View style={{ position: 'absolute', top: insets.top + 8, right: 16, flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 10 }} pointerEvents="box-none">
       {coins !== undefined && <CoinBalance coins={coins} />}
       {showAdd && (
+        <MenuButton
+          actions={[{ key: 'done', label: 'Показать завершённые', checked: tasksView.showDone, onSelect: () => changeTasksView({ showDone: !tasksView.showDone }) }]}
+        />
+      )}
+      {showAdd && (
         <Pressable
           onPress={() => {
             const filter = loadTasksView(identity.memberId).filter
@@ -58,19 +62,7 @@ function TopRight() {
           <Ionicons name="add" size={26} color="#ffffff" />
         </Pressable>
       )}
-      {showChatMenu && (
-        <>
-          <Pressable
-            onPress={() => setChatMenu(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Меню"
-            style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.track }}
-          >
-            <Ionicons name="ellipsis-vertical" size={22} color={colors.text} />
-          </Pressable>
-          {chatMenu && <ActionSheet actions={[{ key: 'archive', label: 'Архив', onSelect: () => router.push('/chat/archive') }]} onClose={() => setChatMenu(false)} />}
-        </>
-      )}
+      {showChatMenu && <MenuButton actions={[{ key: 'archive', label: 'Архив', onSelect: () => router.push('/chat/archive') }]} />}
       {showAvatar && (
         <Pressable onPress={() => router.push('/profile')} accessibilityRole="button" accessibilityLabel={`Профиль: ${identity.name}`}>
           <Avatar name={data?.me.name ?? identity.name} seed={identity.memberId} src={data?.me.avatar} size={38} />

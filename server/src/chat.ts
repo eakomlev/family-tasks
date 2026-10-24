@@ -35,6 +35,15 @@ const PAGE_SIZE = 50
 // фото на странице экрана «Медиа файлы»
 const MEDIA_PAGE_SIZE = 60
 const PREVIEW_LENGTH = 140
+// результатов поиска и сообщений со ссылками на странице
+const SEARCH_PAGE_SIZE = 30
+const LINKS_PAGE_SIZE = 30
+
+// Ссылки http(s) из текста сообщения по порядку, без повторов; знаки препинания в конце не входят в ссылку
+export function extractLinks(text: string): string[] {
+  const found = text.match(/https?:\/\/[^\s<>"']+/gi) ?? []
+  return [...new Set(found.map((url) => url.replace(/[.,;:!?)\]}»]+$/, '')))].filter((url) => /^https?:\/\/[^/.]+\./i.test(url) || /^https?:\/\/localhost/i.test(url))
+}
 
 export const FAMILY_CHAT = 'family'
 
@@ -463,6 +472,72 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
         peer = { viewing: isViewingChat(chat.otherId, member.id), lastVisitAt: (visit[0]?.at as string | undefined) ?? null }
       }
       return { messages: page, hasMore, readUpTo: (read[0]?.readUpTo as string | null) ?? null, peer }
+    },
+  )
+
+  // Поиск сообщений чата по тексту (без учёта регистра), свежие первыми. before = id самого старого из уже найденных.
+  // Сообщения только с вложениями (в text заглушка) не ищутся.
+  app.get<{ Params: { chat: string }; Querystring: { q: string; before?: string; limit?: number } }>(
+    '/api/chats/:chat/search',
+    {
+      schema: {
+        params: chatParams,
+        querystring: {
+          type: 'object',
+          required: ['q'],
+          properties: {
+            q: { type: 'string', minLength: 1, maxLength: 100 },
+            before: { type: 'string', format: 'uuid' },
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: SEARCH_PAGE_SIZE },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      const member = await me(req, reply)
+      if (!member) return
+      const chat = await resolveChat(member, req.params.chat, reply)
+      if (!chat) return
+      const query = req.query.q.trim()
+      if (!query) return { messages: [], hasMore: false }
+
+      const limit = req.query.limit ?? SEARCH_PAGE_SIZE
+      // символы шаблона LIKE в запросе ищутся как обычный текст
+      const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`
+      const { rows } = await pool.query<MessageRow>(
+        `select id, sender_id as "senderId", text, created_at as "createdAt"
+         from messages
+         where family_id = $1 and chat_key = $2 and not photo_only and text ilike $3
+           and ($4::uuid is null or (created_at, id) < (select created_at, id from messages where id = $4 and chat_key = $2))
+         order by created_at desc, id desc limit $5`,
+        [member.family_id, chat.key, pattern, req.query.before ?? null, limit + 1],
+      )
+      return { messages: rows.slice(0, limit).map(({ id, senderId, text, createdAt }) => ({ id, senderId, text, createdAt })), hasMore: rows.length > limit }
+    },
+  )
+
+  // Все ссылки из сообщений чата, свежие первыми (вкладка «Ссылки»). before = id самого старого сообщения из уже загруженных.
+  // Страница считается по сообщениям (в одном может быть несколько ссылок).
+  app.get<{ Params: { chat: string }; Querystring: { before?: string; limit?: number } }>(
+    '/api/chats/:chat/links',
+    { schema: { params: chatParams, querystring: listMessagesSchema.querystring } },
+    async (req, reply) => {
+      const member = await me(req, reply)
+      if (!member) return
+      const chat = await resolveChat(member, req.params.chat, reply)
+      if (!chat) return
+
+      const limit = Math.min(req.query.limit ?? LINKS_PAGE_SIZE, LINKS_PAGE_SIZE)
+      const { rows } = await pool.query<MessageRow>(
+        `select id, sender_id as "senderId", text, created_at as "createdAt"
+         from messages
+         where family_id = $1 and chat_key = $2 and not photo_only and text ~* 'https?://'
+           and ($3::uuid is null or (created_at, id) < (select created_at, id from messages where id = $3 and chat_key = $2))
+         order by created_at desc, id desc limit $4`,
+        [member.family_id, chat.key, req.query.before ?? null, limit + 1],
+      )
+      const items = rows.slice(0, limit).flatMap((m) => extractLinks(m.text).map((url) => ({ url, messageId: m.id, senderId: m.senderId, createdAt: m.createdAt })))
+      return { items, hasMore: rows.length > limit, lastMessageId: rows.length > 0 ? rows[Math.min(limit, rows.length) - 1].id : null }
     },
   )
 

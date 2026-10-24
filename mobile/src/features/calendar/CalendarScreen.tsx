@@ -78,7 +78,7 @@ export function CalendarScreen() {
   const byDay = useMemo(() => {
     const all = [
       ...eventItems(eventData ?? [], range.from, range.to),
-      ...taskItems(taskData, range.from, range.to),
+      ...taskItems(taskData, range.from, range.to, members, viewerRole),
       ...birthdayItems(members, range.from, range.to, viewerRole),
       ...trainingItems(trainings, members, range.from, range.to, identity?.memberId ?? ''),
       ...holidayItems(range.from, range.to),

@@ -4,15 +4,13 @@ import { useDispatch } from 'react-redux'
 import { useTheme } from 'styled-components/native'
 import { Avatar } from '@/components/Avatar'
 import { Chip } from '@/components/Chip'
-import { SlidingTabs } from '@/components/SlidingTabs'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
 import { Heading, Text, PageTitle } from '@/components/Text'
 import { PendingReview } from '@/features/tasks/PendingReview'
 import { TaskItem } from '@/features/tasks/TaskItem'
-import type { Tab } from '@/features/tasks/types'
-import { loadTasksView, saveTasksView } from '@/features/tasks/viewState'
+import { useTasksView } from '@/features/tasks/viewState'
 import { buildDone, buildSections } from '@/features/tasks/sections'
 import { useIdentity } from '@/identity/context'
 import { addDays, todayIso } from '@/lib/date'
@@ -23,7 +21,7 @@ import { useProfile } from '@/profile/context'
 import { api } from '@/store/api'
 import { useListDoneTasksQuery, useListTasksQuery } from '@/store/tasks'
 
-// сколько дней вперёд показываем в «Предстоящих»
+// сколько дней вперёд показываем в предстоящих
 const DAYS_AHEAD = 7
 
 // Фильтр по человеку: фото и имя (как выбор участников в форме события)
@@ -51,34 +49,28 @@ export default function Tasks() {
   const today = todayIso(useNow())
 
   const me = identity?.memberId
-  // вкладка и фильтр запоминаются на устройстве; null в фильтре — все, иначе id участника, чьи задания показываем
-  const [view, setView] = useState(() => loadTasksView(me))
+  // фильтр и показ завершённых запоминаются на устройстве; null в фильтре — все, иначе id участника, чьи задания показываем.
+  // Переключатель завершённых стоит в меню «три точки» в углу оболочки, состояние общее
+  const [view, change] = useTasksView(me)
   const members = data?.members ?? []
-  const tab = view.tab
+  const showDone = view.showDone
   // участника, которого уже нет в семье, считаем неизвестным: показываем всех
   const filter = view.filter && (view.filter === me || members.some((m) => m.id === view.filter)) ? view.filter : null
-  const change = (next: Partial<typeof view>) => {
-    const value = { ...view, ...next }
-    setView(value)
-    saveTasksView(me, value)
-  }
-  const setTab = (next: Tab) => change({ tab: next })
   const setFilter = (next: string | null) => change({ filter: next })
   const memberById = new Map(members.map((m) => [m.id, m]))
 
-  // у каждой вкладки свой запрос в кэше; вторая вкладка запрашивается, только когда открыта
-  const upcoming = useListTasksQuery({ from: today, to: addDays(today, DAYS_AHEAD), collapse: true }, { skip: tab !== 'upcoming' })
-  const done = useListDoneTasksQuery({ days: 30 }, { skip: tab !== 'done' })
-  const active = tab === 'upcoming' ? upcoming : done
-  const list = active.data
-  const loadFailed = active.isError && !list
+  // выполненные запрашиваются, только когда их показывают
+  const upcoming = useListTasksQuery({ from: today, to: addDays(today, DAYS_AHEAD), collapse: true })
+  const done = useListDoneTasksQuery({ days: 30 }, { skip: !showDone })
+  const list = upcoming.data
+  const loadFailed = upcoming.isError && !list
 
   // родителям ожидающие проверки показывает блок «Ждут подтверждения», поэтому в списках по дням они скрыты
   const isReviewer = isParent(identity?.role)
   const [pendingCount, setPendingCount] = useState(0)
-  const sections = list && tab === 'upcoming' ? buildSections(list, today, filter, { hidePending: isReviewer }) : []
-  const doneEntries = list && tab === 'done' ? buildDone(list, filter) : []
-  const isEmpty = !!list && (tab === 'upcoming' ? sections.length === 0 && pendingCount === 0 : doneEntries.length === 0)
+  const sections = list ? buildSections(list, today, filter, { hidePending: isReviewer }) : []
+  const doneEntries = done.data ? buildDone(done.data, filter) : []
+  const upcomingEmpty = !!list && sections.length === 0 && pendingCount === 0
 
   const renderItem = (entry: TaskEntry) => (
     <TaskItem
@@ -88,8 +80,8 @@ export default function Tasks() {
       assignee={memberById.get(entry.task.assigneeId)}
       showAssignee={filter === null}
       author={memberById.get(entry.task.authorId)}
-      showDate={tab === 'done'}
-      doneBy={tab === 'done' && entry.occurrence.done ? memberById.get(entry.occurrence.done.memberId) : undefined}
+      showDate={entry.occurrence.done !== null}
+      doneBy={entry.occurrence.done ? memberById.get(entry.occurrence.done.memberId) : undefined}
       today={today}
     />
   )
@@ -100,15 +92,6 @@ export default function Tasks() {
       refreshControl={<RefreshControl refreshing={false} onRefresh={() => void dispatch(api.util.invalidateTags(['Tasks', 'Pending', 'Done']))} />}
     >
       <PageTitle>Задания</PageTitle>
-      <SlidingTabs
-        selected={tab}
-        onSelect={(key) => setTab(key as typeof tab)}
-        tabs={[
-          { key: 'upcoming', render: (active) => <Text $weight="extraBold" $size={14} style={active ? { color: '#ffffff' } : undefined}>Предстоящие</Text> },
-          { key: 'done', render: (active) => <Text $weight="extraBold" $size={14} style={active ? { color: '#ffffff' } : undefined}>Выполненные</Text> },
-        ]}
-      />
-
       {/* ребёнок видит только свои задания (сервер другие не отдаёт), фильтр по людям ему не нужен */}
       {identity?.role !== 'child' && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -126,17 +109,9 @@ export default function Tasks() {
 
       {loadFailed && <Notice tone="error">Не удалось загрузить задания. Проверьте соединение.</Notice>}
       {!list && !loadFailed && <Text $tone="muted">Загрузка…</Text>}
-      {isEmpty && (
-        <Notice>
-          {tab === 'done'
-            ? 'Выполненных заданий за последний месяц нет.'
-            : filter === null
-              ? 'Предстоящих заданий нет. Добавьте новое.'
-              : 'У этого человека нет предстоящих заданий.'}
-        </Notice>
-      )}
+      {upcomingEmpty && <Notice>{filter === null ? 'Предстоящих заданий нет. Добавьте новое.' : 'У этого человека нет предстоящих заданий.'}</Notice>}
 
-      {tab === 'upcoming' && <PendingReview assigneeId={filter} onCount={setPendingCount} />}
+      <PendingReview assigneeId={filter} onCount={setPendingCount} />
 
       {sections.map((section) => (
         <Stack key={section.key} $gap={10}>
@@ -144,7 +119,15 @@ export default function Tasks() {
           {section.items.map(renderItem)}
         </Stack>
       ))}
-      {doneEntries.length > 0 && <Stack $gap={10}>{doneEntries.map(renderItem)}</Stack>}
+      {showDone && (
+        <Stack $gap={10}>
+          <Heading>Выполненные</Heading>
+          {done.isError && !done.data && <Notice tone="error">Не удалось загрузить выполненные задания. Проверьте соединение.</Notice>}
+          {!done.data && !done.isError && <Text $tone="muted">Загрузка…</Text>}
+          {done.data && doneEntries.length === 0 && <Notice>Выполненных заданий за последний месяц нет.</Notice>}
+          {doneEntries.map(renderItem)}
+        </Stack>
+      )}
     </Screen>
   )
 }

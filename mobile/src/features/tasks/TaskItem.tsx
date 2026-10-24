@@ -1,13 +1,20 @@
+import { useState } from 'react'
 import { Pressable, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import styled, { useTheme } from 'styled-components/native'
 import type { Member, Occurrence, Task } from '@/api'
+import { ActionSheet } from '@/components/ActionSheet'
 import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/Button'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { Text } from '@/components/Text'
+import { useIdentity } from '@/identity/context'
 import { coinsWord } from '@/lib/coins'
 import { formatDateTime } from '@/lib/date'
+import { hapticMenu } from '@/lib/haptics'
+import { toApiError } from '@/store/api'
+import { useDeleteTaskMutation } from '@/store/tasks'
 import { authorLabel, taskMeta } from './taskMeta'
 
 type TaskState = 'todo' | 'done' | 'late' | 'pending'
@@ -70,6 +77,12 @@ interface TaskItemProps {
 export function TaskItem({ task, occurrence, assignee, showAssignee, author, doneBy, showDate, today, review }: TaskItemProps) {
   const router = useRouter()
   const { colors } = useTheme()
+  const { identity } = useIdentity()
+  const confirm = useConfirm()
+  const [deleteTask] = useDeleteTaskMutation()
+  const [menu, setMenu] = useState(false)
+  // менять и удалять может только автор
+  const canManage = !!identity && task.authorId === identity.memberId
   const done = occurrence.done !== null
   const pending = occurrence.pending !== null
   const { parts, late } = taskMeta(task, occurrence, today, showDate)
@@ -82,6 +95,11 @@ export function TaskItem({ task, occurrence, assignee, showAssignee, author, don
     late: { bg: colors.warningBg, color: colors.coinText, icon: 'time-outline' as const },
     pending: { bg: colors.reviewBg, color: colors.reviewText, icon: 'hourglass-outline' as const },
   }[state]
+
+  async function remove() {
+    const ok = await confirm({ title: 'Удалить задание?', message: task.title, confirmLabel: 'Удалить', danger: true })
+    if (ok) await deleteTask(task.id).unwrap().catch(toApiError)
+  }
 
   const open = () => router.push({ pathname: '/tasks/[taskId]', params: occurrence.date ? { taskId: task.id, date: occurrence.date } : { taskId: task.id } })
 
@@ -97,7 +115,17 @@ export function TaskItem({ task, occurrence, assignee, showAssignee, author, don
     <Card>
       <Pressable
         onPress={open}
+        onLongPress={
+          canManage
+            ? () => {
+                hapticMenu()
+                setMenu(true)
+              }
+            : undefined
+        }
+        delayLongPress={450}
         accessibilityRole="button"
+        accessibilityHint={canManage ? 'Удерживайте, чтобы изменить или удалить' : undefined}
         accessibilityLabel={`${STATE_LABELS[state]}${task.title}`}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}
       >
@@ -151,6 +179,16 @@ export function TaskItem({ task, occurrence, assignee, showAssignee, author, don
             </Button>
           </View>
         </View>
+      )}
+      {menu && (
+        <ActionSheet
+          title={task.title}
+          onClose={() => setMenu(false)}
+          actions={[
+            { key: 'edit', label: 'Изменить', onSelect: () => router.push({ pathname: '/tasks/[taskId]/edit', params: { taskId: task.id } }) },
+            { key: 'delete', label: 'Удалить', danger: true, onSelect: remove },
+          ]}
+        />
       )}
     </Card>
   )

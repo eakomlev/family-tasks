@@ -94,3 +94,19 @@ export interface MessagePage {
   // только в личном чате: собеседник сейчас в чате и когда был в нём в последний раз (ISO)
   peer: { viewing: boolean; lastVisitAt: string | null } | null
 }
+
+// Найденное сообщение (поиск по чату)
+export interface ChatSearchResult {
+  id: string
+  senderId: string
+  text: string
+  createdAt: string
+}
+
+// Ссылка из сообщения чата (вкладка «Ссылки»)
+export interface ChatLink {
+  url: string
+  messageId: string
+  senderId: string
+  createdAt: string
+}
