@@ -1,3 +1,4 @@
+import type { Readable } from 'node:stream'
 import { readFileSync } from 'node:fs'
 import { createServer, type IncomingMessage } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -8,7 +9,7 @@ import { pool } from '../../src/db.js'
 import { createMediaClient, MediaRejected, type MediaClient, type UploadResult } from '../../src/media/client.js'
 import { deleteOrphanMedia } from '../../src/media/cleanup.js'
 import { expiryFor, sign } from '../../src/media/sign.js'
-import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
+import { api, createFamily, drain, removeFamilies, type TestFamily } from '../helpers.js'
 import { resetSent, sentTo, subscribe } from '../webpush.js'
 
 // контрольный пример подписи из общего контракта: тот же проверяет сервис media
@@ -29,10 +30,12 @@ class FakeMedia implements MediaClient {
     return this.next
   }
   files: { family: string; id: string; size: number }[] = []
-  async uploadFile(family: string, id: string, body: Buffer) {
+  async uploadFile(family: string, id: string, body: Readable, length: number) {
     if (this.failWith) throw this.failWith
-    this.files.push({ family, id, size: body.length })
-    return { size: body.length }
+    const bytes = await drain(body)
+    expect(bytes.length).toBe(length)
+    this.files.push({ family, id, size: bytes.length })
+    return { size: bytes.length }
   }
   async delete(_family: string, id: string) {
     if (this.failWith) throw this.failWith

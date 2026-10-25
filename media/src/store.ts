@@ -8,6 +8,8 @@ import {
   S3Client,
   S3ServiceException,
 } from '@aws-sdk/client-s3'
+import { createReadStream } from 'node:fs'
+import { stat } from 'node:fs/promises'
 import type { Readable } from 'node:stream'
 import type { Config } from './config.js'
 
@@ -29,6 +31,8 @@ export interface ByteRange {
 // Узкий интерфейс хранилища: сервис не знает, S3 это, диск или что-то ещё. Ключи вида «семья/файл/вариант.jpg».
 export interface BlobStore {
   put(key: string, body: Buffer, contentType: string): Promise<void>
+  // кладёт файл с диска потоком (большие файлы и видео не читаются в память целиком)
+  putFile(key: string, path: string, contentType: string): Promise<void>
   // null, если объекта нет
   get(key: string, range?: ByteRange): Promise<StoredObject | null>
   // удаляет всё указанное, отсутствующее не ошибка
@@ -65,6 +69,10 @@ export function createS3Store(config: Config['s3']): BlobStore & { ensureBucket(
     },
     async put(key, body, contentType) {
       await client.send(new PutObjectCommand({ Bucket, Key: key, Body: body, ContentType: contentType }))
+    },
+    async putFile(key, path, contentType) {
+      const { size } = await stat(path)
+      await client.send(new PutObjectCommand({ Bucket, Key: key, Body: createReadStream(path), ContentLength: size, ContentType: contentType }))
     },
     async get(key, range) {
       try {

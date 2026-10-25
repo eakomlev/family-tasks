@@ -1,10 +1,11 @@
+import type { Readable } from 'node:stream'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildApp } from '../../src/app.js'
 import { pool } from '../../src/db.js'
 import type { MediaClient } from '../../src/media/client.js'
 import { cleanFileName, isBlockedFile } from '../../src/media/index.js'
 import { sign } from '../../src/media/sign.js'
-import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
+import { api, createFamily, drain, removeFamilies, type TestFamily } from '../helpers.js'
 
 const SECRET = 'test-media-secret'
 const PDF = Buffer.from('%PDF-1.4 test')
@@ -16,10 +17,13 @@ class FakeMedia implements MediaClient {
   async upload() {
     return { width: 100, height: 100, size: 1000, thumbSize: 100 }
   }
-  async uploadFile(family: string, id: string, body: Buffer) {
+  async uploadFile(family: string, id: string, body: Readable, length: number) {
     if (this.failWith) throw this.failWith
-    this.files.push({ family, id, size: body.length })
-    return { size: body.length }
+    const bytes = await drain(body)
+    // сколько заявлено, столько и должно прийти
+    expect(bytes.length).toBe(length)
+    this.files.push({ family, id, size: bytes.length })
+    return { size: bytes.length }
   }
   async delete(_family: string, id: string) {
     this.deleted.push(id)
@@ -231,5 +235,19 @@ describe('имя файла', () => {
     expect(isBlockedFile('x.pdf.exe')).toBe(true)
     expect(isBlockedFile('x.exe.pdf')).toBe(false)
     expect(isBlockedFile('README')).toBe(false)
+  })
+})
+
+describe('загрузка без Content-Length', () => {
+  it('тело без заявленной длины (chunked) отклоняется кодом 411: размер нужен для квоты', async () => {
+    const { Readable } = await import('node:stream')
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/chats/family/files',
+      headers: { authorization: `Bearer ${fam.kid.token}`, 'content-type': 'application/octet-stream', 'x-file-name': encodeURIComponent('a.bin'), 'transfer-encoding': 'chunked' },
+      payload: Readable.from([Buffer.from('данные')]),
+    })
+    expect(res.statusCode).toBe(411)
+    expect(res.json()).toEqual({ error: 'length_required' })
   })
 })

@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import type { Readable } from 'node:stream'
 import type { FastifyInstance } from 'fastify'
 import { createSession } from '../src/auth.js'
 import { pool } from '../src/db.js'
@@ -66,4 +67,11 @@ export async function api(
     headers: token ? { authorization: `Bearer ${token}` } : {},
   })
   return { status: res.statusCode, body: res.body ? JSON.parse(res.body) : null }
+}
+
+// Дочитывает тело-поток до конца (подмены сервиса media получают файлы и видео потоком)
+export async function drain(body: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = []
+  for await (const chunk of body) chunks.push(chunk as Buffer)
+  return Buffer.concat(chunks)
 }

@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp, keyOf, videoKeyOf } from '../../src/app.js'
 import { sign } from '../../src/sign.js'
@@ -22,12 +25,19 @@ const newFamily = () => {
 const VIDEO = Buffer.from(Array.from({ length: 1000 }, (_, i) => i % 251))
 let mode: 'ok' | 'invalid' | 'long' = 'ok'
 let thumb: Buffer
+// путь исходного файла и папки результата (проверяем, что сервис за собой убирает)
+let processedFrom = ''
+const resultDirs: string[] = []
 const processor: VideoProcessor = {
-  async process(input) {
+  async process(inputPath) {
+    processedFrom = inputPath
     if (mode === 'invalid') throw new InvalidVideo('invalid_video')
     if (mode === 'long') throw new InvalidVideo('video_too_long')
-    expect(input.length).toBeGreaterThan(0)
-    return { video: VIDEO, thumb, width: 720, height: 1280, duration: 12 }
+    const dir = mkdtempSync(join(tmpdir(), 'fake-video-'))
+    resultDirs.push(dir)
+    const videoPath = join(dir, 'out.mp4')
+    writeFileSync(videoPath, VIDEO)
+    return { videoPath, size: VIDEO.length, thumb, width: 720, height: 1280, duration: 12, cleanup: async () => rmSync(dir, { recursive: true, force: true }) }
   },
 }
 const app = buildApp({ config, store, now: () => NOW, video: processor })
@@ -46,6 +56,7 @@ beforeAll(async () => {
   await appWithoutVideo.ready()
 })
 afterAll(async () => {
+  resultDirs.forEach((d) => rmSync(d, { recursive: true, force: true }))
   for (const f of families) await app.inject({ method: 'DELETE', url: `/internal/families/${f}`, headers: internal })
   await app.close()
   await appWithoutVideo.close()
@@ -85,10 +96,33 @@ describe('загрузка видео', () => {
     mode = 'ok'
   })
 
+  it('исходный файл принимается потоком на диск, после обработки и он, и результат убраны', async () => {
+    mode = 'ok'
+    expect((await upload(newFamily(), randomUUID())).statusCode).toBe(200)
+    expect(processedFrom).toContain('upload-')
+    expect(existsSync(processedFrom)).toBe(false)
+    expect(resultDirs.every((d) => !existsSync(d))).toBe(true)
+  })
+
+  it('слишком большое тело: отказ, ничего не сохраняется', async () => {
+    mode = 'ok'
+    const small = buildApp({ config: { ...config, maxVideoBytes: 10 }, store, now: () => NOW, video: processor })
+    await small.ready()
+    const family = newFamily()
+    const id = randomUUID()
+    const res = await small.inject({ method: 'PUT', url: `/internal/videos/${family}/${id}`, headers: { ...internal, 'content-type': 'video/mp4' }, payload: Buffer.alloc(50, 1) })
+    expect([400, 413]).toContain(res.statusCode)
+    expect(await store.get(videoKeyOf(family, id))).toBeNull()
+    await small.close()
+  })
+
   it('чужой тип тела и неверный идентификатор', async () => {
     const family = newFamily()
     expect((await upload(family, randomUUID(), { ...internal, 'content-type': 'text/plain' })).statusCode).toBe(415)
     expect((await upload(family, 'не-uuid')).statusCode).toBe(400)
+    // пустое тело
+    const empty = await app.inject({ method: 'PUT', url: `/internal/videos/${family}/${randomUUID()}`, headers: { ...internal, 'content-type': 'video/mp4' }, payload: Buffer.alloc(0) })
+    expect(empty.statusCode).toBe(415)
   })
 
   it('без обработчика видео 503', async () => {

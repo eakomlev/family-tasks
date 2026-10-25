@@ -59,10 +59,10 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
 
   // фото приходит сырым JPEG (загрузка в чат); предел размера задан у самого маршрута
   app.addContentTypeParser('image/jpeg', { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
-  // видео в чат приходит сырым файлом (video/mp4, video/quicktime…); размер ограничен у самого маршрута
-  app.addContentTypeParser(/^video\/.+/,{ parseAs: 'buffer' }, (_req, body, done) => done(null, body))
-  // файл в чат приходит сырыми байтами; размер ограничен у самого маршрута
-  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
+  // видео и файлы в чат приходят сырыми байтами, и маршруты передают их сервису media потоком (большое тело не лежит в памяти целиком);
+  // размер ограничен у самого маршрута (Fastify отклоняет по Content-Length, а маршрут ещё и считает принятое)
+  app.addContentTypeParser(/^video\/.+/, (_req, payload, done) => done(null, payload))
+  app.addContentTypeParser('application/octet-stream', (_req, payload, done) => done(null, payload))
 
   // Авторизация по умолчанию: без токена отвечаем 401 раньше проверки тела и параметров (иначе схему можно «прощупать» без входа).
   app.addHook('onRequest', async (req, reply) => {

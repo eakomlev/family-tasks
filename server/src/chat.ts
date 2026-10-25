@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { Transform, type Readable } from 'node:stream'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
 import { authenticate } from './auth.js'
@@ -31,6 +32,28 @@ import { isViewingChat, publish, publishTo } from './realtime.js'
 import { isParent } from './roles.js'
 
 const MAX_TEXT = 2000
+
+// Тело загрузки (видео, файл) приходит потоком, поэтому встроенного предела Fastify (bodyLimit) здесь нет: маршруты сами сравнивают
+// Content-Length (без него 411) с пределом и по нему же проверяют квоту семьи.
+// limitedStream пропускает не больше заявленного и обрывает поток, если пришло больше (в обход Content-Length).
+const isStream = (body: unknown): body is Readable => typeof (body as { pipe?: unknown } | null)?.pipe === 'function'
+
+function declaredLength(headers: Record<string, string | string[] | undefined>): number | null {
+  const n = Number(headers['content-length'])
+  return headers['content-length'] !== undefined && Number.isInteger(n) && n >= 0 ? n : null
+}
+
+export function limitedStream(body: Readable, limit: number): Readable {
+  let total = 0
+  const counter = new Transform({
+    transform(chunk: Buffer, _enc, done) {
+      total += chunk.length
+      done(total > limit ? new Error('body larger than declared') : null, chunk)
+    },
+  })
+  body.on('error', (err) => counter.destroy(err))
+  return body.pipe(counter)
+}
 
 // Реакции, которые участник может поставить на сообщение (тот же список на клиенте, lib/reactions.ts).
 export const REACTIONS = ['👍', '❤️', '🔥', '👏', '🎉', '💪', '🤩', '😍']
@@ -591,7 +614,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
   // Загрузка одного видео для будущего сообщения. Тело: сырой файл с типом video/* (до 100 МБ, до 3 минут). Сервис media сжимает его
   // (MP4, H.264, до 720p) и делает кадр-превью; это занимает время, поэтому ответ приходит после обработки. Квота семьи общая с фото и файлами
   // (считается сжатое видео); к сообщению видео прикрепляется через videoIds, не прикреплённое через сутки убирается.
-  app.post<{ Params: { chat: string }; Body: Buffer }>(
+  app.post<{ Params: { chat: string }; Body: Readable }>(
     '/api/chats/:chat/videos',
     { schema: { params: chatParams }, bodyLimit: maxVideoBytes(), config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
     async (req, reply) => {
@@ -602,15 +625,18 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       if (!chat) return
       const type = String(req.headers['content-type'] ?? '')
       if (!type.startsWith('video/')) return reply.code(415).send({ error: 'invalid_video' })
-      if (!Buffer.isBuffer(req.body) || req.body.length === 0) return reply.code(400).send({ error: 'invalid_video' })
+      const length = declaredLength(req.headers)
+      if (length === null) return reply.code(411).send({ error: 'length_required' })
+      if (length > maxVideoBytes()) return reply.code(413).send({ error: 'payload_too_large' })
+      if (!isStream(req.body) || length === 0) return reply.code(400).send({ error: 'invalid_video' })
 
       const { rows: used } = await pool.query<{ total: string }>('select coalesce(sum(size), 0) as total from media where family_id = $1', [member.family_id])
-      if (Number(used[0].total) + req.body.length > mediaQuotaBytes()) return reply.code(413).send({ error: 'media_quota' })
+      if (Number(used[0].total) + length > mediaQuotaBytes()) return reply.code(413).send({ error: 'media_quota' })
 
       const id = randomUUID()
       let result
       try {
-        result = await media.client.uploadVideo(member.family_id, id, req.body, type.split(';')[0])
+        result = await media.client.uploadVideo(member.family_id, id, limitedStream(req.body, length), length, type.split(';')[0])
       } catch (err) {
         if (err instanceof MediaRejected) return reply.code(400).send({ error: err.code === 'video_too_long' ? 'video_too_long' : 'invalid_video' })
         req.log.error(err)
@@ -627,7 +653,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
   // Загрузка одного файла (документ, архив…) для будущего сообщения. Тело: сырые байты, имя в заголовке x-file-name (в процентной
   // записи UTF-8). Содержимое не разбирается и не исполняется: сервис media отдаёт файл только как скачиваемый бинарный. Исполняемое,
   // сценарии и страницы не принимаются. Квота семьи общая с фото; к сообщению файл прикрепляется через fileIds.
-  app.post<{ Params: { chat: string }; Body: Buffer }>(
+  app.post<{ Params: { chat: string }; Body: Readable }>(
     '/api/chats/:chat/files',
     { schema: { params: chatParams }, bodyLimit: maxFileBytes(), config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
     async (req, reply) => {
@@ -636,7 +662,10 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       if (!media) return reply.code(503).send({ error: 'media_disabled' })
       const chat = await resolveChat(member, req.params.chat, reply)
       if (!chat) return
-      if (!Buffer.isBuffer(req.body) || req.body.length === 0) return reply.code(400).send({ error: 'invalid_file' })
+      const length = declaredLength(req.headers)
+      if (length === null) return reply.code(411).send({ error: 'length_required' })
+      if (length > maxFileBytes()) return reply.code(413).send({ error: 'payload_too_large' })
+      if (!isStream(req.body) || length === 0) return reply.code(400).send({ error: 'invalid_file' })
 
       let decoded = ''
       try {
@@ -649,20 +678,20 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       if (isBlockedFile(name)) return reply.code(415).send({ error: 'file_type_blocked' })
 
       const { rows: used } = await pool.query<{ total: string }>('select coalesce(sum(size), 0) as total from media where family_id = $1', [member.family_id])
-      if (Number(used[0].total) + req.body.length > mediaQuotaBytes()) return reply.code(413).send({ error: 'media_quota' })
+      if (Number(used[0].total) + length > mediaQuotaBytes()) return reply.code(413).send({ error: 'media_quota' })
 
       const id = randomUUID()
       try {
-        await media.client.uploadFile(member.family_id, id, req.body)
+        await media.client.uploadFile(member.family_id, id, limitedStream(req.body, length), length)
       } catch (err) {
         req.log.error(err)
         return reply.code(502).send({ error: 'media_unavailable' })
       }
       await pool.query(
         "insert into media (id, family_id, uploader_id, kind, file_name, size) values ($1, $2, $3, 'file', $4, $5)",
-        [id, member.family_id, member.id, name, req.body.length],
+        [id, member.family_id, member.id, name, length],
       )
-      return reply.code(201).send({ fileId: id, name, size: req.body.length })
+      return reply.code(201).send({ fileId: id, name, size: length })
     },
   )
 

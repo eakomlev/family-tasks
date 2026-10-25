@@ -1,19 +1,23 @@
 import { execFile } from 'node:child_process'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 
 const run = promisify(execFile)
 
-// Результат обработки: сжатое видео (MP4, H.264 + AAC), кадр-превью (JPEG) и итоговые размеры.
+// Результат обработки: сжатое видео (MP4, H.264 + AAC) лежит файлом на диске (до `cleanup`), кадр-превью (JPEG) в памяти, итоговые размеры.
 export interface ProcessedVideo {
-  video: Buffer
+  videoPath: string
+  // размер сжатого видео в байтах
+  size: number
   thumb: Buffer
   width: number
   height: number
   // секунды, округлено
   duration: number
+  // удаляет файлы результата (вызывать всегда, в finally)
+  cleanup(): Promise<void>
 }
 
 // Файл не видео, битый или слишком длинный: ошибка клиента (422), а не сбой сервиса.
@@ -26,7 +30,8 @@ export class InvalidVideo extends Error {
 
 // Узкий интерфейс, чтобы в тестах подставлять замену (настоящий ffmpeg есть не везде).
 export interface VideoProcessor {
-  process(input: Buffer): Promise<ProcessedVideo>
+  // inputPath: исходный файл на диске (его потом удаляет вызывающий)
+  process(inputPath: string): Promise<ProcessedVideo>
 }
 
 export interface FfmpegOptions {
@@ -67,13 +72,12 @@ async function probe(ffprobe: string, file: string, timeoutMs: number): Promise<
 export function createFfmpegProcessor({ maxSeconds, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', timeoutMs = 4 * 60_000 }: FfmpegOptions): VideoProcessor {
   let queue: Promise<unknown> = Promise.resolve()
 
-  async function work(input: Buffer): Promise<ProcessedVideo> {
+  async function work(source: string): Promise<ProcessedVideo> {
     const dir = await mkdtemp(join(tmpdir(), 'video-'))
+    const cleanup = () => rm(dir, { recursive: true, force: true })
     try {
-      const source = join(dir, 'in')
       const out = join(dir, 'out.mp4')
       const thumb = join(dir, 'thumb.jpg')
-      await writeFile(source, input)
 
       const info = await probe(ffprobe, source, 30_000)
       if (!info) throw new InvalidVideo('invalid_video')
@@ -108,20 +112,23 @@ export function createFfmpegProcessor({ maxSeconds, ffmpeg = 'ffmpeg', ffprobe =
         { timeout: 60_000 },
       )
       return {
-        video: await readFile(out),
+        videoPath: out,
+        size: (await stat(out)).size,
         thumb: await readFile(thumb),
         width: result.width,
         height: result.height,
         duration: Math.max(1, Math.round(result.duration)),
+        cleanup,
       }
-    } finally {
-      await rm(dir, { recursive: true, force: true })
+    } catch (err) {
+      await cleanup()
+      throw err
     }
   }
 
   return {
-    process(input) {
-      const next = queue.then(() => work(input))
+    process(inputPath) {
+      const next = queue.then(() => work(inputPath))
       // сбой одной обработки не должен останавливать очередь
       queue = next.catch(() => {})
       return next

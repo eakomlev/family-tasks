@@ -1,9 +1,10 @@
+import type { Readable } from 'node:stream'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildApp } from '../../src/app.js'
 import { pool } from '../../src/db.js'
 import { MediaRejected, type MediaClient } from '../../src/media/client.js'
 import { attachmentPlaceholder } from '../../src/media/index.js'
-import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
+import { api, createFamily, drain, removeFamilies, type TestFamily } from '../helpers.js'
 import { resetSent, sentTo, subscribe } from '../webpush.js'
 
 const SECRET = 'test-media-secret'
@@ -17,13 +18,15 @@ class FakeMedia implements MediaClient {
   async upload() {
     return { width: 100, height: 100, size: 1000, thumbSize: 100 }
   }
-  async uploadFile(_family: string, _id: string, body: Buffer) {
-    return { size: body.length }
+  async uploadFile(_family: string, _id: string, body: Readable) {
+    return { size: (await drain(body)).length }
   }
-  async uploadVideo(family: string, id: string, body: Buffer, type: string) {
+  async uploadVideo(family: string, id: string, body: Readable, length: number, type: string) {
     if (this.failWith) throw this.failWith
-    this.videos.push({ family, id, size: body.length, type })
-    return { width: 720, height: 1280, duration: 12, size: Math.ceil(body.length / 2), thumbSize: 500 }
+    const bytes = await drain(body)
+    expect(bytes.length).toBe(length)
+    this.videos.push({ family, id, size: bytes.length, type })
+    return { width: 720, height: 1280, duration: 12, size: Math.ceil(bytes.length / 2), thumbSize: 500 }
   }
   async delete(_family: string, id: string) {
     this.deleted.push(id)

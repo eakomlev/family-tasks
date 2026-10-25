@@ -1,9 +1,10 @@
+import type { Readable } from 'node:stream'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { buildApp } from '../../src/app.js'
 import { pool } from '../../src/db.js'
 import type { MediaClient } from '../../src/media/client.js'
-import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
+import { api, createFamily, drain, removeFamilies, type TestFamily } from '../helpers.js'
 import { resetSent, sentTo, subscribe } from '../webpush.js'
 
 // Замена сервиса media: помнит удалённые файлы.
@@ -13,8 +14,8 @@ class FakeMedia implements MediaClient {
   async upload() {
     return { width: 100, height: 100, size: 1000, thumbSize: 100 }
   }
-  async uploadFile(_family: string, _id: string, body: Buffer) {
-    return { size: body.length }
+  async uploadFile(_family: string, _id: string, body: Readable) {
+    return { size: (await drain(body)).length }
   }
   async delete(_family: string, id: string) {
     if (this.failWith) throw this.failWith

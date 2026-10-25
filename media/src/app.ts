@@ -1,7 +1,9 @@
 import { timingSafeEqual } from 'node:crypto'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { Config } from './config.js'
+import type { Readable } from 'node:stream'
 import { InvalidImage, processImage } from './image.js'
+import { spool, TooLarge } from './spool.js'
 import { InvalidVideo, type VideoProcessor } from './video.js'
 import { verify } from './sign.js'
 import { RangeNotSatisfiable, type BlobStore } from './store.js'
@@ -32,6 +34,8 @@ export function contentDisposition(rawName: unknown): string {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`
 }
 
+const isStream = (body: unknown): body is Readable => typeof (body as { pipe?: unknown } | null)?.pipe === 'function'
+
 function sameToken(given: unknown, expected: string): boolean {
   if (typeof given !== 'string') return false
   const a = Buffer.from(given)
@@ -60,8 +64,9 @@ export function buildApp({ config, store, now = () => new Date(), video }: AppOp
 
   // фото приходит сырым JPEG, файл сырыми байтами; остальные типы тела не принимаем
   app.addContentTypeParser('image/jpeg', { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
-  app.addContentTypeParser(/^video\/.+/, { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
-  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
+  // видео и файлы принимаются потоком (в маршрутах их складывает на диск `spool`): большое тело не лежит в памяти целиком
+  app.addContentTypeParser(/^video\/.+/, (_req, payload, done) => done(null, payload))
+  app.addContentTypeParser('application/octet-stream', (_req, payload, done) => done(null, payload))
 
   // проверка живости контейнера и самого хранилища (без секретов и данных)
   app.get('/health', async (_req, reply) => {
@@ -98,31 +103,60 @@ export function buildApp({ config, store, now = () => new Date(), video }: AppOp
 
   // Принять видео: проверить, сжать (MP4, H.264, до 720p), сохранить видео и кадр-превью. Обработка занимает время (секунды, у долгого видео
   // десятки секунд), поэтому server ждёт ответа долго. Повтор с тем же id перезаписывает файлы.
-  app.put<{ Params: { family: string; id: string }; Body: Buffer }>('/internal/videos/:family/:id', { bodyLimit: config.maxVideoBytes }, async (req, reply) => {
+  app.put<{ Params: { family: string; id: string }; Body: Readable }>('/internal/videos/:family/:id', { bodyLimit: config.maxVideoBytes }, async (req, reply) => {
     const { family, id } = req.params
     if (!UUID.test(family) || !UUID.test(id)) return reply.code(400).send({ error: 'invalid_id' })
     if (!video) return reply.code(503).send({ error: 'video_disabled' })
-    if (!Buffer.isBuffer(req.body) || req.body.length === 0) return reply.code(415).send({ error: 'invalid_video' })
-    let processed
+    // встроенные разборщики Fastify (text/plain, JSON) отдают строку или объект, а нужен поток
+    if (!isStream(req.body)) return reply.code(415).send({ error: 'invalid_video' })
+    let source
     try {
-      processed = await video.process(req.body)
+      source = await spool(req.body, config.maxVideoBytes)
     } catch (err) {
-      if (err instanceof InvalidVideo) return reply.code(422).send({ error: err.code })
+      if (err instanceof TooLarge) return reply.code(413).send({ error: 'too_large' })
       throw err
     }
-    await store.put(videoKeyOf(family, id), processed.video, 'video/mp4')
-    await store.put(keyOf(family, id, 'thumb'), processed.thumb, 'image/jpeg')
-    return { width: processed.width, height: processed.height, duration: processed.duration, size: processed.video.length, thumbSize: processed.thumb.length }
+    try {
+      if (source.size === 0) return reply.code(415).send({ error: 'invalid_video' })
+      let processed
+      try {
+        processed = await video.process(source.path)
+      } catch (err) {
+        if (err instanceof InvalidVideo) return reply.code(422).send({ error: err.code })
+        throw err
+      }
+      try {
+        await store.putFile(videoKeyOf(family, id), processed.videoPath, 'video/mp4')
+        await store.put(keyOf(family, id, 'thumb'), processed.thumb, 'image/jpeg')
+        return { width: processed.width, height: processed.height, duration: processed.duration, size: processed.size, thumbSize: processed.thumb.length }
+      } finally {
+        await processed.cleanup()
+      }
+    } finally {
+      await source.cleanup()
+    }
   })
 
   // Принять обычный файл (документ, архив…): байты сохраняются как есть, содержимое не разбирается. Что это за файл (имя, тип),
   // знает server; отсюда он отдаётся всегда как скачиваемый бинарный, а не как страница или картинка. Повтор с тем же id перезаписывает.
-  app.put<{ Params: { family: string; id: string }; Body: Buffer }>('/internal/files/:family/:id', { bodyLimit: config.maxFileBytes }, async (req, reply) => {
+  app.put<{ Params: { family: string; id: string }; Body: Readable }>('/internal/files/:family/:id', { bodyLimit: config.maxFileBytes }, async (req, reply) => {
     const { family, id } = req.params
     if (!UUID.test(family) || !UUID.test(id)) return reply.code(400).send({ error: 'invalid_id' })
-    if (!Buffer.isBuffer(req.body) || req.body.length === 0) return reply.code(415).send({ error: 'invalid_file' })
-    await store.put(fileKeyOf(family, id), req.body, 'application/octet-stream')
-    return { size: req.body.length }
+    if (!isStream(req.body)) return reply.code(415).send({ error: 'invalid_file' })
+    let file
+    try {
+      file = await spool(req.body, config.maxFileBytes)
+    } catch (err) {
+      if (err instanceof TooLarge) return reply.code(413).send({ error: 'too_large' })
+      throw err
+    }
+    try {
+      if (file.size === 0) return reply.code(415).send({ error: 'invalid_file' })
+      await store.putFile(fileKeyOf(family, id), file.path, 'application/octet-stream')
+      return { size: file.size }
+    } finally {
+      await file.cleanup()
+    }
   })
 
   // Удалить фото или файл (повторный вызов безопасен): что лежит под этим id, знает server, поэтому убираем всё возможное.
