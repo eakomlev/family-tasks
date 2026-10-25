@@ -8,6 +8,8 @@ RUN npm run build
 
 FROM node:22-alpine
 ENV NODE_ENV=production
+# ffmpeg сжимает видео из чатов и делает кадр-превью
+RUN apk add --no-cache ffmpeg
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev

@@ -108,7 +108,7 @@ export const MAX_PHOTOS = 10
 
 // Текст сообщения для показа в пузыре: у сообщения с фото это подпись (заглушку «📷 Фото» видят только старые версии приложения).
 // Сообщения из кэша прежней версии без полей caption и media считаются обычными текстовыми.
-export const bubbleText = (message: ChatMessage): string => ((message.media?.length ?? 0) + (message.files?.length ?? 0) > 0 ? (message.caption ?? '') : message.text)
+export const bubbleText = (message: ChatMessage): string => ((message.media?.length ?? 0) + (message.files?.length ?? 0) + (message.videos?.length ?? 0) > 0 ? (message.caption ?? '') : message.text)
 
 // Раскладка фото в пузыре: одно крупно (по своим пропорциям), 2–4 в два столбца, больше в три; плитки квадратные.
 export function photoColumns(count: number): number {

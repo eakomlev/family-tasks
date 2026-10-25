@@ -2,8 +2,9 @@ import { timingSafeEqual } from 'node:crypto'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { Config } from './config.js'
 import { InvalidImage, processImage } from './image.js'
+import { InvalidVideo, type VideoProcessor } from './video.js'
 import { verify } from './sign.js'
-import type { BlobStore } from './store.js'
+import { RangeNotSatisfiable, type BlobStore } from './store.js'
 
 // Идентификаторы приходят от server (uuid); прочее в ключи не пускаем: так в адресе не бывает «..», слэшей и подмены префикса.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -11,7 +12,10 @@ export const keyOf = (family: string, id: string, variant: 'full' | 'thumb') => 
 // обычный файл хранится как есть, одним объектом
 export const fileKeyOf = (family: string, id: string) => `${family}/${id}/file`
 
-const VARIANTS = new Set(['full', 'thumb', 'file'])
+// видео хранится одним MP4 (сжатым) и кадром-превью (thumb.jpg, как у фото)
+export const videoKeyOf = (family: string, id: string) => `${family}/${id}/video.mp4`
+
+const VARIANTS = new Set(['full', 'thumb', 'file', 'video'])
 
 // Имя для скачивания приходит в запросе, поэтому берём только безопасное (без путей и управляющих знаков);
 // для старых браузеров рядом запасное имя из ASCII.
@@ -40,20 +44,23 @@ export interface AppOptions {
   store: BlobStore
   // время параметром, чтобы срок подписи можно было проверить в тестах
   now?: () => Date
+  // обработка видео (ffmpeg); без неё загрузка видео отвечает 503
+  video?: VideoProcessor
 }
 
 // Собирает приложение без запуска (как buildApp в server): index.ts только слушает порт.
-export function buildApp({ config, store, now = () => new Date() }: AppOptions): FastifyInstance {
+export function buildApp({ config, store, now = () => new Date(), video }: AppOptions): FastifyInstance {
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? 'info' },
     // общий предел по большему из двух, у каждого маршрута записи свой точный
-    bodyLimit: Math.max(config.maxUploadBytes, config.maxFileBytes),
+    bodyLimit: Math.max(config.maxUploadBytes, config.maxFileBytes, config.maxVideoBytes),
     // проверку живости (раз в 30 секунд) в журнал не пишем
     disableRequestLogging: (req) => req.url === '/health',
   })
 
   // фото приходит сырым JPEG, файл сырыми байтами; остальные типы тела не принимаем
   app.addContentTypeParser('image/jpeg', { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
+  app.addContentTypeParser(/^video\/.+/, { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
   app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
 
   // проверка живости контейнера и самого хранилища (без секретов и данных)
@@ -89,6 +96,25 @@ export function buildApp({ config, store, now = () => new Date() }: AppOptions):
     return { width: processed.width, height: processed.height, size: processed.full.length, thumbSize: processed.thumb.length }
   })
 
+  // Принять видео: проверить, сжать (MP4, H.264, до 720p), сохранить видео и кадр-превью. Обработка занимает время (секунды, у долгого видео
+  // десятки секунд), поэтому server ждёт ответа долго. Повтор с тем же id перезаписывает файлы.
+  app.put<{ Params: { family: string; id: string }; Body: Buffer }>('/internal/videos/:family/:id', { bodyLimit: config.maxVideoBytes }, async (req, reply) => {
+    const { family, id } = req.params
+    if (!UUID.test(family) || !UUID.test(id)) return reply.code(400).send({ error: 'invalid_id' })
+    if (!video) return reply.code(503).send({ error: 'video_disabled' })
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) return reply.code(415).send({ error: 'invalid_video' })
+    let processed
+    try {
+      processed = await video.process(req.body)
+    } catch (err) {
+      if (err instanceof InvalidVideo) return reply.code(422).send({ error: err.code })
+      throw err
+    }
+    await store.put(videoKeyOf(family, id), processed.video, 'video/mp4')
+    await store.put(keyOf(family, id, 'thumb'), processed.thumb, 'image/jpeg')
+    return { width: processed.width, height: processed.height, duration: processed.duration, size: processed.video.length, thumbSize: processed.thumb.length }
+  })
+
   // Принять обычный файл (документ, архив…): байты сохраняются как есть, содержимое не разбирается. Что это за файл (имя, тип),
   // знает server; отсюда он отдаётся всегда как скачиваемый бинарный, а не как страница или картинка. Повтор с тем же id перезаписывает.
   app.put<{ Params: { family: string; id: string }; Body: Buffer }>('/internal/files/:family/:id', { bodyLimit: config.maxFileBytes }, async (req, reply) => {
@@ -103,7 +129,7 @@ export function buildApp({ config, store, now = () => new Date() }: AppOptions):
   app.delete<{ Params: { family: string; id: string } }>('/internal/media/:family/:id', async (req, reply) => {
     const { family, id } = req.params
     if (!UUID.test(family) || !UUID.test(id)) return reply.code(400).send({ error: 'invalid_id' })
-    await store.delete([keyOf(family, id, 'full'), keyOf(family, id, 'thumb'), fileKeyOf(family, id)])
+    await store.delete([keyOf(family, id, 'full'), keyOf(family, id, 'thumb'), fileKeyOf(family, id), videoKeyOf(family, id)])
     return reply.code(204).send()
   })
 
@@ -116,7 +142,7 @@ export function buildApp({ config, store, now = () => new Date() }: AppOptions):
     for (const o of objects) {
       const [, id, file] = o.key.split('/')
       if (!id) continue
-      items.set(id, (items.get(id) ?? 0) + (file === 'full.jpg' || file === 'file' ? o.size : 0))
+      items.set(id, (items.get(id) ?? 0) + (file === 'full.jpg' || file === 'file' || file === 'video.mp4' ? o.size : 0))
     }
     return { items: [...items].map(([id, size]) => ({ id, size })) }
   })
@@ -144,7 +170,25 @@ export function buildApp({ config, store, now = () => new Date() }: AppOptions):
       if (!ok) return reply.code(404).send({ error: 'not_found' })
 
       const isFile = variant === 'file'
-      const object = await store.get(isFile ? fileKeyOf(family, id) : keyOf(family, id, variant as 'full' | 'thumb'))
+      const isVideo = variant === 'video'
+      const key = isFile ? fileKeyOf(family, id) : isVideo ? videoKeyOf(family, id) : keyOf(family, id, variant as 'full' | 'thumb')
+
+      // Видео отдаётся частями (Range): плеер перематывает и начинает играть, не дожидаясь конца файла
+      let range: { start: number; end?: number } | undefined
+      const header = req.headers.range
+      if (isVideo && typeof header === 'string') {
+        const m = /^bytes=(\d+)-(\d*)$/.exec(header.trim())
+        if (!m) return reply.code(416).header('Content-Range', 'bytes */*').send()
+        range = { start: Number(m[1]), ...(m[2] ? { end: Number(m[2]) } : {}) }
+        if (range.end !== undefined && range.end < range.start) return reply.code(416).header('Content-Range', 'bytes */*').send()
+      }
+      let object
+      try {
+        object = await store.get(key, range)
+      } catch (err) {
+        if (err instanceof RangeNotSatisfiable) return reply.code(416).header('Content-Range', 'bytes */*').send()
+        throw err
+      }
       if (!object) {
         return reply.code(404).send({ error: 'not_found' })
       }
@@ -165,7 +209,14 @@ export function buildApp({ config, store, now = () => new Date() }: AppOptions):
         }
       }
       reply.header('Content-Length', object.size)
-      return reply.type(isFile ? 'application/octet-stream' : 'image/jpeg').send(object.body)
+      if (isVideo) {
+        reply.header('Accept-Ranges', 'bytes')
+        if (object.contentRange) {
+          reply.header('Content-Range', object.contentRange)
+          reply.code(206)
+        }
+      }
+      return reply.type(isFile ? 'application/octet-stream' : isVideo ? 'video/mp4' : 'image/jpeg').send(object.body)
     },
   )
 

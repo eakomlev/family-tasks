@@ -16,19 +16,30 @@ export interface StoredObject {
   size: number
   etag: string | undefined
   contentType: string
+  // при частичном чтении: «bytes 0-99/1000»; иначе не задано
+  contentRange?: string
+}
+
+// Запрошенный отрезок байт (включительно); end не задан: до конца
+export interface ByteRange {
+  start: number
+  end?: number
 }
 
 // Узкий интерфейс хранилища: сервис не знает, S3 это, диск или что-то ещё. Ключи вида «семья/файл/вариант.jpg».
 export interface BlobStore {
   put(key: string, body: Buffer, contentType: string): Promise<void>
   // null, если объекта нет
-  get(key: string): Promise<StoredObject | null>
+  get(key: string, range?: ByteRange): Promise<StoredObject | null>
   // удаляет всё указанное, отсутствующее не ошибка
   delete(keys: string[]): Promise<void>
   list(prefix: string): Promise<{ key: string; size: number }[]>
   // доступно ли хранилище (для проверки живости)
   ping(): Promise<void>
 }
+
+// Запрошенный отрезок лежит за пределами объекта
+export class RangeNotSatisfiable extends Error {}
 
 const isMissing = (err: unknown) =>
   err instanceof S3ServiceException && (err.name === 'NoSuchKey' || err.name === 'NotFound' || err.$metadata.httpStatusCode === 404)
@@ -55,17 +66,19 @@ export function createS3Store(config: Config['s3']): BlobStore & { ensureBucket(
     async put(key, body, contentType) {
       await client.send(new PutObjectCommand({ Bucket, Key: key, Body: body, ContentType: contentType }))
     },
-    async get(key) {
+    async get(key, range) {
       try {
-        const res = await client.send(new GetObjectCommand({ Bucket, Key: key }))
+        const res = await client.send(new GetObjectCommand({ Bucket, Key: key, ...(range ? { Range: `bytes=${range.start}-${range.end ?? ''}` } : {}) }))
         return {
           body: res.Body as Readable,
           size: res.ContentLength ?? 0,
           etag: res.ETag,
           contentType: res.ContentType ?? 'application/octet-stream',
+          contentRange: res.ContentRange,
         }
       } catch (err) {
         if (isMissing(err)) return null
+        if (range && err instanceof S3ServiceException && err.$metadata.httpStatusCode === 416) throw new RangeNotSatisfiable()
         throw err
       }
     },

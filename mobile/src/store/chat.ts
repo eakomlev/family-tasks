@@ -6,6 +6,7 @@ interface SendArgs {
   text: string
   mediaIds?: string[]
   fileIds?: string[]
+  videoIds?: string[]
   // id сообщения, на которое отвечаем
   replyTo?: string
 }
@@ -25,7 +26,7 @@ export const chatApi = api.injectEndpoints({
 
     // Своё сообщение сразу ложится в кэш переписки, список чатов обновляется после
     sendMessage: build.mutation<{ message: ChatMessage }, SendArgs>({
-      queryFn: fromApi((token, { chat, text, mediaIds, fileIds, replyTo }: SendArgs) => sendMessage(token, chat, text, mediaIds, fileIds, replyTo)),
+      queryFn: fromApi((token, { chat, text, mediaIds, fileIds, videoIds, replyTo }: SendArgs) => sendMessage(token, chat, text, mediaIds, fileIds, replyTo, videoIds)),
       async onQueryStarted({ chat }, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled

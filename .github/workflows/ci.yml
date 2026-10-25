@@ -129,6 +129,9 @@ jobs:
         working-directory: media
     steps:
       - uses: actions/checkout@v4
+      # ffmpeg для настоящих проверок сжатия видео (без него они пропускаются)
+      - name: Установка ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       # S3-совместимое хранилище для тестов (SeaweedFS одним контейнером, ключи как у тестов по умолчанию)
       - name: Запуск S3-хранилища
         run: |

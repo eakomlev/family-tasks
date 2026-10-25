@@ -6,9 +6,20 @@ export interface UploadResult {
   thumbSize: number
 }
 
+// Результат загрузки видео: размеры кадра после сжатия, длительность в секундах, размеры сжатого видео и превью в байтах.
+export interface VideoUploadResult {
+  width: number
+  height: number
+  duration: number
+  size: number
+  thumbSize: number
+}
+
 export interface MediaClient {
   // кладёт фото (JPEG); бросает MediaRejected, если сервис счёл файл негодным
   upload(family: string, id: string, body: Buffer): Promise<UploadResult>
+  // отдаёт видео на сжатие и кладёт сжатое с превью; бросает MediaRejected (с кодом), если это не видео или оно слишком длинное
+  uploadVideo(family: string, id: string, body: Buffer, contentType: string): Promise<VideoUploadResult>
   // кладёт обычный файл как есть (документ, архив…); возвращает его размер
   uploadFile(family: string, id: string, body: Buffer): Promise<{ size: number }>
   // удаляет файл (повтор безопасен)
@@ -19,8 +30,9 @@ export interface MediaClient {
 
 // Сервис media отклонил файл (не JPEG, битый): это ошибка клиента, а не сбой.
 export class MediaRejected extends Error {
-  constructor() {
-    super('media rejected the image')
+  // что именно не так, как отвечает сервис media: invalid_image, invalid_video, video_too_long
+  constructor(readonly code = 'invalid_media') {
+    super('media rejected the file')
     this.name = 'MediaRejected'
   }
 }
@@ -38,12 +50,15 @@ export function mediaEnv(env: NodeJS.ProcessEnv = process.env): MediaEnv | null 
   return { url: (env.MEDIA_URL || 'http://media:3000').replace(/\/$/, ''), internalToken, secret }
 }
 
-export function createMediaClient(config: Pick<MediaEnv, 'url' | 'internalToken'>, timeoutMs = 20_000): MediaClient {
-  const call = (path: string, init: RequestInit) =>
+// Сжатие видео занимает намного дольше загрузки фото: у него свой, длинный срок
+const VIDEO_TIMEOUT_MS = 5 * 60_000
+
+export function createMediaClient(config: Pick<MediaEnv, 'url' | 'internalToken'>, timeoutMs = 20_000, videoTimeoutMs = VIDEO_TIMEOUT_MS): MediaClient {
+  const call = (path: string, init: RequestInit, timeout = timeoutMs) =>
     fetch(`${config.url}${path}`, {
       ...init,
       headers: { ...init.headers, 'x-internal-token': config.internalToken },
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.timeout(timeout),
     })
   return {
     async upload(family, id, body) {
@@ -52,6 +67,15 @@ export function createMediaClient(config: Pick<MediaEnv, 'url' | 'internalToken'
       if (res.status === 422) throw new MediaRejected()
       if (!res.ok) throw new Error(`media upload failed: ${res.status}`)
       return (await res.json()) as UploadResult
+    },
+    async uploadVideo(family, id, body, contentType) {
+      const res = await call(`/internal/videos/${family}/${id}`, { method: 'PUT', headers: { 'content-type': contentType }, body: new Uint8Array(body) }, videoTimeoutMs)
+      if (res.status === 422) {
+        const { error } = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new MediaRejected(error === 'video_too_long' ? 'video_too_long' : 'invalid_video')
+      }
+      if (!res.ok) throw new Error(`media video upload failed: ${res.status}`)
+      return (await res.json()) as VideoUploadResult
     },
     async uploadFile(family, id, body) {
       const res = await call(`/internal/files/${family}/${id}`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: new Uint8Array(body) })

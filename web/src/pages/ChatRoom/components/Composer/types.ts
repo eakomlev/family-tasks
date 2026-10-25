@@ -5,6 +5,8 @@ export interface OutgoingMessage {
   mediaIds: string[]
   // загруженные файлы (документы, архивы…) в порядке показа
   fileIds: string[]
+  // загруженные видео в порядке показа
+  videoIds: string[]
 }
 
 export interface ComposerProps {
@@ -16,6 +18,9 @@ export interface ComposerProps {
   onUpload: (photo: Blob) => Promise<string>
   // загружает один файл (не фото) и возвращает его идентификатор; бросает ошибку, если не вышло
   onUploadFile: (file: File) => Promise<string>
+  // загружает одно видео (сервер сжимает его, это долго) и возвращает идентификатор; бросает ошибку, если не вышло.
+  // Без этого видео из выбора отклоняются как «не поддерживается».
+  onUploadVideo?: (video: File) => Promise<string>
   // отвечаем на сообщение: над полем цитата, отправка уйдёт ответом (сбрасывает ответ родитель после отправки)
   reply?: { name: string; text: string } | null
   onCancelReply?: () => void
@@ -46,5 +51,19 @@ export interface FileAttachment {
   fileId?: string
   error?: string
   // можно повторить загрузку (нет, если файл отклонён ещё на устройстве: слишком большой, запрещённый вид)
+  retryable?: boolean
+}
+
+// Видео, приложенное к сообщению, на пути от выбора до отправки.
+export interface VideoAttachment {
+  key: string
+  name: string
+  size: number
+  // локальный адрес для превью первого кадра (blob:), освобождается при удалении и отправке
+  preview: string
+  status: 'uploading' | 'done' | 'failed'
+  videoId?: string
+  error?: string
+  // можно повторить загрузку (нет, если видео отклонено ещё на устройстве: слишком большое или длинное)
   retryable?: boolean
 }

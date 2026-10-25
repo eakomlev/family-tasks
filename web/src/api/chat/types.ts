@@ -41,6 +41,17 @@ export interface ChatReply {
   text: string
 }
 
+// Видео в сообщении: сжатое на сервере; размеры кадра и длительность известны заранее, url играет видео по частям
+export interface ChatVideo {
+  id: string
+  width: number
+  height: number
+  // секунды
+  duration: number
+  thumbUrl: string
+  url: string
+}
+
 export interface ChatMessage {
   id: string
   senderId: string
@@ -51,6 +62,8 @@ export interface ChatMessage {
   media: ChatMedia[]
   // обычные файлы; нет у сообщений из кэша и ответов прежней версии сервера
   files?: ChatFile[]
+  // видео (нет у сообщений без видео и у сервера прежней версии)
+  videos?: ChatVideo[]
   // ISO-время
   createdAt: string
   // ответ на сообщение (нет, если это не ответ, исходное удалено или сервер прежней версии)

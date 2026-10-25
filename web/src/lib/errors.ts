@@ -82,6 +82,20 @@ export function describeFileError(err: unknown): string {
   return 'Не удалось загрузить файл. Попробуйте ещё раз.'
 }
 
+// Ошибки загрузки видео
+export function describeVideoError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.code === 'network') return 'Нет связи с сервером. Попробуйте ещё раз.'
+    if (err.code === 'video_too_long') return 'Видео длиннее 3 минут.'
+    if (err.code === 'invalid_video') return 'Не удалось прочитать это видео. Попробуйте другое.'
+    if (err.code === 'media_quota') return 'Место для видео у семьи закончилось.'
+    if (err.code === 'media_disabled') return 'Отправка видео пока не включена.'
+    if (err.code === 'media_unavailable') return 'Сервис видео сейчас недоступен. Попробуйте позже.'
+    if (err.status === 413) return 'Видео слишком большое.'
+  }
+  return 'Не удалось загрузить видео. Попробуйте ещё раз.'
+}
+
 // Ошибки действий в игре (приглашение, ход, ответ на приглашение)
 export function describeGameError(err: unknown): string {
   if (err instanceof ApiError) {

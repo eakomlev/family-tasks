@@ -44,7 +44,7 @@ describe('Composer: фото', () => {
 
     await user.type(screen.getByLabelText('Подпись к фото'), 'Смотри')
     await user.click(screen.getByRole('button', { name: 'Отправить' }))
-    expect(onSend).toHaveBeenCalledWith({ text: 'Смотри', mediaIds: ['media-1'], fileIds: [] })
+    expect(onSend).toHaveBeenCalledWith({ text: 'Смотри', mediaIds: ['media-1'], fileIds: [], videoIds: [] })
     // после отправки поле и вложения очищены, превью освобождено
     await waitFor(() => expect(screen.queryByAltText('Фото 1')).toBeNull())
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview-1')
@@ -58,7 +58,7 @@ describe('Composer: фото', () => {
     pick([jpeg()])
     await waitFor(() => expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled())
     await userEvent.click(screen.getByRole('button', { name: 'Отправить' }))
-    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: ['m1'], fileIds: [] })
+    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: ['m1'], fileIds: [], videoIds: [] })
   })
 
   it('несколько фото грузятся по одному и уходят в порядке выбора', async () => {
@@ -73,7 +73,7 @@ describe('Composer: фото', () => {
     pick([jpeg('1.jpg'), jpeg('2.jpg'), jpeg('3.jpg')])
     await waitFor(() => expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled())
     await userEvent.click(screen.getByRole('button', { name: 'Отправить' }))
-    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: ['m1', 'm2', 'm3'], fileIds: [] })
+    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: ['m1', 'm2', 'm3'], fileIds: [], videoIds: [] })
   })
 
   it('пока фото грузится, отправить нельзя', async () => {
@@ -123,7 +123,7 @@ describe('Composer: фото', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Убрать фото 1' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled())
     await userEvent.click(screen.getByRole('button', { name: 'Отправить' }))
-    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: ['b'], fileIds: [] })
+    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: ['b'], fileIds: [], videoIds: [] })
   })
 
   it('больше десяти фото не берётся, сказано почему; на десяти фото кнопка вложения остаётся для файлов', async () => {
@@ -150,7 +150,7 @@ describe('Composer: фото', () => {
     expect(screen.getByAltText('Фото 1')).toBeInTheDocument()
     expect(screen.getByLabelText('Подпись к фото')).toHaveValue('вот')
     await user.click(screen.getByRole('button', { name: 'Отправить' }))
-    expect(onSend).toHaveBeenLastCalledWith({ text: 'вот', mediaIds: ['m1'], fileIds: [] })
+    expect(onSend).toHaveBeenLastCalledWith({ text: 'вот', mediaIds: ['m1'], fileIds: [], videoIds: [] })
     expect(onUpload).toHaveBeenCalledTimes(1)
   })
 

@@ -8,6 +8,9 @@ export interface Config {
   maxUploadBytes: number
   // предел размера обычного файла (документ, архив и т. п.), не фото
   maxFileBytes: number
+  // видео: предел размера загрузки и длительности (после проверки ffmpeg)
+  maxVideoBytes: number
+  maxVideoSeconds: number
   s3: { endpoint: string; region: string; bucket: string; accessKey: string; secretKey: string; forcePathStyle: boolean }
 }
 
@@ -29,6 +32,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     internalToken: required(env, 'MEDIA_INTERNAL_TOKEN'),
     maxUploadBytes: int(env.MEDIA_MAX_UPLOAD_BYTES, 3 * 1024 * 1024),
     maxFileBytes: int(env.MEDIA_MAX_FILE_BYTES, 10 * 1024 * 1024),
+    maxVideoBytes: int(env.MEDIA_MAX_VIDEO_BYTES, 100 * 1024 * 1024),
+    maxVideoSeconds: int(env.MEDIA_MAX_VIDEO_SECONDS, 180),
     s3: {
       endpoint: required(env, 'S3_ENDPOINT'),
       region: env.S3_REGION || 'us-east-1',

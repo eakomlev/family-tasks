@@ -4,7 +4,7 @@ import { Redirect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import styled, { useTheme } from 'styled-components/native'
-import { FAMILY_CHAT, isEventChat, listMessages, uploadChatFile, uploadChatPhoto, type ChatMessage, type MessageFeedback } from '@/api'
+import { FAMILY_CHAT, isEventChat, listMessages, uploadChatFile, uploadChatPhoto, uploadChatVideo, type ChatMessage, type ChatVideo, type MessageFeedback } from '@/api'
 import { useChats } from '@/chat/context'
 import { ActionSheet } from '@/components/ActionSheet'
 import { MenuButton } from '@/components/PopupMenu'
@@ -27,6 +27,7 @@ import { Composer, type OutgoingMessage } from './Composer'
 import { FeedbackDialog } from './FeedbackDialog'
 import { MessageBubble } from './MessageBubble'
 import { PhotoViewer } from './PhotoViewer'
+import { VideoPlayer } from './VideoPlayer'
 import { chatTitle } from './listUtils'
 import { consumePending, discardPending, isPendingId, pendingToMessage, retrySend, startSend, usePending, type PendingMessage } from './pending'
 import { appendMessage, groupByDay, mergeLatest, messageStatus, participantsLabel, replaceMessage, visitLabel } from './roomUtils'
@@ -106,6 +107,8 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   const pending = usePending(chat)
   // открытый просмотр фото: сообщение и номер фото в нём
   const [viewing, setViewing] = useState<{ message: ChatMessage; index: number }>()
+  // открытое видео
+  const [watching, setWatching] = useState<ChatVideo>()
   // чужое сообщение, до которого уже отметили прочитанное: без этого отметка вызывает событие, событие новый запрос, и так по кругу
   const markedRef = useRef<string | undefined>(undefined)
   // поделились из другого приложения и выбрали этот чат: полученное ложится в поле ввода (читается один раз при открытии)
@@ -238,13 +241,19 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
     return fileId
   }
 
+  // загрузка одного видео для сообщения (сервер сжимает его перед ответом)
+  async function handleUploadVideo(video: { blob: Blob; type: string }) {
+    const { videoId } = await uploadChatVideo(token!, chat, video)
+    return videoId
+  }
+
   // Сообщение появляется в ленте сразу и уходит в фоне; не ушло, значит красная иконка с повторной отправкой
-  function handleSend({ text, mediaIds, fileIds, photoUris, files }: OutgoingMessage) {
+  function handleSend({ text, mediaIds, fileIds, videoIds, photoUris, files, videos }: OutgoingMessage) {
     playSendSound()
     const reply = replyingTo && { id: replyingTo.id, senderId: replyingTo.senderId, text: replyPreview(replyingTo) }
     setReplyingTo(undefined)
-    startSend({ chat, text, mediaIds, fileIds, photoUris, files, replyTo: reply }, (draft) =>
-      sendMessage({ chat, text: draft.text, mediaIds: draft.mediaIds, fileIds: draft.fileIds, replyTo: draft.replyTo?.id })
+    startSend({ chat, text, mediaIds, fileIds, videoIds, photoUris, files, videos, replyTo: reply }, (draft) =>
+      sendMessage({ chat, text: draft.text, mediaIds: draft.mediaIds, fileIds: draft.fileIds, videoIds: draft.videoIds, replyTo: draft.replyTo?.id })
         .unwrap()
         .then((res) => res.message)
         .catch(toApiError),
@@ -346,6 +355,7 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
               onFailedPress={() => setFailedMenu(row.pendingId)}
               onFeedback={row.pendingId ? undefined : () => setFeedbackFor(row.message)}
               onOpenPhoto={row.pendingId ? undefined : (index) => setViewing({ message: row.message, index })}
+              onOpenVideo={row.pendingId ? undefined : (index) => setWatching(row.message.videos?.[index])}
             />
           )
         }
@@ -373,8 +383,9 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
         editing={editing && { id: editing.id, text: editing.caption }}
         onCancelEdit={() => setEditing(undefined)}
         onEditSubmit={handleEdit}
-        onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} flushBottom={embedded} />
+        onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} onUploadVideo={handleUploadVideo} flushBottom={embedded} />
 
+      {watching && <VideoPlayer video={watching} onClose={() => setWatching(undefined)} />}
       {viewing && <PhotoViewer photos={viewing.message.media} index={viewing.index} onClose={() => setViewing(undefined)} />}
       {failedMenu && (
         <ActionSheet

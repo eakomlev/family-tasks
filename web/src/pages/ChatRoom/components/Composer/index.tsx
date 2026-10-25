@@ -1,13 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
 import { Notice } from '@/components/Notice'
-import { describeFileError, describePhotoError } from '@/lib/errors'
+import { describeFileError, describePhotoError, describeVideoError } from '@/lib/errors'
 import { fileProblem, formatFileSize, MAX_FILES } from '@/lib/files'
 import { resizeToPhoto } from '@/lib/image'
+import { isVideoFile, MAX_VIDEOS, readVideoDuration, videoProblem } from '@/lib/video'
 import { EmojiPanel } from '../EmojiPanel'
 import { deleteBefore, insertAt, loadRecent, pushRecent, saveRecent } from '../EmojiPanel/emoji'
 import { canSendMessage, MAX_LENGTH, MAX_PHOTOS } from '../../utils'
 import { AttachButton, Bar, ContextBar, Field, FileChip, FileInfo, FileList, FileRemove, FileRetry, Row, SendButton, Strip, Thumb, ThumbRemove, ThumbRetry, ThumbState } from './styles'
-import type { Attachment, ComposerProps, FileAttachment } from './types'
+import type { Attachment, ComposerProps, FileAttachment, VideoAttachment } from './types'
 import { useInFlight } from '@/lib/useInFlight'
 
 let counter = 0
@@ -15,13 +16,14 @@ const nextKey = () => `photo-${++counter}`
 
 // Поле ввода сообщения: растёт по мере набора, Enter отправляет, Shift+Enter переносит строку. Скрепка прикладывает фото (до 10):
 // выбранные уменьшаются на устройстве и сразу загружаются, а к сообщению прикрепляются кнопкой отправки.
-export function Composer({ initialText = '', onSend, onUpload, onUploadFile, reply = null, onCancelReply, editing = null, onCancelEdit, onEditSubmit }: ComposerProps) {
+export function Composer({ initialText = '', onSend, onUpload, onUploadFile, onUploadVideo, reply = null, onCancelReply, editing = null, onCancelEdit, onEditSubmit }: ComposerProps) {
   const guard = useInFlight()
   const [text, setText] = useState(initialText)
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
   const [photos, setPhotos] = useState<Attachment[]>([])
   const [files, setFiles] = useState<FileAttachment[]>([])
+  const [videos, setVideos] = useState<VideoAttachment[]>([])
   const [photoNotice, setPhotoNotice] = useState<string>()
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [recent, setRecent] = useState<string[]>(loadRecent)
@@ -31,6 +33,8 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, rep
   const [blobs] = useState(() => new Map<string, Blob>())
   // выбранные файлы по ключу (для повтора загрузки)
   const [fileObjects] = useState(() => new Map<string, File>())
+  // выбранные видео по ключу (для повтора загрузки)
+  const [videoObjects] = useState(() => new Map<string, File>())
   const queue = useRef<Promise<void>>(Promise.resolve())
   const alive = useRef(true)
 
@@ -40,8 +44,9 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, rep
       alive.current = false
       blobs.clear()
       fileObjects.clear()
+      videoObjects.clear()
     }
-  }, [blobs, fileObjects])
+  }, [blobs, fileObjects, videoObjects])
 
   // освобождаем локальные адреса превью, когда компонент уходит
   const photosRef = useRef(photos)
@@ -49,6 +54,11 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, rep
     photosRef.current = photos
   })
   useEffect(() => () => photosRef.current.forEach((p) => URL.revokeObjectURL(p.preview)), [])
+  const videosRef = useRef(videos)
+  useEffect(() => {
+    videosRef.current = videos
+  })
+  useEffect(() => () => videosRef.current.forEach((v) => URL.revokeObjectURL(v.preview)), [])
 
   // высота по содержимому
   useLayoutEffect(() => {
@@ -101,19 +111,56 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, rep
     }
   }
 
+  const patchVideo = (key: string, change: Partial<VideoAttachment>) =>
+    setVideos((list) => list.map((v) => (v.key === key ? { ...v, ...change } : v)))
+
+  async function uploadAttachedVideo(key: string, file: File) {
+    patchVideo(key, { status: 'uploading', error: undefined })
+    try {
+      const videoId = await onUploadVideo!(file)
+      if (alive.current) patchVideo(key, { status: 'done', videoId })
+    } catch (err) {
+      if (alive.current) patchVideo(key, { status: 'failed', error: describeVideoError(err), retryable: true })
+    }
+  }
+
+  // Проверка на устройстве (размер, длительность) и загрузка; ошибки остаются на самом видео
+  async function processVideo(key: string, file: File) {
+    const duration = await readVideoDuration(file)
+    const problem = videoProblem(file, duration)
+    if (problem) {
+      if (alive.current) patchVideo(key, { status: 'failed', error: problem, retryable: false })
+      return
+    }
+    videoObjects.set(key, file)
+    await uploadAttachedVideo(key, file)
+  }
+
   // Выбранное: картинки идут как фото (уменьшаются), всё остальное как файлы (до MAX_FILES, как есть)
   function addFiles(picked: File[]) {
-    const images = picked.filter((f) => f.type.startsWith('image/'))
-    const others = picked.filter((f) => !f.type.startsWith('image/'))
+    const clips = picked.filter(isVideoFile)
+    const images = picked.filter((f) => !isVideoFile(f) && f.type.startsWith('image/'))
+    const others = picked.filter((f) => !isVideoFile(f) && !f.type.startsWith('image/'))
+    const acceptedClips = onUploadVideo ? clips.slice(0, Math.max(0, MAX_VIDEOS - videos.length)) : []
     const acceptedImages = images.slice(0, Math.max(0, MAX_PHOTOS - photos.length))
     const acceptedFiles = others.slice(0, Math.max(0, MAX_FILES - files.length))
     setPhotoNotice(
       images.length > acceptedImages.length
         ? `К сообщению можно приложить не больше ${MAX_PHOTOS} фото.`
-        : others.length > acceptedFiles.length
+        : clips.length > acceptedClips.length
+          ? `К сообщению можно приложить не больше ${MAX_VIDEOS} видео.`
+          : others.length > acceptedFiles.length
           ? `К сообщению можно приложить не больше ${MAX_FILES} файлов.`
           : undefined,
     )
+    if (acceptedClips.length > 0) {
+      const added = acceptedClips.map((file) => ({ key: nextKey(), file }))
+      setVideos((list) => [
+        ...list,
+        ...added.map(({ key, file }): VideoAttachment => ({ key, name: file.name, size: file.size, preview: URL.createObjectURL(file), status: 'uploading' })),
+      ])
+      for (const { key, file } of added) queue.current = queue.current.then(() => processVideo(key, file))
+    }
     if (acceptedImages.length > 0) {
       const added = acceptedImages.map((file) => ({ key: nextKey(), file }))
       setPhotos((list) => [...list, ...added.map(({ key, file }): Attachment => ({ key, preview: URL.createObjectURL(file), status: 'uploading' }))])
@@ -170,6 +217,19 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, rep
     setPhotoNotice(undefined)
   }
 
+  function removeVideo(key: string) {
+    const video = videos.find((v) => v.key === key)
+    if (video) URL.revokeObjectURL(video.preview)
+    videoObjects.delete(key)
+    setVideos((list) => list.filter((v) => v.key !== key))
+    setPhotoNotice(undefined)
+  }
+
+  function retryVideo(key: string) {
+    const file = videoObjects.get(key)
+    if (file) queue.current = queue.current.then(() => uploadAttachedVideo(key, file))
+  }
+
   function removeFile(key: string) {
     fileObjects.delete(key)
     setFiles((list) => list.filter((f) => f.key !== key))
@@ -186,8 +246,11 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, rep
     photos.forEach((p) => URL.revokeObjectURL(p.preview))
     blobs.clear()
     fileObjects.clear()
+    videos.forEach((v) => URL.revokeObjectURL(v.preview))
+    videoObjects.clear()
     setPhotos([])
     setFiles([])
+    setVideos([])
     setPhotoNotice(undefined)
   }
 
@@ -198,7 +261,7 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, rep
 
   const shiftRef = useRef(false)
   const submitRef = useRef<() => Promise<void>>(async () => {})
-  const canSend = editing ? text.trim().length > 0 : canSendMessage(text, [...photos, ...files])
+  const canSend = editing ? text.trim().length > 0 : canSendMessage(text, [...photos, ...files, ...videos])
 
   // начали править сообщение: его текст ложится в поле, вложения не нужны
   useEffect(() => {
@@ -227,7 +290,7 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, rep
         setText('')
         return
       }
-      await onSend({ text: text.trim(), mediaIds: photos.map((p) => p.mediaId!), fileIds: files.map((f) => f.fileId!) })
+      await onSend({ text: text.trim(), mediaIds: photos.map((p) => p.mediaId!), fileIds: files.map((f) => f.fileId!), videoIds: videos.map((v) => v.videoId!) })
       setText('')
       clearPhotos()
     } catch {
@@ -274,8 +337,8 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, rep
     }
   }, [])
 
-  const uploading = photos.some((p) => p.status === 'uploading') || files.some((f) => f.status === 'uploading')
-  const hasAttachments = photos.length > 0 || files.length > 0
+  const uploading = photos.some((p) => p.status === 'uploading') || files.some((f) => f.status === 'uploading') || videos.some((v) => v.status === 'uploading')
+  const hasAttachments = photos.length > 0 || files.length > 0 || videos.length > 0
 
   return (
     <>
@@ -283,6 +346,9 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, rep
       {photoNotice && <Notice $tone="warning">{photoNotice}</Notice>}
       {photos.some((p) => p.status === 'failed') && (
         <Notice $tone="error">{photos.find((p) => p.status === 'failed')?.error} Повторите загрузку или уберите это фото.</Notice>
+      )}
+      {videos.some((v) => v.status === 'failed') && (
+        <Notice $tone="error">{videos.find((v) => v.status === 'failed')?.error} Повторите загрузку или уберите это видео.</Notice>
       )}
       {files.some((f) => f.status === 'failed') && (
         <Notice $tone="error">{files.find((f) => f.status === 'failed')?.error} Повторите загрузку или уберите этот файл.</Notice>
@@ -322,6 +388,28 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, rep
             ))}
           </Strip>
         )}
+        {videos.length > 0 && (
+          <FileList aria-label="Выбранные видео">
+            {videos.map((video) => (
+              <FileChip key={video.key} $failed={video.status === 'failed'}>
+                <FileInfo>
+                  <strong>🎬 {video.name}</strong>
+                  <small>{video.status === 'uploading' ? 'Загружается и обрабатывается…' : video.status === 'failed' ? 'Не загружено' : formatFileSize(video.size)}</small>
+                </FileInfo>
+                {video.status === 'failed' && video.retryable && (
+                  <FileRetry type="button" aria-label={`Повторить загрузку видео ${video.name}`} onClick={() => retryVideo(video.key)}>
+                    Ещё раз
+                  </FileRetry>
+                )}
+                <FileRemove type="button" aria-label={`Убрать видео ${video.name}`} disabled={busy} onClick={() => removeVideo(video.key)}>
+                  <svg viewBox="0 0 24 24" aria-hidden>
+                    <path d="M6 6l12 12M18 6 6 18" />
+                  </svg>
+                </FileRemove>
+              </FileChip>
+            ))}
+          </FileList>
+        )}
         {files.length > 0 && (
           <FileList aria-label="Выбранные файлы">
             {files.map((file) => (
@@ -346,7 +434,7 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, rep
         )}
         <Row>
           <input ref={picker} type="file" multiple hidden aria-label="Выбрать фото или файл" onChange={onPick} />
-          <AttachButton type="button" style={editing ? { display: 'none' } : undefined} aria-label="Прикрепить фото или файл" disabled={busy || (photos.length >= MAX_PHOTOS && files.length >= MAX_FILES)} onClick={() => picker.current?.click()}>
+          <AttachButton type="button" style={editing ? { display: 'none' } : undefined} aria-label="Прикрепить фото или файл" disabled={busy || (photos.length >= MAX_PHOTOS && files.length >= MAX_FILES && videos.length >= MAX_VIDEOS)} onClick={() => picker.current?.click()}>
             <svg viewBox="0 0 24 24" aria-hidden focusable="false">
               <path d="m20 11-8.2 8.2a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7l-8.3 8.3a1.7 1.7 0 0 1-2.4-2.4L14.5 7" />
             </svg>
@@ -357,7 +445,7 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, rep
             rows={1}
             maxLength={MAX_LENGTH}
             placeholder={hasAttachments ? 'Подпись' : 'Сообщение'}
-            aria-label={photos.length > 0 ? 'Подпись к фото' : files.length > 0 ? 'Подпись к файлам' : 'Сообщение'}
+            aria-label={photos.length > 0 ? 'Подпись к фото' : videos.length > 0 ? 'Подпись к видео' : files.length > 0 ? 'Подпись к файлам' : 'Сообщение'}
             enterKeyHint="send"
             onChange={(e) => {
               setText(e.target.value)

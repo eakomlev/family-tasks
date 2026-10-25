@@ -9,11 +9,12 @@ import { ActionSheet } from '@/components/ActionSheet'
 import { Notice } from '@/components/Notice'
 import { Text } from '@/components/Text'
 import { withType } from '@/lib/blob'
-import { describeFileError, describePhotoError } from '@/lib/errors'
+import { describeFileError, describePhotoError, describeVideoError } from '@/lib/errors'
 import { fileProblem, formatFileSize, MAX_FILES } from '@/lib/files'
 import type { SharedContent } from '@/lib/incomingShare'
 import { preparePhoto } from '@/lib/photos'
 import { useInFlight } from '@/lib/useInFlight'
+import { MAX_VIDEOS, videoMimeType, videoProblem } from '@/lib/video'
 import { FONT_FAMILY } from '@/theme/fonts'
 import { deleteBefore, insertAt, loadRecent, pushRecent, saveRecent } from './emoji'
 import { EmojiPanel } from './EmojiPanel'
@@ -26,9 +27,12 @@ export interface OutgoingMessage {
   mediaIds: string[]
   // загруженные файлы в порядке показа
   fileIds: string[]
-  // что показать в ленте, пока сообщение уходит: адреса превью фото и имена файлов
+  // загруженные видео в порядке показа
+  videoIds: string[]
+  // что показать в ленте, пока сообщение уходит: адреса превью фото, имена файлов и длительность видео
   photoUris: string[]
   files: { name: string; size: number }[]
+  videos: { duration: number }[]
 }
 
 interface ComposerProps {
@@ -38,6 +42,8 @@ interface ComposerProps {
   onUpload: (photo: Blob) => Promise<string>
   // загружает один файл и возвращает его идентификатор; бросает ошибку, если не вышло
   onUploadFile: (file: { blob: Blob; name: string }) => Promise<string>
+  // загружает одно видео (сервер сжимает его, это долго) и возвращает идентификатор; бросает ошибку, если не вышло
+  onUploadVideo: (video: { blob: Blob; type: string }) => Promise<string>
   // под полем стоит своя панель (чат внутри страницы события): отступ безопасной зоны не нужен
   flushBottom?: boolean
   // поделились из другого приложения: текст, фото и файлы ложатся в поле при открытии чата (читается один раз)
@@ -54,8 +60,8 @@ interface ComposerProps {
 // Вложение (фото или файл) на пути от выбора до отправки
 interface Attachment {
   key: string
-  kind: 'photo' | 'file'
-  // фото: адрес превью; файл: имя и размер
+  kind: 'photo' | 'file' | 'video'
+  // фото: адрес превью; файл и видео: имя и размер
   uri?: string
   name?: string
   size?: number
@@ -64,6 +70,9 @@ interface Attachment {
   error?: string
   // можно повторить загрузку (нет, если файл отклонён ещё на устройстве)
   retryable?: boolean
+  // видео: длительность в секундах и тип для загрузки
+  duration?: number
+  mime?: string
 }
 
 // Поле растёт по высоте вместе с текстом, как в Telegram: до пяти строк, дальше внутри него появляется прокрутка
@@ -104,7 +113,7 @@ const nextKey = () => `att-${++counter}`
 
 // Поле ввода сообщения. Скрепка прикладывает фото (до 10; галерея или камера) и файлы (до 5): фото уменьшаются на устройстве,
 // всё сразу загружается, а к сообщению прикрепляется кнопкой отправки. Ошибка загрузки показана на самом вложении.
-export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, incoming = null, reply = null, onCancelReply, editing = null, onCancelEdit, onEditSubmit }: ComposerProps) {
+export function Composer({ onSend, onUpload, onUploadFile, onUploadVideo, flushBottom = false, incoming = null, reply = null, onCancelReply, editing = null, onCancelEdit, onEditSubmit }: ComposerProps) {
   const guard = useInFlight()
   const insets = useSafeAreaInsets()
   const { colors } = useTheme()
@@ -148,16 +157,17 @@ export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, 
 
   const photos = items.filter((i) => i.kind === 'photo')
   const files = items.filter((i) => i.kind === 'file')
+  const videos = items.filter((i) => i.kind === 'video')
 
   async function upload(item: Attachment) {
     const blob = blobs.get(item.key)
     if (!blob) return patch(item.key, { status: 'failed', retryable: false })
     patch(item.key, { status: 'uploading', error: undefined })
     try {
-      const id = item.kind === 'photo' ? await onUpload(blob) : await onUploadFile({ blob, name: item.name! })
+      const id = item.kind === 'photo' ? await onUpload(blob) : item.kind === 'video' ? await onUploadVideo({ blob, type: item.mime ?? 'video/mp4' }) : await onUploadFile({ blob, name: item.name! })
       if (alive.current) patch(item.key, { status: 'done', id })
     } catch (err) {
-      if (alive.current) patch(item.key, { status: 'failed', error: item.kind === 'photo' ? describePhotoError(err) : describeFileError(err), retryable: true })
+      if (alive.current) patch(item.key, { status: 'failed', error: item.kind === 'photo' ? describePhotoError(err) : item.kind === 'video' ? describeVideoError(err) : describeFileError(err), retryable: true })
     }
   }
 
@@ -196,6 +206,48 @@ export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, 
     if (!permission.granted) return setNotice('Нет доступа к камере. Разрешите его в настройках телефона.')
     const shot = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 })
     if (!shot.canceled) addPhotos(shot.assets)
+  })
+
+  // видео из галереи или с камеры: размер и длительность проверяем на устройстве, дальше грузим по очереди (сервер сжимает каждое)
+  function addVideos(assets: { uri: string; fileName?: string | null; fileSize?: number; duration?: number | null; mimeType?: string | null }[]) {
+    const room = MAX_VIDEOS - videos.length
+    setNotice(assets.length > room ? `К сообщению можно приложить до ${MAX_VIDEOS} видео.` : undefined)
+    for (const asset of assets.slice(0, Math.max(room, 0))) {
+      const key = nextKey()
+      const name = asset.fileName ?? 'Видео'
+      const size = asset.fileSize ?? 0
+      const problem = videoProblem({ size, durationMs: asset.duration })
+      if (problem) {
+        setItems((current) => [...current, { key, kind: 'video', name, size, status: 'failed', error: problem, retryable: false }])
+        continue
+      }
+      const mime = videoMimeType(name, asset.mimeType)
+      const item: Attachment = { key, kind: 'video', name, size, mime, duration: asset.duration ? Math.round(asset.duration / 1000) : 0, status: 'uploading', retryable: true }
+      setItems((current) => [...current, item])
+      queue.current = queue.current.then(async () => {
+        if (!alive.current) return
+        try {
+          blobs.set(key, withType(await (await fetch(asset.uri)).blob(), mime))
+        } catch {
+          return patch(key, { status: 'failed', error: 'Не удалось прочитать видео.', retryable: false })
+        }
+        await upload(item)
+      })
+    }
+  }
+
+  const pickVideoFromGallery = guard(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!permission.granted) return setNotice('Нет доступа к видео. Разрешите его в настройках телефона.')
+    const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], allowsMultipleSelection: true, selectionLimit: MAX_VIDEOS - videos.length })
+    if (!picked.canceled) addVideos(picked.assets)
+  })
+
+  const recordVideo = guard(async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync()
+    if (!permission.granted) return setNotice('Нет доступа к камере. Разрешите его в настройках телефона.')
+    const shot = await ImagePicker.launchCameraAsync({ mediaTypes: ['videos'], videoMaxDuration: 180 })
+    if (!shot.canceled) addVideos(shot.assets)
   })
 
   // файлы к сообщению: выбранные в проводнике или полученные из другого приложения
@@ -313,8 +365,10 @@ export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, 
       text: text.trim(),
       mediaIds: photos.map((p) => p.id!).filter(Boolean),
       fileIds: files.map((f) => f.id!).filter(Boolean),
+      videoIds: videos.map((v) => v.id!).filter(Boolean),
       photoUris: photos.map((p) => p.uri ?? ''),
       files: files.map((f) => ({ name: f.name ?? 'Файл', size: f.size ?? 0 })),
+      videos: videos.map((v) => ({ duration: v.duration ?? 0 })),
     })
     // сообщение уже в ленте: поле и вложения освобождаются сразу
     setText('')
@@ -325,7 +379,7 @@ export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, 
 
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg, paddingBottom: keyboard || emojiOpen || flushBottom ? 0 : insets.bottom }}>
-      {(photos.length > 0 || files.length > 0) && (
+      {(photos.length > 0 || files.length > 0 || videos.length > 0) && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, padding: 10 }} keyboardShouldPersistTaps="handled">
           {photos.map((p) => (
             <View key={p.key} style={{ width: 72, height: 72, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.track }}>
@@ -347,6 +401,25 @@ export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, 
               )}
               <Pressable onPress={() => remove(p.key)} accessibilityLabel="Убрать фото" hitSlop={6} style={{ position: 'absolute', top: 2, right: 2, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="close" size={14} color="#ffffff" />
+              </Pressable>
+            </View>
+          ))}
+          {videos.map((v) => (
+            <View key={v.key} style={{ minWidth: 140, maxWidth: 200, flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: v.status === 'failed' ? colors.error : colors.border }}>
+              <Ionicons name="videocam-outline" size={22} color={colors.accent} />
+              <View style={{ flex: 1 }}>
+                <Text $size={13} $weight="bold" numberOfLines={1}>{v.name}</Text>
+                <Text $size={11} $tone={v.status === 'failed' ? 'error' : 'muted'} numberOfLines={2}>
+                  {v.status === 'failed' ? v.error : v.status === 'uploading' ? 'Загружается и обрабатывается…' : formatFileSize(v.size ?? 0)}
+                </Text>
+              </View>
+              {v.status === 'failed' && v.retryable && (
+                <Pressable onPress={() => void upload(v)} accessibilityLabel="Повторить загрузку видео" hitSlop={6}>
+                  <Ionicons name="refresh" size={18} color={colors.accent} />
+                </Pressable>
+              )}
+              <Pressable onPress={() => remove(v.key)} accessibilityLabel="Убрать видео" hitSlop={6}>
+                <Ionicons name="close" size={18} color={colors.muted} />
               </Pressable>
             </View>
           ))}
@@ -409,7 +482,7 @@ export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, 
           }}
           onFocus={() => setEmojiOpen(false)}
           onChangeText={setText}
-          placeholder={photos.length > 0 && text === '' ? 'Подпись' : 'Сообщение'}
+          placeholder={(photos.length > 0 || videos.length > 0) && text === '' ? 'Подпись' : 'Сообщение'}
           placeholderTextColor={colors.muted}
           multiline
           maxLength={MAX_LENGTH}
@@ -434,6 +507,8 @@ export function Composer({ onSend, onUpload, onUploadFile, flushBottom = false, 
           actions={[
             { key: 'gallery', label: 'Фото из галереи', onSelect: () => later(pickFromGallery) },
             { key: 'camera', label: 'Снять фото', onSelect: () => later(takePhoto) },
+            { key: 'video', label: 'Видео из галереи', onSelect: () => later(pickVideoFromGallery) },
+            { key: 'record', label: 'Снять видео', onSelect: () => later(recordVideo) },
             { key: 'file', label: 'Файл', onSelect: () => later(pickFiles) },
           ]}
         />

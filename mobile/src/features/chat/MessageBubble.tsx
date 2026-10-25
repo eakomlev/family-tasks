@@ -7,6 +7,7 @@ import { CachedImage } from '@/components/CachedImage'
 import { CoinIcon } from '@/components/Coins'
 import { Text } from '@/components/Text'
 import { formatFileSize } from '@/lib/files'
+import { formatDuration } from '@/lib/video'
 import { hapticMenu } from '@/lib/haptics'
 import { saveRemoteFile } from '@/lib/saveFile'
 import { ReadTicks } from './ReadTicks'
@@ -51,6 +52,8 @@ interface MessageBubbleProps {
   onFeedback?: () => void
   // нажатие на фото: номер фото в сообщении
   onOpenPhoto?: (index: number) => void
+  // нажатие на видео: открыть плеер
+  onOpenVideo?: (index: number) => void
   // как подписать автора исходного сообщения, если это ответ
   replyAuthor?: string
 }
@@ -61,7 +64,7 @@ const PHOTO_WIDTH = 240
 const TILE_GAP = 2
 
 // Пузырь сообщения: свои справа акцентные, чужие слева; внутри фото (плитками) и файлы, под ним реакции и начисленные монеты
-export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, delivery, onFailedPress, onOpenPhoto, onFeedback, replyAuthor }: MessageBubbleProps) {
+export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, delivery, onFailedPress, onOpenPhoto, onOpenVideo, onFeedback, replyAuthor }: MessageBubbleProps) {
   const { colors } = useTheme()
   // ширина пузыря в пикселях: проценты внутри строки с иконкой ошибки считались бы от самого пузыря и ужимали его
   const maxWidth = Math.round(useWindowDimensions().width * 0.82)
@@ -78,8 +81,11 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
     : undefined
   const photos = message.media ?? []
   const files = message.files ?? []
+  const videos = message.videos ?? []
+  // фото и видео лежат у края пузыря без отступов
+  const hasTiles = photos.length > 0 || videos.length > 0
   // только фото: пузырь без отступов, время поверх снимка
-  const photoOnly = photos.length > 0 && !text && files.length === 0
+  const photoOnly = photos.length > 0 && !text && files.length === 0 && videos.length === 0
   const columns = photoColumns(photos.length)
   const tile = columns === 1 ? PHOTO_WIDTH : Math.floor((PHOTO_WIDTH - TILE_GAP * (columns - 1)) / columns)
   // какой файл сейчас сохраняется и не получилось ли (пока идёт загрузка, повторное нажатие ничего не делает)
@@ -114,15 +120,15 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
         accessibilityHint={onFeedback ? 'Удерживайте, чтобы поставить реакцию' : undefined}
         style={{ maxWidth: '100%' }}
       >
-        <Bubble $mine={mine} $max={maxWidth} $flush={photos.length > 0}>
+        <Bubble $mine={mine} $max={maxWidth} $flush={hasTiles}>
           {showSender && !mine && (
-            <Text $weight="extraBold" $size={13} $tone="accent" style={photos.length > 0 ? { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 } : undefined}>
+            <Text $weight="extraBold" $size={13} $tone="accent" style={hasTiles ? { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 } : undefined}>
               {`${senderName ?? 'Участник'}${senderMood ? ` ${senderMood}` : ''}`}
             </Text>
           )}
           {message.replyTo && (
             <View
-              style={{ borderLeftWidth: 3, borderLeftColor: mine ? '#ffffff' : colors.accent, paddingLeft: 8, marginBottom: 4, marginHorizontal: photos.length > 0 ? 12 : 0, marginTop: photos.length > 0 ? 6 : 0, maxWidth: PHOTO_WIDTH }}
+              style={{ borderLeftWidth: 3, borderLeftColor: mine ? '#ffffff' : colors.accent, paddingLeft: 8, marginBottom: 4, marginHorizontal: hasTiles ? 12 : 0, marginTop: hasTiles ? 6 : 0, maxWidth: PHOTO_WIDTH }}
               accessibilityLabel="Ответ на сообщение"
             >
               <Text $weight="extraBold" $size={12} numberOfLines={1} style={{ color: mine ? '#ffffff' : colors.accent }}>
@@ -153,8 +159,35 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
               })}
             </View>
           )}
+          {videos.length > 0 && (
+            <View style={{ width: PHOTO_WIDTH, gap: TILE_GAP }}>
+              {videos.map((video, i) => (
+                <Pressable
+                  key={video.id}
+                  onPress={() => onOpenVideo?.(i)}
+                  onLongPress={onLongPress}
+                  delayLongPress={450}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Смотреть видео, ${formatDuration(video.duration)}`}
+                  style={{ width: PHOTO_WIDTH, height: PHOTO_WIDTH / Math.min(1.8, Math.max(0.6, video.width / video.height)), backgroundColor: '#000000' }}
+                >
+                  {video.thumbUrl ? <CachedImage uri={video.thumbUrl} style={{ width: PHOTO_WIDTH, height: '100%' }} contentFit="cover" /> : null}
+                  <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', paddingLeft: 4 }}>
+                      <Ionicons name="play" size={28} color="#ffffff" />
+                    </View>
+                  </View>
+                  <View pointerEvents="none" style={{ position: 'absolute', right: 8, bottom: 8, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+                    <Text $size={12} $weight="bold" style={{ color: '#ffffff' }}>
+                      {formatDuration(video.duration)}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
           {!photoOnly && (
-          <View style={photos.length > 0 ? { paddingHorizontal: 12, paddingTop: 6, paddingBottom: 6 } : undefined}>
+          <View style={hasTiles ? { paddingHorizontal: 12, paddingTop: 6, paddingBottom: 6 } : undefined}>
           {files.map((file) => (
             <Pressable
               key={file.id}

@@ -10,9 +10,12 @@ export interface PendingMessage {
   text: string
   mediaIds: string[]
   fileIds: string[]
+  videoIds: string[]
   // что показать в пузыре, пока сообщения нет на сервере: адреса превью фото и имена файлов
   photoUris: string[]
   files: { name: string; size: number }[]
+  // видео: длительность в секундах (кадра-превью до ответа сервера нет)
+  videos: { duration: number }[]
   // ответ на сообщение (выдержка показывается в пузыре сразу)
   replyTo?: ChatReply
   // ISO-время нажатия «Отправить»
@@ -22,7 +25,7 @@ export interface PendingMessage {
   sent?: ChatMessage
 }
 
-export type PendingDraft = Pick<PendingMessage, 'chat' | 'text' | 'mediaIds' | 'fileIds' | 'photoUris' | 'files' | 'replyTo'>
+export type PendingDraft = Pick<PendingMessage, 'chat' | 'text' | 'mediaIds' | 'fileIds' | 'videoIds' | 'photoUris' | 'files' | 'videos' | 'replyTo'>
 
 type Deliver = (draft: PendingDraft) => Promise<ChatMessage>
 
@@ -117,6 +120,7 @@ export function pendingToMessage(p: PendingMessage, senderId: string): ChatMessa
     caption: p.text,
     media: p.photoUris.map((uri, i) => ({ id: `${p.id}-photo-${i}`, width: 1, height: 1, thumbUrl: uri, fullUrl: uri })),
     files: p.files.map((f, i) => ({ id: `${p.id}-file-${i}`, name: f.name, size: f.size, url: '' })),
+    videos: p.videos.map((v, i) => ({ id: `${p.id}-video-${i}`, width: 16, height: 9, duration: v.duration, thumbUrl: '', url: '' })),
     createdAt: p.createdAt,
     replyTo: p.replyTo ?? null,
     reactions: [],

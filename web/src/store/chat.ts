@@ -6,6 +6,7 @@ interface SendArgs {
   text: string
   mediaIds?: string[]
   fileIds?: string[]
+  videoIds?: string[]
   // id сообщения, на которое отвечаем
   replyTo?: string
 }
@@ -26,9 +27,9 @@ export const chatApi = api.injectEndpoints({
     // Своё сообщение сразу ложится в кэш переписки, список чатов обновляется после
     sendMessage: build.mutation<{ message: ChatMessage }, SendArgs>({
       // лишние аргументы не передаём: вызов остаётся таким же коротким, как у сообщения без вложений
-      queryFn: fromApi((token, { chat, text, mediaIds, fileIds, replyTo }: SendArgs) =>
-        replyTo
-          ? sendMessage(token, chat, text, mediaIds, fileIds, replyTo)
+      queryFn: fromApi((token, { chat, text, mediaIds, fileIds, videoIds, replyTo }: SendArgs) =>
+        replyTo || videoIds?.length
+          ? sendMessage(token, chat, text, mediaIds, fileIds, replyTo, videoIds)
           : fileIds?.length
             ? sendMessage(token, chat, text, mediaIds, fileIds)
             : mediaIds?.length

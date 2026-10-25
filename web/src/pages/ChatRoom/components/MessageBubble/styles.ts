@@ -229,3 +229,66 @@ export const Quote = styled.div`
     -webkit-line-clamp: 2;
   }
 `
+
+// видео: кадр-превью со значком «играть» и длительностью; пропорции по самому видео (не выше предела)
+export const Videos = styled.div`
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.1rem -0.35rem 0.25rem;
+`
+
+export const VideoButton = styled.button<{ $ratio: number }>`
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0.7rem;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: ${({ $ratio }) => $ratio};
+  max-height: 22rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+`
+
+export const PlayBadge = styled.span`
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+
+  svg {
+    width: 3.4rem;
+    height: 3.4rem;
+    padding: 0.8rem 0.6rem 0.8rem 1rem;
+    border-radius: 50%;
+    background: rgb(0 0 0 / 0.55);
+    fill: #fff;
+  }
+`
+
+export const Duration = styled.span`
+  position: absolute;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 0.5rem;
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+`

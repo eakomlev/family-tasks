@@ -53,6 +53,50 @@ export async function loadMedia(
   return out
 }
 
+// ---- видео в чатах ----
+
+// Видео сообщения в ответах API: размеры кадра и длительность известны заранее (лента не прыгает), url играет видео по частям.
+export interface VideoDto {
+  id: string
+  width: number
+  height: number
+  // секунды
+  duration: number
+  thumbUrl: string
+  url: string
+}
+
+// Не больше видео в одном сообщении и размер загрузки (по умолчанию 100 МБ, до сжатия).
+export const MAX_VIDEOS = 3
+export const maxVideoBytes = () => {
+  const n = Number(process.env.MAX_VIDEO_BYTES)
+  return Number.isFinite(n) && n > 0 ? n : 100 * 1024 * 1024
+}
+
+export function videoUrls(secret: string, family: string, id: string, now: Date): { thumbUrl: string; url: string } {
+  const exp = expiryFor(now)
+  const query = `?exp=${exp}&sig=${sign(secret, family, id, exp)}`
+  return { thumbUrl: `/media/${family}/${id}/thumb${query}`, url: `/media/${family}/${id}/video${query}` }
+}
+
+// Видео сообщений одним запросом: сообщение -> видео по порядку.
+export async function loadVideos(db: Db, secret: string | null, messageIds: string[], now = new Date()): Promise<Map<string, VideoDto[]>> {
+  const out = new Map<string, VideoDto[]>()
+  if (messageIds.length === 0 || !secret) return out
+  const { rows } = await db.query<{ messageId: string; id: string; familyId: string; width: number; height: number; duration: number }>(
+    `select mm.message_id as "messageId", m.id, m.family_id as "familyId", m.width, m.height, m.duration
+     from message_media mm join media m on m.id = mm.media_id
+     where mm.message_id = any($1) and m.kind = 'video' order by mm.message_id, mm.position`,
+    [messageIds],
+  )
+  for (const r of rows) {
+    const list = out.get(r.messageId) ?? []
+    list.push({ id: r.id, width: r.width, height: r.height, duration: r.duration, ...videoUrls(secret, r.familyId, r.id, now) })
+    out.set(r.messageId, list)
+  }
+  return out
+}
+
 // ---- обычные файлы в чатах (документы, архивы и т. п.) ----
 
 // Файл сообщения в ответах API. url ведёт на скачивание: сервис media всегда отдаёт его как бинарный attachment.
@@ -96,10 +140,11 @@ export function isBlockedFile(name: string): boolean {
 }
 
 // Заглушка в text для сообщения только с вложениями (видит старая версия клиента).
-export function attachmentPlaceholder(photos: number, files: Pick<FileDto, 'name'>[]): string {
-  if (files.length === 0) return photoPlaceholder(photos)
-  if (photos === 0) return files.length === 1 ? `📎 ${files[0].name}` : `📎 Файлы ×${files.length}`
-  return `📎 Вложения ×${photos + files.length}`
+export function attachmentPlaceholder(photos: number, files: Pick<FileDto, 'name'>[], videos = 0): string {
+  if (files.length === 0 && videos === 0) return photoPlaceholder(photos)
+  if (photos === 0 && videos === 0) return files.length === 1 ? `📎 ${files[0].name}` : `📎 Файлы ×${files.length}`
+  if (photos === 0 && files.length === 0) return videos === 1 ? '🎬 Видео' : `🎬 Видео ×${videos}`
+  return `📎 Вложения ×${photos + files.length + videos}`
 }
 
 export function fileUrl(secret: string, family: string, id: string, name: string, now: Date): string {

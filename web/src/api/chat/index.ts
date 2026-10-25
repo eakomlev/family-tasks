@@ -28,10 +28,10 @@ export const listChatLinks = (token: string, chat: string, before?: string) =>
   request<{ items: ChatLink[]; hasMore: boolean; lastMessageId: string | null }>(`/chats/${chat}/links${before ? `?before=${before}` : ''}`, {}, token)
 
 // text может быть пустым, если есть фото (mediaIds из uploadChatPhoto, в порядке показа)
-export const sendMessage = (token: string, chat: string, text: string, mediaIds?: string[], fileIds?: string[], replyTo?: string) =>
+export const sendMessage = (token: string, chat: string, text: string, mediaIds?: string[], fileIds?: string[], replyTo?: string, videoIds?: string[]) =>
   request<{ message: ChatMessage }>(
     `/chats/${chat}/messages`,
-    send('POST', { text, ...(mediaIds?.length ? { mediaIds } : {}), ...(fileIds?.length ? { fileIds } : {}), ...(replyTo ? { replyTo } : {}) }),
+    send('POST', { text, ...(mediaIds?.length ? { mediaIds } : {}), ...(fileIds?.length ? { fileIds } : {}), ...(videoIds?.length ? { videoIds } : {}), ...(replyTo ? { replyTo } : {}) }),
     token,
   )
 
@@ -49,6 +49,15 @@ export const uploadChatFile = (token: string, chat: string, file: File) =>
   request<{ fileId: string; name: string; size: number }>(
     `/chats/${chat}/files`,
     { method: 'POST', body: file, headers: { 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) } },
+    token,
+  )
+
+// Загрузка одного видео (до 100 МБ и 3 минут) для будущего сообщения; к сообщению оно прикрепляется через videoIds.
+// Сервер сжимает видео перед ответом, поэтому ждать приходится дольше, чем фото. Тип берётся из файла (у .mov это video/quicktime).
+export const uploadChatVideo = (token: string, chat: string, video: File, contentType: string) =>
+  request<{ videoId: string; width: number; height: number; duration: number }>(
+    `/chats/${chat}/videos`,
+    { method: 'POST', body: video, headers: { 'Content-Type': contentType } },
     token,
   )
 

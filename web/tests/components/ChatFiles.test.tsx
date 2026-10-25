@@ -41,7 +41,7 @@ describe('Composer: файлы', () => {
     expect(onUpload).not.toHaveBeenCalled()
     // файл без текста отправить можно
     await user.click(screen.getByRole('button', { name: 'Отправить' }))
-    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: [], fileIds: ['file-1'] })
+    expect(onSend).toHaveBeenCalledWith({ text: '', mediaIds: [], fileIds: ['file-1'], videoIds: [] })
     await waitFor(() => expect(screen.queryByLabelText('Выбранные файлы')).toBeNull())
   })
 
@@ -53,7 +53,7 @@ describe('Composer: файлы', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled())
     await user.type(screen.getByLabelText('Подпись к фото'), 'вот')
     await user.click(screen.getByRole('button', { name: 'Отправить' }))
-    expect(onSend).toHaveBeenCalledWith({ text: 'вот', mediaIds: ['p1'], fileIds: ['f1'] })
+    expect(onSend).toHaveBeenCalledWith({ text: 'вот', mediaIds: ['p1'], fileIds: ['f1'], videoIds: [] })
   })
 
   it('слишком большой и запрещённый файлы отклоняются сразу, без загрузки; повтора нет', async () => {

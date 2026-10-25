@@ -17,4 +17,6 @@ export interface MessageBubbleProps {
   replyAuthor?: string
   // нажатие на фото: открыть просмотр с этим номером
   onOpenPhoto?: (index: number) => void
+  // нажатие на видео: открыть плеер
+  onOpenVideo?: (index: number) => void
 }

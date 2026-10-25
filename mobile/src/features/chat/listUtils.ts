@@ -21,15 +21,18 @@ export function chatPreviewParts(chat: ChatSummary, me: string, members: Member[
   const last = chat.last
   const count = last.media?.length ?? 0
   const files = last.files ?? []
+  const videos = last.videos ?? []
   // сообщение с вложениями: «📷 Фото», «📷 3 фото», «📎 имя файла», «📎 3 файла» или значок и подпись
   const caption = (last.caption ?? '').replace(/\s+/g, ' ').trim()
   const fileLabel = files.length === 1 ? files[0].name : `${files.length} ${files.length < 5 ? 'файла' : 'файлов'}`
   const text =
     count > 0
       ? `📷 ${caption || (count === 1 ? 'Фото' : `${count} фото`)}`
-      : files.length > 0
-        ? `📎 ${caption || fileLabel}`
-        : last.text.replace(/\s+/g, ' ').trim()
+      : videos.length > 0
+        ? `🎬 ${caption || (videos.length === 1 ? 'Видео' : `${videos.length} видео`)}`
+        : files.length > 0
+          ? `📎 ${caption || fileLabel}`
+          : last.text.replace(/\s+/g, ' ').trim()
   if (chat.last.senderId === me) return { prefix: 'Вы:', mine: true, text }
   // в общем чате и в чате события пишут многие: подпись автора
   if (chat.id === 'family' || chat.event) {

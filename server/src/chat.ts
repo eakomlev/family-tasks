@@ -10,14 +10,18 @@ import {
   isBlockedFile,
   loadFiles,
   loadMedia,
+  loadVideos,
   maxFileBytes,
+  maxVideoBytes,
   mediaUrls,
   MAX_FILES,
   MAX_PHOTO_BYTES,
   MAX_PHOTOS,
+  MAX_VIDEOS,
   mediaQuotaBytes,
   type FileDto,
   type MediaDto,
+  type VideoDto,
 } from './media/index.js'
 import { pool } from './db.js'
 import type { PushMessage } from './outbox/contract.js'
@@ -85,6 +89,8 @@ const sendSchema = {
       mediaIds: { type: 'array', items: { type: 'string', format: 'uuid' }, maxItems: MAX_PHOTOS, uniqueItems: true },
       // файлы, загруженные через POST /api/chats/:chat/files, в порядке показа (после фото)
       fileIds: { type: 'array', items: { type: 'string', format: 'uuid' }, maxItems: MAX_FILES, uniqueItems: true },
+      // видео, загруженные через POST /api/chats/:chat/videos, в порядке показа (после файлов)
+      videoIds: { type: 'array', items: { type: 'string', format: 'uuid' }, maxItems: MAX_VIDEOS, uniqueItems: true },
       // сообщение этого же чата, на которое отвечаем
       replyTo: { type: 'string', format: 'uuid' },
     },
@@ -143,6 +149,8 @@ export interface MessageDto {
   media: MediaDto[]
   // обычные файлы (документы, архивы…); у сообщений без файлов пусто
   files: FileDto[]
+  // видео (сжатые сервисом media); у сообщений без видео пусто
+  videos: VideoDto[]
   // ответ на сообщение; null, если это не ответ или исходное удалено
   replyTo: ReplyDto | null
   // когда сообщение изменили; null, если не менялось
@@ -159,6 +167,7 @@ const toMessage = (row: MessageRow): MessageDto => ({
   caption: row.photoOnly ? '' : row.text,
   media: [],
   files: [],
+  videos: [],
   // заглушка с id: выдержку подставляет decorate
   replyTo: row.replyToId ? { id: row.replyToId, senderId: '', text: '' } : null,
   editedAt: row.editedAt ?? null,
@@ -172,6 +181,7 @@ async function decorate(db: Pick<Pool, 'query'>, messages: MessageDto[], secret:
   const ids = messages.map((m) => m.id)
   const media = await loadMedia(db, secret, ids)
   const files = await loadFiles(db, secret, ids)
+  const videos = await loadVideos(db, secret, ids)
   const { rows: reactions } = await db.query<{ messageId: string; memberId: string; emoji: string }>(
     `select message_id as "messageId", member_id as "memberId", emoji from message_reactions where message_id = any($1) order by created_at`,
     [ids],
@@ -190,6 +200,7 @@ async function decorate(db: Pick<Pool, 'query'>, messages: MessageDto[], secret:
     replyTo: m.replyTo ? (originalOf.get(m.replyTo.id) ?? null) : null,
     media: media.get(m.id) ?? [],
     files: files.get(m.id) ?? [],
+    videos: videos.get(m.id) ?? [],
     reactions: reactions.filter((x) => x.messageId === m.id).map(({ memberId, emoji }) => ({ memberId, emoji })),
     awards: awards.filter((x) => x.messageId === m.id).map(({ amount, by }) => ({ amount, by })),
   }))
@@ -374,7 +385,8 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     }
     const lastMedia = await loadMedia(pool, secret, lasts.map((l) => l.id))
     const lastFiles = await loadFiles(pool, secret, lasts.map((l) => l.id))
-    const lastBy = new Map(lasts.map((l) => [l.chatKey, { ...toMessage(l), media: lastMedia.get(l.id) ?? [], files: lastFiles.get(l.id) ?? [] }]))
+    const lastVideos = await loadVideos(pool, secret, lasts.map((l) => l.id))
+    const lastBy = new Map(lasts.map((l) => [l.chatKey, { ...toMessage(l), media: lastMedia.get(l.id) ?? [], files: lastFiles.get(l.id) ?? [], videos: lastVideos.get(l.id) ?? [] }]))
     const unreadBy = new Map(unreads.map((u) => [u.chatKey, Number(u.count)]))
 
     const list = chats.map((c) => {
@@ -576,6 +588,42 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     },
   )
 
+  // Загрузка одного видео для будущего сообщения. Тело: сырой файл с типом video/* (до 100 МБ, до 3 минут). Сервис media сжимает его
+  // (MP4, H.264, до 720p) и делает кадр-превью; это занимает время, поэтому ответ приходит после обработки. Квота семьи общая с фото и файлами
+  // (считается сжатое видео); к сообщению видео прикрепляется через videoIds, не прикреплённое через сутки убирается.
+  app.post<{ Params: { chat: string }; Body: Buffer }>(
+    '/api/chats/:chat/videos',
+    { schema: { params: chatParams }, bodyLimit: maxVideoBytes(), config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (req, reply) => {
+      const member = await me(req, reply)
+      if (!member) return
+      if (!media) return reply.code(503).send({ error: 'media_disabled' })
+      const chat = await resolveChat(member, req.params.chat, reply)
+      if (!chat) return
+      const type = String(req.headers['content-type'] ?? '')
+      if (!type.startsWith('video/')) return reply.code(415).send({ error: 'invalid_video' })
+      if (!Buffer.isBuffer(req.body) || req.body.length === 0) return reply.code(400).send({ error: 'invalid_video' })
+
+      const { rows: used } = await pool.query<{ total: string }>('select coalesce(sum(size), 0) as total from media where family_id = $1', [member.family_id])
+      if (Number(used[0].total) + req.body.length > mediaQuotaBytes()) return reply.code(413).send({ error: 'media_quota' })
+
+      const id = randomUUID()
+      let result
+      try {
+        result = await media.client.uploadVideo(member.family_id, id, req.body, type.split(';')[0])
+      } catch (err) {
+        if (err instanceof MediaRejected) return reply.code(400).send({ error: err.code === 'video_too_long' ? 'video_too_long' : 'invalid_video' })
+        req.log.error(err)
+        return reply.code(502).send({ error: 'media_unavailable' })
+      }
+      await pool.query(
+        "insert into media (id, family_id, uploader_id, kind, width, height, duration, size) values ($1, $2, $3, 'video', $4, $5, $6, $7)",
+        [id, member.family_id, member.id, result.width, result.height, result.duration, result.size],
+      )
+      return reply.code(201).send({ videoId: id, width: result.width, height: result.height, duration: result.duration })
+    },
+  )
+
   // Загрузка одного файла (документ, архив…) для будущего сообщения. Тело: сырые байты, имя в заголовке x-file-name (в процентной
   // записи UTF-8). Содержимое не разбирается и не исполняется: сервис media отдаёт файл только как скачиваемый бинарный. Исполняемое,
   // сценарии и страницы не принимаются. Квота семьи общая с фото; к сообщению файл прикрепляется через fileIds.
@@ -618,7 +666,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     },
   )
 
-  app.post<{ Params: { chat: string }; Body: { text?: string; mediaIds?: string[]; fileIds?: string[]; replyTo?: string } }>(
+  app.post<{ Params: { chat: string }; Body: { text?: string; mediaIds?: string[]; fileIds?: string[]; videoIds?: string[]; replyTo?: string } }>(
     '/api/chats/:chat/messages',
     { schema: sendSchema },
     async (req, reply) => {
@@ -637,7 +685,8 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       const caption = (req.body.text ?? '').trim()
       const photoIds = req.body.mediaIds ?? []
       const fileIds = req.body.fileIds ?? []
-      const mediaIds = [...photoIds, ...fileIds]
+      const videoIds = req.body.videoIds ?? []
+      const mediaIds = [...photoIds, ...fileIds, ...videoIds]
       if (caption.length > MAX_TEXT || (caption.length === 0 && mediaIds.length === 0)) return reply.code(400).send({ error: 'invalid_text' })
       if (mediaIds.length > 0 && !media) return reply.code(503).send({ error: 'media_disabled' })
       // сообщение только с вложениями хранит заглушку (для старых клиентов), подпись пуста
@@ -657,12 +706,12 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
           )
           // все на месте, и фото в mediaIds, а файлы в fileIds (виды не путаются)
           const kindOf = new Map(owned.map((o) => [o.id, o.kind]))
-          if (owned.length !== mediaIds.length || photoIds.some((id) => kindOf.get(id) !== 'image') || fileIds.some((id) => kindOf.get(id) !== 'file')) {
+          if (owned.length !== mediaIds.length || photoIds.some((id) => kindOf.get(id) !== 'image') || fileIds.some((id) => kindOf.get(id) !== 'file') || videoIds.some((id) => kindOf.get(id) !== 'video')) {
             await tx.query('rollback')
             return reply.code(400).send({ error: 'invalid_media' })
           }
           fileNames = fileIds.map((id) => ({ name: owned.find((o) => o.id === id)!.fileName ?? '' }))
-          if (photoOnly) text = attachmentPlaceholder(photoIds.length, fileNames)
+          if (photoOnly) text = attachmentPlaceholder(photoIds.length, fileNames, videoIds.length)
         }
         const { rows } = await tx.query<MessageRow>(
           `insert into messages (family_id, chat_key, sender_id, text, photo_only, reply_to) values ($1, $2, $3, $4, $5, $6)
@@ -689,7 +738,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
         [member.id, chat.key, message.createdAt],
       )
       // в уведомлении фото отмечено значком: «📷 Фото» или «📷 подпись»
-      const pushText = mediaIds.length === 0 || photoOnly ? text : `${fileIds.length > 0 && photoIds.length === 0 ? '📎' : '📷'} ${text}`
+      const pushText = mediaIds.length === 0 || photoOnly ? text : `${photoIds.length > 0 ? '📷' : videoIds.length > 0 ? '🎬' : '📎'} ${text}`
 
       // каждому участнику (и другим устройствам автора) сигнал с чатом, каким он виден ему: общий или собеседник
       const { rows: roles } = await pool.query<{ id: string; role: string }>('select id, role from members where id = any($1)', [chat.participants])

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom'
-import { FAMILY_CHAT, isEventChat, listMessages, uploadChatFile, uploadChatPhoto, type ChatMessage, type MessageFeedback } from '@/api'
+import { FAMILY_CHAT, isEventChat, listMessages, uploadChatFile, uploadChatPhoto, uploadChatVideo, type ChatMessage, type ChatVideo, type MessageFeedback } from '@/api'
 import { Avatar } from '@/components/Avatar'
 import { TabIcon } from '@/components/TabBar/TabIcon'
 import { MoodMark } from '@/components/MoodMark'
@@ -15,6 +15,7 @@ import { useViewingChat } from '@/realtime/context'
 import { toApiError } from '@/store/api'
 import { PillTabs } from '@/components/PillTabs'
 import { playSendFeedback } from '@/lib/sendFeedback'
+import { videoContentType } from '@/lib/video'
 import { useGetEventQuery } from '@/store/events'
 import { useDeleteMessageMutation, useEditMessageMutation, useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, useSendMessageMutation } from '@/store/chat'
 import { currentMood } from '@/lib/mood'
@@ -31,6 +32,7 @@ import { MessageBubble } from './components/MessageBubble'
 import { MessagesSkeleton } from './components/MessagesSkeleton'
 import { PendingMessages, type PendingMessage } from './components/PendingMessages'
 import { PhotoViewer } from './components/PhotoViewer'
+import { VideoViewer } from './components/VideoViewer'
 import type { OutgoingMessage } from './components/Composer/types'
 import { BackButton, DayLabel, Title, Empty, Feed, FeedContent, FamilyIcon, Header, MenuButton, Room, WhoLink } from './styles'
 import { appendMessage, groupByDay, mergeLatest, messageStatus, participantsLabel, replaceMessage, visitLabel } from './utils'
@@ -93,6 +95,8 @@ function Conversation({ chat }: { chat: string | undefined }) {
   const [editing, setEditing] = useState<ChatMessage>()
   // открытый просмотр фото: сообщение и номер фото в нём
   const [viewing, setViewing] = useState<{ message: ChatMessage; index: number }>()
+  // открытое видео
+  const [watching, setWatching] = useState<ChatVideo>()
   const stick = useRef(true)
   const feedRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -261,7 +265,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
   async function deliver(item: PendingMessage) {
     setPending((list) => list.map((p) => (p.key === item.key ? { ...p, status: 'sending' } : p)))
     try {
-      const { message } = await sendMessage({ chat: chat!, text: item.text, mediaIds: item.mediaIds, fileIds: item.fileIds, replyTo: item.replyTo }).unwrap().catch(toApiError)
+      const { message } = await sendMessage({ chat: chat!, text: item.text, mediaIds: item.mediaIds, fileIds: item.fileIds, videoIds: item.videoIds, replyTo: item.replyTo }).unwrap().catch(toApiError)
       stick.current = true
       setThread((current) => ({ messages: appendMessage(current?.messages ?? [], message), hasMore: current?.hasMore ?? false, readUpTo: current?.readUpTo ?? null }))
       setPending((list) => list.filter((p) => p.key !== item.key))
@@ -270,8 +274,14 @@ function Conversation({ chat }: { chat: string | undefined }) {
     }
   }
 
-  async function handleSend({ text, mediaIds, fileIds }: OutgoingMessage) {
-    const item: PendingMessage = { key: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`, text, mediaIds, fileIds, replyTo: replyingTo?.id, status: 'sending' }
+  // загрузка одного видео для сообщения (сервер сжимает его перед ответом)
+  async function handleUploadVideo(video: File) {
+    const { videoId } = await uploadChatVideo(token!, chat!, video, videoContentType(video))
+    return videoId
+  }
+
+  async function handleSend({ text, mediaIds, fileIds, videoIds }: OutgoingMessage) {
+    const item: PendingMessage = { key: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`, text, mediaIds, fileIds, videoIds, replyTo: replyingTo?.id, status: 'sending' }
     setPending((list) => [...list, item])
     setReplyingTo(undefined)
     stick.current = true
@@ -387,6 +397,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
                       status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
                       onFeedback={() => setFeedbackFor(message)}
                       onOpenPhoto={(index) => setViewing({ message, index })}
+                      onOpenVideo={(index) => setWatching(message.videos?.[index])}
                     />
                   ))}
                 </section>
@@ -404,7 +415,9 @@ function Conversation({ chat }: { chat: string | undefined }) {
         editing={editing && { id: editing.id, text: editing.caption }}
         onCancelEdit={() => setEditing(undefined)}
         onEditSubmit={handleEdit}
-        onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} />
+        onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} onUploadVideo={handleUploadVideo} />
+
+      {watching && <VideoViewer video={watching} onClose={() => setWatching(undefined)} />}
 
       {viewing && (
         <PhotoViewer

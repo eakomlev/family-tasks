@@ -356,7 +356,7 @@ describe('Composer', () => {
     await user.type(field, 'первая{Shift>}{Enter}{/Shift}вторая')
     expect(onSend).not.toHaveBeenCalled()
     await user.keyboard('{Enter}')
-    expect(onSend).toHaveBeenCalledWith({ text: 'первая\nвторая', mediaIds: [], fileIds: [] })
+    expect(onSend).toHaveBeenCalledWith({ text: 'первая\nвторая', mediaIds: [], fileIds: [], videoIds: [] })
     await waitFor(() => expect(field).toHaveValue(''))
   })
 

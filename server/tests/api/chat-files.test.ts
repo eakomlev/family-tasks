@@ -24,6 +24,9 @@ class FakeMedia implements MediaClient {
   async delete(_family: string, id: string) {
     this.deleted.push(id)
   }
+  async uploadVideo(): Promise<never> {
+    throw new Error('видео в этом тесте не загружается')
+  }
   async health() {
     return true
   }

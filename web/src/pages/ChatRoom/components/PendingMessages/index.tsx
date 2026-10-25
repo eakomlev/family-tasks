@@ -5,6 +5,7 @@ export interface PendingMessage {
   text: string
   mediaIds: string[]
   fileIds: string[]
+  videoIds: string[]
   replyTo?: string
   status: 'sending' | 'failed'
 }
@@ -22,7 +23,7 @@ export function PendingMessages({ items, onRetry, onRemove }: Props) {
       {items.map((item) => (
         <Row key={item.key}>
           <Bubble $failed={item.status === 'failed'}>
-            {item.text || (item.mediaIds.length > 0 ? '📷 Фото' : '📎 Файлы')}
+            {item.text || (item.mediaIds.length > 0 ? '📷 Фото' : item.videoIds.length > 0 ? '🎬 Видео' : '📎 Файлы')}
             <State role="status">{item.status === 'sending' ? 'Отправляется…' : 'Не отправлено'}</State>
           </Bubble>
           {item.status === 'failed' && (

@@ -232,7 +232,7 @@ describe('признак администратора в /api/me', () => {
 
 describe('GET /api/admin/media', () => {
   let healthy = true
-  const client: MediaClient = { upload: async () => ({ width: 1, height: 1, size: 1, thumbSize: 1 }), uploadFile: async () => ({ size: 1 }), delete: async () => {}, health: async () => healthy }
+  const client: MediaClient = { upload: async () => ({ width: 1, height: 1, size: 1, thumbSize: 1 }), uploadFile: async () => ({ size: 1 }), uploadVideo: async () => ({ width: 1, height: 1, duration: 1, size: 1, thumbSize: 1 }), delete: async () => {}, health: async () => healthy }
   let withMedia: Awaited<ReturnType<typeof buildApp>>
   beforeAll(async () => {
     withMedia = await buildApp({ logger: false, rateLimit: false, media: { client, secret: 's' } })

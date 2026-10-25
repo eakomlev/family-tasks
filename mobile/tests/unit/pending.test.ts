@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { ChatMessage } from '@/api'
 import { discardPending, getPending, isPendingId, pendingToMessage, resetPending, retrySend, startSend, type PendingDraft } from '@/features/chat/pending'
 
-const draft: PendingDraft = { chat: 'family', text: 'Привет', mediaIds: [], fileIds: [], photoUris: [], files: [] }
+const draft: PendingDraft = { chat: 'family', text: 'Привет', mediaIds: [], fileIds: [], videoIds: [], photoUris: [], files: [], videos: [] }
 const sent = (id = 'srv-1'): ChatMessage => ({ id, senderId: 'me', text: 'Привет', caption: 'Привет', media: [], createdAt: '2026-10-12T10:00:00.000Z', reactions: [], awards: [] })
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 

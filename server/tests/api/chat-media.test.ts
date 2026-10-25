@@ -38,6 +38,9 @@ class FakeMedia implements MediaClient {
     if (this.failWith) throw this.failWith
     this.deleted.push(id)
   }
+  async uploadVideo(): Promise<never> {
+    throw new Error('видео в этом тесте не загружается')
+  }
   async health() {
     return !this.failWith
   }

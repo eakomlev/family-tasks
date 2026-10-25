@@ -2,13 +2,14 @@ import { useRef, useState } from 'react'
 import { CoinIcon } from '@/components/CoinBalance'
 import { ReadTicks } from '@/components/ReadTicks'
 import { formatFileSize } from '@/lib/files'
+import { formatDuration } from '@/lib/video'
 import { saveFile } from '@/lib/saveFile'
 import { useLongPress } from '@/lib/useLongPress'
 import { bubbleText, formatMessageTime, groupReactions, photoColumns, totalCoins } from '../../utils'
-import { Bubble, CoinPill, Extras, FileButton, FileInfo, Files, Footer, PhotoButton, Photos, Quote, ReactionChip, Sender, Text, Time, Wrap } from './styles'
+import { Bubble, CoinPill, Duration, PlayBadge, VideoButton, Videos, Extras, FileButton, FileInfo, Files, Footer, PhotoButton, Photos, Quote, ReactionChip, Sender, Text, Time, Wrap } from './styles'
 import type { MessageBubbleProps } from './types'
 
-export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, onFeedback, onOpenPhoto, replyAuthor }: MessageBubbleProps) {
+export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, onFeedback, onOpenPhoto, onOpenVideo, replyAuthor }: MessageBubbleProps) {
   const reactions = groupReactions(message.reactions)
   const coins = totalCoins(message.awards)
 
@@ -23,6 +24,7 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
   )
   const photos = message.media ?? []
   const files = message.files ?? []
+  const videos = message.videos ?? []
   // какой файл сейчас сохраняется / не сохранился (одно сообщение: пока идёт загрузка, повторное нажатие ничего не делает)
   const [saving, setSaving] = useState<string>()
   const [saveFailed, setSaveFailed] = useState(false)
@@ -82,6 +84,27 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
               </PhotoButton>
             ))}
           </Photos>
+        )}
+        {videos.length > 0 && (
+          <Videos>
+            {videos.map((video, i) => (
+              <VideoButton
+                key={video.id}
+                type="button"
+                $ratio={Math.min(1.8, Math.max(0.6, video.width / video.height))}
+                aria-label={`Смотреть видео, ${formatDuration(video.duration)}`}
+                onClick={() => Date.now() - lastLong.current > 700 && onOpenVideo?.(i)}
+              >
+                <img src={video.thumbUrl} alt="" width={video.width} height={video.height} loading="lazy" draggable={false} />
+                <PlayBadge aria-hidden>
+                  <svg viewBox="0 0 24 24">
+                    <path d="M8 5.5v13l11-6.5z" />
+                  </svg>
+                </PlayBadge>
+                <Duration>{formatDuration(video.duration)}</Duration>
+              </VideoButton>
+            ))}
+          </Videos>
         )}
         {files.length > 0 && (
           <Files>
