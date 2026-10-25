@@ -19,7 +19,7 @@ export const testConfig = (over: Partial<Config> = {}): Config => ({
   secret: 'test-secret',
   internalToken: 'test-internal-token',
   maxUploadBytes: 3 * 1024 * 1024,
-  maxFileBytes: 10 * 1024 * 1024,
+  maxFileBytes: 50 * 1024 * 1024,
   maxVideoBytes: 100 * 1024 * 1024,
   maxVideoSeconds: 180,
   s3: testS3(),

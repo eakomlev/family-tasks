@@ -37,7 +37,7 @@ const messages = (token: string, chat: string, query = '') => api(app, token, 'G
 const list = async (token: string) => (await api(app, token, 'GET', '/api/chats')).body.chats as { id: string; last: any; unread: number }[]
 // уведомления уходят в фоне, после ответа
 const pushes = async (...who: (keyof typeof endpoints)[]) => {
-  await new Promise((r) => setTimeout(r, 150))
+  await new Promise((r) => setTimeout(r, 500))
   return (await sentTo(who.map((w) => endpoints[w])))
 }
 
@@ -401,7 +401,7 @@ describe('уведомления', () => {
       await pool.query(`update members set name = 'Игорь' where id = $1`, [f.dad.id])
       const ep = { dad: await subscribe(f.dad.id), kid: await subscribe(f.kid.id), mom: await subscribe(f.mom.id) }
       const titles = async (...who: (keyof typeof ep)[]) => {
-        await new Promise((r) => setTimeout(r, 150))
+        await new Promise((r) => setTimeout(r, 500))
         return Object.fromEntries(await Promise.all(who.map(async (w) => [w, (await sentTo([ep[w]])).map((s) => s.payload.title)])))
       }
 

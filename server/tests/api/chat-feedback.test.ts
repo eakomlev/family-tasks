@@ -34,7 +34,7 @@ const messageOf = async (token: string, chat: string, id: string) =>
   ((await api(app, token, 'GET', `/api/chats/${chat}/messages`)).body.messages as any[]).find((m) => m.id === id)
 const balance = async () => (await api(app, fam.kid.token, 'GET', '/api/me')).body.member.coins as number
 const kidPushes = async () => {
-  await new Promise((r) => setTimeout(r, 150))
+  await new Promise((r) => setTimeout(r, 500))
   return (await sentTo([kidEndpoint])).map((s) => s.payload)
 }
 

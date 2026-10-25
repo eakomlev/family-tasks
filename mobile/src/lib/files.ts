@@ -2,7 +2,7 @@
 // ждал загрузки; настоящую проверку всё равно делает сервер.
 
 export const MAX_FILES = 5
-export const MAX_FILE_BYTES = 10 * 1024 * 1024
+export const MAX_FILE_BYTES = 50 * 1024 * 1024
 
 const BLOCKED_EXTENSIONS = new Set([
   'exe', 'msi', 'bat', 'cmd', 'com', 'scr', 'pif', 'cpl', 'msc', 'dll', 'sys', 'lnk', 'reg', 'hta', 'jar', 'apk', 'ipa', 'app', 'dmg',

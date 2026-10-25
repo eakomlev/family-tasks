@@ -11,10 +11,13 @@ export interface ChessMove {
   promotion?: string
 }
 
+// Во что превращается пешка, дошедшая до края доски
+export type PromotionPiece = 'q' | 'r' | 'b' | 'n'
+
 export interface GameResult {
   // null — ничья
   winnerId: string | null
-  reason: 'checkmate' | 'stalemate' | 'draw' | 'resign' | 'line'
+  reason: 'checkmate' | 'stalemate' | 'draw' | 'resign' | 'line' | 'agreement'
 }
 
 export interface Game {
@@ -35,6 +38,8 @@ export interface Game {
   board: string | null
   cells: number[]
   lastCell: number | null
+  // кто предложил ничью и ждёт ответа соперника; null, если предложения нет (нет и у сервера прежней версии)
+  drawOffer?: string | null
   result: GameResult | null
   createdAt: string
   updatedAt: string

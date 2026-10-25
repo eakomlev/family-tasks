@@ -20,6 +20,7 @@ export const gameTitle = (kind: string) => GAMES.find((g) => g.kind === kind)?.t
 // Итог игры глазами участника viewerId
 export function resultText(result: GameResult, viewerId: string): string {
   if (result.reason === 'resign') return result.winnerId === viewerId ? 'Соперник сдался. Вы победили!' : 'Вы сдались'
+  if (result.reason === 'agreement') return 'Ничья по соглашению'
   if (result.reason === 'line') return result.winnerId === viewerId ? 'Три в ряд. Вы победили!' : 'Соперник собрал три в ряд. Вы проиграли'
   if (!result.winnerId) return result.reason === 'stalemate' ? 'Пат. Ничья' : 'Ничья'
   return result.winnerId === viewerId ? 'Мат. Вы победили!' : 'Мат. Вы проиграли'
@@ -33,6 +34,7 @@ export function gameStatusLine(game: Game, me: string): string {
     case 'invited':
       return game.inviteeId === me ? 'Приглашает вас сыграть' : 'Ждём ответа'
     case 'active':
+      if (game.drawOffer) return game.drawOffer === me ? 'Вы предложили ничью' : 'Предлагает ничью'
       return game.turnId === me ? 'Ваш ход' : 'Ход соперника'
     case 'finished':
       return game.result ? resultText(game.result, me) : 'Игра окончена'
@@ -43,8 +45,8 @@ export function gameStatusLine(game: Game, me: string): string {
   }
 }
 
-// Нужно ли участнику что-то сделать в этой игре (ответить на приглашение или сходить)
-export const needsMyAction = (game: Game, me: string) => game.turnId === me || (game.status === 'invited' && game.inviteeId === me)
+// Нужно ли участнику что-то сделать в этой игре (ответить на приглашение или на предложение ничьей, или сходить)
+export const needsMyAction = (game: Game, me: string) => game.turnId === me || (game.status === 'invited' && game.inviteeId === me) || (!!game.drawOffer && game.drawOffer !== me)
 
 // Игры, которые ещё не закончились: приглашения и идущие партии; те, где ждут меня, выше
 export function openGames(games: Game[], me: string): Game[] {

@@ -1,4 +1,4 @@
-import { acceptGame, cancelGame, declineGame, getGame, inviteToGame, listGames, moveInGame, placeInGame, resignGame, type ChessMove, type Game, type GameKind } from '@/api'
+import { acceptDraw, acceptGame, cancelGame, declineDraw, offerDraw, declineGame, getGame, inviteToGame, listGames, moveInGame, placeInGame, resignGame, type ChessMove, type Game, type GameKind, type PromotionPiece } from '@/api'
 import { api, fromApi } from './api'
 
 // Игры. Ответ сервера на любое действие сразу кладётся в кэш игры, списки обновляются заново (и по сигналу сокета `games`).
@@ -37,7 +37,10 @@ export const gamesApi = api.injectEndpoints({
       cancelGame: action((token, id) => cancelGame(token, id)),
       resignGame: action((token, id) => resignGame(token, id)),
       placeInGame: action((token, id, arg: { cell: number }) => placeInGame(token, id, arg.cell)),
-      moveInGame: action((token, id, move: Pick<ChessMove, 'from' | 'to'>) => moveInGame(token, id, move)),
+      moveInGame: action((token, id, move: Pick<ChessMove, 'from' | 'to'> & { promotion?: PromotionPiece }) => moveInGame(token, id, move)),
+      offerDraw: action((token, id) => offerDraw(token, id)),
+      acceptDraw: action((token, id) => acceptDraw(token, id)),
+      declineDraw: action((token, id) => declineDraw(token, id)),
     }
   },
 })
@@ -51,5 +54,8 @@ export const {
   useCancelGameMutation,
   useResignGameMutation,
   useMoveInGameMutation,
+  useOfferDrawMutation,
+  useAcceptDrawMutation,
+  useDeclineDrawMutation,
   usePlaceInGameMutation,
 } = gamesApi

@@ -21,7 +21,7 @@ describe('classifyShared', () => {
     expect(content.images).toEqual([])
   })
 
-  it('картинки идут фото, остальное файлами', () => {
+  it('картинки идут фото, видео видео, остальное файлами', () => {
     const content = classifyShared([
       uri('image', 'content://media/1', 'a.jpg', 1000),
       uri('video', 'content://media/2', 'clip.mp4', 5000),
@@ -29,8 +29,9 @@ describe('classifyShared', () => {
       uri('audio', 'content://media/4', 'song.mp3', 10),
     ])
     expect(content.images).toEqual([{ uri: 'content://media/1', name: 'a.jpg', size: 1000 }])
-    expect(content.files.map((f) => f.name)).toEqual(['clip.mp4', '3', 'song.mp3'])
-    expect(content.files[1].size).toBe(0)
+    expect(content.videos).toEqual([{ uri: 'content://media/2', name: 'clip.mp4', size: 5000 }])
+    expect(content.files.map((f) => f.name)).toEqual(['3', 'song.mp3'])
+    expect(content.files[0].size).toBe(0)
   })
 
   it('имя берётся из адреса, если приложение его не прислало', () => {
@@ -43,15 +44,22 @@ describe('classifyShared', () => {
 })
 
 describe('describeShared и hasShared', () => {
+  it('видео в описании и в проверке «есть что отправлять»', () => {
+    const only = { ...emptyShared(), videos: [{ uri: 'u', name: 'a.mp4', size: 1 }] }
+    expect(hasShared(only)).toBe(true)
+    expect(describeShared(only)).toBe('1 видео')
+    expect(describeShared({ ...only, videos: [...only.videos, ...only.videos, ...only.videos] })).toBe('3 видео')
+  })
+
   it('пустое и непустое', () => {
     expect(hasShared(emptyShared())).toBe(false)
     expect(hasShared({ ...emptyShared(), text: 'a' })).toBe(true)
   })
 
   it('описание для экрана выбора чата', () => {
-    expect(describeShared({ text: 'Привет', images: [{ uri: 'u', name: 'a', size: 1 }], files: [] })).toBe('Привет · 1 фото')
-    expect(describeShared({ text: '', images: [], files: [{ uri: 'u', name: 'отчёт.pdf', size: 1 }] })).toBe('Файл: отчёт.pdf')
-    expect(describeShared({ text: 'x'.repeat(200), images: [], files: [] }).length).toBeLessThanOrEqual(80)
+    expect(describeShared({ text: 'Привет', images: [{ uri: 'u', name: 'a', size: 1 }], videos: [], files: [] })).toBe('Привет · 1 фото')
+    expect(describeShared({ text: '', images: [], videos: [], files: [{ uri: 'u', name: 'отчёт.pdf', size: 1 }] })).toBe('Файл: отчёт.pdf')
+    expect(describeShared({ text: 'x'.repeat(200), images: [], videos: [], files: [] }).length).toBeLessThanOrEqual(80)
   })
 })
 

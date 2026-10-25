@@ -3,6 +3,7 @@ import styled from 'styled-components'
 // контейнер задаёт размер для шрифта фигур (cqw: доля ширины доски)
 export const Frame = styled.div`
   width: 100%;
+  position: relative;
   max-width: 28rem;
   margin: 0 auto;
   container-type: inline-size;
@@ -67,4 +68,44 @@ export const Dot = styled.span<{ $capture: boolean }>`
   background: ${({ $capture }) => ($capture ? 'transparent' : 'rgb(0 0 0 / 0.3)')};
   border: ${({ $capture }) => ($capture ? '3px solid rgb(0 0 0 / 0.3)' : '0')};
   pointer-events: none;
+`
+
+// выбор фигуры при превращении пешки: затемнение поверх доски и четыре кнопки
+export const PromoOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  border-radius: 0.4rem;
+  background: rgb(0 0 0 / 0.55);
+`
+
+export const PromoChoices = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  width: min(86%, 22rem);
+  padding: 0.6rem;
+  border-radius: 1rem;
+  background: var(--surface);
+`
+
+export const PromoButton = styled.button`
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: 1px solid var(--card-border, var(--border));
+  border-radius: 0.8rem;
+  background: #eadfc8;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  span {
+    font-size: 11cqw;
+  }
 `

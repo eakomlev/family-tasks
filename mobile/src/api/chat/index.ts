@@ -59,7 +59,7 @@ export const uploadChatPhoto = (token: string, chat: string, photo: Blob) =>
     token,
   )
 
-// Загрузка одного файла (документ, архив…, до 10 МБ) для будущего сообщения; к сообщению он прикрепляется через fileIds.
+// Загрузка одного файла (документ, архив…, до 50 МБ) для будущего сообщения; к сообщению он прикрепляется через fileIds.
 // Имя уходит в заголовке в процентной записи (в заголовках нет кириллицы).
 export const uploadChatFile = (token: string, chat: string, file: { blob: Blob; name: string }) =>
   request<{ fileId: string; name: string; size: number }>(

@@ -17,7 +17,7 @@ import { useProfile } from '@/profile/context'
 import { useViewingChat } from '@/realtime/context'
 import { ApiError } from '@/api'
 import { toApiError } from '@/store/api'
-import { useAcceptGameMutation, useInviteToGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, usePlaceInGameMutation, useResignGameMutation } from '@/store/games'
+import { useAcceptGameMutation, useInviteToGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, usePlaceInGameMutation, useResignGameMutation, useOfferDrawMutation, useAcceptDrawMutation, useDeclineDrawMutation } from '@/store/games'
 import { Buttons, Caption, Opponent, Result, Status } from './styles'
 
 // Одна игра: приглашение (принять или отклонить), ожидание ответа, партия и итог.
@@ -34,6 +34,9 @@ export default function Game() {
   const [cancel] = useCancelGameMutation()
   const [move] = useMoveInGameMutation()
   const [place] = usePlaceInGameMutation()
+  const [offerDraw] = useOfferDrawMutation()
+  const [acceptDraw] = useAcceptDrawMutation()
+  const [declineDraw] = useDeclineDrawMutation()
   const [invite] = useInviteToGameMutation()
   const navigate = useNavigate()
   const [resign] = useResignGameMutation()
@@ -149,10 +152,29 @@ export default function Game() {
                     orientation={game.whiteId === me ? 'w' : 'b'}
                     lastMove={game.lastMove}
                     canMove={game.status === 'active' && game.turnId === me && !busy}
-                    onMove={(from, to) => void run(() => call(move({ id, from, to })))}
+                    onMove={(from, to, promotion) => void run(() => call(move({ id, from, to, promotion })))}
                   />
                   <Caption>{`${game.whiteId === me ? 'Вы играете белыми' : 'Вы играете чёрными'}${lastMoveText(game) ? ` · ${lastMoveText(game)}` : ''}`}</Caption>
                 </>
+              )}
+              {game.status === 'active' && game.kind === 'chess' && game.drawOffer && game.drawOffer !== me && (
+                <Result role="status">
+                  <Status>{`${opponentName} предлагает ничью`}</Status>
+                  <Buttons>
+                    <Button $variant="lime" type="button" disabled={busy} onClick={() => void run(() => call(acceptDraw({ id })))}>
+                      Принять ничью
+                    </Button>
+                    <Button type="button" disabled={busy} onClick={() => void run(() => call(declineDraw({ id })))}>
+                      Отклонить
+                    </Button>
+                  </Buttons>
+                </Result>
+              )}
+              {game.status === 'active' && game.kind === 'chess' && game.drawOffer === me && <Caption>Вы предложили ничью. Ждём ответа.</Caption>}
+              {game.status === 'active' && game.kind === 'chess' && !game.drawOffer && (
+                <Button type="button" disabled={busy} onClick={() => void run(() => call(offerDraw({ id })))}>
+                  Предложить ничью
+                </Button>
               )}
               {game.status === 'active' && (
                 <Button type="button" disabled={busy} onClick={() => void onResign()}>

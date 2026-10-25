@@ -27,6 +27,9 @@ vi.mock('@/api', async (importOriginal) => ({
   moveInGame: vi.fn(),
   placeInGame: vi.fn(),
   resignGame: vi.fn(),
+  offerDraw: vi.fn(),
+  acceptDraw: vi.fn(),
+  declineDraw: vi.fn(),
 }))
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
@@ -120,6 +123,9 @@ beforeEach(() => {
   vi.mocked(api.listGames).mockReset().mockResolvedValue({ games: [] })
   vi.mocked(api.getGame).mockReset()
   vi.mocked(api.placeInGame).mockReset()
+  vi.mocked(api.offerDraw).mockReset()
+  vi.mocked(api.acceptDraw).mockReset()
+  vi.mocked(api.declineDraw).mockReset()
   vi.mocked(api.inviteToGame).mockReset()
   vi.mocked(api.acceptGame).mockReset()
   vi.mocked(api.declineGame).mockReset()
@@ -346,5 +352,52 @@ describe('после окончания игры', () => {
     renderAt('/games/g1')
     await screen.findByText('Ваш ход')
     expect(screen.queryByRole('button', { name: 'Новая партия' })).not.toBeInTheDocument()
+  })
+})
+
+describe('ничья по соглашению', () => {
+  it('«Предложить ничью» шлёт предложение, дальше написано, что ждём ответа', async () => {
+    serve(game())
+    vi.mocked(api.offerDraw).mockImplementation(answer(game({ drawOffer: 'me' })))
+    renderAt('/games/g1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Предложить ничью' }))
+    await waitFor(() => expect(api.offerDraw).toHaveBeenCalledWith('tok', 'g1'))
+    expect(await screen.findByText('Вы предложили ничью. Ждём ответа.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Предложить ничью' })).toBeNull()
+  })
+
+  it('предложение соперника: принять заканчивает партию ничьей', async () => {
+    serve(game({ drawOffer: 'igor' }))
+    vi.mocked(api.acceptDraw).mockImplementation(answer(game({ status: 'finished', turnId: null, drawOffer: null, result: { winnerId: null, reason: 'agreement' } })))
+    renderAt('/games/g1')
+    expect(await screen.findByText('Игорь предлагает ничью')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Предложить ничью' })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Принять ничью' }))
+    await waitFor(() => expect(api.acceptDraw).toHaveBeenCalledWith('tok', 'g1'))
+    expect(await screen.findByText('Ничья по соглашению')).toBeInTheDocument()
+  })
+
+  it('предложение соперника: отклонить возвращает кнопку предложения', async () => {
+    serve(game({ drawOffer: 'igor' }))
+    vi.mocked(api.declineDraw).mockImplementation(answer(game()))
+    renderAt('/games/g1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Отклонить' }))
+    await waitFor(() => expect(api.declineDraw).toHaveBeenCalledWith('tok', 'g1'))
+    expect(await screen.findByRole('button', { name: 'Предложить ничью' })).toBeInTheDocument()
+  })
+
+  it('ошибка «один раз за ход» показывается человеку', async () => {
+    serve(game())
+    vi.mocked(api.offerDraw).mockRejectedValue(new api.ApiError(409, 'offer_too_soon'))
+    renderAt('/games/g1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Предложить ничью' }))
+    expect(await screen.findByText('Ничью можно предлагать один раз за ход.')).toBeInTheDocument()
+  })
+
+  it('в крестиках-ноликах ничью не предлагают (там она по полю)', async () => {
+    serve(game({ kind: 'tictactoe', fen: '', board: '---------' }))
+    renderAt('/games/g1')
+    await screen.findByText('Ваш ход')
+    expect(screen.queryByRole('button', { name: 'Предложить ничью' })).toBeNull()
   })
 })

@@ -1,7 +1,7 @@
 import type { ResolvedSharePayload } from 'expo-sharing'
 
 // Что поделились с приложением из другого приложения («Поделиться» в галерее, браузере, мессенджере…), разобранное для чата:
-// текст (в том числе ссылки), картинки и остальные файлы.
+// текст (в том числе ссылки), картинки, видео и остальные файлы.
 export interface SharedFile {
   uri: string
   name: string
@@ -11,21 +11,25 @@ export interface SharedFile {
 export interface SharedContent {
   text: string
   images: SharedFile[]
+  videos: SharedFile[]
   files: SharedFile[]
 }
 
-export const emptyShared = (): SharedContent => ({ text: '', images: [], files: [] })
+export const emptyShared = (): SharedContent => ({ text: '', images: [], videos: [], files: [] })
 
 const lastPathPart = (uri: string) => decodeURIComponent(uri.split('?')[0].split('/').pop() ?? '') || 'Файл'
 
-// Раскладывает полученное по видам. Текст и ссылки склеиваются через пустую строку, картинки идут как фото, видео, звук и документы как файлы.
+// Раскладывает полученное по видам. Текст и ссылки склеиваются через пустую строку, картинки идут как фото, видео как видео (сжатие и плеер),
+// звук и документы как файлы.
 export function classifyShared(payloads: ResolvedSharePayload[]): SharedContent {
   const content = emptyShared()
   const texts: string[] = []
   for (const payload of payloads) {
     if (payload.contentType === 'image' && payload.contentUri) {
       content.images.push({ uri: payload.contentUri, name: payload.originalName ?? lastPathPart(payload.contentUri), size: payload.contentSize ?? 0 })
-    } else if ((payload.contentType === 'video' || payload.contentType === 'audio' || payload.contentType === 'file') && payload.contentUri) {
+    } else if (payload.contentType === 'video' && payload.contentUri) {
+      content.videos.push({ uri: payload.contentUri, name: payload.originalName ?? lastPathPart(payload.contentUri), size: payload.contentSize ?? 0 })
+    } else if ((payload.contentType === 'audio' || payload.contentType === 'file') && payload.contentUri) {
       content.files.push({ uri: payload.contentUri, name: payload.originalName ?? lastPathPart(payload.contentUri), size: payload.contentSize ?? 0 })
     } else {
       // текст и ссылки (в том числе «веб-страница»): сама ссылка лежит в value
@@ -37,13 +41,14 @@ export function classifyShared(payloads: ResolvedSharePayload[]): SharedContent 
   return content
 }
 
-export const hasShared = (content: SharedContent) => content.text !== '' || content.images.length > 0 || content.files.length > 0
+export const hasShared = (content: SharedContent) => content.text !== '' || content.images.length > 0 || content.videos.length > 0 || content.files.length > 0
 
-// Короткое описание для экрана выбора чата: «Текст», «3 фото», «Файл: отчёт.pdf»
+// Короткое описание для экрана выбора чата: «Текст», «3 фото», «1 видео», «Файл: отчёт.pdf»
 export function describeShared(content: SharedContent): string {
   const parts: string[] = []
   if (content.text) parts.push(content.text.length > 80 ? `${content.text.slice(0, 79).trim()}…` : content.text)
   if (content.images.length > 0) parts.push(content.images.length === 1 ? '1 фото' : `${content.images.length} фото`)
+  if (content.videos.length > 0) parts.push(content.videos.length === 1 ? '1 видео' : `${content.videos.length} видео`)
   if (content.files.length > 0) parts.push(content.files.length === 1 ? `Файл: ${content.files[0].name}` : `Файлов: ${content.files.length}`)
   return parts.join(' · ')
 }

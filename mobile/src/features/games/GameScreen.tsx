@@ -18,7 +18,7 @@ import { useViewingChat } from '@/realtime/context'
 import { ApiError } from '@/api'
 import { goBack } from '@/lib/navigation'
 import { toApiError } from '@/store/api'
-import { useAcceptGameMutation, useInviteToGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, usePlaceInGameMutation, useResignGameMutation } from '@/store/games'
+import { useAcceptGameMutation, useInviteToGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, usePlaceInGameMutation, useResignGameMutation, useOfferDrawMutation, useAcceptDrawMutation, useDeclineDrawMutation } from '@/store/games'
 import { ChessBoard } from './ChessBoard'
 import { TicTacToeBoard } from './TicTacToeBoard'
 import { gameTitle, lastMoveText, myMark, opponentOf, resultText } from './utils'
@@ -36,6 +36,9 @@ export function GameScreen({ id }: { id: string }) {
   const [cancel] = useCancelGameMutation()
   const [move] = useMoveInGameMutation()
   const [place] = usePlaceInGameMutation()
+  const [offerDraw] = useOfferDrawMutation()
+  const [acceptDraw] = useAcceptDrawMutation()
+  const [declineDraw] = useDeclineDrawMutation()
   const [invite] = useInviteToGameMutation()
   const router = useRouter()
   const [resign] = useResignGameMutation()
@@ -153,12 +156,33 @@ export function GameScreen({ id }: { id: string }) {
                     orientation={game.whiteId === me ? 'w' : 'b'}
                     lastMove={game.lastMove}
                     canMove={game.status === 'active' && game.turnId === me && !busy}
-                    onMove={(from, to) => void run(() => call(move({ id, from, to })))}
+                    onMove={(from, to, promotion) => void run(() => call(move({ id, from, to, promotion })))}
                   />
                   <Text $tone="muted" style={{ textAlign: 'center' }}>
                     {`${game.whiteId === me ? 'Вы играете белыми' : 'Вы играете чёрными'}${lastMoveText(game) ? ` · ${lastMoveText(game)}` : ''}`}
                   </Text>
                 </>
+              )}
+              {game.status === 'active' && game.kind === 'chess' && game.drawOffer && game.drawOffer !== me && (
+                <Card style={{ gap: 12 }}>
+                  <Heading style={{ textAlign: 'center' }}>{`${opponentName} предлагает ничью`}</Heading>
+                  <Button variant="lime" disabled={busy} onPress={() => void run(() => call(acceptDraw({ id })))}>
+                    Принять ничью
+                  </Button>
+                  <Button variant="secondary" disabled={busy} onPress={() => void run(() => call(declineDraw({ id })))}>
+                    Отклонить
+                  </Button>
+                </Card>
+              )}
+              {game.status === 'active' && game.kind === 'chess' && game.drawOffer === me && (
+                <Text $tone="muted" style={{ textAlign: 'center' }}>
+                  Вы предложили ничью. Ждём ответа.
+                </Text>
+              )}
+              {game.status === 'active' && game.kind === 'chess' && !game.drawOffer && (
+                <Button variant="secondary" disabled={busy} onPress={() => void run(() => call(offerDraw({ id })))}>
+                  Предложить ничью
+                </Button>
               )}
               {game.status === 'active' && (
                 <Button variant="secondary" disabled={busy} onPress={() => void onResign()}>

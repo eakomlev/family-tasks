@@ -90,7 +90,7 @@ const photo = async (token = fam.kid.token, chat = 'family') => (await upload(to
 const send = (token: string, chat: string, body: object, target = app) => api(target, token, 'POST', `/api/chats/${chat}/messages`, body)
 const history = async (token: string, chat = 'family') => (await api(app, token, 'GET', `/api/chats/${chat}/messages`)).body
 const pushes = async (...who: (keyof typeof endpoints)[]) => {
-  await new Promise((r) => setTimeout(r, 150))
+  await new Promise((r) => setTimeout(r, 500))
   return sentTo(who.map((w) => endpoints[w]))
 }
 
@@ -290,7 +290,7 @@ describe('сообщения с фото', () => {
     await send(fam.kid.token, 'family', { mediaIds: [only] })
     const three = [await photo(), await photo(), await photo()]
     await send(fam.kid.token, 'family', { mediaIds: three })
-    await new Promise((r) => setTimeout(r, 150))
+    await new Promise((r) => setTimeout(r, 500))
     const withCaption = await photo()
     await send(fam.kid.token, 'family', { text: 'Вот', mediaIds: [withCaption] })
     const bodies = (await pushes('mom')).map((p) => p.payload.body)

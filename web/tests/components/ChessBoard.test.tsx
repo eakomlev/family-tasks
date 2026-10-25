@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ChessBoard } from '@/components/ChessBoard'
@@ -54,5 +54,45 @@ describe('шахматная доска', () => {
     render(<ChessBoard fen={START} orientation="b" lastMove={null} canMove onMove={() => {}} />)
     await userEvent.click(square('e7'))
     expect(square('e6')).not.toHaveAccessibleName(/можно сходить/)
+  })
+})
+
+describe('превращение пешки', () => {
+  // белая пешка на a7 может превратиться на a8, чёрные короли убраны от удара
+  const PROMOTION = '4k3/P7/8/8/8/8/8/4K3 w - - 0 1'
+
+  it('на последней горизонтали спрашивает фигуру и передаёт выбор', async () => {
+    const onMove = vi.fn()
+    render(<ChessBoard fen={PROMOTION} orientation="w" lastMove={null} canMove onMove={onMove} />)
+    await userEvent.click(square('a7'))
+    await userEvent.click(square('a8'))
+    // пока человек выбирает, ход не уходит
+    expect(onMove).not.toHaveBeenCalled()
+    const dialog = screen.getByRole('dialog', { name: 'Во что превратить пешку?' })
+    expect(within(dialog).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['ферзь', 'ладья', 'слон', 'конь'])
+    await userEvent.click(within(dialog).getByRole('button', { name: 'конь' }))
+    expect(onMove).toHaveBeenCalledWith('a7', 'a8', 'n')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('нажатие за пределами окна отменяет выбор, ход не делается, пешку можно выбрать снова', async () => {
+    const onMove = vi.fn()
+    render(<ChessBoard fen={PROMOTION} orientation="w" lastMove={null} canMove onMove={onMove} />)
+    await userEvent.click(square('a7'))
+    await userEvent.click(square('a8'))
+    await userEvent.click(screen.getByRole('dialog'))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(onMove).not.toHaveBeenCalled()
+    await userEvent.click(square('a7'))
+    expect(square('a8')).toHaveAccessibleName(/можно сходить/)
+  })
+
+  it('обычный ход пешки выбора не просит', async () => {
+    const onMove = vi.fn()
+    render(<ChessBoard fen={START} orientation="w" lastMove={null} canMove onMove={onMove} />)
+    await userEvent.click(square('e2'))
+    await userEvent.click(square('e4'))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(onMove).toHaveBeenCalledWith('e2', 'e4')
   })
 })

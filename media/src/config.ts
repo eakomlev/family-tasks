@@ -31,7 +31,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     secret: required(env, 'MEDIA_SECRET'),
     internalToken: required(env, 'MEDIA_INTERNAL_TOKEN'),
     maxUploadBytes: int(env.MEDIA_MAX_UPLOAD_BYTES, 3 * 1024 * 1024),
-    maxFileBytes: int(env.MEDIA_MAX_FILE_BYTES, 10 * 1024 * 1024),
+    maxFileBytes: int(env.MEDIA_MAX_FILE_BYTES, 50 * 1024 * 1024),
     maxVideoBytes: int(env.MEDIA_MAX_VIDEO_BYTES, 100 * 1024 * 1024),
     maxVideoSeconds: int(env.MEDIA_MAX_VIDEO_SECONDS, 180),
     s3: {

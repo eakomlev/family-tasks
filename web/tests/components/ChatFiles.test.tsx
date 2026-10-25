@@ -59,10 +59,10 @@ describe('Composer: файлы', () => {
   it('слишком большой и запрещённый файлы отклоняются сразу, без загрузки; повтора нет', async () => {
     const onUploadFile = vi.fn().mockResolvedValue('x')
     render(<Composer onSend={vi.fn()} onUploadFile={onUploadFile} onUpload={vi.fn()} />)
-    pick([doc('big.zip', 10 * 1024 * 1024 + 1), doc('setup.exe', 5, 'application/x-msdownload')])
+    pick([doc('big.zip', 50 * 1024 * 1024 + 1), doc('setup.exe', 5, 'application/x-msdownload')])
     const list = await screen.findByLabelText('Выбранные файлы')
     expect(within(list).getAllByText('Не загружен')).toHaveLength(2)
-    expect(screen.getAllByText(/Файл больше 10 МБ|Такие файлы отправлять нельзя/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Файл больше 50 МБ|Такие файлы отправлять нельзя/).length).toBeGreaterThan(0)
     expect(onUploadFile).not.toHaveBeenCalled()
     expect(within(list).queryByRole('button', { name: /Повторить/ })).toBeNull()
     // с неудавшимся файлом отправить нельзя, пока его не уберут
@@ -162,7 +162,7 @@ describe('список чатов и вспомогательные функци
   it('проверка файла на устройстве повторяет правила сервера', () => {
     expect(fileProblem({ name: 'a.pdf', size: 100 })).toBeNull()
     expect(fileProblem({ name: 'a.pdf', size: 0 })).toMatch(/пустой/)
-    expect(fileProblem({ name: 'a.pdf', size: 11 * 1024 * 1024 })).toMatch(/10 МБ/)
+    expect(fileProblem({ name: 'a.pdf', size: 51 * 1024 * 1024 })).toMatch(/50 МБ/)
     expect(fileProblem({ name: 'a.EXE', size: 5 })).toMatch(/нельзя/)
     expect(isBlockedFileName('x.pdf.exe')).toBe(true)
     expect(isBlockedFileName('x.exe.pdf')).toBe(false)

@@ -36,7 +36,7 @@ const task = (over: object = {}) => ({
 const create = (token: string, over: object = {}) => api(app, token, 'POST', '/api/tasks', task(over))
 // уведомления уходят в фоне, после ответа
 const pushes = async (...who: (keyof typeof endpoints)[]) => {
-  await new Promise((r) => setTimeout(r, 150))
+  await new Promise((r) => setTimeout(r, 500))
   return (await sentTo(who.map((w) => endpoints[w])))
 }
 

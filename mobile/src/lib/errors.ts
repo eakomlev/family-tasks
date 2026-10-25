@@ -104,6 +104,9 @@ export function describeGameError(err: unknown): string {
     if (err.code === 'not_your_turn') return 'Сейчас ход соперника.'
     if (err.code === 'illegal_move') return 'Так ходить нельзя.'
     if (err.code === 'cell_taken') return 'Эта клетка уже занята.'
+    if (err.code === 'offer_too_soon') return 'Ничью можно предлагать один раз за ход.'
+    if (err.code === 'already_offered') return 'Вы уже предложили ничью. Ждём ответа.'
+    if (err.code === 'draw_offered' || err.code === 'no_offer') return 'Состояние игры уже изменилось. Обновите страницу.'
     if (err.code === 'not_active' || err.code === 'not_invited') return 'Состояние игры уже изменилось. Обновите экран.'
   }
   return 'Не удалось выполнить действие. Попробуйте ещё раз.'

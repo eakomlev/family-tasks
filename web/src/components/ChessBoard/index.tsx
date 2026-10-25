@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Chess, type Square as ChessSquare } from 'chess.js'
-import type { ChessMove } from '@/api'
-import { Dot, Frame, Grid, Piece, Square } from './styles'
+import type { ChessMove, PromotionPiece } from '@/api'
+import { Dot, Frame, Grid, Piece, PromoButton, PromoChoices, PromoOverlay, Square } from './styles'
 
 // Фигуры сплошными символами (с ︎, чтобы браузер не рисовал их цветными эмодзи); цвет фигуры задаёт заливка
 const GLYPHS: Record<string, string> = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' }
@@ -15,13 +15,23 @@ interface ChessBoardProps {
   lastMove: Pick<ChessMove, 'from' | 'to'> | null
   // можно ли сейчас ходить (мой ход, игра идёт, запрос не в полёте)
   canMove: boolean
-  onMove: (from: string, to: string) => void
+  // promotion только у превращения пешки (выбранная человеком фигура)
+  onMove: (from: string, to: string, promotion?: PromotionPiece) => void
 }
+
+const PROMOTION_CHOICES: { piece: PromotionPiece; name: string }[] = [
+  { piece: 'q', name: 'ферзь' },
+  { piece: 'r', name: 'ладья' },
+  { piece: 'b', name: 'слон' },
+  { piece: 'n', name: 'конь' },
+]
 
 // Шахматная доска: нажатие на свою фигуру показывает, куда она может пойти, нажатие на отмеченную клетку делает ход.
 // Правила (допустимые ходы, шах) считает chess.js, окончательно ход проверяет сервер.
 export function ChessBoard({ fen, orientation, lastMove, canMove, onMove }: ChessBoardProps) {
   const [selected, setSelected] = useState<string | null>(null)
+  // пешка дошла до края: ждём, во что её превратить
+  const [promoting, setPromoting] = useState<{ from: string; to: string } | null>(null)
 
   const chess = useMemo(() => new Chess(fen), [fen])
   const board = chess.board()
@@ -41,15 +51,19 @@ export function ChessBoard({ fen, orientation, lastMove, canMove, onMove }: Ches
   if (shownFen !== fen) {
     setShownFen(fen)
     setSelected(null)
+    setPromoting(null)
   }
 
   const order = orientation === 'w' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
 
   function press(square: string, color: string | undefined) {
     if (!canMove) return
+    if (promoting) return
     if (selected && targets.has(square)) {
+      const isPromotion = chess.moves({ square: selected as ChessSquare, verbose: true }).some((m) => m.to === square && m.promotion)
       setSelected(null)
-      onMove(selected, square)
+      if (isPromotion) setPromoting({ from: selected, to: square })
+      else onMove(selected, square)
     } else if (color === orientation && color === turn) {
       setSelected(square === selected ? null : square)
     } else {
@@ -84,6 +98,25 @@ export function ChessBoard({ fen, orientation, lastMove, canMove, onMove }: Ches
           }),
         )}
       </Grid>
+      {promoting && (
+        <PromoOverlay role="dialog" aria-label="Во что превратить пешку?" onClick={() => setPromoting(null)}>
+          <PromoChoices onClick={(e) => e.stopPropagation()}>
+            {PROMOTION_CHOICES.map(({ piece, name }) => (
+              <PromoButton
+                key={piece}
+                type="button"
+                aria-label={name}
+                onClick={() => {
+                  onMove(promoting.from, promoting.to, piece)
+                  setPromoting(null)
+                }}
+              >
+                <Piece $white={orientation === 'w'}>{`${GLYPHS[piece]}︎`}</Piece>
+              </PromoButton>
+            ))}
+          </PromoChoices>
+        </PromoOverlay>
+      )}
     </Frame>
   )
 }

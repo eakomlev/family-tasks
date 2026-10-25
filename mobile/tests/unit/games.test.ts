@@ -75,3 +75,17 @@ describe('крестики-нолики', () => {
     expect(lastMoveText(game({ kind: 'tictactoe', lastCell: 4, lastMove: null }))).toBeNull()
   })
 })
+
+describe('ничья по соглашению', () => {
+  it('итог и строка состояния', () => {
+    expect(resultText({ winnerId: null, reason: 'agreement' }, 'me')).toBe('Ничья по соглашению')
+    expect(gameStatusLine(game({ drawOffer: 'other' }), 'me')).toBe('Предлагает ничью')
+    expect(gameStatusLine(game({ drawOffer: 'me' }), 'me')).toBe('Вы предложили ничью')
+  })
+
+  it('предложение соперника это действие, ожидающее меня, даже когда ход не мой', () => {
+    expect(needsMyAction(game({ turnId: 'other', drawOffer: 'other' }), 'me')).toBe(true)
+    expect(needsMyAction(game({ turnId: 'other', drawOffer: 'me' }), 'me')).toBe(false)
+    expect(needsMyAction(game({ turnId: 'other' }), 'me')).toBe(false)
+  })
+})

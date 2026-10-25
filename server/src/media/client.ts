@@ -78,7 +78,7 @@ export function createMediaClient(config: Pick<MediaEnv, 'url' | 'internalToken'
       return (await res.json()) as VideoUploadResult
     },
     async uploadFile(family, id, body) {
-      const res = await call(`/internal/files/${family}/${id}`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: new Uint8Array(body) })
+      const res = await call(`/internal/files/${family}/${id}`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: new Uint8Array(body) }, Math.max(timeoutMs, 60_000))
       if (!res.ok) throw new Error(`media file upload failed: ${res.status}`)
       return (await res.json()) as { size: number }
     },

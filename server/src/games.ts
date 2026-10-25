@@ -27,7 +27,7 @@ export interface ChessMove {
 export interface GameResult {
   // null — ничья
   winnerId: string | null
-  reason: 'checkmate' | 'stalemate' | 'draw' | 'resign' | 'line'
+  reason: 'checkmate' | 'stalemate' | 'draw' | 'resign' | 'line' | 'agreement'
 }
 
 interface GameRow {
@@ -40,7 +40,8 @@ interface GameRow {
   white_id: string | null
   turn_id: string | null
   // шахматы: moves и fen; крестики-нолики: board (9 знаков по строкам: «X», «O» или «-») и cells (клетки в порядке ходов)
-  state: { moves?: ChessMove[]; fen?: string; board?: string; cells?: number[] }
+  // шахматы ещё: drawOffer — кто предложил ничью и ждёт ответа (пропадает с первым же ходом), drawOffers — на каком по счёту полуходе каждый предлагал в последний раз
+  state: { moves?: ChessMove[]; fen?: string; board?: string; cells?: number[]; drawOffer?: string | null; drawOffers?: Record<string, number> }
   result: GameResult | null
   created_at: Date
   updated_at: Date
@@ -63,6 +64,8 @@ export interface GameDto {
   board: string | null
   cells: number[]
   lastCell: number | null
+  // кто предложил ничью и ждёт ответа соперника; null, если предложения нет
+  drawOffer: string | null
   result: GameResult | null
   createdAt: string
   updatedAt: string
@@ -96,6 +99,7 @@ const toDto = (row: GameRow): GameDto => {
     board: tictactoe ? (row.state.board ?? EMPTY_BOARD) : null,
     cells,
     lastCell: cells[cells.length - 1] ?? null,
+    drawOffer: row.status === 'active' ? (row.state.drawOffer ?? null) : null,
     result: row.result,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
@@ -353,7 +357,7 @@ export async function gameRoutes(app: FastifyInstance) {
 
         const { rows } = await db.query<GameRow>(
           `update games set state = $2, turn_id = $3, status = $4, result = $5, updated_at = now() where id = $1 returning *`,
-          [game.id, JSON.stringify({ fen: chess.fen(), moves: [...moves, move] }), outcome ? null : opponent, outcome ? 'finished' : 'active', outcome ? JSON.stringify(outcome) : null],
+          [game.id, JSON.stringify({ fen: chess.fen(), moves: [...moves, move], drawOffers: game.state.drawOffers ?? {} }), outcome ? null : opponent, outcome ? 'finished' : 'active', outcome ? JSON.stringify(outcome) : null],
         )
         return { row: rows[0], member, opponent, move }
       })
@@ -367,6 +371,84 @@ export async function gameRoutes(app: FastifyInstance) {
       return { game: toDto(result.row) }
     },
   )
+
+  // ---- ничья по соглашению (шахматы) ----
+  // Предложение живёт, пока соперник не ответит или кто-нибудь не сделает ход. Предлагать можно раз за ход (иначе кнопку можно «долбить»).
+  const drawGame = async (game: GameRow, reply: FastifyReply) => {
+    if (game.kind !== 'chess') {
+      reply.code(400).send({ error: 'wrong_game' })
+      return false
+    }
+    if (game.status !== 'active') {
+      reply.code(409).send({ error: 'not_active' })
+      return false
+    }
+    return true
+  }
+
+  app.post<{ Params: { id: string } }>('/api/games/:id/draw/offer', { schema: { params: idParams } }, async (req, reply) => {
+    const result = await withGame(req, reply, async (db, game, member) => {
+      if (!(await drawGame(game, reply))) return null
+      const opponent = member.id === game.inviter_id ? game.invitee_id : game.inviter_id
+      const pending = game.state.drawOffer ?? null
+      if (pending === member.id) {
+        reply.code(409).send({ error: 'already_offered' })
+        return null
+      }
+      if (pending === opponent) {
+        reply.code(409).send({ error: 'draw_offered' })
+        return null
+      }
+      const plies = (game.state.moves ?? []).length
+      const offers = game.state.drawOffers ?? {}
+      if (offers[member.id] === plies) {
+        reply.code(409).send({ error: 'offer_too_soon' })
+        return null
+      }
+      const state = { ...game.state, drawOffer: member.id, drawOffers: { ...offers, [member.id]: plies } }
+      const { rows } = await db.query<GameRow>('update games set state = $2, updated_at = now() where id = $1 returning *', [game.id, JSON.stringify(state)])
+      return { row: rows[0], member, opponent }
+    })
+    if (!result) return
+    signal(result.row)
+    await notify(result.row, result.opponent, { title: `${senderLabel(result.member, await roleOf(result.opponent))}: предлагает ничью`, body: GAME_TITLES[result.row.kind] })
+    return { game: toDto(result.row) }
+  })
+
+  // Ответ на предложение (только тот, кому оно адресовано)
+  for (const answer of ['accept', 'decline'] as const) {
+    app.post<{ Params: { id: string } }>(`/api/games/:id/draw/${answer}`, { schema: { params: idParams } }, async (req, reply) => {
+      const result = await withGame(req, reply, async (db, game, member) => {
+        if (!(await drawGame(game, reply))) return null
+        const offerer = game.state.drawOffer ?? null
+        if (!offerer || offerer === member.id) {
+          reply.code(409).send({ error: 'no_offer' })
+          return null
+        }
+        if (answer === 'accept') {
+          const outcome: GameResult = { winnerId: null, reason: 'agreement' }
+          const { rows } = await db.query<GameRow>(
+            `update games set status = 'finished', turn_id = null, result = $2, state = $3, updated_at = now() where id = $1 returning *`,
+            [game.id, JSON.stringify(outcome), JSON.stringify({ ...game.state, drawOffer: null })],
+          )
+          return { row: rows[0], member, offerer }
+        }
+        const { rows } = await db.query<GameRow>('update games set state = $2, updated_at = now() where id = $1 returning *', [game.id, JSON.stringify({ ...game.state, drawOffer: null })])
+        return { row: rows[0], member, offerer }
+      })
+      if (!result) return
+      signal(result.row)
+      const name = senderLabel(result.member, await roleOf(result.offerer))
+      await notify(
+        result.row,
+        result.offerer,
+        answer === 'accept'
+          ? { title: `${GAME_TITLES[result.row.kind]}: игра окончена`, body: resultText({ winnerId: null, reason: 'agreement' }, result.offerer) }
+          : { title: `${name} отклонил ничью`, body: GAME_TITLES[result.row.kind] },
+      )
+      return { game: toDto(result.row) }
+    })
+  }
 
   // Ход в крестики-нолики: cell — номер клетки 0–8 (по строкам слева направо); крестики у того, кто в white_id и ходит первым
   app.post<{ Params: { id: string }; Body: { cell: number } }>(
@@ -445,6 +527,7 @@ export async function gameRoutes(app: FastifyInstance) {
 // Итог игры глазами участника viewerId
 export function resultText(result: GameResult, viewerId: string): string {
   if (result.reason === 'resign') return result.winnerId === viewerId ? 'Соперник сдался. Вы победили!' : 'Вы сдались'
+  if (result.reason === 'agreement') return 'Ничья по соглашению'
   if (result.reason === 'line') return result.winnerId === viewerId ? 'Три в ряд. Вы победили!' : 'Соперник собрал три в ряд. Вы проиграли'
   if (!result.winnerId) return result.reason === 'stalemate' ? 'Пат. Ничья' : 'Ничья'
   return result.winnerId === viewerId ? 'Мат. Вы победили!' : 'Мат. Вы проиграли'

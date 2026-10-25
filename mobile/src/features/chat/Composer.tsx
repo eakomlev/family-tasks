@@ -280,7 +280,7 @@ export function Composer({ onSend, onUpload, onUploadFile, onUploadVideo, flushB
   })
 
   // Полученное из другого приложения (экран «Поделиться»): текст в поле, картинки как фото (размер узнаём сами: у такого содержимого его нет),
-  // остальное файлами. Применяется один раз при открытии чата.
+  // видео как видео, остальное файлами. Применяется один раз при открытии чата.
   const incomingApplied = useRef(false)
   useEffect(() => {
     if (!incoming || incomingApplied.current) return
@@ -295,6 +295,8 @@ export function Composer({ onSend, onUpload, onUploadFile, onUploadVideo, flushB
         sized.push({ uri: image.uri, ...size })
       }
       if (sized.length > 0) addPhotos(sized)
+      // видео из другого приложения: длительность и тип неизвестны, их проверит сервер (размер проверяется на устройстве)
+      if (incoming.videos.length > 0) addVideos(incoming.videos.map((v) => ({ uri: v.uri, fileName: v.name, fileSize: v.size, duration: null, mimeType: null })))
       if (incoming.files.length > 0) await addFiles(incoming.files)
     })()
     // один раз

@@ -127,3 +127,86 @@ describe('партия', () => {
     expect(await titles(blackEndpoint)).toHaveLength(1)
   })
 })
+
+describe('ничья по соглашению', () => {
+  const endpointOf = (who: { id: string }) => (who.id === fam.mom.id ? 'mom' : 'dad')
+  const realTitles = async (who: keyof typeof endpoints) => (await sentTo([endpoints[who]])).map((p) => p.payload.title)
+
+  it('предложение, принятие: ничья, игра закончена, предложивший получает итог', async () => {
+    const { id, white, black } = await startGame()
+    await resetSent()
+    const offered = await act(white.token, id, 'draw/offer')
+    expect(offered.status).toBe(200)
+    expect(offered.body.game.drawOffer).toBe(white.id)
+    expect((await realTitles(endpointOf(black))).some((t) => t.includes('предлагает ничью'))).toBe(true)
+    // предложивший сам принять не может, повторно предложить тоже
+    expect((await act(white.token, id, 'draw/accept')).body.error).toBe('no_offer')
+    expect((await act(white.token, id, 'draw/offer')).body.error).toBe('already_offered')
+    expect((await act(black.token, id, 'draw/offer')).body.error).toBe('draw_offered')
+    await resetSent()
+    const accepted = await act(black.token, id, 'draw/accept')
+    expect(accepted.body.game).toMatchObject({ status: 'finished', turnId: null, drawOffer: null, result: { winnerId: null, reason: 'agreement' } })
+    expect((await titles(endpointOf(white))).length).toBe(1)
+    expect((await act(white.token, id, 'move', { from: 'e2', to: 'e4' })).body.error).toBe('not_active')
+  })
+
+  it('отказ снимает предложение; ход тоже его снимает; чаще раза за ход предлагать нельзя', async () => {
+    const { id, white, black } = await startGame()
+    await act(white.token, id, 'draw/offer')
+    const declined = await act(black.token, id, 'draw/decline')
+    expect(declined.body.game).toMatchObject({ status: 'active', drawOffer: null })
+    // в тот же ход снова нельзя
+    expect((await act(white.token, id, 'draw/offer')).body.error).toBe('offer_too_soon')
+    expect((await act(black.token, id, 'draw/decline')).body.error).toBe('no_offer')
+    // после хода можно, а сам ход снимает прежнее предложение
+    await act(white.token, id, 'move', { from: 'e2', to: 'e4' })
+    expect((await act(black.token, id, 'draw/offer')).body.game.drawOffer).toBe(black.id)
+    const moved = await act(black.token, id, 'move', { from: 'e7', to: 'e5' })
+    expect(moved.body.game.drawOffer).toBeNull()
+    expect((await act(white.token, id, 'draw/accept')).body.error).toBe('no_offer')
+    await act(white.token, id, 'resign')
+  })
+
+  it('чужая игра, не шахматы, не начатая игра', async () => {
+    const { id, white } = await startGame()
+    expect((await act(outsider.mom.token, id, 'draw/offer')).status).toBe(404)
+    await act(white.token, id, 'resign')
+    expect((await act(white.token, id, 'draw/offer')).body.error).toBe('not_active')
+    const ttt = await api(app, fam.mom.token, 'POST', '/api/games', { kind: 'tictactoe', opponentId: fam.dad.id })
+    await act(fam.dad.token, ttt.body.game.id, 'accept')
+    expect((await act(fam.mom.token, ttt.body.game.id, 'draw/offer')).body.error).toBe('wrong_game')
+    await act(fam.mom.token, ttt.body.game.id, 'resign')
+  })
+})
+
+describe('превращение пешки', () => {
+  // 1.h4 g5 2.hxg5 h6 3.gxh6 Nf6 4.h7 Rg8 5.hxg8=…
+  async function toPromotion() {
+    const { id, white, black } = await startGame()
+    const steps: [typeof white, string, string][] = [
+      [white, 'h2', 'h4'], [black, 'g7', 'g5'], [white, 'h4', 'g5'], [black, 'h7', 'h6'], [white, 'g5', 'h6'],
+      [black, 'g8', 'f6'], [white, 'h6', 'h7'], [black, 'h8', 'g8'],
+    ]
+    for (const [who, from, to] of steps) expect((await act(who.token, id, 'move', { from, to })).status).toBe(200)
+    return { id, white }
+  }
+
+  it('выбранная фигура ставится на поле, без выбора ферзь', async () => {
+    const knight = await toPromotion()
+    const res = await act(knight.white.token, knight.id, 'move', { from: 'h7', to: 'g8', promotion: 'n' })
+    expect(res.body.game.lastMove).toMatchObject({ from: 'h7', to: 'g8', san: 'hxg8=N', promotion: 'n' })
+    await act(knight.white.token, knight.id, 'resign')
+
+    const queen = await toPromotion()
+    const def = await act(queen.white.token, queen.id, 'move', { from: 'h7', to: 'g8' })
+    expect(def.body.game.lastMove).toMatchObject({ promotion: 'q' })
+    await act(queen.white.token, queen.id, 'resign')
+  })
+
+  it('недопустимая фигура (король, пешка) отклоняется схемой', async () => {
+    const { id, white } = await toPromotion()
+    expect((await act(white.token, id, 'move', { from: 'h7', to: 'g8', promotion: 'k' })).status).toBe(400)
+    expect((await act(white.token, id, 'move', { from: 'h7', to: 'g8', promotion: 'p' })).status).toBe(400)
+    await act(white.token, id, 'resign')
+  })
+})

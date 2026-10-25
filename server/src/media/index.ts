@@ -107,11 +107,11 @@ export interface FileDto {
   url: string
 }
 
-// Не больше файлов в одном сообщении и размер одного файла (по умолчанию 10 МБ).
+// Не больше файлов в одном сообщении и размер одного файла (по умолчанию 50 МБ).
 export const MAX_FILES = 5
 export const maxFileBytes = () => {
   const n = Number(process.env.MAX_FILE_BYTES)
-  return Number.isFinite(n) && n > 0 ? n : 10 * 1024 * 1024
+  return Number.isFinite(n) && n > 0 ? n : 50 * 1024 * 1024
 }
 export const MAX_FILE_NAME = 120
 
