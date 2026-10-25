@@ -20,6 +20,33 @@
         "web:preview"
       ],
       "port": 8090
+    },
+    {
+      "name": "server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:server"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "realtime",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:realtime"
+      ],
+      "port": 3002
+    },
+    {
+      "name": "media",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:media"
+      ],
+      "port": 3001
     }
   ]
 }
