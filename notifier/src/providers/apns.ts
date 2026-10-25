@@ -49,7 +49,11 @@ export function signProviderToken(config: ApnsConfig, nowSeconds: number): strin
 // Тело уведомления: показывает система, даже когда приложение закрыто; `url` и `tag` уходят отдельными ключами (по ним приложение
 // открывает нужный экран)
 export function buildApnsPayload(message: PushMessage) {
-  return { aps: { alert: { title: message.title, body: message.body }, sound: 'default' }, url: message.url, tag: message.tag }
+  return {
+    aps: { alert: { title: message.title, body: message.body }, sound: 'default', ...(typeof message.badge === 'number' ? { badge: message.badge } : {}) },
+    url: message.url,
+    tag: message.tag,
+  }
 }
 
 // tag склеивает уведомления одного чата (новое заменяет прежнее); у APNs идентификатор не длиннее 64 байт

@@ -68,6 +68,12 @@ describe('токен провайдера и сообщение', () => {
     expect(verify.verify({ key: createPublicKey(publicKey), dsaEncoding: 'ieee-p1363' }, Buffer.from(signature, 'base64url'))).toBe(true)
   })
 
+  it('число на значке уходит в aps.badge, ноль снимает значок, без числа ключа нет', () => {
+    expect(buildApnsPayload({ ...message, badge: 5 }).aps).toMatchObject({ badge: 5 })
+    expect(buildApnsPayload({ ...message, badge: 0 }).aps).toMatchObject({ badge: 0 })
+    expect('badge' in buildApnsPayload(message).aps).toBe(false)
+  })
+
   it('уведомление показывает система, адрес и tag идут отдельными ключами', () => {
     expect(buildApnsPayload(message)).toEqual({ aps: { alert: { title: 'Заголовок', body: 'Текст' }, sound: 'default' }, url: '/chat/family', tag: 'chat-family' })
   })

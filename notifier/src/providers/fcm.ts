@@ -80,7 +80,8 @@ export function buildFcmMessage(token: string, message: PushMessage) {
         priority: 'HIGH',
         ttl: `${TTL_SECONDS}s`,
         collapse_key: message.tag,
-        notification: { tag: message.tag, channel_id: 'default' },
+        // число на значке (там, где лаунчер Android его показывает)
+        notification: { tag: message.tag, channel_id: 'default', ...(typeof message.badge === 'number' ? { notification_count: message.badge } : {}) },
       },
     },
   }

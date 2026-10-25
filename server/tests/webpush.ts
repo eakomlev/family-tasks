@@ -5,6 +5,8 @@ import { pool } from '../src/db.js'
 export interface Sent {
   endpoint: string
   payload: { title: string; body: string; url: string; tag: string }
+  // число на значке приложения, которое уехало вместе с уведомлением (из payload оно убрано, чтобы тексты сравнивались как раньше)
+  badge?: number
 }
 
 // Адреса, подписанные через subscribe() этим файлом тестов: по ним очищаем очередь, не задевая параллельные файлы.
@@ -19,7 +21,10 @@ export async function sentTo(endpoints: string[]): Promise<Sent[]> {
       order by o.id`,
     [endpoints],
   )
-  return rows.map((r) => ({ endpoint: r.endpoint, payload: r.message }))
+  return rows.map((r) => {
+    const { badge, ...payload } = r.message
+    return { endpoint: r.endpoint, payload, badge }
+  })
 }
 
 // Забывает всё поставленное в очередь для подписок этого файла (между тестами).

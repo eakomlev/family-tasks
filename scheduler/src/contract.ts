@@ -17,6 +17,8 @@ export interface PushMessage {
   url: string
   // уведомления с одним tag заменяют друг друга
   tag: string
+  // число на значке приложения (непрочитанные сообщения получателя на момент постановки); нет: значок не трогаем
+  badge?: number
 }
 
 export interface PushPayload {

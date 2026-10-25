@@ -39,6 +39,8 @@ interface PushPayload {
   // куда вести по нажатию
   url?: string
   tag?: string
+  // число непрочитанного для значка приложения
+  badge?: number
 }
 
 self.addEventListener('push', (event) => {
@@ -49,14 +51,21 @@ self.addEventListener('push', (event) => {
     // Chrome требует показать уведомление на каждый push, даже если данные не разобрались
   }
 
+  // число на значке установленного приложения (Badging API, где оно есть: компьютеры и iPhone с приложением на экране «Домой»)
+  const nav = self.navigator as WorkerNavigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
+  const badge = typeof payload.badge === 'number' ? (payload.badge > 0 ? nav.setAppBadge?.(payload.badge) : nav.clearAppBadge?.()) : undefined
+
   event.waitUntil(
-    self.registration.showNotification(payload.title, {
-      body: payload.body,
-      tag: payload.tag,
-      icon: '/pwa-192x192.png',
-      badge: '/pwa-64x64.png',
-      data: { url: payload.url ?? '/' },
-    }),
+    Promise.all([
+      self.registration.showNotification(payload.title, {
+        body: payload.body,
+        tag: payload.tag,
+        icon: '/pwa-192x192.png',
+        badge: '/pwa-64x64.png',
+        data: { url: payload.url ?? '/' },
+      }),
+      badge?.catch(() => {}),
+    ]),
   )
 })
 

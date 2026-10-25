@@ -8,6 +8,8 @@ export interface PushMessage {
   body: string
   url: string
   tag: string
+  // число на значке приложения (непрочитанные сообщения получателя на момент постановки); нет: значок не трогаем
+  badge?: number
 }
 
 export interface CodeEmail {

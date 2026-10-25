@@ -55,6 +55,12 @@ describe('ключ сервисного аккаунта', () => {
 })
 
 describe('сообщение FCM', () => {
+  it('число на значке уходит в notification_count, без числа ключа нет', () => {
+    expect(buildFcmMessage('tok', { ...message, badge: 3 }).message.android.notification).toMatchObject({ notification_count: 3 })
+    expect('notification_count' in buildFcmMessage('tok', message).message.android.notification).toBe(false)
+  })
+
+
   it('уведомление, данные для перехода, склейка по tag и срок жизни 6 часов', () => {
     expect(buildFcmMessage('tok', message)).toEqual({
       message: {
