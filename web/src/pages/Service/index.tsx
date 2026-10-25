@@ -103,6 +103,21 @@ export default function Service() {
           </Cards>
         </Section>
       )}
+      {queue?.realtime && (
+        <Section aria-label="Живые обновления">
+          <h2>Живые обновления</h2>
+          <Cards>
+            <Card $small>
+              <span>Состояние</span>
+              <strong>{queue.realtime.alive ? 'работает' : 'не отвечает'}</strong>
+            </Card>
+            <Card $small>
+              <span>Соединений сейчас</span>
+              <strong>{format(queue.realtime.connections)}</strong>
+            </Card>
+          </Cards>
+        </Section>
+      )}
       {media && (
         <Section aria-label="Фото">
           <h2>Фото в чатах</h2>

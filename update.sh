@@ -144,6 +144,26 @@ if [ "$scheduler_ok" -ne 1 ]; then
 fi
 echo 'Планировщик работает.'
 
+# Живые обновления (realtime): метку живости ставит, только пока слушает канал Postgres.
+realtime_ok=0
+for _ in $(seq 1 "$HEALTH_ATTEMPTS"); do
+  if docker compose exec -T realtime node dist/healthcheck.js >/dev/null 2>&1; then
+    realtime_ok=1
+    break
+  fi
+  sleep 2
+done
+if [ "$realtime_ok" -ne 1 ]; then
+  printf '
+Сервис живых обновлений (realtime) не отозвался за %s секунд. Последние строки лога:
+
+' $((HEALTH_ATTEMPTS * 2)) >&2
+  docker compose logs --tail 40 realtime >&2 || true
+  rollback_help
+  exit 1
+fi
+echo 'Живые обновления работают.'
+
 # Хранилище фото и сервис media: media ждёт хранилище (после перезапуска SeaweedFS просыпается до получаса) и создаёт бакет.
 media_ok=0
 for _ in $(seq 1 $((HEALTH_ATTEMPTS * 3))); do

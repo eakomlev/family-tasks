@@ -124,6 +124,7 @@ describe('GET /api/admin/queue', () => {
     await pool.query('delete from outbox where id = any($1)', [created.outbox])
     await pool.query('delete from notifier_heartbeat where instance = any($1)', [created.beats])
     await pool.query('delete from scheduler_state where instance = any($1)', [created.beats])
+    await pool.query('delete from realtime_state where instance = any($1)', [created.beats])
     await pool.query(`delete from provider_usage where provider = 'mail'`)
     await pool.query(`delete from delivery_stats where channel in ('email', 'push')`)
     created.outbox = []
@@ -192,6 +193,25 @@ describe('GET /api/admin/queue', () => {
     expect(scheduler).toMatchObject({ alive: true, instances: 1, lastSent: 0, lastError: 'очередь недоступна' })
     expect(scheduler.lastBeatSeconds).toBeLessThan(60)
     expect(scheduler.lastTickSeconds).toBeLessThan(60)
+  })
+
+  it('состояние realtime: метка живости и число соединений', async () => {
+    // таблицу пишет только realtime, а его тесты работают в другой базе: здесь можно проверять точно
+    expect((await queue()).body.realtime).toEqual({ alive: false, instances: 0, connections: 0, lastBeatSeconds: null })
+
+    const old = `test-${randomBytes(3).toString('hex')}`
+    const a = `test-${randomBytes(3).toString('hex')}`
+    const b = `test-${randomBytes(3).toString('hex')}`
+    created.beats.push(old, a, b)
+    await pool.query(`insert into realtime_state (instance, beat_at, connections) values ($1, now() - interval '10 minutes', 7)`, [old])
+    // старая метка: не жив, её соединения не считаются
+    expect((await queue()).body.realtime).toMatchObject({ alive: false, instances: 0, connections: 0 })
+    expect((await queue()).body.realtime.lastBeatSeconds).toBeGreaterThanOrEqual(600)
+
+    await pool.query(`insert into realtime_state (instance, beat_at, connections) values ($1, now() - interval '5 seconds', 3), ($2, now(), 4)`, [a, b])
+    const { realtime } = (await queue()).body
+    expect(realtime).toMatchObject({ alive: true, instances: 2, connections: 7 })
+    expect(realtime.lastBeatSeconds).toBeLessThan(60)
   })
 
   it('расход дневного бюджета почты и лимит', async () => {

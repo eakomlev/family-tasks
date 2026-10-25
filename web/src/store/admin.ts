@@ -29,6 +29,8 @@ export interface QueueStats {
     // ошибка последнего прохода (null: прошёл без ошибки)
     lastError: string | null
   }
+  // сервис живых обновлений; поля нет у сервера старой версии (во время выкладки)
+  realtime?: { alive: boolean; instances: number; connections: number; lastBeatSeconds: number | null }
 }
 
 // Фото в чатах: жив ли сервис media и сколько места занято.

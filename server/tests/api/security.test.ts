@@ -31,7 +31,6 @@ const PUBLIC = [
   'POST /api/invites/:code/join',
   'POST /api/auth/login',
   'DELETE /api/session',
-  'GET /api/ws',
 ]
 
 const apiRoutes = () =>

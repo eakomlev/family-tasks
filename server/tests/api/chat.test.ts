@@ -438,62 +438,55 @@ describe('уведомления', () => {
   })
 })
 
-describe('пуш не нужен, если чат открыт', () => {
-  const view = async (token: string, chat: string | null) => {
-    const ws = await app.injectWS('/api/ws')
-    const ready = new Promise<void>((r) => ws.once('message', () => r()))
-    ws.send(JSON.stringify({ type: 'auth', token }))
-    await ready
-    ws.send(JSON.stringify({ type: 'viewing', chat }))
-    await new Promise((r) => setTimeout(r, 100))
-    return ws
-  }
+// Какой чат открыт на устройстве, знает сервис realtime (пишет строку в realtime_viewing и освежает её каждым ping): здесь строку пишем сами.
+const startViewing = async (memberId: string, chat: string, ageSeconds = 0) => {
+  const { rows } = await pool.query(
+    `insert into realtime_viewing (connection_id, member_id, chat, updated_at) values (gen_random_uuid(), $1, $2, now() - make_interval(secs => $3)) returning connection_id as id`,
+    [memberId, chat, ageSeconds],
+  )
+  return rows[0].id as string
+}
+const stopViewing = (id: string) => pool.query('delete from realtime_viewing where connection_id = $1', [id])
 
+describe('пуш не нужен, если чат открыт', () => {
   it('открытый у получателя чат не получает уведомление, остальные получают', async () => {
-    const ws = await view(fam.dad.token, 'family')
+    const id = await startViewing(fam.dad.id, 'family')
     try {
       expect((await send(fam.mom.token, 'family', 'всем привет')).status).toBe(201)
       expect(await pushes('dad')).toEqual([])
       expect((await pushes('kid')).length).toBe(1)
     } finally {
-      ws.terminate()
+      await stopViewing(id)
     }
   })
 
-  it('другой чат или null уведомление не гасят', async () => {
-    const ws = await view(fam.dad.token, fam.kid.id)
+  it('другой чат или устаревшая отметка уведомление не гасят', async () => {
+    const other = await startViewing(fam.dad.id, fam.kid.id)
+    // устройство давно не подтверждало, что смотрит: считается ушедшим
+    const stale = await startViewing(fam.dad.id, 'family', 600)
     try {
       await send(fam.mom.token, 'family', 'раз')
       expect((await pushes('dad')).length).toBe(1)
-      ws.send(JSON.stringify({ type: 'viewing', chat: null }))
     } finally {
-      ws.terminate()
+      await stopViewing(other)
+      await stopViewing(stale)
     }
   })
 })
 
 describe('визиты в личный чат', () => {
   const peerOf = async (token: string, chat: string) => (await messages(token, chat)).body.peer
-  const open = async (token: string, chat: string) => {
-    const ws = await app.injectWS('/api/ws')
-    const ready = new Promise<void>((r) => ws.once('message', () => r()))
-    ws.send(JSON.stringify({ type: 'auth', token }))
-    await ready
-    ws.send(JSON.stringify({ type: 'viewing', chat }))
-    await new Promise((r) => setTimeout(r, 100))
-    return ws
-  }
 
   it('собеседник видит, что мама сейчас в чате, а после выхода время визита', async () => {
     expect(await peerOf(fam.dad.token, fam.mom.id)).toEqual({ viewing: false, lastVisitAt: null })
-    const ws = await open(fam.mom.token, fam.dad.id)
+    const id = await startViewing(fam.mom.id, fam.dad.id)
     expect(await peerOf(fam.dad.token, fam.mom.id)).toMatchObject({ viewing: true })
-    ws.send(JSON.stringify({ type: 'viewing', chat: null }))
-    await new Promise((r) => setTimeout(r, 100))
+    await stopViewing(id)
+    // время визита при выходе записывает realtime
+    await pool.query('insert into chat_visits (member_id, chat_key, visited_at) values ($1, $2, now())', [fam.mom.id, directKey(fam.mom.id, fam.dad.id)])
     const peer = await peerOf(fam.dad.token, fam.mom.id)
     expect(peer.viewing).toBe(false)
     expect(peer.lastVisitAt).not.toBeNull()
-    ws.terminate()
   })
 
   it('в общем чате подписи нет', async () => {

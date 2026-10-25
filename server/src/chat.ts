@@ -504,7 +504,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       let peer: { viewing: boolean; lastVisitAt: string | null } | null = null
       if (chat.otherId) {
         const { rows: visit } = await pool.query('select visited_at as "at" from chat_visits where member_id = $1 and chat_key = $2', [chat.otherId, chat.key])
-        peer = { viewing: isViewingChat(chat.otherId, member.id), lastVisitAt: (visit[0]?.at as string | undefined) ?? null }
+        peer = { viewing: await isViewingChat(chat.otherId, member.id), lastVisitAt: (visit[0]?.at as string | undefined) ?? null }
       }
       return { messages: page, hasMore, readUpTo: (read[0]?.readUpTo as string | null) ?? null, peer }
     },
@@ -778,7 +778,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
         const view = chat.view(id, member.id)
         publishTo(id, { type: 'chat', chat: view })
         // если получатель прямо сейчас смотрит этот чат, пуш не нужен: сообщение появится на экране
-        if (id !== member.id && !mutedIds.has(id) && !isViewingChat(id, view)) await enqueueToMember(pool, id, chatPushMessage(senderLabel(member, roleOf.get(id) ?? ''), view, pushText, chat.eventTitle))
+        if (id !== member.id && !mutedIds.has(id) && !(await isViewingChat(id, view))) await enqueueToMember(pool, id, chatPushMessage(senderLabel(member, roleOf.get(id) ?? ''), view, pushText, chat.eventTitle))
       }
       return reply.code(201).send({ message })
     },

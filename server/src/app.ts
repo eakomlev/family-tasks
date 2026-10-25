@@ -1,5 +1,4 @@
 import rateLimit from '@fastify/rate-limit'
-import websocket from '@fastify/websocket'
 import Fastify, { type RouteOptions } from 'fastify'
 import { authenticate } from './auth.js'
 import { accountRoutes } from './account.js'
@@ -15,7 +14,7 @@ import { inviteRoutes } from './invites.js'
 import { createMediaClient, mediaEnv, type MediaClient } from './media/client.js'
 import { robloxRoutes } from './roblox.js'
 import { pushRoutes } from './push.js'
-import { MAX_PAYLOAD, realtimeRoutes } from './realtime.js'
+import { flushRealtime } from './realtime.js'
 import { routes } from './routes.js'
 import { scheduleRoutes } from './schedule.js'
 import { taskRoutes } from './tasks/routes.js'
@@ -84,8 +83,10 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
   // Общий лимит на IP. Семья сидит за одним адресом (домашний Wi-Fi, мобильный оператор), а каждый переход между экранами
   // даёт до десятка запросов, поэтому лимит с запасом: от перебора кодов защищают строгие лимиты отдельных маршрутов (10 в минуту).
   if (limit) await app.register(rateLimit, { max: GENERAL_LIMIT_PER_MINUTE, timeWindow: '1 minute' })
-  await app.register(websocket, { options: { maxPayload: MAX_PAYLOAD } })
-  await app.register(realtimeRoutes)
+  // сокеты держит сервис realtime/; здесь только дожидаемся отправленных ему сигналов
+  app.addHook('onClose', async () => {
+    await flushRealtime()
+  })
   await app.register(routes, { captcha })
   await app.register(inviteRoutes)
   await app.register(scheduleRoutes)

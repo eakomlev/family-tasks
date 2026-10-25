@@ -11,7 +11,12 @@ export default defineConfig({
   server: {
     // ws: true нужен для живых обновлений (/api/ws)
     // фото из чатов отдаёт сервис media (локально порт 3001, см. npm run dev:media)
-    proxy: { '/api': { target: 'http://localhost:3000', ws: true }, '/media': { target: 'http://localhost:3001' } },
+    proxy: {
+      // живые обновления держит сервис realtime (локально порт 3002, см. npm run dev:realtime); этот адрес должен идти раньше общего /api
+      '/api/ws': { target: 'http://localhost:3002', ws: true },
+      '/api': { target: 'http://localhost:3000' },
+      '/media': { target: 'http://localhost:3001' },
+    },
   },
   plugins: [
     react(),

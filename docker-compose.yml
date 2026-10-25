@@ -95,6 +95,26 @@ services:
       db:
         condition: service_healthy
 
+  # живые обновления: держит WebSocket-соединения (/api/ws через nginx), слушает канал Postgres «realtime», в который пишет server,
+  # и рассылает сигналы клиентам; портов наружу нет, живость проверяется по метке в БД
+  realtime:
+    logging: *logging
+    build: ./realtime
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD", "node", "dist/healthcheck.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    # схему создаёт миграция server; если realtime стартует раньше, он ждёт и пробует снова
+    depends_on:
+      db:
+        condition: service_healthy
+
   # планировщик уведомлений: раз в минуту решает, кому что напомнить (дни рождения, уроки, тренировки), и ставит
   # сообщения в очередь outbox; портов нет, живость проверяется по метке в БД (docs/scheduler-service-plan.md)
   scheduler:

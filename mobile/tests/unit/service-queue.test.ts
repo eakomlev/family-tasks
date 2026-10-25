@@ -92,6 +92,22 @@ describe('queueAlerts', () => {
     expect(alerts.map((a) => a.tone)).toEqual(['error', 'warning', 'error'])
   })
 
+  describe('живые обновления', () => {
+    const rt = (over: object = {}) => ({ alive: true, instances: 1, connections: 5, lastBeatSeconds: 4, ...over })
+
+    it('жив: предупреждений нет; сервер старой версии (поля нет) тоже молчит', () => {
+      expect(queueAlerts(healthy({ realtime: rt() }), NOW)).toEqual([])
+      expect(queueAlerts(healthy(), NOW)).toEqual([])
+    })
+
+    it('не отвечает: ошибка с давностью сигнала', () => {
+      const [alert] = queueAlerts(healthy({ realtime: rt({ alive: false, instances: 0, connections: 0, lastBeatSeconds: 600 }) }), NOW)
+      expect(alert).toMatchObject({ tone: 'error' })
+      expect(alert.text).toMatch(/Сервис живых обновлений \(realtime\) не отвечает/)
+      expect(alert.text).toMatch(/10 мин назад/)
+    })
+  })
+
   describe('планировщик', () => {
     const sched = (over: object = {}) => ({
       alive: true, instances: 1, lastBeatSeconds: 4, lastTickSeconds: 20, lastSent: 3, lastError: null, ...over,

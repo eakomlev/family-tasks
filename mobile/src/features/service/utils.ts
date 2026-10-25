@@ -65,6 +65,12 @@ export function queueAlerts(queue: QueueStats, now: Date): QueueAlert[] {
     }
   }
 
+  const realtime = queue.realtime
+  if (realtime && !realtime.alive) {
+    const since = realtime.lastBeatSeconds === null ? '' : ` Последний сигнал ${formatAge(realtime.lastBeatSeconds)} назад.`
+    alerts.push({ tone: 'error', text: `Сервис живых обновлений (realtime) не отвечает: экраны не обновляются сами, пока не перезагрузить страницу.${since}` })
+  }
+
   const failedMail = queue.today.email.failed
   const failedPush = queue.today.push.failed
   if (failedMail + failedPush > 0) {

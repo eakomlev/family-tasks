@@ -54,6 +54,8 @@ export interface QueueStats {
     lastSent: number | null
     lastError: string | null
   }
+  // сервис живых обновлений (realtime): жив ли и сколько открытых соединений
+  realtime: { alive: boolean; instances: number; connections: number; lastBeatSeconds: number | null }
 }
 
 // Фото в чатах для страницы «Сервис»: что сохранено и занимает место, жив ли сервис media.
@@ -135,6 +137,12 @@ export async function adminRoutes(app: FastifyInstance, { media = null }: Partia
            from scheduler_state where last_tick_at is not null order by last_tick_at desc limit 1
        ) t on true`,
     )
+    const { rows: [rt] } = await pool.query(
+      `select
+         (select count(*) from realtime_state where beat_at > now() - interval '60 seconds')::int as instances,
+         coalesce((select sum(connections) from realtime_state where beat_at > now() - interval '60 seconds'), 0)::int as connections,
+         (select floor(extract(epoch from now() - max(beat_at)))::int from realtime_state) as last_beat`,
+    )
     const count = (channel: 'email' | 'push') => delivery.find((d) => d.channel === channel) ?? { sent: 0, failed: 0 }
 
     const queue: QueueStats = {
@@ -155,6 +163,7 @@ export async function adminRoutes(app: FastifyInstance, { media = null }: Partia
         lastSent: sched.last_sent,
         lastError: sched.last_error,
       },
+      realtime: { alive: rt.instances > 0, instances: rt.instances, connections: rt.connections, lastBeatSeconds: rt.last_beat },
     }
     return queue
   })

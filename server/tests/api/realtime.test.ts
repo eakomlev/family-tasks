@@ -1,51 +1,82 @@
+import { readFileSync } from 'node:fs'
+import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { WebSocket } from 'ws'
 import { buildApp } from '../../src/app.js'
 import { createSession } from '../../src/auth.js'
+import { hashToken } from '../../src/codes.js'
 import { pool } from '../../src/db.js'
-import { CLOSE_UNAUTHORIZED, connectionCount } from '../../src/realtime.js'
+import { flushRealtime, REALTIME_CHANNEL, type RealtimeMessage } from '../../src/realtime.js'
 import { api, createFamily, removeFamilies, type TestFamily } from '../helpers.js'
 
+// Сокеты держит отдельный сервис realtime/ (его тесты там же), а server только пишет сигналы в канал Postgres. Здесь проверяем,
+// что нужные сигналы уходят нужным адресатам: «клиент» ниже слушает канал и принимает то, что получил бы участник этого устройства.
 let app: Awaited<ReturnType<typeof buildApp>>
 let fam: TestFamily
 let other: TestFamily
-const open: WebSocket[] = []
+let listener: pg.Client
+const clients: Client[] = []
+const raws: RealtimeMessage[] = []
 
 beforeAll(async () => {
   app = await buildApp({ logger: false, rateLimit: false })
   await app.ready()
   fam = await createFamily()
   other = await createFamily()
+  listener = new pg.Client({ connectionString: process.env.DATABASE_URL })
+  await listener.connect()
+  listener.on('notification', (n) => {
+    const message = JSON.parse(n.payload ?? '{}') as RealtimeMessage
+    raws.push(message)
+    for (const client of clients) client.deliver(message)
+  })
+  await listener.query(`listen ${REALTIME_CHANNEL}`)
 })
 afterAll(async () => {
-  for (const ws of open) ws.terminate()
+  await flushRealtime()
+  await listener.end()
   await removeFamilies(fam.id, other.id)
   await app.close()
   await pool.end()
 })
 
+// Сигнал доходит через Postgres уже после ответа API: чтобы запоздавший сигнал прошлого теста не попал в следующий, перед подключением
+// и перед проверкой тишины ждём «барьер»: сообщение, отправленное после всех прежних и пришедшее следом за ними.
+let barrierId = 0
+async function settle() {
+  await flushRealtime()
+  const id = `barrier-${++barrierId}`
+  await pool.query('select pg_notify($1, $2)', [REALTIME_CHANNEL, JSON.stringify({ v: 1, to: 'session', id })])
+  const deadline = Date.now() + 3000
+  while (!raws.some((m) => m.id === id)) {
+    if (Date.now() > deadline) throw new Error('барьер не дошёл')
+    await new Promise((r) => setTimeout(r, 10))
+  }
+}
+
 // сообщения собираются с момента подключения; next() отдаёт следующее непрочитанное и при необходимости ждёт его
 class Client {
   messages: any[] = []
-  closed?: number
   private cursor = 0
   private waiters: (() => void)[] = []
 
-  constructor(readonly ws: WebSocket) {
-    ws.on('message', (raw: Buffer) => {
-      this.messages.push(JSON.parse(raw.toString()))
+  constructor(
+    readonly memberId: string,
+    readonly familyId: string,
+  ) {}
+
+  // то же правило, что у сервиса realtime: семье всем её участникам, участнику только ему
+  deliver(message: RealtimeMessage) {
+    if (message.to === 'session') return
+    if ((message.to === 'family' && message.id === this.familyId) || (message.to === 'member' && message.id === this.memberId)) {
+      this.messages.push(message.event)
       this.waiters.splice(0).forEach((w) => w())
-    })
-    ws.on('close', (code: number) => {
-      this.closed = code
-      this.waiters.splice(0).forEach((w) => w())
-    })
+    }
   }
 
   async until(check: () => boolean, ms = 2000) {
     const deadline = Date.now() + ms
     while (!check()) {
-      if (Date.now() > deadline) throw new Error(`не дождались; сообщения: ${JSON.stringify(this.messages)}, закрыто: ${this.closed}`)
+      if (Date.now() > deadline) throw new Error(`не дождались; сообщения: ${JSON.stringify(this.messages)}`)
       await new Promise<void>((resolve) => {
         this.waiters.push(resolve)
         setTimeout(resolve, 50)
@@ -60,67 +91,41 @@ class Client {
 
   // непрочитанных сообщений нет и не появилось: даём время дойти возможным
   async quiet(ms = 200) {
+    await settle()
     await new Promise((r) => setTimeout(r, ms))
     return this.messages.length === this.cursor
   }
 }
 
-async function connect(token?: string) {
-  const ws = await app.injectWS('/api/ws')
-  open.push(ws)
-  const client = new Client(ws)
-  if (token !== undefined) ws.send(JSON.stringify({ type: 'auth', token }))
-  return client
-}
-
 async function connectAuthed(token: string) {
-  const client = await connect(token)
-  expect(await client.next()).toEqual({ type: 'ready' })
+  await settle()
+  const { rows } = await pool.query(
+    'select s.member_id as "memberId", m.family_id as "familyId" from sessions s join members m on m.id = s.member_id where s.token_hash = $1',
+    [hashToken(token)],
+  )
+  const client = new Client(rows[0].memberId, rows[0].familyId)
+  clients.push(client)
   return client
 }
 
-describe('вход в сокет', () => {
-  it('с верным токеном приходит ready и соединение учитывается', async () => {
-    const before = connectionCount()
-    await connectAuthed(fam.mom.token)
-    expect(connectionCount()).toBe(before + 1)
+describe('канал', () => {
+  it('сообщения совпадают с образцом контракта', async () => {
+    const sample = JSON.parse(readFileSync(new URL('../../../contracts/realtime-v1.json', import.meta.url), 'utf8'))
+    const before = raws.length
+    await api(app, fam.mom.token, 'PATCH', '/api/me', { name: `${fam.mom.name} 2` })
+    await settle()
+    // канал общий для всех семей (в том числе тестовых из соседних файлов): берём сообщение своей семьи
+    const sent = raws.slice(before).find((m) => m.to === 'family' && m.id === fam.id)
+    expect(sent).toEqual({ ...sample.family, id: fam.id, event: { type: 'members' } })
+    await api(app, fam.mom.token, 'PATCH', '/api/me', { name: fam.mom.name })
   })
 
-  it('неверный токен закрывает соединение кодом 4401', async () => {
-    const client = await connect('чужой-токен')
-    await client.until(() => client.closed !== undefined)
-    expect(client.closed).toBe(CLOSE_UNAUTHORIZED)
-    expect(client.messages).toEqual([])
-  })
-
-  it('не JSON и сообщение другого вида тоже отклоняются', async () => {
-    const garbage = await connect()
-    garbage.ws.send('это не json')
-    await garbage.until(() => garbage.closed !== undefined)
-    expect(garbage.closed).toBe(CLOSE_UNAUTHORIZED)
-
-    const wrongType = await connect()
-    wrongType.ws.send(JSON.stringify({ type: 'hello', token: fam.mom.token }))
-    await wrongType.until(() => wrongType.closed !== undefined)
-    expect(wrongType.closed).toBe(CLOSE_UNAUTHORIZED)
-  })
-
-  it('токен не строка: закрывается без ошибки сервера', async () => {
-    const client = await connect()
-    client.ws.send(JSON.stringify({ type: 'auth', token: { $ne: null } }))
-    await client.until(() => client.closed !== undefined)
-    expect(client.closed).toBe(CLOSE_UNAUTHORIZED)
-  })
-
-  it('после выхода (DELETE /api/session) соединение этого устройства закрывается', async () => {
+  it('после выхода (DELETE /api/session) в канал уходит закрытие сессии этого устройства', async () => {
     const token = await createSession(pool, fam.kid.id)
-    const device = await connectAuthed(token)
-    const another = await connectAuthed(fam.kid.token)
-
+    const before = raws.length
     expect((await api(app, token, 'DELETE', '/api/session')).status).toBe(204)
-    await device.until(() => device.closed !== undefined)
-    expect(device.closed).toBe(CLOSE_UNAUTHORIZED)
-    expect(another.closed).toBeUndefined()
+    await settle()
+    expect(raws.slice(before)).toContainEqual({ v: 1, to: 'session', id: hashToken(token) })
   })
 })
 

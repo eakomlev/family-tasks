@@ -110,6 +110,16 @@ export function ServiceScreen() {
         </Stack>
       )}
 
+      {queue?.realtime && (
+        <Stack $gap={8}>
+          <Heading>Живые обновления</Heading>
+          <Tiles>
+            <Tile small label="Состояние" value={queue.realtime.alive ? 'работает' : 'не отвечает'} />
+            <Tile small label="Соединений сейчас" value={format(queue.realtime.connections)} />
+          </Tiles>
+        </Stack>
+      )}
+
       {media && (
         <Stack $gap={8}>
           <Heading>Фото в чатах</Heading>

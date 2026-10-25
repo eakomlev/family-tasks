@@ -154,7 +154,7 @@ export async function gameRoutes(app: FastifyInstance) {
 
   // Уведомление сопернику, если игра у него сейчас не открыта на экране
   async function notify(row: GameRow, to: string, message: Omit<PushMessage, 'url' | 'tag'>) {
-    if (isViewingChat(to, gameViewKey(row.id))) return
+    if (await isViewingChat(to, gameViewKey(row.id))) return
     await enqueueToMember(pool, to, { ...message, url: `/games/${row.id}`, tag: `game-${row.id}` })
   }
 
