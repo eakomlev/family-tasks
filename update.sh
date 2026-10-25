@@ -3,7 +3,7 @@
 #
 # Что делает:
 #   1. забирает свежий код (git pull без слияний: если на сервере есть свои правки кода, остановится);
-#   2. делает резервную копию БД и фото (том s3) в backups/ (хранятся последние 14 и 7);
+#   2. делает резервную копию БД в backups/ (хранятся последние 14);
 #   3. пересобирает и перезапускает контейнеры (миграции БД сервер применяет сам при старте);
 #   4. проверяет, что приложение ответило, и при ошибке показывает логи и как откатиться;
 #   5. удаляет устаревшие образы Docker.
@@ -16,8 +16,6 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 KEEP_BACKUPS=14
-# копии фото (том хранилища s3) весят больше базы, поэтому их храним меньше
-KEEP_MEDIA_BACKUPS=7
 HEALTH_ATTEMPTS=30   # проверок по 2 секунды, то есть до минуты ожидания
 
 usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; }
@@ -92,20 +90,6 @@ else
   fi
 fi
 
-# Фото из чатов лежат в хранилище s3 (отдельный том), в копию БД они не входят. Копия фото не останавливает обновление
-# (том обновление не трогает), но об ошибке сказано громко. Снимается на ходу: файлы хранилища только дописываются.
-if [ "$BACKUP" -eq 1 ] && docker compose ps --status running --services 2>/dev/null | grep -qx s3; then
-  mkdir -p backups
-  MEDIA_BACKUP_FILE="backups/s3-$(date +%Y%m%d-%H%M%S).tar.gz"
-  if docker compose exec -T s3 tar czf - -C /data . > "$MEDIA_BACKUP_FILE" && gzip -t "$MEDIA_BACKUP_FILE" && [ "$(wc -c < "$MEDIA_BACKUP_FILE")" -gt 200 ]; then
-    echo "Фото сохранены: $MEDIA_BACKUP_FILE ($(du -h "$MEDIA_BACKUP_FILE" | cut -f1))"
-    ls -1t backups/s3-*.tar.gz 2>/dev/null | tail -n +$((KEEP_MEDIA_BACKUPS + 1)) | while read -r old; do rm -f -- "$old"; done
-  else
-    rm -f -- "$MEDIA_BACKUP_FILE"
-    printf '\nВНИМАНИЕ: не удалось сделать копию фото (том s3). Обновление продолжается, но сделайте копию вручную, см. README.\n' >&2
-  fi
-fi
-
 say '3/5 Собираю и запускаю контейнеры'
 docker compose up -d --build
 
@@ -170,9 +154,8 @@ for _ in $(seq 1 $((HEALTH_ATTEMPTS * 3))); do
   sleep 2
 done
 if [ "$media_ok" -ne 1 ]; then
-  printf '\nСервис фото (media) не отозвался за %s секунд. Последние строки логов media и s3:\n\n' $((HEALTH_ATTEMPTS * 6)) >&2
+  printf '\nСервис фото (media) не отозвался за %s секунд. Последние строки лога media:\n\n' $((HEALTH_ATTEMPTS * 6)) >&2
   docker compose logs --tail 40 media >&2 || true
-  docker compose logs --tail 20 s3 >&2 || true
   rollback_help
   exit 1
 fi
