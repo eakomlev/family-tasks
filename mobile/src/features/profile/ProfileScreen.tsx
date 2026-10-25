@@ -73,6 +73,8 @@ export function ProfileScreen() {
           <MenuLink to="/profile/theme">Тема</MenuLink>
           <MenuLink to="/profile/settings">Настройки</MenuLink>
           {me.isAdmin && <MenuLink to="/profile/service">Сервис</MenuLink>}
+          {/* ребёнок и создатель семьи свой аккаунт отдельно не удаляют (создатель удаляет семью целиком) */}
+          {me.role !== 'child' && !me.isOwner && <MenuLink to="/profile/delete">Удалить аккаунт</MenuLink>}
         </>
       )}
 

@@ -21,6 +21,7 @@ import Game from '@/pages/Game'
 import GamesList from '@/pages/GamesList'
 import ChatRoom from '@/pages/ChatRoom'
 import EventForm from '@/pages/EventForm'
+import AccountDelete from '@/pages/AccountDelete'
 import FamilyDelete from '@/pages/FamilyDelete'
 import EventView from '@/pages/EventView'
 import CreateFamily from '@/pages/CreateFamily'
@@ -97,6 +98,7 @@ export default function App() {
               <Route path="/family" element={<Family />} />
               <Route path="/family/invite" element={<Invite />} />
               <Route path="/family/delete" element={<FamilyDelete />} />
+              <Route path="/profile/delete" element={<AccountDelete />} />
               <Route path="/family/:memberId" element={<MemberPreview />} />
               <Route path="/profile/schedule" element={<Schedule />} />
               <Route path="/profile/trainings" element={<Trainings />} />

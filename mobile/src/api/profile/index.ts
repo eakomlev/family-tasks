@@ -12,3 +12,6 @@ export const getRobloxAvatar = (token: string, username: string) =>
   request<{ image: string }>('/me/roblox-avatar', send('POST', { username }), token)
 
 export type * from './types'
+
+// Удаление своего аккаунта со всеми данными (нельзя ребёнку и создателю семьи)
+export const deleteAccount = (token: string) => request<void>('/me', send('DELETE'), token)
