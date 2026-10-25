@@ -180,10 +180,14 @@ describe('очередь', () => {
     await listener.connect()
     try {
       await listener.query('listen outbox')
-      const got = new Promise<string>((resolve) => listener.once('notification', (n) => resolve(n.payload ?? '')))
+      // таблица общая с параллельными файлами тестов: их вставки тоже шлют сигнал, поэтому копим все и ищем свой
+      const seen: string[] = []
+      listener.on('notification', (n) => seen.push(n.payload ?? ''))
       await enqueue(pool, { channel: 'email', priority: PRIORITY.code, payload: { ...emailPayload, to: 'notify@test.local' } as never })
       const row = await rowFor('notify@test.local')
-      expect(await Promise.race([got, new Promise<string>((r) => setTimeout(() => r('timeout'), 3000))])).toBe(String(row.id))
+      const deadline = Date.now() + 3000
+      while (!seen.includes(String(row.id)) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 20))
+      expect(seen).toContain(String(row.id))
       await pool.query('delete from outbox where id = $1', [row.id])
     } finally {
       await listener.end()
