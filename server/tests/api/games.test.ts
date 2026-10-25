@@ -210,3 +210,45 @@ describe('превращение пешки', () => {
     await act(white.token, id, 'resign')
   })
 })
+
+describe('счёт', () => {
+  const score = async (token: string, opponentId: string, kind = 'chess') => {
+    const res = await api(app, token, 'GET', `/api/games/score?opponentId=${opponentId}`)
+    expect(res.status).toBe(200)
+    return res.body.scores.find((s: { kind: string }) => s.kind === kind) as { wins: number; losses: number; draws: number }
+  }
+
+  it('считает победы, поражения и ничьи между двумя участниками, у каждого со своей стороны', async () => {
+    const before = await score(fam.mom.token, fam.dad.id)
+    const { id, white, black } = await startGame()
+    await act(white.token, id, 'resign')
+    const mom = await score(fam.mom.token, fam.dad.id)
+    const dad = await score(fam.dad.token, fam.mom.id)
+    const momWon = black.id === fam.mom.id
+    expect(mom.wins - before.wins).toBe(momWon ? 1 : 0)
+    expect(mom.losses - before.losses).toBe(momWon ? 0 : 1)
+    expect(dad.wins).toBe(mom.losses)
+    expect(dad.losses).toBe(mom.wins)
+
+    const second = await startGame()
+    await act(second.white.token, second.id, 'draw/offer')
+    await act(second.black.token, second.id, 'draw/accept')
+    const after = await score(fam.mom.token, fam.dad.id)
+    expect(after.draws - mom.draws).toBe(1)
+    expect(after.wins).toBe(mom.wins)
+  })
+
+  it('незавершённые партии и игры с другими участниками не считаются, остальные игры нули', async () => {
+    const withKid = await score(fam.mom.token, fam.kid.id)
+    await startGame()
+    expect(await score(fam.mom.token, fam.kid.id)).toEqual(withKid)
+    expect(await score(fam.mom.token, fam.dad.id, 'checkers')).toEqual({ kind: 'checkers', wins: 0, losses: 0, draws: 0 })
+  })
+
+  it('чужой участник и плохой id: пустой счёт и 400', async () => {
+    const res = await api(app, fam.mom.token, 'GET', `/api/games/score?opponentId=${outsider.dad.id}`)
+    expect(res.body.scores.every((s: { wins: number; losses: number; draws: number }) => s.wins + s.losses + s.draws === 0)).toBe(true)
+    expect((await api(app, fam.mom.token, 'GET', '/api/games/score?opponentId=x')).status).toBe(400)
+    expect((await api(app, '', 'GET', `/api/games/score?opponentId=${fam.dad.id}`)).status).toBe(401)
+  })
+})

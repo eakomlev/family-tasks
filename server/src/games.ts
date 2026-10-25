@@ -207,6 +207,34 @@ export async function gameRoutes(app: FastifyInstance) {
     return { games: rows.map(toDto) }
   })
 
+  // Счёт между мной и одним участником по каждой игре: победы, поражения и ничьи среди завершённых партий (сдача и ничья по соглашению входят)
+  app.get<{ Querystring: { opponentId: string } }>(
+    '/api/games/score',
+    { schema: { querystring: { type: 'object', required: ['opponentId'], properties: { opponentId: { type: 'string', format: 'uuid' } } } } },
+    async (req, reply) => {
+      const member = await me(req, reply)
+      if (!member) return
+      const { rows } = await pool.query<{ kind: GameKind; wins: string; losses: string; draws: string }>(
+        `select kind,
+                count(*) filter (where result->>'winnerId' = $2::uuid::text) as wins,
+                count(*) filter (where result->>'winnerId' = $3::uuid::text) as losses,
+                count(*) filter (where result->>'winnerId' is null) as draws
+         from games
+         where family_id = $1 and status = 'finished' and result is not null
+           and ((inviter_id = $2::uuid and invitee_id = $3::uuid) or (inviter_id = $3::uuid and invitee_id = $2::uuid))
+         group by kind`,
+        [member.family_id, member.id, req.query.opponentId],
+      )
+      const byKind = new Map(rows.map((r) => [r.kind, r]))
+      return {
+        scores: GAME_KINDS.map((kind) => {
+          const r = byKind.get(kind)
+          return { kind, wins: Number(r?.wins ?? 0), losses: Number(r?.losses ?? 0), draws: Number(r?.draws ?? 0) }
+        }),
+      }
+    },
+  )
+
   app.get<{ Params: { id: string } }>('/api/games/:id', { schema: { params: idParams } }, async (req, reply) => {
     const member = await me(req, reply)
     if (!member) return

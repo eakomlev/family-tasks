@@ -15,8 +15,8 @@ import { memberLabel } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
-import { useInviteToGameMutation, useListGamesQuery } from '@/store/games'
-import { GAMES, gameStatusLine, type GameInfo } from './utils'
+import { useGetGameScoreQuery, useInviteToGameMutation, useListGamesQuery } from '@/store/games'
+import { GAMES, gameStatusLine, scoreLine, type GameInfo } from './utils'
 
 // Игры, в которые можно позвать участника семьи. Готовы шахматы, остальные пока заглушки.
 // Выбор игры отправляет приглашение (после подтверждения); если с этим участником такая игра уже идёт, открывается она.
@@ -28,6 +28,7 @@ export function GamesListScreen({ memberId }: { memberId: string }) {
   const confirm = useConfirm()
   const guard = useInFlight()
   const { data: list } = useListGamesQuery(undefined, { skip: !identity })
+  const { data: scores } = useGetGameScoreQuery(memberId, { skip: !identity })
   const [invite] = useInviteToGameMutation()
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -64,6 +65,7 @@ export function GamesListScreen({ memberId }: { memberId: string }) {
     <Screen header={<PageHeader fallback={{ pathname: '/family/[memberId]', params: { memberId } }}>{name ? `Играть: ${name}` : 'Играть'}</PageHeader>}>
       {GAMES.map((info) => {
         const open = info.available ? openWith(info.kind) : undefined
+        const score = scoreLine(scores?.scores.find((x) => x.kind === info.kind))
         return (
           <Pressable
             key={info.kind}
@@ -79,6 +81,7 @@ export function GamesListScreen({ memberId }: { memberId: string }) {
               <View style={{ flex: 1 }}>
                 <Heading>{info.title}</Heading>
                 <Text $tone={open ? 'accent' : 'muted'}>{!info.available ? 'Скоро' : open ? gameStatusLine(open, identity.memberId) : 'Пригласить сыграть'}</Text>
+                {score ? <Text $tone="muted" $size={13}>{score}</Text> : null}
               </View>
             </Card>
           </Pressable>

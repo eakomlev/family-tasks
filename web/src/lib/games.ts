@@ -1,4 +1,4 @@
-import type { Game, GameResult } from '@/api'
+import type { Game, GameResult, GameScore } from '@/api'
 
 export interface GameInfo {
   // готовы шахматы, шашки и крестики-нолики, остальные пока заглушки
@@ -14,6 +14,12 @@ export const GAMES: GameInfo[] = [
   { kind: 'tictactoe', title: 'Крестики-нолики', emoji: '❌', available: true },
   { kind: 'battleship', title: 'Морской бой', emoji: '🚢', available: false },
 ]
+
+// Счёт с этим участником одной строкой; пока партий не было, строки нет
+export function scoreLine(score: GameScore | undefined): string | null {
+  if (!score || score.wins + score.losses + score.draws === 0) return null
+  return `Побед: ${score.wins} · Поражений: ${score.losses} · Ничьих: ${score.draws}`
+}
 
 export const gameTitle = (kind: string) => GAMES.find((g) => g.kind === kind)?.title ?? 'Игра'
 

@@ -1,8 +1,10 @@
 import { request, send } from '../client'
-import type { ChessMove, Game, GameKind, PromotionPiece } from './types'
+import type { ChessMove, Game, GameKind, GameScore, PromotionPiece } from './types'
 
 // Мои игры: приглашения, идущие партии и завершённые за последние сутки
 export const listGames = (token: string) => request<{ games: Game[] }>('/games', {}, token)
+
+export const getGameScore = (token: string, opponentId: string) => request<{ scores: GameScore[] }>(`/games/score?opponentId=${encodeURIComponent(opponentId)}`, {}, token)
 
 export const getGame = (token: string, id: string) => request<{ game: Game }>(`/games/${id}`, {}, token)
 

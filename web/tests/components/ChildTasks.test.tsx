@@ -56,6 +56,26 @@ describe('ChildTasks', () => {
     expect(screen.getByText('выполнено 0 из 1')).toBeInTheDocument()
   })
 
+  it('просроченные идут первыми с подписью «просрочено», выполненные сегодня без срока в конце, всё в счётчике', () => {
+    render(
+      <MemoryRouter>
+        <ChildTasks
+          tasks={{
+            overdue: [entry('l', 'Просроченное', { date: '2026-10-09' })],
+            today: [entry('a', 'Сегодняшнее')],
+            undated: [entry('u', 'Без срока', { date: null })],
+            finished: [entry('f', 'Сделано без срока', { date: null, done: true })],
+          }}
+        />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('выполнено 1 из 4')).toBeInTheDocument()
+    expect(screen.getByText(/просрочено, /)).toBeInTheDocument()
+    const titles = screen.getAllByRole('link').map((l) => l.textContent ?? '')
+    expect(titles.map((x) => ['Просроченное', 'Сегодняшнее', 'Без срока', 'Сделано без срока'].findIndex((t) => x.includes(t)))).toEqual([0, 1, 2, 3])
+    expect(screen.getByRole('link', { name: /Сделано без срока/ })).toHaveAttribute('href', '/tasks/f')
+  })
+
   it('все выполнены: «выполнено 2 из 2»', () => {
     renderTasks([entry('a', 'А', { done: true }), entry('b', 'Б', { done: true })])
     expect(screen.getByText('выполнено 2 из 2')).toBeInTheDocument()

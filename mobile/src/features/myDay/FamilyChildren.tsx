@@ -9,20 +9,25 @@ import { Card } from '@/components/Card'
 import { Stack } from '@/components/Stack'
 import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
-import { todayIso } from '@/lib/date'
-import { byTimeThenTitle, toEntries, type TaskEntry } from '@/lib/occurrences'
+import { groupChildTasks } from '@/lib/childTasks'
+import { formatDayMonth, todayIso } from '@/lib/date'
+import type { TaskEntry } from '@/lib/occurrences'
 import { useProfile } from '@/profile/context'
 import { useGetScheduleQuery, useGetTrainingsQuery } from '@/store/schedules'
-import { useListTasksQuery } from '@/store/tasks'
+import { useListDoneTasksQuery, useListTasksQuery } from '@/store/tasks'
 import { capitalize, dayRange, lessonsForDay, pickLessonDay, pickTrainingDay, trainingSummary } from './schedule'
 
 type IconName = keyof typeof Ionicons.glyphMap
 
 interface ChildTaskList {
+  // просроченные и ещё не выполненные
+  overdue: TaskEntry[]
   // вхождения на сегодня, в том числе выполненные
   today: TaskEntry[]
-  // задания без срока
+  // задания без срока, ещё не выполненные
   undated: TaskEntry[]
+  // выполненные сегодня задания без срока или просроченные
+  finished: TaskEntry[]
 }
 
 // Заголовок раздела внутри карточки: значок и подпись, справа необязательная сводка
@@ -50,7 +55,7 @@ function Divider() {
 
 function ChildTasks({ tasks }: { tasks: ChildTaskList | undefined }) {
   if (!tasks) return null
-  const all = [...tasks.today, ...tasks.undated]
+  const all = [...tasks.overdue, ...tasks.today, ...tasks.undated, ...tasks.finished]
   if (all.length === 0) return null
   const done = all.filter((e) => e.occurrence.done !== null).length
 
@@ -59,15 +64,21 @@ function ChildTasks({ tasks }: { tasks: ChildTaskList | undefined }) {
       <Divider />
       <View style={{ gap: 8 }}>
         <SectionLabel icon="checkbox-outline" title="Задания" hint={`выполнено ${done} из ${all.length}`} />
-        {all.filter(({ occurrence }) => occurrence.done === null).map(({ task, occurrence }) => {
+        {all.map(({ task, occurrence }) => {
           const isDone = occurrence.done !== null
+          const late = !isDone && occurrence.date !== null && tasks.overdue.some((e) => e.task.id === task.id && e.occurrence.date === occurrence.date)
           const mark = isDone ? '✅' : occurrence.pending !== null ? '⏳' : '⚪'
           return (
             <View key={`${task.id}|${occurrence.date ?? 'none'}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 22 }}>
               <Text $size={14}>{mark}</Text>
-              <Text style={{ flex: 1, textDecorationLine: isDone ? 'line-through' : 'none' }} $size={15}>
+              <Text style={{ flex: 1, textDecorationLine: isDone ? 'line-through' : 'none' }} $size={15} $tone={isDone ? 'muted' : undefined}>
                 {task.title}
               </Text>
+              {late && occurrence.date ? (
+                <Text $size={12} $weight="extraBold" $tone="error">
+                  {`просрочено, ${formatDayMonth(occurrence.date)}`}
+                </Text>
+              ) : null}
               {task.time ? (
                 <Text $size={13} $tone="muted">
                   {task.time}
@@ -194,18 +205,13 @@ export function FamilyChildren({ now }: { now: Date }) {
 
   // задания всей семьи на сегодня одним запросом (тот же, что у «Заданий на сегодня»: в кэше он общий)
   const { data: tasks } = useListTasksQuery({ from: today, to: today }, { skip: !isAdult })
+  // недавно выполненное: из него берём сделанное сегодня без срока (основной список такие не отдаёт)
+  const { data: recentDone } = useListDoneTasksQuery({ days: 2 }, { skip: !isAdult })
 
   if (!isAdult || children.length === 0) return null
 
-  // сегодняшние вхождения, в том числе выполненные, и отдельно задания без срока (просроченные сюда не входят)
-  const childTasks = (childId: string): ChildTaskList | undefined => {
-    if (!tasks) return undefined
-    const entries = toEntries(tasks, childId)
-    return {
-      today: entries.filter(({ occurrence }) => occurrence.date === today).sort(byTimeThenTitle),
-      undated: entries.filter(({ occurrence }) => occurrence.date === null).sort(byTimeThenTitle),
-    }
-  }
+  // задания ребёнка: все (просроченные, на сегодня, без срока) и выполненные сегодня без срока или просроченные
+  const childTasks = (childId: string): ChildTaskList | undefined => groupChildTasks(tasks, recentDone, childId, today)
 
   return (
     <Stack $gap={10}>

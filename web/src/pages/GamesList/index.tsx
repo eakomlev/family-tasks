@@ -7,12 +7,12 @@ import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { describeGameError } from '@/lib/errors'
-import { GAMES, gameStatusLine, type GameInfo } from '@/lib/games'
+import { GAMES, gameStatusLine, scoreLine, type GameInfo } from '@/lib/games'
 import { memberLabel } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
-import { useInviteToGameMutation, useListGamesQuery } from '@/store/games'
+import { useGetGameScoreQuery, useInviteToGameMutation, useListGamesQuery } from '@/store/games'
 import { GameButton, Icon, List } from './styles'
 
 // Игры, в которые можно позвать участника семьи. Готовы шахматы, остальные пока заглушки.
@@ -25,6 +25,7 @@ export default function GamesList() {
   const confirm = useConfirm()
   const guard = useInFlight()
   const { data: list } = useListGamesQuery(undefined, { skip: !identity })
+  const { data: scores } = useGetGameScoreQuery(memberId ?? '', { skip: !identity || !memberId })
   const [invite] = useInviteToGameMutation()
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -63,6 +64,7 @@ export default function GamesList() {
       <List>
         {GAMES.map((info) => {
           const open = info.available ? openWith(info.kind) : undefined
+          const score = scoreLine(scores?.scores.find((x) => x.kind === info.kind))
           return (
             <li key={info.kind}>
               <GameButton type="button" disabled={!info.available || busy} aria-label={info.available ? `${info.title}: пригласить` : `${info.title}: скоро`} onClick={() => void play(info)}>
@@ -70,6 +72,7 @@ export default function GamesList() {
                 <div>
                   <strong>{info.title}</strong>
                   <small>{!info.available ? 'Скоро' : open ? gameStatusLine(open, identity.memberId) : 'Пригласить сыграть'}</small>
+                  {score && <small>{score}</small>}
                 </div>
               </GameButton>
             </li>

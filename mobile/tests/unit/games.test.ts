@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Game } from '../../src/api'
-import { GAMES, gameStatusLine, lastMoveText, needsMyAction, openGames, resultText } from '../../src/features/games/utils'
+import { GAMES, gameStatusLine, lastMoveText, needsMyAction, openGames, resultText, scoreLine } from '../../src/features/games/utils'
 import { winningLine } from '../../src/features/games/ticTacToe'
 import { parseMessage } from '../../src/realtime/utils'
 import { tagsForEvent } from '../../src/store/invalidate'
@@ -101,5 +101,17 @@ describe('шашки', () => {
   it('последний ход путём клеток', () => {
     expect(lastMoveText(game({ kind: 'checkers', lastPath: ['c3', 'e5', 'g7'] }))).toBe('Последний ход: c3 → e5 → g7')
     expect(lastMoveText(game({ kind: 'checkers', lastPath: null }))).toBeNull()
+  })
+})
+
+describe('scoreLine', () => {
+  it('без партий строки нет', () => {
+    expect(scoreLine(undefined)).toBeNull()
+    expect(scoreLine({ kind: 'chess', wins: 0, losses: 0, draws: 0 })).toBeNull()
+  })
+
+  it('показывает победы, поражения и ничьи', () => {
+    expect(scoreLine({ kind: 'chess', wins: 3, losses: 1, draws: 2 })).toBe('Побед: 3 · Поражений: 1 · Ничьих: 2')
+    expect(scoreLine({ kind: 'chess', wins: 0, losses: 1, draws: 0 })).toBe('Побед: 0 · Поражений: 1 · Ничьих: 0')
   })
 })

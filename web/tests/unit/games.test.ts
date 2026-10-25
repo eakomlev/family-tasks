@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError, type Game } from '@/api'
 import { describeGameError } from '@/lib/errors'
-import { gameStatusLine, lastMoveText, needsMyAction, openGames, resultText } from '@/lib/games'
+import { gameStatusLine, lastMoveText, needsMyAction, openGames, resultText, scoreLine } from '@/lib/games'
 import { parseMessage } from '@/realtime/utils'
 import { tagsForEvent } from '@/store/invalidate'
 
@@ -79,5 +79,17 @@ describe('ничья по соглашению', () => {
     expect(needsMyAction(game({ turnId: 'other', drawOffer: 'other' }), 'me')).toBe(true)
     expect(needsMyAction(game({ turnId: 'other', drawOffer: 'me' }), 'me')).toBe(false)
     expect(needsMyAction(game({ turnId: 'other' }), 'me')).toBe(false)
+  })
+})
+
+describe('scoreLine', () => {
+  it('без партий строки нет', () => {
+    expect(scoreLine(undefined)).toBeNull()
+    expect(scoreLine({ kind: 'chess', wins: 0, losses: 0, draws: 0 })).toBeNull()
+  })
+
+  it('показывает победы, поражения и ничьи', () => {
+    expect(scoreLine({ kind: 'chess', wins: 3, losses: 1, draws: 2 })).toBe('Побед: 3 · Поражений: 1 · Ничьих: 2')
+    expect(scoreLine({ kind: 'chess', wins: 0, losses: 1, draws: 0 })).toBe('Побед: 0 · Поражений: 1 · Ничьих: 0')
   })
 })

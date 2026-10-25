@@ -85,3 +85,11 @@ export const Hidden = styled.span`
   clip-path: inset(50%);
   white-space: nowrap;
 `
+
+// у просроченного задания подпись «просрочено, 22 октября» красным
+export const Late = styled.span`
+  flex: none;
+  color: var(--error);
+  font-size: 0.75rem;
+  font-weight: 800;
+`

@@ -1,4 +1,4 @@
-import { acceptDraw, acceptGame, cancelGame, declineDraw, offerDraw, declineGame, getGame, inviteToGame, listGames, moveInGame, placeInGame, playInGame, resignGame, type ChessMove, type Game, type GameKind, type PromotionPiece } from '@/api'
+import { acceptDraw, acceptGame, cancelGame, declineDraw, offerDraw, declineGame, getGame, getGameScore, inviteToGame, listGames, moveInGame, placeInGame, playInGame, resignGame, type ChessMove, type Game, type GameKind, type GameScore, type PromotionPiece } from '@/api'
 import { api, fromApi } from './api'
 
 // Игры. Ответ сервера на любое действие сразу кладётся в кэш игры, списки обновляются заново (и по сигналу сокета `games`).
@@ -24,6 +24,10 @@ export const gamesApi = api.injectEndpoints({
         queryFn: fromApi((token) => listGames(token)),
         providesTags: ['Games'],
       }),
+      getGameScore: build.query<{ scores: GameScore[] }, string>({
+        queryFn: fromApi((token, opponentId: string) => getGameScore(token, opponentId)),
+        providesTags: ['Games'],
+      }),
       getGame: build.query<{ game: Game }, string>({
         queryFn: fromApi((token, id: string) => getGame(token, id)),
         providesTags: ['Games'],
@@ -47,6 +51,7 @@ export const gamesApi = api.injectEndpoints({
 })
 
 export const {
+  useGetGameScoreQuery,
   useListGamesQuery,
   useGetGameQuery,
   useInviteToGameMutation,

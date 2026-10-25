@@ -47,3 +47,11 @@ export interface Game {
   createdAt: string
   updatedAt: string
 }
+
+// Счёт между мной и соперником в одной игре (завершённые партии)
+export interface GameScore {
+  kind: GameKind
+  wins: number
+  losses: number
+  draws: number
+}

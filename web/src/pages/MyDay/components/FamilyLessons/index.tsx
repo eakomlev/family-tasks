@@ -3,10 +3,10 @@ import type { Member } from '@/api'
 import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
 import { todayIso } from '@/lib/date'
-import { byTimeThenTitle, toEntries } from '@/lib/occurrences'
+import { groupChildTasks } from '@/lib/childTasks'
 import { useProfile } from '@/profile/context'
 import { useGetScheduleQuery, useGetTrainingsQuery } from '@/store/schedules'
-import { useListTasksQuery } from '@/store/tasks'
+import { useListDoneTasksQuery, useListTasksQuery } from '@/store/tasks'
 import { ChildCard } from './components/ChildCard'
 import type { ChildCardProps } from './components/ChildCard/types'
 import { List } from './styles'
@@ -40,18 +40,13 @@ export function FamilyLessons({ now }: FamilyLessonsProps) {
   // задания всей семьи на сегодня одним запросом (тот же, что у «Заданий на сегодня»: в кэше он общий);
   // ошибка не мешает остальной сводке (блок заданий просто не появится)
   const { data: tasks } = useListTasksQuery({ from: today, to: today }, { skip: !isParent })
+  // недавно выполненное: из него берём сделанное сегодня без срока (основной список такие не отдаёт)
+  const { data: recentDone } = useListDoneTasksQuery({ days: 2 }, { skip: !isParent })
 
   if (!isParent || children.length === 0) return null
 
-  // Задания ребёнка: сегодняшние вхождения, в том числе выполненные, и отдельно задания без срока (просроченные сюда не входят)
-  const childTasks = (childId: string) => {
-    if (!tasks) return undefined
-    const entries = toEntries(tasks, childId)
-    return {
-      today: entries.filter(({ occurrence }) => occurrence.date === today).sort(byTimeThenTitle),
-      undated: entries.filter(({ occurrence }) => occurrence.date === null).sort(byTimeThenTitle),
-    }
-  }
+  // Задания ребёнка: все (просроченные, на сегодня, без срока) и выполненные сегодня без срока или просроченные
+  const childTasks = (childId: string) => groupChildTasks(tasks, recentDone, childId, today)
 
   return (
     <Stack as="section">
