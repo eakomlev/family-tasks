@@ -29,8 +29,6 @@ afterAll(async () => {
 })
 
 const say = (token: string, chat: string, text: string) => api(app, token, 'POST', `/api/chats/${chat}/messages`, { text })
-// уведомления ставятся в очередь «в фоне», после ответа
-const settle = () => new Promise((r) => setTimeout(r, 500))
 const lastBadge = async (who: 'mom' | 'kid') => (await sentTo([endpoints[who]])).at(-1)?.badge
 
 describe('число на значке', () => {
@@ -71,11 +69,9 @@ describe('число на значке', () => {
 
   it('push несёт число непрочитанного на момент отправки, включая это сообщение', async () => {
     await say(fam.mom.token, 'family', 'первое')
-    await settle()
     expect(await lastBadge('kid')).toBe(1)
     await resetSent()
     await say(fam.mom.token, fam.kid.id, 'второе')
-    await settle()
     expect(await lastBadge('kid')).toBe(2)
   })
 
@@ -83,7 +79,6 @@ describe('число на значке', () => {
     await api(app, fam.kid.token, 'PUT', '/api/chats/family/mute', { muted: true })
     await say(fam.mom.token, 'family', 'тихо')
     await say(fam.mom.token, fam.kid.id, 'громко')
-    await settle()
     expect(await lastBadge('kid')).toBe(1)
   })
 })

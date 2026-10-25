@@ -749,7 +749,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
         const view = chat.view(id, member.id)
         publishTo(id, { type: 'chat', chat: view })
         // если получатель прямо сейчас смотрит этот чат, пуш не нужен: сообщение появится на экране
-        if (id !== member.id && !mutedIds.has(id) && !isViewingChat(id, view)) void enqueueToMember(pool, id, chatPushMessage(senderLabel(member, roleOf.get(id) ?? ''), view, pushText, chat.eventTitle))
+        if (id !== member.id && !mutedIds.has(id) && !isViewingChat(id, view)) await enqueueToMember(pool, id, chatPushMessage(senderLabel(member, roleOf.get(id) ?? ''), view, pushText, chat.eventTitle))
       }
       return reply.code(201).send({ message })
     },
@@ -1014,7 +1014,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       if (coins !== undefined) {
         // баланс ребёнка изменился; ему приходит уведомление о начислении
         publish(member.family_id, { type: 'members' })
-        void enqueueToMember(pool, row.senderId, awardPushMessage(senderLabel(member, 'child'), chat.view(row.senderId, member.id), row.id, coins, emoji ?? undefined))
+        await enqueueToMember(pool, row.senderId, awardPushMessage(senderLabel(member, 'child'), chat.view(row.senderId, member.id), row.id, coins, emoji ?? undefined))
       }
 
       const [message] = await decorate(pool, [toMessage(row)], secret)

@@ -1,5 +1,13 @@
+# Журналы контейнеров: не больше 3 файлов по 10 МБ на сервис (без этого они растут без предела и забивают диск сервера)
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
+    logging: *logging
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
@@ -15,6 +23,7 @@ services:
       retries: 10
 
   server:
+    logging: *logging
     build: ./server
     restart: unless-stopped
     environment:
@@ -49,6 +58,7 @@ services:
   # отправка писем (SMTP, по умолчанию Mailpit из профиля dev-mail) и push из очереди outbox; портов нет,
   # живость проверяется по метке в БД
   notifier:
+    logging: *logging
     build: ./notifier
     restart: unless-stopped
     environment:
@@ -88,6 +98,7 @@ services:
   # планировщик уведомлений: раз в минуту решает, кому что напомнить (дни рождения, уроки, тренировки), и ставит
   # сообщения в очередь outbox; портов нет, живость проверяется по метке в БД (docs/scheduler-service-plan.md)
   scheduler:
+    logging: *logging
     build: ./scheduler
     restart: unless-stopped
     environment:
@@ -114,6 +125,7 @@ services:
   # Ключи доступа берутся из .env при каждом запуске. После перезапуска хранилищу нужно до получаса, чтение в это время даёт 500,
   # поэтому media при старте создаёт бакет с повторами (docs/chat-photos-plan.md)
   s3:
+    logging: *logging
     image: chrislusf/seaweedfs:latest
     restart: unless-stopped
     entrypoint: ["/bin/sh", "-c"]
@@ -129,6 +141,7 @@ services:
 
   # обработка и выдача фото: принимает от server, перекодирует, хранит в s3, отдаёт по подписанным ссылкам (/media/ через nginx)
   media:
+    logging: *logging
     build: ./media
     restart: unless-stopped
     environment:
@@ -153,6 +166,7 @@ services:
 
   # локальный SMTP-приёмник, письма смотрим на http://localhost:8025
   mailpit:
+    logging: *logging
     image: axllent/mailpit:latest
     profiles: [dev-mail]
     restart: unless-stopped
@@ -160,6 +174,7 @@ services:
       - "8025:8025"
 
   web:
+    logging: *logging
     build: ./web
     restart: unless-stopped
     ports:

@@ -372,7 +372,7 @@ export async function taskRoutes(app: FastifyInstance) {
 
     publish(member.family_id, { type: 'tasks' })
     // исполнителю сообщаем о новом задании, если его дал не он сам
-    if (task.assigneeId !== member.id) void enqueueToMember(pool, task.assigneeId, createdMessage(task, member.name))
+    if (task.assigneeId !== member.id) await enqueueToMember(pool, task.assigneeId, createdMessage(task, member.name))
     return reply.code(201).send({ task })
   })
 
@@ -418,7 +418,7 @@ export async function taskRoutes(app: FastifyInstance) {
     publish(member.family_id, { type: 'tasks' })
     // баланс детей изменился
     if (revoked) publish(member.family_id, { type: 'members' })
-    if (task.assigneeId !== member.id) void enqueueToMember(pool, task.assigneeId, updatedMessage(task, member.name))
+    if (task.assigneeId !== member.id) await enqueueToMember(pool, task.assigneeId, updatedMessage(task, member.name))
     return { task }
   })
 
@@ -504,16 +504,16 @@ export async function taskRoutes(app: FastifyInstance) {
     const dto = toDto(row)
     if (outcome === 'submitted') {
       // родителям: ребёнок ждёт подтверждения
-      void notifyParents(member.family_id, reviewMessage(dto, member.name, date))
+      await notifyParents(member.family_id, reviewMessage(dto, member.name, date))
     }
     if ((outcome === 'done' || outcome === 'confirmed') && row.reward > 0) {
       // баланс исполнителя изменился; сообщаем ему, если подтвердил или отметил не он сам
       publish(member.family_id, { type: 'members' })
-      if (row.assigneeId !== member.id) void enqueueToMember(pool, row.assigneeId, rewardMessage(dto))
+      if (row.assigneeId !== member.id) await enqueueToMember(pool, row.assigneeId, rewardMessage(dto))
     }
     // автору сообщаем один раз, когда задание выполнено (подтверждено), и если это сделал не он сам
     if ((outcome === 'done' || outcome === 'confirmed') && row.authorId !== member.id) {
-      void enqueueToMember(pool, row.authorId, completedMessage(dto, member.name, date))
+      await enqueueToMember(pool, row.authorId, completedMessage(dto, member.name, date))
     }
     return outcome
   }

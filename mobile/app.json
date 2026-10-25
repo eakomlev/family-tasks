@@ -100,7 +100,8 @@
           "microphonePermission": "Нужен доступ к микрофону, чтобы вы могли записывать видео со звуком для чата."
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

@@ -69,7 +69,6 @@ describe('шашки: партия', () => {
     expect(res.body.game.board[3 * 8 + 3]).toBe('w')
     expect(res.body.game.board[2 * 8 + 2]).toBe('.')
     expect(res.body.game.legal).toHaveLength(7)
-    await new Promise((r) => setTimeout(r, 500))
     const titles = (await sentTo([black.id === fam.mom.id ? endpoints.mom : endpoints.dad])).map((p) => p.payload.title)
     expect(titles.some((t) => t.includes('ваш ход'))).toBe(true)
   })

@@ -63,7 +63,6 @@ const clear = (token: string | null, chat: string) => api(app, token, 'DELETE', 
 const mute = (token: string, chat: string, muted: boolean) => api(app, token, 'PUT', `/api/chats/${chat}/mute`, { muted })
 const listed = async (token: string) => (await api(app, token, 'GET', '/api/chats')).body.chats as { id: string; muted: boolean }[]
 const pushes = async (...who: (keyof typeof endpoints)[]) => {
-  await new Promise((r) => setTimeout(r, 500))
   return sentTo(who.map((w) => endpoints[w]))
 }
 const uploadPhoto = async (token: string, chat: string) => {

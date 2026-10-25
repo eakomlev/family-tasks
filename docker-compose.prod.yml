@@ -1,8 +1,16 @@
 # Продакшен: поверх docker-compose.yml добавляет Caddy с автоматическим HTTPS.
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 # Нужен Docker Compose 2.24 или новее (тег !reset).
+# Журналы контейнеров: не больше 3 файлов по 10 МБ на сервис (без этого они растут без предела и забивают диск сервера)
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   caddy:
+    logging: *logging
     image: caddy:2-alpine
     restart: unless-stopped
     environment:

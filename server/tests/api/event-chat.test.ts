@@ -49,7 +49,6 @@ const send = (token: string, chat: string, text: string) => api(app, token, 'POS
 const messages = (token: string, chat: string) => api(app, token, 'GET', `/api/chats/${chat}/messages`)
 const list = async (token: string) => (await api(app, token, 'GET', '/api/chats')).body.chats as { id: string; last: any; unread: number; event: { id: string; title: string } | null }[]
 const pushes = async (...who: (keyof typeof endpoints)[]) => {
-  await new Promise((r) => setTimeout(r, 500))
   return sentTo(who.map((w) => endpoints[w]))
 }
 

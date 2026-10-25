@@ -57,7 +57,6 @@ describe('архив чатов', () => {
     // чат остаётся в архиве, а не выходит из него от нового сообщения
     await send(fam.mom.token, fam.kid.id, 'Ещё')
     expect((await list(fam.kid.token)).find((c) => c.id === fam.mom.id)).toMatchObject({ archived: true, unread: 1 })
-    await new Promise((r) => setTimeout(r, 500))
     // push одного чата склеиваются по tag: остаётся последний, но он поставлен в очередь
     const pushes = await sentTo([endpoints.kid])
     expect(pushes.at(-1)!.payload).toMatchObject({ body: 'Ещё', url: `/chat/${fam.mom.id}` })

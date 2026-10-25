@@ -35,7 +35,6 @@ const give = (memberId: string, amount: number) =>
 const balance = async (token: string) => (await api(app, token, 'GET', '/api/me')).body.member.coins as number
 const create = (token: string, memberId: string, body: object) => api(app, token, 'POST', `/api/members/${memberId}/goals`, body)
 const pushes = async (...eps: string[]) => {
-  await new Promise((r) => setTimeout(r, 500))
   return (await sentTo(eps))
 }
 const png = 'data:image/png;base64,iVBORw0KGgo='

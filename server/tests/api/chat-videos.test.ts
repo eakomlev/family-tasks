@@ -177,11 +177,9 @@ describe('сообщение с видео', () => {
 
   it('уведомление: «🎬 Видео» или «🎬 подпись» (уведомления одного чата склеиваются, поэтому смотрим по одному)', async () => {
     await send(fam.kid.token, 'family', { videoIds: [await video()] })
-    await new Promise((r) => setTimeout(r, 500))
     expect((await sentTo([endpoints.mom])).at(-1)!.payload.body).toBe('🎬 Видео')
     await resetSent()
     await send(fam.kid.token, 'family', { text: 'вот', videoIds: [await video()] })
-    await new Promise((r) => setTimeout(r, 500))
     expect((await sentTo([endpoints.mom])).at(-1)!.payload.body).toBe('🎬 вот')
   })
 

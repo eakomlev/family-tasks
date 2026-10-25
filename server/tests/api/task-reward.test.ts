@@ -377,7 +377,6 @@ describe('выдача награды', () => {
     await resetSent()
     await complete(fam.dad.token, id)
     expect(await balance()).toBe(before + 30)
-    await new Promise((r) => setTimeout(r, 500))
     expect((await sentTo([kidEndpoint])).map((s) => s.payload)).toContainEqual({ title: 'Награда', body: '+30 монет за «Уборка»', url: '/coins', tag: `reward-${id}` })
   })
 
