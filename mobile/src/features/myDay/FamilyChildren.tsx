@@ -210,7 +210,7 @@ export function FamilyChildren({ now }: { now: Date }) {
   return (
     <Stack $gap={10}>
       <ZoneTitle tone="kids" icon="kids" count={children.length}>
-        Дети: уроки, тренировки и задания
+        Дети
       </ZoneTitle>
       {children.map((child) => (
         <ChildWithSchedules key={child.id} child={child} tasks={childTasks(child.id)} now={now} />

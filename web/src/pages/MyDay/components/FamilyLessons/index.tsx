@@ -56,7 +56,7 @@ export function FamilyLessons({ now }: FamilyLessonsProps) {
   return (
     <Stack as="section">
       <ZoneTitle tone="kids" icon="kids" count={children.length} countLabel={`Детей: ${children.length}`}>
-        Дети: уроки, тренировки и задания
+        Дети
       </ZoneTitle>
       <List>
         {children.map((child) => (

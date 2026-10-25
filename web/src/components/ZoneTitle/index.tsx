@@ -23,7 +23,7 @@ interface Props {
   right?: ReactNode
 }
 
-// Шапка зоны на «Моём дне»: цветной значок, название, цветная линия и, если нужно, счётчик и ссылки справа.
+// Шапка зоны на «Моём дне»: цветной значок, название, цветная линия, ссылки и счётчик. Счётчик всегда в правом краю.
 // Цвет зоны один на все её блоки: «Нужно решить», «Мой день», «Дети», «Игры» различаются с первого взгляда.
 export function ZoneTitle({ tone, icon, children, count, countLabel, right }: Props) {
   return (
@@ -34,9 +34,9 @@ export function ZoneTitle({ tone, icon, children, count, countLabel, right }: Pr
         </svg>
       </Chip>
       <Title $tone={tone}>{children}</Title>
-      {count !== undefined && <Count $tone={tone} aria-label={countLabel}>{count}</Count>}
       <Line $tone={tone} aria-hidden />
       {right}
+      {count !== undefined && <Count $tone={tone} aria-label={countLabel}>{count}</Count>}
     </Bar>
   )
 }

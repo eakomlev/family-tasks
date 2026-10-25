@@ -27,7 +27,7 @@ interface Props {
   right?: ReactNode
 }
 
-// Шапка зоны на «Моём дне»: цветной значок, название, цветная линия и, если нужно, счётчик. Цвет зоны один на все её блоки
+// Шапка зоны на «Моём дне»: цветной значок, название, цветная линия, ссылки и счётчик (счётчик всегда в правом краю). Цвет зоны один на все её блоки
 // (токены zone* в палитре, те же значения, что в вебе).
 export function ZoneTitle({ tone, icon, children, count, right }: Props) {
   const { colors } = useTheme()
@@ -44,6 +44,8 @@ export function ZoneTitle({ tone, icon, children, count, right }: Props) {
         <Ionicons name={ICONS[icon]} size={18} color={c.fg} />
       </View>
       <Heading style={{ color: c.fg, flexShrink: 1 }}>{children}</Heading>
+      <View style={{ flex: 1, height: 2, borderRadius: 1, backgroundColor: c.line, opacity: 0.45 }} />
+      {right}
       {count !== undefined && (
         <View style={{ minWidth: 22, paddingHorizontal: 6, height: 22, borderRadius: 11, backgroundColor: c.line, alignItems: 'center', justifyContent: 'center' }} accessibilityLabel={`Число: ${count}`}>
           <Text $size={12} $weight="black" style={{ color: '#ffffff' }}>
@@ -51,8 +53,6 @@ export function ZoneTitle({ tone, icon, children, count, right }: Props) {
           </Text>
         </View>
       )}
-      <View style={{ flex: 1, height: 2, borderRadius: 1, backgroundColor: c.line, opacity: 0.45 }} />
-      {right}
     </View>
   )
 }
