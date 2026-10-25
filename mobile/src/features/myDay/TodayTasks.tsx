@@ -1,6 +1,7 @@
 import { Notice } from '@/components/Notice'
+import { ZoneTitle } from '@/components/ZoneTitle'
 import { Stack } from '@/components/Stack'
-import { Heading, Text } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { TaskItem } from '@/features/tasks/TaskItem'
 import { useIdentity } from '@/identity/context'
 import { todayIso } from '@/lib/date'
@@ -32,7 +33,9 @@ export function TodayTasks({ now }: { now: Date }) {
 
   return (
     <Stack $gap={10}>
-      <Heading>Задания на сегодня</Heading>
+      <ZoneTitle tone="mine" icon="tasks">
+        Задания на сегодня
+      </ZoneTitle>
       {failed && <Notice tone="error">Не удалось загрузить задания. Проверьте соединение.</Notice>}
       {!list && !failed && <Text $tone="muted">Загрузка…</Text>}
       {list && items.length === 0 && <Notice>Все задания на сегодня выполнены.</Notice>}

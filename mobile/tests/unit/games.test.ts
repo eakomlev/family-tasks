@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Game } from '../../src/api'
-import { gameStatusLine, lastMoveText, needsMyAction, openGames, resultText } from '../../src/features/games/utils'
+import { GAMES, gameStatusLine, lastMoveText, needsMyAction, openGames, resultText } from '../../src/features/games/utils'
 import { winningLine } from '../../src/features/games/ticTacToe'
 import { parseMessage } from '../../src/realtime/utils'
 import { tagsForEvent } from '../../src/store/invalidate'
@@ -87,5 +87,19 @@ describe('ничья по соглашению', () => {
     expect(needsMyAction(game({ turnId: 'other', drawOffer: 'other' }), 'me')).toBe(true)
     expect(needsMyAction(game({ turnId: 'other', drawOffer: 'me' }), 'me')).toBe(false)
     expect(needsMyAction(game({ turnId: 'other' }), 'me')).toBe(false)
+  })
+})
+
+describe('шашки', () => {
+  it('«нет ходов» словами, шашки в списке доступных игр', () => {
+    expect(resultText({ winnerId: 'me', reason: 'no_moves' }, 'me')).toBe('У соперника не осталось ходов. Вы победили!')
+    expect(resultText({ winnerId: 'other', reason: 'no_moves' }, 'me')).toBe('У вас не осталось ходов. Вы проиграли')
+    expect(GAMES.find((g) => g.kind === 'checkers')?.available).toBe(true)
+    expect(GAMES.find((g) => g.kind === 'battleship')?.available).toBe(false)
+  })
+
+  it('последний ход путём клеток', () => {
+    expect(lastMoveText(game({ kind: 'checkers', lastPath: ['c3', 'e5', 'g7'] }))).toBe('Последний ход: c3 → e5 → g7')
+    expect(lastMoveText(game({ kind: 'checkers', lastPath: null }))).toBeNull()
   })
 })

@@ -1,3 +1,4 @@
+import { ZoneTitle } from '@/components/ZoneTitle'
 import { Stack } from '@/components/Stack'
 import { TrainingViewList } from '@/components/TrainingViewList'
 import { useIdentity } from '@/identity/context'
@@ -21,8 +22,9 @@ export function TodayTrainings({ now }: TodayTrainingsProps) {
   return (
     <Stack as="section">
       <Header>
-        <h2>Тренировки {day.label}</h2>
-        <EditLink to="/profile/trainings">Расписание</EditLink>
+        <ZoneTitle tone="mine" icon="training" right={<EditLink to="/profile/trainings">Расписание</EditLink>}>
+          {`Тренировки ${day.label}`}
+        </ZoneTitle>
       </Header>
       <TrainingViewList trainings={day.trainings} />
     </Stack>

@@ -55,7 +55,7 @@ describe('приглашение', () => {
   it('нельзя пригласить себя, чужого и в неизвестную игру', async () => {
     expect((await invite(fam.mom.token, fam.mom.id)).status).toBe(400)
     expect((await invite(fam.mom.token, outsider.mom.id)).status).toBe(404)
-    expect((await api(app, fam.mom.token, 'POST', '/api/games', { kind: 'checkers', opponentId: fam.dad.id })).status).toBe(400)
+    expect((await api(app, fam.mom.token, 'POST', '/api/games', { kind: 'battleship', opponentId: fam.dad.id })).status).toBe(400)
   })
 
   it('принять может только приглашённый; цвета назначаются, ход у белых', async () => {

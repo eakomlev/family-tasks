@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router'
+import { ZoneTitle } from '@/components/ZoneTitle'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
-import { Heading, Text } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { useGetScheduleQuery, useGetTrainingsQuery } from '@/store/schedules'
 import { LessonList, TrainingList } from './ScheduleLists'
@@ -30,7 +31,9 @@ export function TodayLessons({ now }: { now: Date }) {
 
   return (
     <Stack $gap={10}>
-      <Heading>{lessons ? `Уроки ${day.label}` : 'Уроки'}</Heading>
+      <ZoneTitle tone="mine" icon="lessons">
+        {lessons ? `Уроки ${day.label}` : 'Уроки'}
+      </ZoneTitle>
       {failed && <Notice tone="error">Не удалось загрузить расписание. Проверьте соединение.</Notice>}
       {!lessons && !failed && <Text $tone="muted">Загрузка…</Text>}
       {empty && <Notice>{empty}</Notice>}
@@ -52,7 +55,9 @@ export function TodayTrainings({ now }: { now: Date }) {
 
   return (
     <Stack $gap={10}>
-      <Heading>{`Тренировки ${day.label}`}</Heading>
+      <ZoneTitle tone="mine" icon="training">
+        {`Тренировки ${day.label}`}
+      </ZoneTitle>
       <TrainingList trainings={day.trainings} />
     </Stack>
   )

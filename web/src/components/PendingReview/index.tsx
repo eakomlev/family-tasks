@@ -1,3 +1,4 @@
+import { ZoneTitle } from '@/components/ZoneTitle'
 import { useEffect } from 'react'
 import { isParent } from '@/lib/roles'
 import { Notice } from '@/components/Notice'
@@ -8,7 +9,7 @@ import { occurrenceKey, toEntries } from '@/lib/occurrences'
 import { useReview } from '@/lib/useReview'
 import { useProfile } from '@/profile/context'
 import { useListPendingTasksQuery } from '@/store/tasks'
-import { Count, List, Section, Title } from './styles'
+import { List, Section } from './styles'
 import type { PendingReviewProps } from './types'
 
 // Задания, которые дети отправили на проверку: родитель подтверждает (дети получают награду) или возвращает.
@@ -35,9 +36,9 @@ export function PendingReview({ assigneeId = null, onCount }: PendingReviewProps
 
   return (
     <Section aria-label="Ждут подтверждения">
-      <Title>
-        Ждут подтверждения <Count aria-label={`Заданий: ${entries.length}`}>{entries.length}</Count>
-      </Title>
+      <ZoneTitle tone="decide" icon="hourglass" count={entries.length} countLabel={`Заданий: ${entries.length}`}>
+        Ждут подтверждения
+      </ZoneTitle>
       {review.error && <Notice $tone="error">{review.error}</Notice>}
       <List>
         {entries.map((entry) => {

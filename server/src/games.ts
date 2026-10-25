@@ -3,17 +3,18 @@ import { Chess } from 'chess.js'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { PoolClient } from 'pg'
 import { authenticate } from './auth.js'
+import { applyPath, legalPaths, QUIET_DRAW_PLIES, samePath, sideToMove, startBoard } from './checkers.js'
 import { senderLabel } from './chat.js'
 import { pool } from './db.js'
 import type { PushMessage } from './outbox/contract.js'
 import { enqueueToMember } from './outbox/index.js'
 import { isViewingChat, publishTo } from './realtime.js'
 
-// Доступные игры. Остальные (шашки, морской бой) пока заглушки на клиенте.
-export const GAME_KINDS = ['chess', 'tictactoe'] as const
+// Доступные игры. Остальная (морской бой) пока заглушка на клиенте.
+export const GAME_KINDS = ['chess', 'tictactoe', 'checkers'] as const
 export type GameKind = (typeof GAME_KINDS)[number]
 
-const GAME_TITLES: Record<GameKind, string> = { chess: 'Шахматы', tictactoe: 'Крестики-нолики' }
+const GAME_TITLES: Record<GameKind, string> = { chess: 'Шахматы', tictactoe: 'Крестики-нолики', checkers: 'Шашки' }
 // завершённая игра остаётся в списке ещё сутки, чтобы соперник увидел итог
 const FINISHED_VISIBLE_HOURS = 24
 
@@ -27,7 +28,7 @@ export interface ChessMove {
 export interface GameResult {
   // null — ничья
   winnerId: string | null
-  reason: 'checkmate' | 'stalemate' | 'draw' | 'resign' | 'line' | 'agreement'
+  reason: 'checkmate' | 'stalemate' | 'draw' | 'resign' | 'line' | 'agreement' | 'no_moves'
 }
 
 interface GameRow {
@@ -41,7 +42,8 @@ interface GameRow {
   turn_id: string | null
   // шахматы: moves и fen; крестики-нолики: board (9 знаков по строкам: «X», «O» или «-») и cells (клетки в порядке ходов)
   // шахматы ещё: drawOffer — кто предложил ничью и ждёт ответа (пропадает с первым же ходом), drawOffers — на каком по счёту полуходе каждый предлагал в последний раз
-  state: { moves?: ChessMove[]; fen?: string; board?: string; cells?: number[]; drawOffer?: string | null; drawOffers?: Record<string, number> }
+  // шашки: board (64 знака, см. checkers.ts), history (записи ходов «c3-d4», «c3:e5»), quiet (сколько полуходов подряд без боя и без хода шашкой)
+  state: { lastPath?: string[]; moves?: ChessMove[]; fen?: string; board?: string; cells?: number[]; history?: string[]; quiet?: number; drawOffer?: string | null; drawOffers?: Record<string, number> }
   result: GameResult | null
   created_at: Date
   updated_at: Date
@@ -64,6 +66,9 @@ export interface GameDto {
   board: string | null
   cells: number[]
   lastCell: number | null
+  // шашки: последний ход путём клеток («c3», «e5», «g7») и допустимые сейчас ходы того, чей ход (клиент только показывает их и отправляет выбранный путь)
+  lastPath: string[] | null
+  legal: string[][]
   // кто предложил ничью и ждёт ответа соперника; null, если предложения нет
   drawOffer: string | null
   result: GameResult | null
@@ -75,7 +80,8 @@ const START_FEN = new Chess().fen()
 const EMPTY_BOARD = '-'.repeat(9)
 
 // Начальное состояние партии нужного вида
-const initialState = (kind: GameKind) => (kind === 'chess' ? { fen: START_FEN, moves: [] } : { board: EMPTY_BOARD, cells: [] })
+const initialState = (kind: GameKind) =>
+  kind === 'chess' ? { fen: START_FEN, moves: [] } : kind === 'checkers' ? { board: startBoard(), history: [], quiet: 0 } : { board: EMPTY_BOARD, cells: [] }
 
 // Тройки клеток, выигрывающие в крестики-нолики
 const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]]
@@ -84,6 +90,10 @@ const hasLine = (board: string, mark: string) => LINES.some((line) => line.every
 const toDto = (row: GameRow): GameDto => {
   const moves = row.state.moves ?? []
   const tictactoe = row.kind === 'tictactoe'
+  const checkers = row.kind === 'checkers'
+  const board = checkers ? (row.state.board ?? startBoard()) : null
+  const side = checkers && row.status === 'active' ? sideToMove(row.white_id, row.turn_id) : null
+  const history = row.state.history ?? []
   const cells = row.state.cells ?? []
   return {
     id: row.id,
@@ -93,12 +103,14 @@ const toDto = (row: GameRow): GameDto => {
     inviteeId: row.invitee_id,
     whiteId: row.white_id,
     turnId: row.turn_id,
-    fen: tictactoe ? '' : (row.state.fen ?? START_FEN),
+    fen: tictactoe || checkers ? '' : (row.state.fen ?? START_FEN),
     moves,
     lastMove: moves[moves.length - 1] ?? null,
-    board: tictactoe ? (row.state.board ?? EMPTY_BOARD) : null,
+    board: tictactoe ? (row.state.board ?? EMPTY_BOARD) : board,
     cells,
     lastCell: cells[cells.length - 1] ?? null,
+    lastPath: checkers && history.length > 0 ? (row.state.lastPath ?? null) : null,
+    legal: board && side ? legalPaths(board, side) : [],
     drawOffer: row.status === 'active' ? (row.state.drawOffer ?? null) : null,
     result: row.result,
     createdAt: row.created_at.toISOString(),
@@ -270,7 +282,7 @@ export async function gameRoutes(app: FastifyInstance) {
     if (!updated) return
     signal(updated.row)
     const mine = updated.row.white_id === updated.row.inviter_id
-    const first = updated.row.kind === 'tictactoe' ? (mine ? 'вы ходите первым' : 'соперник ходит первым') : mine ? 'вы ходите белыми' : 'соперник ходит белыми'
+    const first = updated.row.kind !== 'chess' ? (mine ? 'вы ходите первым' : 'соперник ходит первым') : mine ? 'вы ходите белыми' : 'соперник ходит белыми'
     await notify(updated.row, updated.row.inviter_id, {
       title: `${senderLabel(updated.member, await roleOf(updated.row.inviter_id))} принял приглашение`,
       body: `${GAME_TITLES[updated.row.kind]}: ${first}`,
@@ -372,10 +384,10 @@ export async function gameRoutes(app: FastifyInstance) {
     },
   )
 
-  // ---- ничья по соглашению (шахматы) ----
+  // ---- ничья по соглашению (шахматы и шашки) ----
   // Предложение живёт, пока соперник не ответит или кто-нибудь не сделает ход. Предлагать можно раз за ход (иначе кнопку можно «долбить»).
   const drawGame = async (game: GameRow, reply: FastifyReply) => {
-    if (game.kind !== 'chess') {
+    if (game.kind !== 'chess' && game.kind !== 'checkers') {
       reply.code(400).send({ error: 'wrong_game' })
       return false
     }
@@ -399,7 +411,7 @@ export async function gameRoutes(app: FastifyInstance) {
         reply.code(409).send({ error: 'draw_offered' })
         return null
       }
-      const plies = (game.state.moves ?? []).length
+      const plies = (game.state.moves ?? game.state.history ?? []).length
       const offers = game.state.drawOffers ?? {}
       if (offers[member.id] === plies) {
         reply.code(409).send({ error: 'offer_too_soon' })
@@ -449,6 +461,69 @@ export async function gameRoutes(app: FastifyInstance) {
       return { game: toDto(result.row) }
     })
   }
+
+  // Ход в шашки: path — клетки хода (откуда, потом куда, при ударе все клетки остановок), только из допустимых ходов, которые отдаёт DTO (legal)
+  app.post<{ Params: { id: string }; Body: { path: string[] } }>(
+    '/api/games/:id/play',
+    {
+      schema: {
+        params: idParams,
+        body: {
+          type: 'object',
+          required: ['path'],
+          additionalProperties: false,
+          properties: { path: { type: 'array', minItems: 2, maxItems: 16, items: { type: 'string', pattern: '^[a-h][1-8]$' } } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const result = await withGame(req, reply, async (db, game, member) => {
+        if (game.kind !== 'checkers') {
+          reply.code(400).send({ error: 'wrong_game' })
+          return null
+        }
+        if (game.status !== 'active') {
+          reply.code(409).send({ error: 'not_active' })
+          return null
+        }
+        if (game.turn_id !== member.id) {
+          reply.code(409).send({ error: 'not_your_turn' })
+          return null
+        }
+        const board = game.state.board ?? startBoard()
+        const side = sideToMove(game.white_id, game.turn_id)!
+        const path = req.body.path
+        if (!legalPaths(board, side).some((p) => samePath(p, path))) {
+          reply.code(400).send({ error: 'illegal_move' })
+          return null
+        }
+        const applied = applyPath(board, path)
+        const opponent = member.id === game.inviter_id ? game.invitee_id : game.inviter_id
+        const history = [...(game.state.history ?? []), applied.notation]
+        const quiet = applied.captured > 0 || applied.manMoved ? 0 : (game.state.quiet ?? 0) + 1
+
+        // у соперника нет ходов (все фигуры побиты или заперты): он проиграл; 15 ходов дамками без боя: ничья
+        let outcome: GameResult | null = null
+        if (legalPaths(applied.board, side === 'w' ? 'b' : 'w').length === 0) outcome = { winnerId: member.id, reason: 'no_moves' }
+        else if (quiet >= QUIET_DRAW_PLIES) outcome = { winnerId: null, reason: 'draw' }
+
+        const state = { board: applied.board, history, quiet, lastPath: path, drawOffers: game.state.drawOffers ?? {} }
+        const { rows } = await db.query<GameRow>(
+          `update games set state = $2, turn_id = $3, status = $4, result = $5, updated_at = now() where id = $1 returning *`,
+          [game.id, JSON.stringify(state), outcome ? null : opponent, outcome ? 'finished' : 'active', outcome ? JSON.stringify(outcome) : null],
+        )
+        return { row: rows[0], member, opponent }
+      })
+      if (!result) return
+      signal(result.row)
+      const finished = result.row.result
+      await notify(result.row, result.opponent, {
+        title: finished ? `${GAME_TITLES[result.row.kind]}: игра окончена` : `${senderLabel(result.member, await roleOf(result.opponent))}: ваш ход`,
+        body: finished ? resultText(finished, result.opponent) : GAME_TITLES[result.row.kind],
+      })
+      return { game: toDto(result.row) }
+    },
+  )
 
   // Ход в крестики-нолики: cell — номер клетки 0–8 (по строкам слева направо); крестики у того, кто в white_id и ходит первым
   app.post<{ Params: { id: string }; Body: { cell: number } }>(
@@ -528,6 +603,7 @@ export async function gameRoutes(app: FastifyInstance) {
 export function resultText(result: GameResult, viewerId: string): string {
   if (result.reason === 'resign') return result.winnerId === viewerId ? 'Соперник сдался. Вы победили!' : 'Вы сдались'
   if (result.reason === 'agreement') return 'Ничья по соглашению'
+  if (result.reason === 'no_moves') return result.winnerId === viewerId ? 'У соперника не осталось ходов. Вы победили!' : 'У вас не осталось ходов. Вы проиграли'
   if (result.reason === 'line') return result.winnerId === viewerId ? 'Три в ряд. Вы победили!' : 'Соперник собрал три в ряд. Вы проиграли'
   if (!result.winnerId) return result.reason === 'stalemate' ? 'Пат. Ничья' : 'Ничья'
   return result.winnerId === viewerId ? 'Мат. Вы победили!' : 'Мат. Вы проиграли'

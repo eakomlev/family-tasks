@@ -1,3 +1,4 @@
+import { ZoneTitle } from '@/components/ZoneTitle'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
 import { TaskItem } from '@/components/TaskItem'
@@ -46,10 +47,9 @@ export function TodayTasks({ now }: TodayTasksProps) {
   return (
     <Stack as="section">
       <Header>
-        <h2>Задания на сегодня</h2>
-        <Links>
-          <EditLink to="/tasks/new">+ Добавить</EditLink>
-        </Links>
+        <ZoneTitle tone="mine" icon="tasks" right={<Links><EditLink to="/tasks/new">+ Добавить</EditLink></Links>}>
+          Задания на сегодня
+        </ZoneTitle>
       </Header>
       {failed && <Notice $tone="error">Не удалось загрузить задания. Проверьте соединение.</Notice>}
       {!list && !failed && <p>Загрузка…</p>}

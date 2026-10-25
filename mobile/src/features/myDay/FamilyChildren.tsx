@@ -1,4 +1,5 @@
 import { Pressable, View } from 'react-native'
+import { ZoneTitle } from '@/components/ZoneTitle'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from 'styled-components/native'
@@ -6,7 +7,7 @@ import type { Lesson, Member, Training } from '@/api'
 import { Avatar } from '@/components/Avatar'
 import { Card } from '@/components/Card'
 import { Stack } from '@/components/Stack'
-import { Heading, Text } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { todayIso } from '@/lib/date'
 import { byTimeThenTitle, toEntries, type TaskEntry } from '@/lib/occurrences'
@@ -208,7 +209,9 @@ export function FamilyChildren({ now }: { now: Date }) {
 
   return (
     <Stack $gap={10}>
-      <Heading>Дети: уроки, тренировки и задания</Heading>
+      <ZoneTitle tone="kids" icon="kids" count={children.length}>
+        Дети: уроки, тренировки и задания
+      </ZoneTitle>
       {children.map((child) => (
         <ChildWithSchedules key={child.id} child={child} tasks={childTasks(child.id)} now={now} />
       ))}

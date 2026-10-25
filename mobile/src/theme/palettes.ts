@@ -23,6 +23,19 @@ export interface Palette {
   doneText: string
   reviewBg: string
   reviewText: string
+  // зоны «Моего дня»: нужно решить, мой день, дети, игры (подложка значка, значок и название, цветная линия)
+  zoneDecideBg: string
+  zoneDecideFg: string
+  zoneDecideLine: string
+  zoneMineBg: string
+  zoneMineFg: string
+  zoneMineLine: string
+  zoneKidsBg: string
+  zoneKidsFg: string
+  zoneKidsLine: string
+  zoneGamesBg: string
+  zoneGamesFg: string
+  zoneGamesLine: string
   cardBorder: string
   track: string
   checkBorder: string
@@ -74,6 +87,18 @@ export const lightPalette: Palette = {
   doneText: '#3e5b00',
   reviewBg: '#e6e3ff',
   reviewText: '#3424c9',
+  zoneDecideBg: '#ffe0d6',
+  zoneDecideFg: '#8a2d12',
+  zoneDecideLine: '#e5532d',
+  zoneMineBg: '#e7e4ff',
+  zoneMineFg: '#3a2ec4',
+  zoneMineLine: '#4b3bff',
+  zoneKidsBg: '#d6f5e6',
+  zoneKidsFg: '#0b5b3a',
+  zoneKidsLine: '#13a06a',
+  zoneGamesBg: '#ffebc7',
+  zoneGamesFg: '#7a4500',
+  zoneGamesLine: '#d98a00',
   cardBorder: '#eceef6',
   track: '#eef0fa',
   checkBorder: '#c3c8e3',
@@ -120,6 +145,18 @@ export const darkPalette: Palette = {
   doneText: '#c4f04a',
   reviewBg: '#24206b',
   reviewText: '#b9b2ff',
+  zoneDecideBg: '#5c2214',
+  zoneDecideFg: '#ffc4b0',
+  zoneDecideLine: '#ff8a66',
+  zoneMineBg: '#2a2670',
+  zoneMineFg: '#c9c3ff',
+  zoneMineLine: '#8e82ff',
+  zoneKidsBg: '#0f4a33',
+  zoneKidsFg: '#a9ebcb',
+  zoneKidsLine: '#3dd598',
+  zoneGamesBg: '#5a3a06',
+  zoneGamesFg: '#ffd58a',
+  zoneGamesLine: '#ffb933',
   cardBorder: '#262b4d',
   track: '#262b4d',
   checkBorder: '#3d4372',

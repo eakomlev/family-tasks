@@ -26,6 +26,7 @@ vi.mock('@/api', async (importOriginal) => ({
   cancelGame: vi.fn(),
   moveInGame: vi.fn(),
   placeInGame: vi.fn(),
+  playInGame: vi.fn(),
   resignGame: vi.fn(),
   offerDraw: vi.fn(),
   acceptDraw: vi.fn(),
@@ -123,6 +124,7 @@ beforeEach(() => {
   vi.mocked(api.listGames).mockReset().mockResolvedValue({ games: [] })
   vi.mocked(api.getGame).mockReset()
   vi.mocked(api.placeInGame).mockReset()
+  vi.mocked(api.playInGame).mockReset()
   vi.mocked(api.offerDraw).mockReset()
   vi.mocked(api.acceptDraw).mockReset()
   vi.mocked(api.declineDraw).mockReset()
@@ -140,7 +142,8 @@ describe('приглашение в игру', () => {
     renderAt('/family/igor/games')
     expect(await screen.findByRole('button', { name: 'Шахматы: пригласить' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Крестики-нолики: пригласить' })).toBeEnabled()
-    for (const name of ['Шашки', 'Морской бой']) expect(screen.getByRole('button', { name: `${name}: скоро` })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Шашки: пригласить' })).toBeEnabled()
+    for (const name of ['Морской бой']) expect(screen.getByRole('button', { name: `${name}: скоро` })).toBeDisabled()
   })
 
   it('выбор шахмат: подтверждение, приглашение уходит, открывается игра', async () => {
@@ -399,5 +402,48 @@ describe('ничья по соглашению', () => {
     renderAt('/games/g1')
     await screen.findByText('Ваш ход')
     expect(screen.queryByRole('button', { name: 'Предложить ничью' })).toBeNull()
+  })
+})
+
+describe('шашки', () => {
+  // белая шашка c3 (и дамка h8 для контраста), ходить можно c3→b4 или c3→d4
+  const cells = Array(64).fill('.')
+  cells[2 * 8 + 2] = 'w'
+  const checkers = (patch: Partial<GameDto> = {}) => game({ kind: 'checkers', fen: '', board: cells.join(''), legal: [['c3', 'b4'], ['c3', 'd4']], lastPath: null, ...patch })
+
+  it('мой ход: нажатие на шашку и клетку отправляет путь, доска обновляется ответом', async () => {
+    serve(checkers())
+    const moved = [...cells]
+    moved[2 * 8 + 2] = '.'
+    moved[3 * 8 + 3] = 'w'
+    vi.mocked(api.playInGame).mockImplementation(answer(checkers({ board: moved.join(''), legal: [], turnId: 'igor', lastPath: ['c3', 'd4'] })))
+    renderAt('/games/g1')
+    expect(await screen.findByText('Ваш ход')).toBeInTheDocument()
+    expect(screen.getByText(/Вы играете белыми/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('gridcell', { name: /^c3\b/ }))
+    await userEvent.click(screen.getByRole('gridcell', { name: /^d4\b/ }))
+    await waitFor(() => expect(api.playInGame).toHaveBeenCalledWith('tok', 'g1', ['c3', 'd4']))
+    expect(await screen.findByText('Ход: Игорь')).toBeInTheDocument()
+    expect(screen.getByText(/Последний ход: c3 → d4/)).toBeInTheDocument()
+  })
+
+  it('ничья предлагается и в шашках', async () => {
+    serve(checkers())
+    vi.mocked(api.offerDraw).mockImplementation(answer(checkers({ drawOffer: 'me' })))
+    renderAt('/games/g1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Предложить ничью' }))
+    expect(await screen.findByText('Вы предложили ничью. Ждём ответа.')).toBeInTheDocument()
+  })
+
+  it('итог «нет ходов» словами', async () => {
+    serve(checkers({ status: 'finished', turnId: null, legal: [], result: { winnerId: 'me', reason: 'no_moves' } }))
+    renderAt('/games/g1')
+    expect(await screen.findByText('У соперника не осталось ходов. Вы победили!')).toBeInTheDocument()
+  })
+
+  it('в списке игр шашки доступны', async () => {
+    renderAt('/family/igor/games')
+    expect(await screen.findByRole('button', { name: 'Шашки: пригласить' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Морской бой: скоро' })).toBeDisabled()
   })
 })

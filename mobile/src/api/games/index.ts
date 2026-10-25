@@ -22,6 +22,9 @@ export const moveInGame = (token: string, id: string, move: Pick<ChessMove, 'fro
 // Ход в крестики-нолики: номер клетки 0–8 по строкам слева направо
 export const placeInGame = (token: string, id: string, cell: number) => request<{ game: Game }>(`/games/${id}/place`, send('POST', { cell }), token)
 
+// Ход в шашки: путь клеток из допустимых ходов игры (legal): откуда, потом куда, при ударе все остановки
+export const playInGame = (token: string, id: string, path: string[]) => request<{ game: Game }>(`/games/${id}/play`, send('POST', { path }), token)
+
 // Ничья по соглашению (шахматы): предложить, принять или отклонить предложение соперника
 export const offerDraw = (token: string, id: string) => request<{ game: Game }>(`/games/${id}/draw/offer`, send('POST'), token)
 

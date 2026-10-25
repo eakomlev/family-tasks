@@ -1,3 +1,4 @@
+import { ZoneTitle } from '@/components/ZoneTitle'
 import { LessonViewList } from '@/components/LessonViewList'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
@@ -31,8 +32,9 @@ export function TodayLessons({ now }: TodayLessonsProps) {
   return (
     <Stack as="section">
       <Header>
-        <h2>{lessons ? `Уроки ${day.label}` : 'Уроки'}</h2>
-        <EditLink to="/profile/schedule">Расписание</EditLink>
+        <ZoneTitle tone="mine" icon="lessons" right={<EditLink to="/profile/schedule">Расписание</EditLink>}>
+          {lessons ? `Уроки ${day.label}` : 'Уроки'}
+        </ZoneTitle>
       </Header>
       {failed && <Notice $tone="error">Не удалось загрузить расписание. Проверьте соединение.</Notice>}
       {!lessons && !failed && <p>Загрузка…</p>}

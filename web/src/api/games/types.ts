@@ -1,5 +1,5 @@
-// Доступные игры. Остальные (шашки, морской бой) пока заглушки.
-export type GameKind = 'chess' | 'tictactoe'
+// Доступные игры. Остальная (морской бой) пока заглушка.
+export type GameKind = 'chess' | 'tictactoe' | 'checkers'
 
 export type GameStatus = 'invited' | 'active' | 'finished' | 'declined' | 'cancelled'
 
@@ -17,7 +17,7 @@ export type PromotionPiece = 'q' | 'r' | 'b' | 'n'
 export interface GameResult {
   // null — ничья
   winnerId: string | null
-  reason: 'checkmate' | 'stalemate' | 'draw' | 'resign' | 'line' | 'agreement'
+  reason: 'checkmate' | 'stalemate' | 'draw' | 'resign' | 'line' | 'agreement' | 'no_moves'
 }
 
 export interface Game {
@@ -38,6 +38,9 @@ export interface Game {
   board: string | null
   cells: number[]
   lastCell: number | null
+  // шашки: последний ход путём клеток и допустимые сейчас ходы того, чей ход (считает сервер); у прочих игр нет или пусто
+  lastPath?: string[] | null
+  legal?: string[][]
   // кто предложил ничью и ждёт ответа соперника; null, если предложения нет (нет и у сервера прежней версии)
   drawOffer?: string | null
   result: GameResult | null

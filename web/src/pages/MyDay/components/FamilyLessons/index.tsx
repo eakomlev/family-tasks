@@ -1,3 +1,4 @@
+import { ZoneTitle } from '@/components/ZoneTitle'
 import type { Member } from '@/api'
 import { Stack } from '@/components/Stack'
 import { useIdentity } from '@/identity/context'
@@ -54,7 +55,9 @@ export function FamilyLessons({ now }: FamilyLessonsProps) {
 
   return (
     <Stack as="section">
-      <h2>Дети: уроки, тренировки и задания</h2>
+      <ZoneTitle tone="kids" icon="kids" count={children.length} countLabel={`Детей: ${children.length}`}>
+        Дети: уроки, тренировки и задания
+      </ZoneTitle>
       <List>
         {children.map((child) => (
           <ChildWithSchedules key={child.id} child={child} tasks={childTasks(child.id)} now={now} />

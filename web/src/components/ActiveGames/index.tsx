@@ -1,3 +1,4 @@
+import { ZoneTitle } from '@/components/ZoneTitle'
 import { Avatar } from '@/components/Avatar'
 import { useIdentity } from '@/identity/context'
 import { gameStatusLine, gameTitle, needsMyAction, openGames, opponentOf } from '@/lib/games'
@@ -17,7 +18,9 @@ export function ActiveGames() {
 
   return (
     <Section aria-label="Игры">
-      <h2>Игры</h2>
+      <ZoneTitle tone="games" icon="games" count={games.length} countLabel={`Игр: ${games.length}`}>
+        Игры
+      </ZoneTitle>
       <List>
         {games.map((game) => {
           const opponent = profile?.members.find((m) => m.id === opponentOf(game, identity.memberId))

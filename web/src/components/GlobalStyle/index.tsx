@@ -24,6 +24,19 @@ const lightColors = css`
   --done-text: #3e5b00;
   --review-bg: #e6e3ff;
   --review-text: #3424c9;
+  /* зоны «Моего дня»: нужно решить, мой день, дети, игры (значок и название, значок на плашке, цветная линия) */
+  --zone-decide-bg: #ffe0d6;
+  --zone-decide-fg: #8a2d12;
+  --zone-decide-line: #e5532d;
+  --zone-mine-bg: #e7e4ff;
+  --zone-mine-fg: #3a2ec4;
+  --zone-mine-line: #4b3bff;
+  --zone-kids-bg: #d6f5e6;
+  --zone-kids-fg: #0b5b3a;
+  --zone-kids-line: #13a06a;
+  --zone-games-bg: #ffebc7;
+  --zone-games-fg: #7a4500;
+  --zone-games-line: #d98a00;
   /* карточки: в светлой теме белые с мягкой тенью, в тёмной с тонкой рамкой */
   --card-border: #eceef6;
   --card-shadow: 0 6px 18px rgb(40 50 120 / 0.08);
@@ -88,6 +101,18 @@ const darkColors = css`
   --done-text: #c4f04a;
   --review-bg: #24206b;
   --review-text: #b9b2ff;
+  --zone-decide-bg: #5c2214;
+  --zone-decide-fg: #ffc4b0;
+  --zone-decide-line: #ff8a66;
+  --zone-mine-bg: #2a2670;
+  --zone-mine-fg: #c9c3ff;
+  --zone-mine-line: #8e82ff;
+  --zone-kids-bg: #0f4a33;
+  --zone-kids-fg: #a9ebcb;
+  --zone-kids-line: #3dd598;
+  --zone-games-bg: #5a3a06;
+  --zone-games-fg: #ffd58a;
+  --zone-games-line: #ffb933;
   --card-border: #262b4d;
   --card-shadow: none;
   --radius-card: 1.35rem;

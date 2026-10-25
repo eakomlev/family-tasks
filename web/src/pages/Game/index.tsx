@@ -4,6 +4,7 @@ import { Avatar } from '@/components/Avatar'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { ChessBoard } from '@/components/ChessBoard'
+import { CheckersBoard } from '@/components/CheckersBoard'
 import { TicTacToeBoard } from '@/components/TicTacToeBoard'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Notice } from '@/components/Notice'
@@ -17,7 +18,7 @@ import { useProfile } from '@/profile/context'
 import { useViewingChat } from '@/realtime/context'
 import { ApiError } from '@/api'
 import { toApiError } from '@/store/api'
-import { useAcceptGameMutation, useInviteToGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, usePlaceInGameMutation, useResignGameMutation, useOfferDrawMutation, useAcceptDrawMutation, useDeclineDrawMutation } from '@/store/games'
+import { useAcceptGameMutation, useInviteToGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, usePlaceInGameMutation, usePlayInGameMutation, useResignGameMutation, useOfferDrawMutation, useAcceptDrawMutation, useDeclineDrawMutation } from '@/store/games'
 import { Buttons, Caption, Opponent, Result, Status } from './styles'
 
 // Одна игра: приглашение (принять или отклонить), ожидание ответа, партия и итог.
@@ -34,6 +35,7 @@ export default function Game() {
   const [cancel] = useCancelGameMutation()
   const [move] = useMoveInGameMutation()
   const [place] = usePlaceInGameMutation()
+  const [playChecker] = usePlayInGameMutation()
   const [offerDraw] = useOfferDrawMutation()
   const [acceptDraw] = useAcceptDrawMutation()
   const [declineDraw] = useDeclineDrawMutation()
@@ -108,7 +110,7 @@ export default function Game() {
 
           {game.status === 'invited' && game.inviteeId === me && (
             <>
-              <Notice $tone="muted">{`${opponentName} приглашает вас сыграть. ${game.kind === 'chess' ? 'Цвет фигур выберется случайно.' : 'Кто ходит первым, выберется случайно.'}`}</Notice>
+              <Notice $tone="muted">{`${opponentName} приглашает вас сыграть. ${game.kind === 'chess' ? 'Цвет фигур выберется случайно.' : game.kind === 'checkers' ? 'Цвет шашек выберется случайно.' : 'Кто ходит первым, выберется случайно.'}`}</Notice>
               <Buttons>
                 <Button $variant="primary" type="button" disabled={busy} onClick={() => void run(() => call(accept({ id })))}>
                   Принять
@@ -145,6 +147,18 @@ export default function Game() {
                   />
                   <Caption>{`Вы играете: ${myMark(game, me)}${game.whiteId === me ? ' · вы ходите первым' : ''}`}</Caption>
                 </>
+              ) : game.kind === 'checkers' ? (
+                <>
+                  <CheckersBoard
+                    board={game.board ?? ''}
+                    legal={game.legal ?? []}
+                    lastPath={game.lastPath ?? null}
+                    orientation={game.whiteId === me ? 'w' : 'b'}
+                    canMove={game.status === 'active' && game.turnId === me && !busy}
+                    onPlay={(path) => void run(() => call(playChecker({ id, path })))}
+                  />
+                  <Caption>{`${game.whiteId === me ? 'Вы играете белыми' : 'Вы играете чёрными'}${lastMoveText(game) ? ` · ${lastMoveText(game)}` : ''}`}</Caption>
+                </>
               ) : (
                 <>
                   <ChessBoard
@@ -157,7 +171,7 @@ export default function Game() {
                   <Caption>{`${game.whiteId === me ? 'Вы играете белыми' : 'Вы играете чёрными'}${lastMoveText(game) ? ` · ${lastMoveText(game)}` : ''}`}</Caption>
                 </>
               )}
-              {game.status === 'active' && game.kind === 'chess' && game.drawOffer && game.drawOffer !== me && (
+              {game.status === 'active' && (game.kind === 'chess' || game.kind === 'checkers') && game.drawOffer && game.drawOffer !== me && (
                 <Result role="status">
                   <Status>{`${opponentName} предлагает ничью`}</Status>
                   <Buttons>
@@ -170,8 +184,8 @@ export default function Game() {
                   </Buttons>
                 </Result>
               )}
-              {game.status === 'active' && game.kind === 'chess' && game.drawOffer === me && <Caption>Вы предложили ничью. Ждём ответа.</Caption>}
-              {game.status === 'active' && game.kind === 'chess' && !game.drawOffer && (
+              {game.status === 'active' && (game.kind === 'chess' || game.kind === 'checkers') && game.drawOffer === me && <Caption>Вы предложили ничью. Ждём ответа.</Caption>}
+              {game.status === 'active' && (game.kind === 'chess' || game.kind === 'checkers') && !game.drawOffer && (
                 <Button type="button" disabled={busy} onClick={() => void run(() => call(offerDraw({ id })))}>
                   Предложить ничью
                 </Button>

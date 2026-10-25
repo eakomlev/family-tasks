@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
-import { View } from 'react-native'
+import { ZoneTitle } from '@/components/ZoneTitle'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
-import { Heading, Text } from '@/components/Text'
+
 import { useIdentity } from '@/identity/context'
 import { todayIso } from '@/lib/date'
 import { occurrenceKey, toEntries } from '@/lib/occurrences'
@@ -35,12 +35,9 @@ export function PendingReview({ assigneeId = null, onCount }: { assigneeId?: str
 
   return (
     <Stack $gap={10} accessibilityLabel="Ждут подтверждения">
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Heading>Ждут подтверждения</Heading>
-        <Text $weight="black" $size={14} $tone="accent">
-          {String(count)}
-        </Text>
-      </View>
+      <ZoneTitle tone="decide" icon="hourglass" count={count}>
+        Ждут подтверждения
+      </ZoneTitle>
       {review.error && <Notice tone="error">{review.error}</Notice>}
       {entries.map((entry) => {
         const key = occurrenceKey(entry.task.id, entry.occurrence.date)
