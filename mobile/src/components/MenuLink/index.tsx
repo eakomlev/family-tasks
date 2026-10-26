@@ -29,3 +29,19 @@ export function MenuLink({ to, children }: { to: Href; children: string }) {
     </Pressable>
   )
 }
+
+// Пункт меню, который не открывает экран приложения, а выполняет действие (например, открывает страницу сайта в браузере)
+export function ExternalLink({ onPress, children }: { onPress: () => void; children: string }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="link">
+      <Row>
+        <Text $weight="extraBold" style={{ flex: 1 }}>
+          {children}
+        </Text>
+        <Text $tone="muted" $size={20}>
+          ↗
+        </Text>
+      </Row>
+    </Pressable>
+  )
+}

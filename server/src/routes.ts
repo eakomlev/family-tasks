@@ -16,6 +16,7 @@ import { pool } from './db.js'
 import type { CaptchaVerifier } from './captcha.js'
 import { coinBalance } from './coins.js'
 import { parseContact, type Contact } from './contact.js'
+import { CONSENT_VERSION } from './consent.js'
 import { mailBudgetExhausted, smsBudgetExhausted } from './outbox/budget.js'
 import { enqueue, PRIORITY } from './outbox/index.js'
 import { closeSession, publish } from './realtime.js'
@@ -59,6 +60,8 @@ const createFamilySchema = {
       name: nameSchema,
       email: emailSchema,
       phone: phoneSchema,
+      // согласие на обработку персональных данных: без true регистрация отклоняется (400 consent_required)
+      consent: { type: 'boolean' },
       code: codeSchema,
     },
   },
@@ -75,6 +78,8 @@ const joinSchema = {
       name: nameSchema,
       email: emailSchema,
       phone: phoneSchema,
+      // согласие на обработку персональных данных: без true регистрация отклоняется (400 consent_required)
+      consent: { type: 'boolean' },
       code: codeSchema,
     },
   },
@@ -118,6 +123,8 @@ const loginSchema = {
     properties: {
       email: emailSchema,
       phone: phoneSchema,
+      // согласие на обработку персональных данных: без true регистрация отклоняется (400 consent_required)
+      consent: { type: 'boolean' },
       code: codeSchema,
       memberId: { type: 'string', format: 'uuid' },
     },
@@ -129,6 +136,7 @@ interface SignupBody {
   name: string
   email?: string
   phone?: string
+  consent?: boolean
   code: string
 }
 
@@ -141,9 +149,9 @@ async function insertMember(
 ) {
   const name = body.name.trim()
   const { rows } = await db.query(
-    `insert into members (family_id, name, email, phone, role, is_owner)
-     values ($1, $2, $3, $4, $5, $6) returning id`,
-    [familyId, name, contact.kind === 'email' ? contact.value : null, contact.kind === 'phone' ? contact.value : null, body.role, isOwner],
+    `insert into members (family_id, name, email, phone, role, is_owner, consent_version, consent_at)
+     values ($1, $2, $3, $4, $5, $6, $7, now()) returning id`,
+    [familyId, name, contact.kind === 'email' ? contact.value : null, contact.kind === 'phone' ? contact.value : null, body.role, isOwner, CONSENT_VERSION],
   )
   const id = rows[0].id as string
   const token = await createSession(db, id)
@@ -256,6 +264,7 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
       const parsed = parseContact(req.body)
       if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
       const { contact } = parsed
+      if (req.body.consent !== true) return reply.code(400).send({ error: 'consent_required' })
       if (!(await checkEmailCode(contact.key, 'signup', req.body.code))) {
         return reply.code(400).send({ error: 'invalid_code' })
       }
@@ -325,6 +334,7 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
       const parsed = parseContact(req.body)
       if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
       const { contact } = parsed
+      if (req.body.consent !== true) return reply.code(400).send({ error: 'consent_required' })
       if (!(await checkEmailCode(contact.key, 'signup', req.body.code))) {
         return reply.code(400).send({ error: 'invalid_code' })
       }
@@ -465,6 +475,8 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
         isOwner: me.is_owner,
         email: me.email,
         phone: me.phone,
+        // согласие на обработку персональных данных нужно дать заново, если участник ещё не согласился или текст обновился
+        consentRequired: me.consent_version !== CONSENT_VERSION,
         // раздел «Сервис» (статистика) только у администраторов из ADMIN_EMAILS
         isAdmin: isAdminEmail(me.email),
         avatar: me.avatar,
@@ -547,6 +559,14 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
       }
     },
   )
+
+  // Согласие на обработку персональных данных у уже зарегистрированного участника (экран согласия после обновления): фиксируем текущую редакцию.
+  app.post('/api/me/consent', async (req, reply) => {
+    const me = await authenticate(req)
+    if (!me) return reply.code(401).send({ error: 'unauthorized' })
+    await pool.query('update members set consent_version = $2, consent_at = now() where id = $1', [me.id, CONSENT_VERSION])
+    return reply.code(204).send()
+  })
 
   // ---- телефон в профиле: добавить или сменить (код приходит SMS на новый номер), убрать ----
 

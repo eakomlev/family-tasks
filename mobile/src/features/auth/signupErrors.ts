@@ -10,6 +10,8 @@ export function describeSignupError(err: unknown): { text: string; backToDetails
       return { text: 'Этот email уже используется в семье. Укажите другой.', backToDetails: true }
     case 'phone_taken':
       return { text: 'Этот номер уже используется в семье. Укажите другой.', backToDetails: true }
+    case 'consent_required':
+      return { text: 'Нужно согласие на обработку персональных данных.', backToDetails: true }
     case 'invalid_code':
       return { text: 'Неверный код или срок его действия истёк.', backToDetails: false }
     case 'family_full':

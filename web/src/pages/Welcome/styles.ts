@@ -46,3 +46,16 @@ export const Features = styled.ul`
     cursor: pointer;
   }
 `
+
+// ссылки на политику и соглашение внизу первого экрана
+export const Legal = styled.p`
+  margin: 0;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+
+  a {
+    color: inherit;
+  }
+`

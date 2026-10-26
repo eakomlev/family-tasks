@@ -6,12 +6,13 @@ import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { CoinBalanceCard } from '@/components/Coins'
 import { useConfirm } from '@/components/ConfirmDialog'
-import { MenuLink } from '@/components/MenuLink'
+import { ExternalLink, MenuLink } from '@/components/MenuLink'
 import { Screen } from '@/components/Screen'
 import { Heading, Text } from '@/components/Text'
 import { disablePush } from '@/features/notifications/usePush'
 import { useIdentity } from '@/identity/context'
 import { formatPhone } from '@/lib/contact'
+import { openLegal, PRIVACY_PATH, TERMS_PATH } from '@/lib/legal'
 import { ageFromBirthDate, formatAge, formatBirthDate } from '@/lib/date'
 import { ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
@@ -75,6 +76,8 @@ export function ProfileScreen() {
           <MenuLink to="/profile/notifications">Уведомления</MenuLink>
           <MenuLink to="/profile/theme">Тема</MenuLink>
           <MenuLink to="/profile/settings">Настройки</MenuLink>
+          <ExternalLink onPress={() => openLegal(PRIVACY_PATH)}>Политика обработки данных</ExternalLink>
+          <ExternalLink onPress={() => openLegal(TERMS_PATH)}>Пользовательское соглашение</ExternalLink>
           {me.isAdmin && <MenuLink to="/profile/service">Сервис</MenuLink>}
           {/* ребёнок и создатель семьи свой аккаунт отдельно не удаляют (создатель удаляет семью целиком) */}
           {me.role !== 'child' && !me.isOwner && <MenuLink to="/profile/delete">Удалить аккаунт</MenuLink>}

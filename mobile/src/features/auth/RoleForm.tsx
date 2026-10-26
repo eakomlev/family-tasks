@@ -12,6 +12,7 @@ import { contactBody, emptyContact, isValidContact, trimContact, type Contact } 
 import { describeCodeError, isTooSoon } from '@/lib/errors'
 import { ROLE_LABELS, type Role } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
+import { ConsentCheck } from '@/features/legal/ConsentCheck'
 import { CodeStep } from './CodeStep'
 import { ContactField } from './ContactField'
 import { describeSignupError } from './signupErrors'
@@ -31,17 +32,18 @@ const RoleCard = styled(Pressable)<{ $selected: boolean }>`
   background-color: ${({ theme, $selected }) => ($selected ? theme.colors.accentSoft : theme.colors.surface)};
 `
 
-// Два шага: роль, имя и способ связи (email или телефон), затем код из письма или SMS. Общий для создания семьи и присоединения по приглашению.
+// Два шага: роль, имя, способ связи (email или телефон) и согласие на обработку персональных данных, затем код из письма или SMS. Общий для создания семьи и присоединения по приглашению.
 export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
   const guard = useInFlight()
   const [step, setStep] = useState<'details' | 'code'>('details')
   const [role, setRole] = useState<Role | null>(null)
   const [name, setName] = useState('')
   const [contact, setContact] = useState<Contact>(emptyContact())
+  const [consent, setConsent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
-  const ready = role !== null && name.trim().length > 0 && isValidContact(contact) && !busy
+  const ready = role !== null && name.trim().length > 0 && isValidContact(contact) && consent && !busy
 
   const sendCode = () => requestCode(trimContact(contact), 'signup')
 
@@ -66,7 +68,7 @@ export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
     setBusy(true)
     setError(undefined)
     try {
-      await onSubmit({ role, name: name.trim(), ...contactBody(contact), code })
+      await onSubmit({ role, name: name.trim(), ...contactBody(contact), consent: true, code })
     } catch (err) {
       const { text, backToDetails } = describeSignupError(err)
       if (backToDetails) setStep('details')
@@ -110,6 +112,8 @@ export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
       </Field>
 
       <ContactField contact={contact} onChange={setContact} hint="По нему вы будете входить с любого устройства. Ребёнок может указать почту или номер родителя." />
+
+      <ConsentCheck checked={consent} onChange={setConsent} />
 
       {error && <Notice tone="error">{error}</Notice>}
 

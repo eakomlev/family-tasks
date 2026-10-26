@@ -8,6 +8,7 @@ import { Button } from '@/components/Button'
 import { Stack } from '@/components/Stack'
 import { Text, Title } from '@/components/Text'
 import { Onboarding } from '@/features/onboarding/Onboarding'
+import { openLegal, PRIVACY_PATH, TERMS_PATH } from '@/lib/legal'
 import { markOnboardingSeen, markOnboardingSkipped, shouldShowOnboarding } from '@/features/onboarding/state'
 
 // чип и номер слайда, который он открывает
@@ -83,6 +84,15 @@ export default function Welcome() {
         <Button variant="text" onPress={() => router.push('/login')}>
           Уже есть семья? Войти
         </Button>
+        <Text $size={13} $tone="muted" style={{ textAlign: 'center' }}>
+          <Text $size={13} $tone="muted" onPress={() => openLegal(PRIVACY_PATH)} accessibilityRole="link" style={{ textDecorationLine: 'underline' }}>
+            Политика обработки данных
+          </Text>
+          {' · '}
+          <Text $size={13} $tone="muted" onPress={() => openLegal(TERMS_PATH)} accessibilityRole="link" style={{ textDecorationLine: 'underline' }}>
+            Пользовательское соглашение
+          </Text>
+        </Text>
       </Stack>
     </AuthScreen>
   )

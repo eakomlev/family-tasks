@@ -34,7 +34,7 @@ async function requestCode(to: string, purpose: 'signup' | 'login') {
 // Регистрация через API: код на почту, создание семьи.
 async function registerFamily(name: string, address = email(`user${++n}`)) {
   await requestCode(address, 'signup')
-  const res = await api(app, null, 'POST', '/api/families', { role: 'mama', name, email: address, code: await lastCode(address) })
+  const res = await api(app, null, 'POST', '/api/families', { consent: true, role: 'mama', name, email: address, code: await lastCode(address) })
   return { address, ...res }
 }
 
@@ -230,16 +230,16 @@ describe('создание семьи', () => {
     await requestCode(to, 'signup')
     const code = await lastCode(to)
     const wrong = code === '000000' ? '000001' : '000000'
-    const bad = await api(app, null, 'POST', '/api/families', { role: 'mama', name: 'А', email: to, code: wrong })
+    const bad = await api(app, null, 'POST', '/api/families', { consent: true, role: 'mama', name: 'А', email: to, code: wrong })
     expect(bad).toMatchObject({ status: 400, body: { error: 'invalid_code' } })
-    expect((await api(app, null, 'POST', '/api/families', { role: 'mama', name: 'А', email: to, code })).status).toBe(201)
-    expect((await api(app, null, 'POST', '/api/families', { role: 'mama', name: 'Б', email: to, code })).status).toBe(400)
+    expect((await api(app, null, 'POST', '/api/families', { consent: true, role: 'mama', name: 'А', email: to, code })).status).toBe(201)
+    expect((await api(app, null, 'POST', '/api/families', { consent: true, role: 'mama', name: 'Б', email: to, code })).status).toBe(400)
   })
 
   it('создателем может быть только мама или папа', async () => {
     const to = email('childowner')
     await requestCode(to, 'signup')
-    const res = await api(app, null, 'POST', '/api/families', { role: 'child', name: 'Ребёнок', email: to, code: await lastCode(to) })
+    const res = await api(app, null, 'POST', '/api/families', { consent: true, role: 'child', name: 'Ребёнок', email: to, code: await lastCode(to) })
     expect(res.status).toBe(400)
   })
 
@@ -247,7 +247,7 @@ describe('создание семьи', () => {
     const to = email('expired')
     await requestCode(to, 'signup')
     await pool.query(`update email_codes set expires_at = now() - interval '1 minute' where email = $1`, [to])
-    const res = await api(app, null, 'POST', '/api/families', { role: 'papa', name: 'Папа', email: to, code: await lastCode(to) })
+    const res = await api(app, null, 'POST', '/api/families', { consent: true, role: 'papa', name: 'Папа', email: to, code: await lastCode(to) })
     expect(res.body).toEqual({ error: 'invalid_code' })
   })
 
@@ -257,9 +257,9 @@ describe('создание семьи', () => {
     const code = await lastCode(to)
     const wrong = code === '111111' ? '222222' : '111111'
     for (let i = 0; i < 5; i++) {
-      await api(app, null, 'POST', '/api/families', { role: 'mama', name: 'А', email: to, code: wrong })
+      await api(app, null, 'POST', '/api/families', { consent: true, role: 'mama', name: 'А', email: to, code: wrong })
     }
-    const res = await api(app, null, 'POST', '/api/families', { role: 'mama', name: 'А', email: to, code })
+    const res = await api(app, null, 'POST', '/api/families', { consent: true, role: 'mama', name: 'А', email: to, code })
     expect(res.status).toBe(400)
   })
 })
@@ -269,7 +269,7 @@ describe('присоединение по приглашению', () => {
     const owner = await registerFamily('Хозяйка')
     const to = email('kid1')
     await requestCode(to, 'signup')
-    const join = await api(app, null, 'POST', `/api/invites/${owner.body.invite.code}/join`, { role: 'child', name: 'Миша', email: to, code: await lastCode(to) })
+    const join = await api(app, null, 'POST', `/api/invites/${owner.body.invite.code}/join`, { consent: true, role: 'child', name: 'Миша', email: to, code: await lastCode(to) })
     expect(join.status).toBe(201)
     expect(join.body.member).toMatchObject({ name: 'Миша', role: 'child', isOwner: false })
     expect(join.body.family.code).toBe(owner.body.family.code)
@@ -281,7 +281,7 @@ describe('присоединение по приглашению', () => {
     const owner = await registerFamily('Семья')
     const join = async (name: string, address: string) => {
       await requestCode(address, 'signup')
-      return api(app, null, 'POST', `/api/invites/${owner.body.invite.code}/join`, { role: 'papa', name, email: address, code: await lastCode(address) })
+      return api(app, null, 'POST', `/api/invites/${owner.body.invite.code}/join`, { consent: true, role: 'papa', name, email: address, code: await lastCode(address) })
     }
     expect((await join('Игорь', email('igor'))).status).toBe(201)
     expect((await join('игорь', email('igor2'))).body).toEqual({ error: 'name_taken' })
@@ -297,7 +297,7 @@ describe('присоединение по приглашению', () => {
     expect((await api(app, null, 'GET', `/api/invites/${owner.body.invite.code}`)).body).toEqual({ error: 'invite_expired' })
     const to = email('late')
     await requestCode(to, 'signup')
-    const join = await api(app, null, 'POST', `/api/invites/${owner.body.invite.code}/join`, { role: 'child', name: 'Опоздал', email: to, code: await lastCode(to) })
+    const join = await api(app, null, 'POST', `/api/invites/${owner.body.invite.code}/join`, { consent: true, role: 'child', name: 'Опоздал', email: to, code: await lastCode(to) })
     expect(join.status).toBe(410)
   })
 })
@@ -330,7 +330,7 @@ describe('вход по коду', () => {
   it('код входа не подходит для регистрации и наоборот', async () => {
     const owner = await registerFamily('Назначение')
     await requestCode(owner.address, 'login')
-    const res = await api(app, null, 'POST', '/api/families', { role: 'papa', name: 'Х', email: owner.address, code: await lastCode(owner.address) })
+    const res = await api(app, null, 'POST', '/api/families', { consent: true, role: 'papa', name: 'Х', email: owner.address, code: await lastCode(owner.address) })
     expect(res.body).toEqual({ error: 'invalid_code' })
   })
 

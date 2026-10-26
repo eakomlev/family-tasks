@@ -9,17 +9,18 @@ import type { RoleFormProps, Step } from './types'
 import { describeSignupError } from './utils'
 import { useInFlight } from '@/lib/useInFlight'
 
-// два шага: роль, имя и способ связи (email или телефон), затем код из письма или SMS
+// два шага: роль, имя, способ связи (email или телефон) и согласие на обработку персональных данных, затем код из письма или SMS
 export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
   const guard = useInFlight()
   const [step, setStep] = useState<Step>('details')
   const [role, setRole] = useState<Role | null>(null)
   const [name, setName] = useState('')
   const [contact, setContact] = useState<Contact>(emptyContact())
+  const [consent, setConsent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
-  const ready = role !== null && name.trim().length > 0 && isValidContact(contact) && !busy
+  const ready = role !== null && name.trim().length > 0 && isValidContact(contact) && consent && !busy
 
   const sendCode = () => requestCode(trimContact(contact), 'signup')
 
@@ -44,7 +45,7 @@ export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
     setBusy(true)
     setError(undefined)
     try {
-      await onSubmit({ role, name: name.trim(), ...contactBody(contact), code })
+      await onSubmit({ role, name: name.trim(), ...contactBody(contact), consent: true, code })
     } catch (err) {
       const { text, backToDetails } = describeSignupError(err)
       if (backToDetails) setStep('details')
@@ -73,12 +74,14 @@ export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
       role={role}
       name={name}
       contact={contact}
+      consent={consent}
       busy={busy}
       ready={ready}
       error={error}
       onRoleChange={setRole}
       onNameChange={setName}
       onContactChange={setContact}
+      onConsentChange={setConsent}
       onSubmit={handleDetails}
     />
   )

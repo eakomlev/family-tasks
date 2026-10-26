@@ -26,6 +26,8 @@ export interface SignupData {
   // ровно одно из двух: email или телефон (код подтверждения придёт письмом или в SMS)
   email?: string
   phone?: string
+  // согласие на обработку персональных данных: без true сервер отклоняет регистрацию (consent_required)
+  consent?: boolean
   code: string
 }
 
@@ -37,7 +39,7 @@ export interface FamilyOverview {
   // coins: баланс виртуальных монет, есть только у детей
   // isAdmin: администратор сервиса (раздел «Сервис» в профиле), приходит только про самого себя
   // email и phone: у участника может быть только один из них
-  member: Member & { email: string | null; phone?: string | null; coins?: number; isAdmin?: boolean }
+  member: Member & { email: string | null; phone?: string | null; consentRequired?: boolean; coins?: number; isAdmin?: boolean }
   family: { code: string }
   members: Member[]
 }

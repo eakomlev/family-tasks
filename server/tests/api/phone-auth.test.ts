@@ -32,7 +32,7 @@ const requestCode = (to: string, purpose: 'signup' | 'login') => api(app, null, 
 
 async function registerFamily(name: string, number = phone(++n)) {
   await requestCode(number, 'signup')
-  const res = await api(app, null, 'POST', '/api/families', { role: 'mama', name, phone: number, code: await lastCode(number) })
+  const res = await api(app, null, 'POST', '/api/families', { consent: true, role: 'mama', name, phone: number, code: await lastCode(number) })
   return { number, ...res }
 }
 
@@ -93,7 +93,7 @@ describe('код на телефон', () => {
 
   it('код для email и для телефона не пересекаются', async () => {
     await requestCode(phone(4), 'signup')
-    const res = await api(app, null, 'POST', '/api/families', { role: 'mama', name: 'Лена', email: phone(4), code: await lastCode(phone(4)) })
+    const res = await api(app, null, 'POST', '/api/families', { consent: true, role: 'mama', name: 'Лена', email: phone(4), code: await lastCode(phone(4)) })
     expect(res.statusCode).toBe(400)
   })
 })
@@ -108,7 +108,7 @@ describe('регистрация и вход по телефону', () => {
 
   it('неверный код не даёт создать семью', async () => {
     await requestCode(phone(5), 'signup')
-    const res = await api(app, null, 'POST', '/api/families', { role: 'mama', name: 'Лена', phone: phone(5), code: '000000' === (await lastCode(phone(5))) ? '111111' : '000000' })
+    const res = await api(app, null, 'POST', '/api/families', { consent: true, role: 'mama', name: 'Лена', phone: phone(5), code: '000000' === (await lastCode(phone(5))) ? '111111' : '000000' })
     expect(res.statusCode).toBe(400)
     expect(res.json()).toEqual({ error: 'invalid_code' })
   })
@@ -156,12 +156,12 @@ describe('регистрация и вход по телефону', () => {
     const owner = await registerFamily('Лена', phone(8))
     const invite = owner.json().invite.code
     await requestCode(phone(9), 'signup')
-    const joined = await api(app, null, 'POST', `/api/invites/${invite}/join`, { role: 'papa', name: 'Игорь', phone: phone(9), code: await lastCode(phone(9)) })
+    const joined = await api(app, null, 'POST', `/api/invites/${invite}/join`, { consent: true, role: 'papa', name: 'Игорь', phone: phone(9), code: await lastCode(phone(9)) })
     expect(joined.statusCode).toBe(201)
 
     await pool.query('delete from email_codes where email = $1', [`tel:${phone(9)}`])
     await requestCode(phone(9), 'signup')
-    const again = await api(app, null, 'POST', `/api/invites/${invite}/join`, { role: 'child', name: 'Миша', phone: phone(9), code: await lastCode(phone(9)) })
+    const again = await api(app, null, 'POST', `/api/invites/${invite}/join`, { consent: true, role: 'child', name: 'Миша', phone: phone(9), code: await lastCode(phone(9)) })
     expect(again.statusCode).toBe(409)
     expect(again.json()).toEqual({ error: 'phone_taken' })
   })
@@ -172,7 +172,7 @@ describe('регистрация и вход по телефону', () => {
     const address = mailAddr('igor')
     await api(app, null, 'POST', '/api/email-codes', { email: address, purpose: 'signup' })
     const { rows } = await pool.query(`select payload->>'code' as code from outbox where channel = 'email' and payload->>'to' = $1 order by id desc limit 1`, [address])
-    const joined = await api(app, null, 'POST', `/api/invites/${invite}/join`, { role: 'papa', name: 'Игорь', email: address, code: rows[0].code })
+    const joined = await api(app, null, 'POST', `/api/invites/${invite}/join`, { consent: true, role: 'papa', name: 'Игорь', email: address, code: rows[0].code })
     expect(joined.statusCode).toBe(201)
     const me = await api(app, owner.json().member.token, 'GET', '/api/me')
     expect(me.json().members.map((m: { name: string }) => m.name)).toEqual(['Лена', 'Игорь'])
@@ -213,7 +213,7 @@ describe('телефон в профиле', () => {
     const address = mailAddr('lena')
     await api(app, null, 'POST', '/api/email-codes', { email: address, purpose: 'signup' })
     const mailCode = (await pool.query(`select payload->>'code' as code from outbox where channel = 'email' and payload->>'to' = $1 order by id desc limit 1`, [address])).rows[0].code
-    const created = await api(app, null, 'POST', '/api/families', { role: 'mama', name: 'Лена', email: address, code: mailCode })
+    const created = await api(app, null, 'POST', '/api/families', { consent: true, role: 'mama', name: 'Лена', email: address, code: mailCode })
     const token = created.json().member.token
 
     expect((await api(app, token, 'POST', '/api/me/phone-code', { phone: phone(13) })).statusCode).toBe(204)
@@ -240,7 +240,7 @@ describe('телефон в профиле', () => {
     const token = owner.json().member.token
     const invite = owner.json().invite.code
     await requestCode(phone(15), 'signup')
-    const joined = await api(app, null, 'POST', `/api/invites/${invite}/join`, { role: 'papa', name: 'Игорь', phone: phone(15), code: await lastCode(phone(15)) })
+    const joined = await api(app, null, 'POST', `/api/invites/${invite}/join`, { consent: true, role: 'papa', name: 'Игорь', phone: phone(15), code: await lastCode(phone(15)) })
     const second = joined.json().member.token
 
     expect((await api(app, second, 'POST', '/api/me/phone-code', { phone: phone(14) })).json()).toEqual({ error: 'phone_taken' })

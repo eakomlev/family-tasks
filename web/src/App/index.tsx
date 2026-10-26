@@ -40,6 +40,8 @@ import Profile from '@/pages/Profile'
 import ProfileEdit from '@/pages/ProfileEdit'
 import ProfileNotifications from '@/pages/ProfileNotifications'
 import ProfilePhone from '@/pages/ProfilePhone'
+import Privacy from '@/pages/Privacy'
+import Terms from '@/pages/Terms'
 import Share from '@/pages/Share'
 import ProfileSettings from '@/pages/ProfileSettings'
 import ProfileTheme from '@/pages/ProfileTheme'
@@ -71,6 +73,8 @@ export default function App() {
             <Route path="/created" element={<FamilyCreated />} />
             <Route path="/join" element={<Join />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
             <Route element={<AppShell />}>
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/tasks/new" element={<TaskForm />} />

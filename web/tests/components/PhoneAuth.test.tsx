@@ -149,13 +149,14 @@ describe('регистрация по телефону', () => {
     fireEvent.change(screen.getByLabelText('Ваше имя'), { target: { value: ' Лена ' } })
     fireEvent.click(screen.getByRole('tab', { name: 'Телефон' }))
     fireEvent.change(screen.getByLabelText(/^Номер телефона/), { target: { value: PHONE } })
+    fireEvent.click(screen.getByRole('checkbox'))
     click('Получить код')
     const code = await screen.findByLabelText('Код из SMS')
     expect(api.requestCode).toHaveBeenCalledWith({ kind: 'phone', value: PHONE }, 'signup')
     fireEvent.change(code, { target: { value: '654321' } })
     click('Создать семью')
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
-    expect(onSubmit).toHaveBeenCalledWith({ role: 'mama', name: 'Лена', phone: '+79112223344', code: '654321' })
+    expect(onSubmit).toHaveBeenCalledWith({ role: 'mama', name: 'Лена', phone: '+79112223344', consent: true, code: '654321' })
   })
 
   it('номер, который уже есть в семье, возвращает к данным с понятным текстом', async () => {
@@ -165,6 +166,7 @@ describe('регистрация по телефону', () => {
     fireEvent.change(screen.getByLabelText('Ваше имя'), { target: { value: 'Лена' } })
     fireEvent.click(screen.getByRole('tab', { name: 'Телефон' }))
     fireEvent.change(screen.getByLabelText(/^Номер телефона/), { target: { value: PHONE } })
+    fireEvent.click(screen.getByRole('checkbox'))
     click('Получить код')
     fireEvent.change(await screen.findByLabelText('Код из SMS'), { target: { value: '654321' } })
     click('Создать семью')

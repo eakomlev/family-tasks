@@ -122,7 +122,7 @@ describe('состав семьи', () => {
     const joinAs = async (name: string, role: string, code: string) => {
       const to = `${role}-${suffix}-${n++}@gp.local`
       expect((await api(app, null, 'POST', '/api/email-codes', { email: to, purpose: 'signup' })).status).toBe(204)
-      return api(app, null, 'POST', `/api/invites/${code}/join`, { role, name, email: to, code: await lastCode(to) })
+      return api(app, null, 'POST', `/api/invites/${code}/join`, { consent: true, role, name, email: to, code: await lastCode(to) })
     }
     const small = await createFamily() // 4 участника
     try {
@@ -145,7 +145,7 @@ describe('состав семьи', () => {
   it('семью создают только мама или папа', async () => {
     const to = `owner-${suffix}@gp.local`
     await api(app, null, 'POST', '/api/email-codes', { email: to, purpose: 'signup' })
-    const res = await api(app, null, 'POST', '/api/families', { role: 'grandma', name: 'Нина', email: to, code: await lastCode(to) })
+    const res = await api(app, null, 'POST', '/api/families', { consent: true, role: 'grandma', name: 'Нина', email: to, code: await lastCode(to) })
     expect(res.status).toBe(400)
   })
 })

@@ -1,7 +1,7 @@
 import type { Member } from '@/api'
 
 export interface ProfileData {
-  me: Member & { email: string | null; phone?: string | null; coins?: number; isAdmin?: boolean }
+  me: Member & { email: string | null; phone?: string | null; consentRequired?: boolean; coins?: number; isAdmin?: boolean }
   members: Member[]
 }
 

@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react'
 import { Button } from '@/components/Button'
 import { CaptchaNotice } from '@/components/CaptchaNotice'
+import { ConsentCheck } from '@/components/ConsentCheck'
 import { ContactField } from '@/components/ContactField'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
@@ -15,12 +16,14 @@ export function DetailsStep({
   role,
   name,
   contact,
+  consent,
   busy,
   ready,
   error,
   onRoleChange,
   onNameChange,
   onContactChange,
+  onConsentChange,
   onSubmit,
 }: DetailsStepProps) {
   function handleSubmit(e: FormEvent) {
@@ -55,6 +58,8 @@ export function DetailsStep({
         onChange={onContactChange}
         hint="По нему вы будете входить с любого устройства. Ребёнок может указать почту или номер родителя."
       />
+
+      <ConsentCheck checked={consent} onChange={onConsentChange} />
 
       {error && <Notice $tone="error">{error}</Notice>}
 

@@ -11,6 +11,7 @@
 // @demo.test: при каждом запуске только такие семьи удаляются и создаются заново, остальные данные не трогаются.
 // У Миши день рождения сегодня (удобно проверять поздравления: cd scheduler && npm run notify:tick -- 10:05 --reset).
 import { createSession } from '../src/auth.js'
+import { CONSENT_VERSION } from '../src/consent.js'
 import { familyCode, inviteCode } from '../src/codes.js'
 import { pool } from '../src/db.js'
 import { migrate } from '../src/migrate.js'
@@ -101,8 +102,8 @@ async function createDemo(): Promise<{ family: { id: string; code: string }; mem
   const members: Members = {}
   for (const p of people) {
     const { rows } = await pool.query(
-      `insert into members (family_id, name, email, role, is_owner, birth_date) values ($1, $2, $3, $4, $5, $6) returning id`,
-      [family.id, p.name, p.email, p.role, p.owner, p.birthDate],
+      `insert into members (family_id, name, email, role, is_owner, birth_date, consent_version, consent_at) values ($1, $2, $3, $4, $5, $6, $7, now()) returning id`,
+      [family.id, p.name, p.email, p.role, p.owner, p.birthDate, CONSENT_VERSION],
     )
     members[p.name] = { id: rows[0].id, token: await createSession(pool, rows[0].id), role: p.role, email: p.email }
   }

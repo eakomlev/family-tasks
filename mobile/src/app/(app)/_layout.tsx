@@ -11,6 +11,7 @@ import { loadTasksView, useTasksView } from '@/features/tasks/viewState'
 import { useIdentity } from '@/identity/context'
 import { ProfileProvider } from '@/profile'
 import { NotificationsBridge } from '@/features/notifications/NotificationsBridge'
+import { ConsentScreen } from '@/features/legal/ConsentScreen'
 import { ShareReceiver } from '@/features/share/ShareReceiver'
 import { useProfile } from '@/profile/context'
 import { RealtimeProvider } from '@/realtime'
@@ -74,6 +75,18 @@ function TopRight() {
 
 // Экраны вошедшего: профиль и сигналы сервера по сокету. Внутри группа `(tabs)` с четырьмя главными разделами и панелью табов,
 // рядом обычные экраны (профиль, монеты, цели, календарь, отчёт об уроке), которые открываются поверх.
+// Пока согласие на обработку персональных данных не дано (участник из прежних версий или обновилась редакция), вместо приложения экран согласия
+function Content() {
+  const { data } = useProfile()
+  if (data?.me.consentRequired) return <ConsentScreen />
+  return (
+    <>
+      <Stack screenOptions={{ headerShown: false }} />
+      <TopRight />
+    </>
+  )
+}
+
 export default function AppLayout() {
   const { identity } = useIdentity()
   if (!identity) return <Redirect href="/welcome" />
@@ -87,8 +100,7 @@ export default function AppLayout() {
         {/* «Поделиться» работает только в приложении: в веб-просмотре у expo-sharing нет приёма и он падал при открытии */}
         {Platform.OS !== 'web' && <ShareReceiver />}
         <ChatsProvider>
-          <Stack screenOptions={{ headerShown: false }} />
-          <TopRight />
+          <Content />
         </ChatsProvider>
       </ProfileProvider>
     </RealtimeProvider>

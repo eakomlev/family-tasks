@@ -20,3 +20,6 @@ export const deleteAccount = (token: string) => request<void>('/me', send('DELET
 export const requestPhoneCode = (token: string, phone: string) => request<void>('/me/phone-code', send('POST', { phone }), token)
 export const savePhone = (token: string, phone: string, code: string) => request<{ phone: string }>('/me/phone', send('PUT', { phone, code }), token)
 export const removePhone = (token: string) => request<void>('/me/phone', send('DELETE'), token)
+
+// Согласие на обработку персональных данных (экран согласия у прежних участников): сервер фиксирует текущую редакцию
+export const acceptConsent = (token: string) => request<void>('/me/consent', send('POST'), token)

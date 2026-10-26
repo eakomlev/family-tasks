@@ -6,7 +6,7 @@ import { useIdentity } from '@/identity/context'
 import { markOnboardingSkipped, shouldShowOnboarding } from '@/lib/onboarding'
 import { START_PATH } from '@/lib/routes'
 import { Onboarding } from './components/Onboarding'
-import { Actions, Features, Hero } from './styles'
+import { Actions, Features, Hero, Legal } from './styles'
 
 // чип и номер слайда, который он открывает (см. SLIDES)
 const FEATURES: [string, number][] = [
@@ -57,6 +57,9 @@ export default function Welcome() {
             <Button as={Link} to="/join" $variant="text">У меня есть приглашение</Button>
             <Button as={Link} to="/login" $variant="text">Уже есть семья? Войти</Button>
           </Actions>
+          <Legal>
+            <Link to="/privacy">Политика обработки данных</Link> · <Link to="/terms">Пользовательское соглашение</Link>
+          </Legal>
         </>
       )}
     </AuthPage>
