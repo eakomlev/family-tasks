@@ -46,7 +46,8 @@ export const Bubble = styled.div<{ $mine: boolean; $interactive?: boolean; $phot
   ${({ $mine }) => ($mine ? 'border-bottom-right-radius: 0.3rem;' : 'border-bottom-left-radius: 0.3rem;')}
   background: ${({ $mine }) => ($mine ? 'var(--accent)' : 'var(--surface)')};
   color: ${({ $mine }) => ($mine ? 'var(--accent-text)' : 'var(--text)')};
-  border: 1px solid ${({ $mine }) => ($mine ? 'var(--accent)' : 'var(--border)')};
+  /* у медиа-пузыря рамки нет: она тонкой линией окружала бы фото и видео */
+  border: ${({ $media, $mine }) => ($media ? '0' : `1px solid ${$mine ? 'var(--accent)' : 'var(--border)'}`)};
   ${({ $interactive }) =>
     $interactive
       ? `cursor: default;

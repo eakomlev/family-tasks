@@ -1,4 +1,4 @@
-import { Pressable, View } from 'react-native'
+import { Platform, Pressable, View } from 'react-native'
 import { Redirect, Stack, usePathname, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -82,8 +82,10 @@ export default function AppLayout() {
     <RealtimeProvider token={identity.token}>
       <ProfileProvider>
         <RealtimeBridge />
-        <NotificationsBridge />
-        <ShareReceiver />
+        {/* уведомления: в веб-просмотре у expo-notifications нет части методов */}
+        {Platform.OS !== 'web' && <NotificationsBridge />}
+        {/* «Поделиться» работает только в приложении: в веб-просмотре у expo-sharing нет приёма и он падал при открытии */}
+        {Platform.OS !== 'web' && <ShareReceiver />}
         <ChatsProvider>
           <Stack screenOptions={{ headerShown: false }} />
           <TopRight />

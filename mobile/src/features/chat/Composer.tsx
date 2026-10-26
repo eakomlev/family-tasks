@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Image, Keyboard, Pressable, ScrollView, TextInput, View } from 'react-native'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
+import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import styled, { useTheme } from 'styled-components/native'
@@ -9,6 +10,7 @@ import { ActionSheet } from '@/components/ActionSheet'
 import { Notice } from '@/components/Notice'
 import { Text } from '@/components/Text'
 import { withType } from '@/lib/blob'
+import { withAlpha } from '@/lib/colorAlpha'
 import { describeFileError, describePhotoError, describeVideoError } from '@/lib/errors'
 import { fileProblem, formatFileSize, MAX_FILES } from '@/lib/files'
 import type { SharedContent } from '@/lib/incomingShare'
@@ -46,6 +48,8 @@ interface ComposerProps {
   onUploadVideo: (video: { blob: Blob; type: string }) => Promise<string>
   // под полем стоит своя панель (чат внутри страницы события): отступ безопасной зоны не нужен
   flushBottom?: boolean
+  // высота панели вместе с вложениями и панелью эмодзи: экран переписки оставляет под ней место в ленте (лента идёт под панель)
+  onHeight?: (height: number) => void
   // поделились из другого приложения: текст, фото и файлы ложатся в поле при открытии чата (читается один раз)
   incoming?: SharedContent | null
   // отвечаем на сообщение: над полем показана цитата, отправка уйдёт ответом
@@ -80,29 +84,34 @@ const LINE_HEIGHT = 22
 const MAX_LINES = 5
 const FIELD_PADDING = 10
 
+// Высота однострочного поля (строка с учётом размера шрифта, отступы и рамка): скрепка и «отправить» не ниже неё, иначе поле выглядит выше кнопок
+const singleLine = (fontScale: number) => Math.max(48, Math.round(LINE_HEIGHT * fontScale) + FIELD_PADDING * 2 + 2)
+
 // без flex: 1: в колонке он схлопывал бы поле до min-height и оно переставало расти
 const Field = styled(TextInput)`
   line-height: ${({ theme }) => Math.round(LINE_HEIGHT * theme.fontScale)}px;
   max-height: ${({ theme }) => Math.round(LINE_HEIGHT * theme.fontScale) * MAX_LINES + FIELD_PADDING * 2}px;
-  min-height: 44px;
+  min-height: ${({ theme }) => singleLine(theme.fontScale)}px;
   padding: ${FIELD_PADDING}px 16px;
   text-align-vertical: top;
-  border-radius: 22px;
-  border-width: 1.5px;
+  border-radius: ${({ theme }) => singleLine(theme.fontScale) / 2}px;
+  border-width: 1px;
   border-color: ${({ theme }) => theme.colors.border};
-  background-color: ${({ theme }) => theme.colors.surface};
+  background-color: ${({ theme }) => withAlpha(theme.colors.surface, 0.66)};
   color: ${({ theme }) => theme.colors.text};
   font-family: ${FONT_FAMILY.regular};
   font-size: ${({ theme }) => 16 * theme.fontScale}px;
 `
 
 const RoundButton = styled(Pressable)<{ $on?: boolean }>`
-  width: 44px;
-  height: 44px;
-  border-radius: 22px;
+  width: ${({ theme }) => singleLine(theme.fontScale)}px;
+  height: ${({ theme }) => singleLine(theme.fontScale)}px;
+  border-radius: ${({ theme }) => singleLine(theme.fontScale) / 2}px;
   align-items: center;
   justify-content: center;
-  background-color: ${({ theme, $on }) => ($on ? theme.colors.accent : theme.colors.track)};
+  border-width: ${({ $on }) => ($on ? 0 : 1)}px;
+  border-color: ${({ theme }) => theme.colors.border};
+  background-color: ${({ theme, $on }) => ($on ? theme.colors.accent : withAlpha(theme.colors.surface, 0.66))};
 `
 
 // системное окно выбора открываем, когда меню уже закрылось: иначе на iPhone два окна подряд мешают друг другу
@@ -113,10 +122,10 @@ const nextKey = () => `att-${++counter}`
 
 // Поле ввода сообщения. Скрепка прикладывает фото (до 10; галерея или камера) и файлы (до 5): фото уменьшаются на устройстве,
 // всё сразу загружается, а к сообщению прикрепляется кнопкой отправки. Ошибка загрузки показана на самом вложении.
-export function Composer({ onSend, onUpload, onUploadFile, onUploadVideo, flushBottom = false, incoming = null, reply = null, onCancelReply, editing = null, onCancelEdit, onEditSubmit }: ComposerProps) {
+export function Composer({ onSend, onUpload, onUploadFile, onUploadVideo, flushBottom = false, onHeight, incoming = null, reply = null, onCancelReply, editing = null, onCancelEdit, onEditSubmit }: ComposerProps) {
   const guard = useInFlight()
   const insets = useSafeAreaInsets()
-  const { colors } = useTheme()
+  const { colors, fontScale } = useTheme()
   const [text, setText] = useState('')
   const [items, setItems] = useState<Attachment[]>([])
   const [menu, setMenu] = useState(false)
@@ -380,7 +389,17 @@ export function Composer({ onSend, onUpload, onUploadFile, onUploadVideo, flushB
   })
 
   return (
-    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg, paddingBottom: keyboard || emojiOpen || flushBottom ? 0 : insets.bottom }}>
+    <View
+      onLayout={(e) => onHeight?.(Math.round(e.nativeEvent.layout.height))}
+      style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingBottom: keyboard || emojiOpen || flushBottom ? 0 : insets.bottom }}
+    >
+      {/* затемнение ленты под панелью: от прозрачного к фону, начинается чуть выше первой кнопки */}
+      <LinearGradient
+        pointerEvents="none"
+        colors={[withAlpha(colors.bg, 0), withAlpha(colors.bg, 0.94), withAlpha(colors.bg, 0.94)]}
+        locations={[0, 0.4, 1]}
+        style={{ position: 'absolute', top: -28, left: 0, right: 0, bottom: 0 }}
+      />
       {(photos.length > 0 || files.length > 0 || videos.length > 0) && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, padding: 10 }} keyboardShouldPersistTaps="handled">
           {photos.map((p) => (
@@ -491,7 +510,7 @@ export function Composer({ onSend, onUpload, onUploadFile, onUploadVideo, flushB
           accessibilityLabel="Сообщение"
           style={{ paddingRight: 48 }}
         />
-        <Pressable onPress={toggleEmoji} accessibilityRole="button" accessibilityLabel={emojiOpen ? 'Клавиатура' : 'Эмодзи'} hitSlop={6} style={{ position: 'absolute', right: 10, bottom: 9, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable onPress={toggleEmoji} accessibilityRole="button" accessibilityLabel={emojiOpen ? 'Клавиатура' : 'Эмодзи'} hitSlop={6} style={{ position: 'absolute', right: 10, bottom: (singleLine(fontScale) - 30) / 2, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name={emojiOpen ? 'keypad-outline' : 'happy-outline'} size={26} color={colors.muted} />
         </Pressable>
         </View>

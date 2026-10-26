@@ -3,6 +3,7 @@ import { Pressable, View, useWindowDimensions } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import styled, { useTheme } from 'styled-components/native'
 import type { ChatMessage } from '@/api'
+import { Avatar } from '@/components/Avatar'
 import { CachedImage } from '@/components/CachedImage'
 import { CoinIcon } from '@/components/Coins'
 import { Text } from '@/components/Text'
@@ -44,6 +45,9 @@ interface MessageBubbleProps {
   senderMood?: string
   // имя автора над чужим сообщением (в общем чате)
   showSender: boolean
+  // аватар автора слева от чужого сообщения в групповом чате: у последнего подряд от одного автора его аватар, у предыдущих пустое место (null);
+  // undefined: колонки аватара нет (свои сообщения, личные чаты)
+  senderAvatar?: { name: string; seed: string; src?: string | null } | null
   status?: MessageStatus
   // своё сообщение ещё уходит (часы вместо галочек) или не ушло (красная иконка слева, нажатие открывает меню)
   delivery?: 'sending' | 'failed'
@@ -62,12 +66,16 @@ interface MessageBubbleProps {
 const PHOTO_WIDTH = 240
 // Просвет между плитками фото; у самих плиток углов нет: края скругляет пузырь, как в Telegram
 const TILE_GAP = 2
+// Колонка аватара слева от чужого сообщения в групповом чате: сам аватар и просвет до пузыря
+const AVATAR_SIZE = 32
+const AVATAR_COLUMN = AVATAR_SIZE + 6
 
 // Пузырь сообщения: свои справа акцентные, чужие слева; внутри фото (плитками) и файлы, под ним реакции и начисленные монеты
-export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, delivery, onFailedPress, onOpenPhoto, onOpenVideo, onFeedback, replyAuthor }: MessageBubbleProps) {
+export function MessageBubble({ message, mine, senderName, senderMood, showSender, senderAvatar, status, delivery, onFailedPress, onOpenPhoto, onOpenVideo, onFeedback, replyAuthor }: MessageBubbleProps) {
   const { colors } = useTheme()
   // ширина пузыря в пикселях: проценты внутри строки с иконкой ошибки считались бы от самого пузыря и ужимали его
-  const maxWidth = Math.round(useWindowDimensions().width * 0.82)
+  // с колонкой аватара (2rem и просвет) на пузырь остаётся меньше
+  const maxWidth = Math.round(useWindowDimensions().width * 0.82) - (senderAvatar !== undefined ? AVATAR_COLUMN : 0)
   const reactions = groupReactions(message.reactions)
   const coins = totalCoins(message.awards)
   const text = bubbleText(message)
@@ -84,8 +92,6 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
   const videos = message.videos ?? []
   // фото и видео лежат у края пузыря без отступов
   const hasTiles = photos.length > 0 || videos.length > 0
-  // только фото: пузырь без отступов, время поверх снимка
-  const photoOnly = photos.length > 0 && !text && files.length === 0 && videos.length === 0
   const columns = photoColumns(photos.length)
   const tile = columns === 1 ? PHOTO_WIDTH : Math.floor((PHOTO_WIDTH - TILE_GAP * (columns - 1)) / columns)
   // какой файл сейчас сохраняется и не получилось ли (пока идёт загрузка, повторное нажатие ничего не делает)
@@ -105,7 +111,7 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
     }
   }
 
-  return (
+  const content = (
     <View style={{ alignItems: mine ? 'flex-end' : 'flex-start', marginVertical: 3 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%' }}>
         {delivery === 'failed' && (
@@ -186,7 +192,6 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
               ))}
             </View>
           )}
-          {!photoOnly && (
           <View style={hasTiles ? { paddingHorizontal: 12, paddingTop: 6, paddingBottom: 6 } : undefined}>
           {files.map((file) => (
             <Pressable
@@ -228,19 +233,6 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
             {mine && !delivery && status && <ReadTicks status={status} color={fg} dim />}
           </View>
           </View>
-          )}
-          {photoOnly && (
-            <View
-              pointerEvents="none"
-              style={{ position: 'absolute', right: 6, bottom: 6, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.45)' }}
-            >
-              <Text $size={11} style={{ color: '#ffffff' }}>
-                {formatMessageTime(message.createdAt)}
-              </Text>
-              {mine && delivery === 'sending' && <Ionicons name="time-outline" size={13} color="#ffffff" accessibilityLabel="Отправляется" />}
-              {mine && !delivery && status && <ReadTicks status={status} color="#ffffff" />}
-            </View>
-          )}
         </Bubble>
       </Pressable>
       </View>
@@ -264,6 +256,14 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
           )}
         </View>
       )}
+    </View>
+  )
+
+  if (senderAvatar === undefined) return content
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
+      <View style={{ width: AVATAR_SIZE, marginBottom: 3 }}>{senderAvatar && <Avatar name={senderAvatar.name} seed={senderAvatar.seed} src={senderAvatar.src} size={AVATAR_SIZE} />}</View>
+      <View style={{ flex: 1 }}>{content}</View>
     </View>
   )
 }

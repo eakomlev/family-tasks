@@ -136,8 +136,8 @@ const glass = css`
 export const AttachButton = styled.button`
   ${glass}
   flex: none;
-  width: 2.8rem;
-  height: 2.8rem;
+  width: 3rem;
+  height: 3rem;
   display: grid;
   place-items: center;
   padding: 0;
@@ -177,7 +177,9 @@ export const Pill = styled.div`
   min-width: 0;
   display: flex;
   align-items: flex-end;
-  border-radius: 1.4rem;
+  /* не ниже кнопок рядом: однострочное поле и кнопки одной высоты */
+  min-height: 3rem;
+  border-radius: 1.5rem;
 
   &:focus-within {
     border-color: color-mix(in srgb, var(--accent) 60%, transparent);
@@ -209,8 +211,8 @@ export const Field = styled.textarea`
 // значок эмодзи внутри поля
 export const EmojiButton = styled.button`
   flex: none;
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 2.7rem;
+  height: 2.7rem;
   display: grid;
   place-items: center;
   padding: 0;
@@ -244,8 +246,8 @@ export const EmojiButton = styled.button`
 // отправить: круглая кнопка справа от поля; пока отправлять нечего, она приглушена
 export const SendButton = styled.button`
   flex: none;
-  width: 2.8rem;
-  height: 2.8rem;
+  width: 3rem;
+  height: 3rem;
   display: grid;
   place-items: center;
   padding: 0;

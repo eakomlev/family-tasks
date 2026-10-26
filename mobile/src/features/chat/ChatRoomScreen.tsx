@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Pressable, View } from 'react-native'
 import { Redirect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import styled, { useTheme } from 'styled-components/native'
 import { FAMILY_CHAT, isEventChat, listMessages, uploadChatFile, uploadChatPhoto, uploadChatVideo, type ChatMessage, type ChatVideo, type MessageFeedback } from '@/api'
@@ -13,6 +14,7 @@ import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
+import { withAlpha } from '@/lib/colorAlpha'
 import { currentMood } from '@/lib/mood'
 import { retryRead } from '@/lib/retry'
 import { isParent, memberLabel } from '@/lib/roles'
@@ -38,9 +40,6 @@ const Header = styled.View`
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  border-bottom-width: 1px;
-  border-bottom-color: ${({ theme }) => theme.colors.border};
-  background-color: ${({ theme }) => theme.colors.bg};
 `
 
 // Выдержка из сообщения для ответа: текст или, у сообщения только с вложениями, заглушка
@@ -117,6 +116,9 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   // ввода не до конца: там отступ снизу равен части экрана под верхним краем клавиатуры (вместе с системной панелью внизу;
   // нижняя панель вкладок на это время прячется)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
+  // высота парящей шапки и панели ввода: лента идёт под них и оставляет место на их высоту
+  const [topHeight, setTopHeight] = useState(0)
+  const [bottomHeight, setBottomHeight] = useState(0)
   useEffect(() => {
     if (!embedded) return
     const show = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardHeight(Math.max(e.endCoordinates.height, Dimensions.get('screen').height - e.endCoordinates.screenY)))
@@ -210,6 +212,14 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
 
   const isEvent = isEventChat(chat)
   const other = chat === FAMILY_CHAT || isEvent ? undefined : members.find((m) => m.id === chat)
+  // Аватар слева от чужого сообщения в групповом чате, как в Телеграме: у последнего подряд от одного автора в этом дне, у предыдущих
+  // пустое место (null). Строки идут от новых к старым, поэтому следующее по времени стоит перед этим (index - 1).
+  const senderAvatar = (message: ChatMessage, next?: Row) => {
+    if (!(chat === FAMILY_CHAT || isEvent) || message.senderId === me) return undefined
+    if (next?.kind === 'message' && next.message.senderId === message.senderId) return null
+    const member = members.find((m) => m.id === message.senderId)
+    return { name: sender(message.senderId) ?? 'Участник', seed: message.senderId, src: member?.avatar }
+  }
   // подпись автора в общем чате: ребёнок видит родителей как «Мама» и «Папа»
   const sender = (id: string) => {
     const member = members.find((m) => m.id === id)
@@ -295,7 +305,16 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg, paddingBottom: keyboardHeight }} behavior={embedded ? undefined : 'padding'}>
+      <View style={{ flex: 1 }}>
       {!embedded && (
+      <View pointerEvents="box-none" onLayout={(e) => setTopHeight(Math.round(e.nativeEvent.layout.height))} style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 6 }}>
+      {/* затемнение ленты под шапкой: от фона сверху к прозрачному */}
+      <LinearGradient
+        pointerEvents="none"
+        colors={[withAlpha(colors.bg, 0.96), withAlpha(colors.bg, 0.96), withAlpha(colors.bg, 0)]}
+        locations={[0, 0.62, 1]}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: -28 }}
+      />
       <Header style={{ paddingTop: insets.top + 8 }}>
         <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/chat'))} accessibilityRole="button" accessibilityLabel="К списку чатов" hitSlop={10}>
           <Ionicons name="chevron-back" size={26} color={colors.text} />
@@ -327,17 +346,18 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
         </Pressable>
         <ChatMenuButton chat={chat} />
       </Header>
+      </View>
       )}
 
       <FlatList
         data={rows}
         inverted
         keyExtractor={(row) => row.key}
-        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8 }}
+        contentContainerStyle={{ paddingHorizontal: 12, paddingTop: bottomHeight + 8, paddingBottom: topHeight + 8 }}
         keyboardShouldPersistTaps="handled"
         onEndReached={() => void loadOlder()}
         onEndReachedThreshold={0.4}
-        renderItem={({ item: row }) =>
+        renderItem={({ item: row, index }) =>
           row.kind === 'day' ? (
             <Text $size={12} $weight="bold" $tone="muted" style={{ alignSelf: 'center', marginVertical: 8 }}>
               {row.label}
@@ -350,6 +370,7 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
               replyAuthor={row.message.replyTo ? sender(row.message.replyTo.senderId) : undefined}
               senderMood={currentMood(members.find((m) => m.id === row.message.senderId)?.mood, now)?.emoji}
               showSender={chat === FAMILY_CHAT || isEvent}
+              senderAvatar={senderAvatar(row.message, rows[index - 1])}
               status={row.message.senderId === me && !row.pendingId ? messageStatus(row.message, thread?.readUpTo ?? null) : undefined}
               delivery={row.delivery}
               onFailedPress={() => setFailedMenu(row.pendingId)}
@@ -383,7 +404,8 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
         editing={editing && { id: editing.id, text: editing.caption }}
         onCancelEdit={() => setEditing(undefined)}
         onEditSubmit={handleEdit}
-        onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} onUploadVideo={handleUploadVideo} flushBottom={embedded} />
+        onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} onUploadVideo={handleUploadVideo} flushBottom={embedded} onHeight={setBottomHeight} />
+      </View>
 
       {watching && <VideoPlayer video={watching} onClose={() => setWatching(undefined)} />}
       {viewing && <PhotoViewer photos={viewing.message.media} index={viewing.index} onClose={() => setViewing(undefined)} />}
