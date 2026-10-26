@@ -34,7 +34,7 @@ import { PendingMessages, type PendingMessage } from './components/PendingMessag
 import { PhotoViewer } from './components/PhotoViewer'
 import { VideoViewer } from './components/VideoViewer'
 import type { OutgoingMessage } from './components/Composer/types'
-import { BackButton, DayLabel, Title, Empty, Feed, FeedContent, FamilyIcon, Header, MenuButton, Room, WhoLink } from './styles'
+import { BackButton, DayLabel, Title, Empty, Feed, FeedContent, FamilyIcon, Header, MenuButton, Room, Top, TopTabs, WhoLink } from './styles'
 import { appendMessage, groupByDay, mergeLatest, messageStatus, participantsLabel, replaceMessage, visitLabel } from './utils'
 
 // «рядом с низом»: тогда новое сообщение прокручивает переписку само, а не сбивает чтение старых
@@ -98,6 +98,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
   // открытое видео
   const [watching, setWatching] = useState<ChatVideo>()
   const stick = useRef(true)
+  const topRef = useRef<HTMLDivElement>(null)
   const feedRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   // подгрузили более ранние: сколько было от текущего места до низа, чтобы после вставки сверху остаться на месте
@@ -221,6 +222,24 @@ function Conversation({ chat }: { chat: string | undefined }) {
   // мои сообщения, которые уходят или не ушли: показываются в ленте сразу
   const [pending, setPending] = useState<PendingMessage[]>([])
 
+  // Высота шапки нужна ленте: она прокручивается под парящей шапкой и начинается с отступа такой высоты (--top-h на Room).
+  // Шапка появляется, когда данные готовы, поэтому эффект следит за этим.
+  const shown = !!(chat && identity && me)
+  useLayoutEffect(() => {
+    const el = topRef.current
+    const room = el?.parentElement
+    if (!shown || !el || !room) return
+    const measure = () => room.style.setProperty('--top-h', `${el.offsetHeight}px`)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      room.style.removeProperty('--top-h')
+    }
+  }, [shown])
+
   if (!chat || !identity || !me) return null
   if (missing) return <Navigate to="/chat" replace />
 
@@ -343,6 +362,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
 
   return (
     <Room $slide={slideIn}>
+      <Top ref={topRef}>
       <Header>
         <BackButton to={eventId ? '/calendar' : '/chat'} aria-label={eventId ? 'К календарю' : 'К списку чатов'}>
           <svg viewBox="0 0 24 24" aria-hidden>
@@ -360,14 +380,17 @@ function Conversation({ chat }: { chat: string | undefined }) {
         </MenuButton>
       </Header>
       {eventId && (
-        <PillTabs
-          label="Событие и чат"
-          tabs={[
-            { to: `/calendar/events/${eventId}`, label: 'Событие', active: false },
-            { to: `/chat/event-${eventId}`, label: 'Чат', active: true },
-          ]}
-        />
+        <TopTabs>
+          <PillTabs
+            label="Событие и чат"
+            tabs={[
+              { to: `/calendar/events/${eventId}`, label: 'Событие', active: false },
+              { to: `/chat/event-${eventId}`, label: 'Чат', active: true },
+            ]}
+          />
+        </TopTabs>
       )}
+      </Top>
 
       {/* лента всегда на месте (растягивается между шапкой и полем ввода): пока грузится, в ней серые пузыри, при ошибке сообщение */}
       <Feed ref={feedRef}>

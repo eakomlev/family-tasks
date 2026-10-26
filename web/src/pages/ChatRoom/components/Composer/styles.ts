@@ -1,19 +1,37 @@
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 
-// внизу экрана переписки (Room стоит на видимой области, поэтому поле ввода всегда над клавиатурой)
-export const Bar = styled.form`
-  flex: none;
-  position: relative;
+// Панель ввода парит над лентой, как в Telegram: сама прозрачная, фон не закрашен, а контент ленты под ней затемняется мягким градиентом
+// (Feed получает нижний отступ по высоте панели, см. --composer-h, и прокручивается под неё). Room стоит на видимой области,
+// поэтому панель всегда над клавиатурой.
+export const Dock = styled.div`
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 5;
+  padding: 0 1rem;
+
+  /* затемнение ленты под панелью: плавно от прозрачного к фону, начинается чуть выше первой кнопки */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -1.8rem 0 0;
+    z-index: -1;
+    background: linear-gradient(to top, color-mix(in srgb, var(--bg) 92%, transparent) 55%, transparent);
+    pointer-events: none;
+  }
+`
+
+export const Bar = styled.form`
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin: 0 -1rem;
-  padding: 0.6rem 1rem;
-  border-top: 1px solid var(--border);
-  background: var(--glass-bar);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
+  padding: 0.5rem 0 calc(0.6rem + var(--tabbar-height));
+
+  /* клавиатура открыта: индикатор «Домой» закрыт ею, отступ под него не нужен */
+  :root[data-keyboard] & {
+    padding-bottom: 0.6rem;
+  }
 `
 
 // поле, кнопки вложения и отправки в одну строку
@@ -105,22 +123,31 @@ export const ThumbRemove = styled.button`
   }
 `
 
+// «стекло»: полупрозрачная заливка, размытие того, что под ней, тонкая светлая кромка и мягкая тень (как кнопки в Telegram)
+const glass = css`
+  background: color-mix(in srgb, var(--surface) 58%, transparent);
+  border: 1px solid var(--glass-edge);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--glass-shade) 55%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+`
+
+// скрепка: круглая стеклянная кнопка слева от поля
 export const AttachButton = styled.button`
+  ${glass}
   flex: none;
-  width: 2.7rem;
-  height: 2.7rem;
+  width: 2.8rem;
+  height: 2.8rem;
   display: grid;
   place-items: center;
   padding: 0;
-  border: 0;
   border-radius: 50%;
-  background: transparent;
-  color: var(--muted);
+  color: var(--text);
   cursor: pointer;
 
   svg {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 1.45rem;
+    height: 1.45rem;
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
@@ -143,41 +170,59 @@ export const AttachButton = styled.button`
   }
 `
 
+// поле ввода: стеклянная таблетка, внутри справа значок эмодзи
+export const Pill = styled.div`
+  ${glass}
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 1.4rem;
+
+  &:focus-within {
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+`
+
 export const Field = styled.textarea`
   flex: 1;
   min-width: 0;
   max-height: 8rem;
-  padding: 0.65rem 0.9rem;
-  border: 1px solid var(--border);
-  border-radius: 1.2rem;
-  background: var(--surface);
+  padding: 0.7rem 0 0.7rem 1rem;
+  border: 0;
+  background: transparent;
   color: var(--text);
   font: inherit;
+  line-height: 1.35;
   resize: none;
   scrollbar-width: thin;
 
   &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
+    outline: none;
+  }
+
+  &::placeholder {
+    color: var(--muted);
   }
 `
 
-export const SendButton = styled.button`
+// значок эмодзи внутри поля
+export const EmojiButton = styled.button`
   flex: none;
-  width: 2.7rem;
-  height: 2.7rem;
+  width: 2.6rem;
+  height: 2.6rem;
   display: grid;
   place-items: center;
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-text);
+  background: transparent;
+  color: var(--muted);
   cursor: pointer;
 
   svg {
-    width: 1.3rem;
-    height: 1.3rem;
+    width: 1.45rem;
+    height: 1.45rem;
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
@@ -185,8 +230,48 @@ export const SendButton = styled.button`
     stroke-linejoin: round;
   }
 
+  &:hover,
+  &[aria-pressed='true'] {
+    color: var(--accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+`
+
+// отправить: круглая кнопка справа от поля; пока отправлять нечего, она приглушена
+export const SendButton = styled.button`
+  flex: none;
+  width: 2.8rem;
+  height: 2.8rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 38%, transparent);
+  cursor: pointer;
+  transition: background 0.15s;
+
+  svg {
+    width: 1.3rem;
+    height: 1.3rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
   &:disabled {
-    opacity: 0.4;
+    background: color-mix(in srgb, var(--accent) 45%, transparent);
+    box-shadow: none;
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: blur(18px) saturate(180%);
     cursor: not-allowed;
   }
 

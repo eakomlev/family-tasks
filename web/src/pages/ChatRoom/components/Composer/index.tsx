@@ -7,7 +7,7 @@ import { isVideoFile, MAX_VIDEOS, readVideoDuration, videoProblem } from '@/lib/
 import { EmojiPanel } from '../EmojiPanel'
 import { deleteBefore, insertAt, loadRecent, pushRecent, saveRecent } from '../EmojiPanel/emoji'
 import { canSendMessage, MAX_LENGTH, MAX_PHOTOS } from '../../utils'
-import { AttachButton, Bar, ContextBar, Field, FileChip, FileInfo, FileList, FileRemove, FileRetry, Row, SendButton, Strip, Thumb, ThumbRemove, ThumbRetry, ThumbState } from './styles'
+import { AttachButton, Bar, ContextBar, Dock, EmojiButton, Field, FileChip, FileInfo, FileList, FileRemove, FileRetry, Pill, Row, SendButton, Strip, Thumb, ThumbRemove, ThumbRetry, ThumbState } from './styles'
 import type { Attachment, ComposerProps, FileAttachment, VideoAttachment } from './types'
 import { useInFlight } from '@/lib/useInFlight'
 
@@ -29,6 +29,7 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, onU
   const [recent, setRecent] = useState<string[]>(loadRecent)
   const field = useRef<HTMLTextAreaElement>(null)
   const picker = useRef<HTMLInputElement>(null)
+  const dock = useRef<HTMLDivElement>(null)
   // уменьшенные файлы по ключу (для повтора загрузки) и очередь обработки: фото готовятся и грузятся по одному
   const [blobs] = useState(() => new Map<string, Blob>())
   // выбранные файлы по ключу (для повтора загрузки)
@@ -337,11 +338,27 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, onU
     }
   }, [])
 
+  // Высота панели нужна ленте: она прокручивается под парящей панелью и оставляет снизу отступ именно такой высоты (--composer-h на экране переписки)
+  useLayoutEffect(() => {
+    const el = dock.current
+    const room = el?.parentElement
+    if (!el || !room) return
+    const measure = () => room.style.setProperty('--composer-h', `${el.offsetHeight}px`)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      room.style.removeProperty('--composer-h')
+    }
+  }, [])
+
   const uploading = photos.some((p) => p.status === 'uploading') || files.some((f) => f.status === 'uploading') || videos.some((v) => v.status === 'uploading')
   const hasAttachments = photos.length > 0 || files.length > 0 || videos.length > 0
 
   return (
-    <>
+    <Dock ref={dock}>
       {failed && <Notice $tone="error">Не удалось отправить сообщение. Попробуйте ещё раз.</Notice>}
       {photoNotice && <Notice $tone="warning">{photoNotice}</Notice>}
       {photos.some((p) => p.status === 'failed') && (
@@ -439,6 +456,7 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, onU
               <path d="m20 11-8.2 8.2a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7l-8.3 8.3a1.7 1.7 0 0 1-2.4-2.4L14.5 7" />
             </svg>
           </AttachButton>
+          <Pill>
           <Field
             ref={field}
             value={text}
@@ -453,12 +471,13 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, onU
             }}
             onKeyDown={onKeyDown}
           />
-          <AttachButton type="button" aria-label="Эмодзи" aria-pressed={emojiOpen} onClick={() => setEmojiOpen((v) => !v)}>
+          <EmojiButton type="button" aria-label="Эмодзи" aria-pressed={emojiOpen} onClick={() => setEmojiOpen((v) => !v)}>
             <svg viewBox="0 0 24 24" aria-hidden focusable="false">
               <circle cx="12" cy="12" r="8.5" />
               <path d="M8.5 14c.8 1.4 2 2.1 3.5 2.1s2.7-.7 3.5-2.1M9 9.8h.01M15 9.8h.01" />
             </svg>
-          </AttachButton>
+          </EmojiButton>
+          </Pill>
           <SendButton type="submit" aria-label="Отправить" disabled={busy || !canSend} title={uploading ? 'Вложения ещё загружаются' : undefined}>
             <svg viewBox="0 0 24 24" aria-hidden focusable="false">
               <path d="M5 12h14M13 6l6 6-6 6" />
@@ -467,6 +486,6 @@ export function Composer({ initialText = '', onSend, onUpload, onUploadFile, onU
         </Row>
         {emojiOpen && <EmojiPanel recent={recent} onPick={pickEmoji} onBackspace={() => editText((selection) => deleteBefore(text, selection))} />}
       </Bar>
-    </>
+    </Dock>
   )
 }

@@ -74,20 +74,36 @@ export const Room = styled.main<{ $slide?: boolean }>`
   }
 `
 
+// Верх экрана парит над лентой, как панель ввода внизу: без фона, а контент ленты под ним затемняется градиентом от верха.
+// Лента идёт от самого верха и прокручивается под шапку: Room измеряет высоту Top и отдаёт её ленте (--top-h).
+export const Top = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 -1.8rem;
+    z-index: -1;
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 96%, transparent) 62%, transparent);
+    pointer-events: none;
+  }
+`
+
+// вкладки «Событие | Чат» под шапкой в чате события
+export const TopTabs = styled.div`
+  padding: 0 1rem 0.5rem;
+`
+
 // сверху экрана, прокручивается только лента под ней
 export const Header = styled.header`
-  flex: none;
-  position: relative;
-  z-index: 6;
-  margin: 0 -1rem;
-  padding: calc(1rem + env(safe-area-inset-top)) 1rem 0.6rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--glass-bar);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  padding: calc(1rem + env(safe-area-inset-top)) 1rem 0.6rem;
   /* справа вверху лежит значок профиля */
   padding-right: calc(1rem + var(--topbar-reserve, 3rem));
 
@@ -208,6 +224,14 @@ export const Feed = styled.div`
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  /* лента идёт до самого низа экрана и прокручивается под парящей панелью ввода (Composer): снизу оставлен отступ по её высоте */
+  margin-bottom: calc(-1 * var(--tabbar-height));
+  padding-bottom: var(--composer-h, 0px);
+  padding-top: var(--top-h, 0px);
+
+  :root[data-keyboard] & {
+    margin-bottom: 0;
+  }
 `
 
 // Сообщения прижаты к низу, к полю ввода: когда их мало (или открыта клавиатура), они остаются на виду рядом с ним.
