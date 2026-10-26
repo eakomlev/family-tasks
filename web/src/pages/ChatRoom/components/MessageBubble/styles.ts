@@ -1,5 +1,23 @@
 import styled from 'styled-components'
 
+// строка сообщения в групповом чате: слева колонка аватара (или пустое место), справа само сообщение
+export const Line = styled.div`
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4rem;
+
+  /* само сообщение занимает остаток строки рядом с аватаром */
+  > :last-child {
+    flex: 1;
+    min-width: 0;
+  }
+`
+
+export const Side = styled.div`
+  flex: none;
+  width: 2rem;
+`
+
 export const Wrap = styled.div<{ $mine: boolean }>`
   /* долгое нажатие открывает окно реакции: системное выделение текста и меню на телефоне отключены для всего сообщения */
   -webkit-touch-callout: none;
@@ -10,12 +28,21 @@ export const Wrap = styled.div<{ $mine: boolean }>`
   align-items: ${({ $mine }) => ($mine ? 'flex-end' : 'flex-start')};
 `
 
-export const Bubble = styled.div<{ $mine: boolean; $interactive?: boolean; $photoColumns?: number }>`
+export const Bubble = styled.div<{ $mine: boolean; $interactive?: boolean; $photoColumns?: number; $media?: boolean }>`
   max-width: 82%;
   /* с фото ширина задана, а не определяется содержимым: плитки занимают всю ширину пузыря и не вылезают за него */
   ${({ $photoColumns }) => ($photoColumns ? `width: min(82%, ${$photoColumns === 1 ? '17rem' : '21rem'});` : '')}
   padding: 0.3rem 0.6rem;
   border-radius: 1rem;
+  /* с фото или видео: медиа во всю ширину пузыря, без отступов сверху и по бокам; отступ остаётся только снизу, где время,
+     а всё остальное (имя, цитата, файлы, подпись, время) получает боковые отступы само */
+  ${({ $media }) =>
+    $media
+      ? `padding: 0 0 0.3rem;
+  overflow: hidden;
+  > :not([data-media]) { padding-inline: 0.6rem; }
+  > :first-child:not([data-media]) { padding-top: 0.3rem; }`
+      : ''}
   ${({ $mine }) => ($mine ? 'border-bottom-right-radius: 0.3rem;' : 'border-bottom-left-radius: 0.3rem;')}
   background: ${({ $mine }) => ($mine ? 'var(--accent)' : 'var(--surface)')};
   color: ${({ $mine }) => ($mine ? 'var(--accent-text)' : 'var(--text)')};
@@ -45,7 +72,7 @@ export const Photos = styled.div<{ $columns: number }>`
   display: grid;
   grid-template-columns: repeat(${({ $columns }) => $columns}, minmax(0, 1fr));
   gap: 0.2rem;
-  margin: 0.1rem -0.35rem 0.25rem;
+  margin-bottom: 0.25rem;
 `
 
 export const PhotoButton = styled.button<{ $ratio?: number }>`
@@ -54,7 +81,6 @@ export const PhotoButton = styled.button<{ $ratio?: number }>`
   width: 100%;
   padding: 0;
   border: 0;
-  border-radius: 0.7rem;
   overflow: hidden;
   background: color-mix(in srgb, var(--text) 8%, transparent);
   aspect-ratio: ${({ $ratio }) => $ratio ?? 1};
@@ -71,7 +97,7 @@ export const PhotoButton = styled.button<{ $ratio?: number }>`
 
   &:focus-visible {
     outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline-offset: -2px;
   }
 `
 
@@ -234,7 +260,7 @@ export const Quote = styled.div`
 export const Videos = styled.div`
   display: grid;
   gap: 0.2rem;
-  margin: 0.1rem -0.35rem 0.25rem;
+  margin-bottom: 0.25rem;
 `
 
 export const VideoButton = styled.button<{ $ratio: number }>`
@@ -243,7 +269,6 @@ export const VideoButton = styled.button<{ $ratio: number }>`
   width: 100%;
   padding: 0;
   border: 0;
-  border-radius: 0.7rem;
   overflow: hidden;
   background: #000;
   aspect-ratio: ${({ $ratio }) => $ratio};
@@ -260,7 +285,7 @@ export const VideoButton = styled.button<{ $ratio: number }>`
 
   &:focus-visible {
     outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline-offset: -2px;
   }
 `
 

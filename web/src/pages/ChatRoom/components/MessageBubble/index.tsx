@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { Avatar } from '@/components/Avatar'
 import { CoinIcon } from '@/components/CoinBalance'
 import { ReadTicks } from '@/components/ReadTicks'
 import { formatFileSize } from '@/lib/files'
@@ -6,10 +7,10 @@ import { formatDuration } from '@/lib/video'
 import { saveFile } from '@/lib/saveFile'
 import { useLongPress } from '@/lib/useLongPress'
 import { bubbleText, formatMessageTime, groupReactions, photoColumns, totalCoins } from '../../utils'
-import { Bubble, CoinPill, Duration, PlayBadge, VideoButton, Videos, Extras, FileButton, FileInfo, Files, Footer, PhotoButton, Photos, Quote, ReactionChip, Sender, Text, Time, Wrap } from './styles'
+import { Bubble, CoinPill, Duration, PlayBadge, VideoButton, Videos, Extras, FileButton, FileInfo, Files, Footer, Line, PhotoButton, Photos, Quote, ReactionChip, Sender, Side, Text, Time, Wrap } from './styles'
 import type { MessageBubbleProps } from './types'
 
-export function MessageBubble({ message, mine, senderName, senderMood, showSender, status, onFeedback, onOpenPhoto, onOpenVideo, replyAuthor }: MessageBubbleProps) {
+export function MessageBubble({ message, mine, senderName, senderMood, showSender, senderAvatar, status, onFeedback, onOpenPhoto, onOpenVideo, replyAuthor }: MessageBubbleProps) {
   const reactions = groupReactions(message.reactions)
   const coins = totalCoins(message.awards)
 
@@ -59,9 +60,9 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
       }
     : {}
 
-  return (
+  const content = (
     <Wrap $mine={mine} data-message-id={message.id}>
-      <Bubble $mine={mine} $interactive={!!onFeedback} $photoColumns={photos.length > 0 ? photoColumns(photos.length) : undefined} {...interactive}>
+      <Bubble $mine={mine} $interactive={!!onFeedback} $photoColumns={photos.length > 0 ? photoColumns(photos.length) : videos.length > 0 ? 1 : undefined} $media={photos.length > 0 || videos.length > 0} {...interactive}>
         {showSender && !mine && <Sender>{senderName ?? 'Участник'}{senderMood && <span aria-hidden> {senderMood}</span>}</Sender>}
         {message.replyTo && (
           <Quote aria-label="Ответ на сообщение">
@@ -70,7 +71,7 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
           </Quote>
         )}
         {photos.length > 0 && (
-          <Photos $columns={photoColumns(photos.length)}>
+          <Photos data-media $columns={photoColumns(photos.length)}>
             {photos.map((photo, i) => (
               <PhotoButton
                 key={photo.id}
@@ -86,7 +87,7 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
           </Photos>
         )}
         {videos.length > 0 && (
-          <Videos>
+          <Videos data-media>
             {videos.map((video, i) => (
               <VideoButton
                 key={video.id}
@@ -146,5 +147,13 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
         </Extras>
       )}
     </Wrap>
+  )
+
+  if (senderAvatar === undefined) return content
+  return (
+    <Line>
+      <Side>{senderAvatar && <Avatar name={senderAvatar.name} seed={senderAvatar.seed} src={senderAvatar.src} size="2rem" />}</Side>
+      {content}
+    </Line>
   )
 }

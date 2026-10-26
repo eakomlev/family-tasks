@@ -251,6 +251,14 @@ function Conversation({ chat }: { chat: string | undefined }) {
     return member && memberLabel(member, identity.role)
   }
 
+  // Аватар слева от чужого сообщения в групповом чате: у последнего подряд от одного автора, у предыдущих пустое место
+  const senderAvatar = (message: { senderId: string }, next?: { senderId: string }) => {
+    if (!(chat === FAMILY_CHAT || eventId) || message.senderId === me) return undefined
+    if (next && next.senderId === message.senderId) return null
+    const member = members.find((m) => m.id === message.senderId)
+    return { name: sender(message.senderId) ?? 'Участник', seed: message.senderId, src: member?.avatar }
+  }
+
   async function loadOlder() {
     if (!token || !chat || !messages?.length) return
     setLoadingOlder(true)
@@ -408,7 +416,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
               {groups.map((group) => (
                 <section key={group.key} aria-label={group.label}>
                   <DayLabel>{group.label}</DayLabel>
-                  {group.messages.map((message) => (
+                  {group.messages.map((message, i) => (
                     <MessageBubble
                       key={message.id}
                       message={message}
@@ -417,6 +425,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
                       replyAuthor={message.replyTo ? sender(message.replyTo.senderId) : undefined}
                       senderMood={currentMood(members.find((m) => m.id === message.senderId)?.mood, now)?.emoji}
                       showSender={chat === FAMILY_CHAT || !!eventId}
+                      senderAvatar={senderAvatar(message, group.messages[i + 1])}
                       status={message.senderId === me ? messageStatus(message, thread?.readUpTo ?? null) : undefined}
                       onFeedback={() => setFeedbackFor(message)}
                       onOpenPhoto={(index) => setViewing({ message, index })}
