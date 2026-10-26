@@ -30,7 +30,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const theme = useMemo(() => makeTheme(dark, fontScale), [dark, fontScale])
   // Явный выбор темы в приложении распространяем на систему (окна выбора фото, клавиатура, диалоги); «как в системе» возвращает управление ей
   useEffect(() => {
-    Appearance.setColorScheme(preference === 'system' ? 'unspecified' : preference)
+    // в веб-просмотре (react-native-web) этого метода нет
+    Appearance.setColorScheme?.(preference === 'system' ? 'unspecified' : preference)
   }, [preference])
   return (
     <StyledThemeProvider theme={theme}>
