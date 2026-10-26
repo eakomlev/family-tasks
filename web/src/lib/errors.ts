@@ -88,6 +88,8 @@ export function describeVideoError(err: unknown): string {
     if (err.code === 'network') return 'Нет связи с сервером. Попробуйте ещё раз.'
     if (err.code === 'video_too_long') return 'Видео длиннее 3 минут.'
     if (err.code === 'invalid_video') return 'Не удалось прочитать это видео. Попробуйте другое.'
+    if (err.code === 'video_failed') return 'Не удалось обработать это видео. Попробуйте более короткое.'
+    if (err.code === 'media_busy') return 'Сервер сейчас обрабатывает другие видео. Попробуйте через минуту.'
     if (err.code === 'media_quota') return 'Место для видео у семьи закончилось.'
     if (err.code === 'media_disabled') return 'Отправка видео пока не включена.'
     if (err.code === 'media_unavailable') return 'Сервис видео сейчас недоступен. Попробуйте позже.'

@@ -59,6 +59,12 @@ describe.skipIf(!hasFfmpeg)('ffmpeg: сжатие видео', () => {
     await expect(processor.process(makeVideo(7))).rejects.toMatchObject({ code: 'video_too_long' })
   })
 
+  it('время вышло: video_failed, а не «не видео»', async () => {
+    // предел в 1 мс: ffmpeg останавливается по времени, файл при этом годный
+    const slow = createFfmpegProcessor({ maxSeconds: 5, timeoutMs: 1 })
+    await expect(slow.process(makeVideo(2, '1920x1080'))).rejects.toMatchObject({ code: 'video_failed' })
+  })
+
   it('обработки идут по одной и сбой не ломает очередь', async () => {
     const results = await Promise.allSettled([processor.process(junk()), processor.process(makeVideo(1))])
     expect(results[0].status).toBe('rejected')

@@ -59,6 +59,8 @@ describe('клиент media: файлы и видео потоком', () => {
 
     reply = { status: 422, body: '{"error":"video_too_long"}' }
     await expect(client.uploadVideo('fam', 'vid', chunks(1), 1024, 'video/mp4')).rejects.toMatchObject({ code: 'video_too_long' })
+    reply = { status: 422, body: '{"error":"video_failed"}' }
+    await expect(client.uploadVideo('fam', 'vid', chunks(1), 1024, 'video/mp4')).rejects.toMatchObject({ code: 'video_failed' })
     reply = { status: 422, body: '{"error":"invalid_video"}' }
     await expect(client.uploadVideo('fam', 'vid', chunks(1), 1024, 'video/mp4')).rejects.toBeInstanceOf(MediaRejected)
   })

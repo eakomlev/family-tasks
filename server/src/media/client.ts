@@ -35,7 +35,7 @@ export interface MediaClient {
 
 // Сервис media отклонил файл (не JPEG, битый): это ошибка клиента, а не сбой.
 export class MediaRejected extends Error {
-  // что именно не так, как отвечает сервис media: invalid_image, invalid_video, video_too_long
+  // что именно не так, как отвечает сервис media: invalid_image, invalid_video, video_too_long, video_failed
   constructor(readonly code = 'invalid_media') {
     super('media rejected the file')
     this.name = 'MediaRejected'
@@ -105,7 +105,7 @@ export function createMediaClient(config: Pick<MediaEnv, 'url' | 'internalToken'
       const res = await putStream(config.url, `/internal/videos/${family}/${id}`, { 'content-type': contentType }, body, length, videoTimeoutMs, config.internalToken)
       if (res.status === 422) {
         const { error } = parseJson<{ error?: string }>(res.text)
-        throw new MediaRejected(error === 'video_too_long' ? 'video_too_long' : 'invalid_video')
+        throw new MediaRejected(error === 'video_too_long' || error === 'video_failed' ? error : 'invalid_video')
       }
       if (res.status < 200 || res.status >= 300) throw new Error(`media video upload failed: ${res.status}`)
       return parseJson<VideoUploadResult>(res.text) as VideoUploadResult

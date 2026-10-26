@@ -48,6 +48,8 @@ describe('lib/video', () => {
   it('тексты ошибок загрузки', () => {
     expect(describeVideoError(new ApiError(400, 'video_too_long'))).toMatch(/3 минут/)
     expect(describeVideoError(new ApiError(400, 'invalid_video'))).toMatch(/Не удалось прочитать/)
+    expect(describeVideoError(new ApiError(400, 'video_failed'))).toMatch(/более короткое/)
+    expect(describeVideoError(new ApiError(503, 'media_busy'))).toMatch(/через минуту/)
     expect(describeVideoError(new ApiError(413, 'media_quota'))).toMatch(/Место для видео/)
     expect(describeVideoError(new Error('x'))).toMatch(/Не удалось загрузить видео/)
   })

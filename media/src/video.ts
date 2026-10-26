@@ -20,9 +20,10 @@ export interface ProcessedVideo {
   cleanup(): Promise<void>
 }
 
-// Файл не видео, битый или слишком длинный: ошибка клиента (422), а не сбой сервиса.
+// Файл не видео, битый или слишком длинный: ошибка клиента (422), а не сбой сервиса. `video_failed`: сжатие оборвано (не хватило памяти
+// и ffmpeg убит, или вышло время), файл, возможно, годный, но обработать его здесь не удалось.
 export class InvalidVideo extends Error {
-  constructor(readonly code: 'invalid_video' | 'video_too_long') {
+  constructor(readonly code: 'invalid_video' | 'video_too_long' | 'video_failed') {
     super(code)
     this.name = 'InvalidVideo'
   }
@@ -40,6 +41,8 @@ export interface FfmpegOptions {
   ffprobe?: string
   // предел на одну обработку (перекодирование долгого видео на слабом сервере)
   timeoutMs?: number
+  // сколько потоков отдать ffmpeg: по умолчанию он берёт все ядра и на время сжатия душит остальные сервисы
+  threads?: number
 }
 
 interface Probe {
@@ -69,7 +72,7 @@ async function probe(ffprobe: string, file: string, timeoutMs: number): Promise<
 
 // Обработка настоящим ffmpeg: проверка, сжатие до 720p (длинная сторона до 1280), faststart (начинает играть до полной загрузки), превью.
 // Обработки идут по одной: перекодирование занимает процессор, а сервис живёт рядом с остальными.
-export function createFfmpegProcessor({ maxSeconds, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', timeoutMs = 4 * 60_000 }: FfmpegOptions): VideoProcessor {
+export function createFfmpegProcessor({ maxSeconds, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', timeoutMs = 4 * 60_000, threads = 2 }: FfmpegOptions): VideoProcessor {
   let queue: Promise<unknown> = Promise.resolve()
 
   async function work(source: string): Promise<ProcessedVideo> {
@@ -88,18 +91,22 @@ export function createFfmpegProcessor({ maxSeconds, ffmpeg = 'ffmpeg', ffprobe =
         await run(
           ffmpeg,
           [
-            '-y', '-v', 'error', '-i', source,
+            '-y', '-v', 'error', '-threads', String(threads), '-i', source,
             '-map', '0:v:0', '-map', '0:a:0?',
             '-vf', 'scale=w=min(1280\\,iw):h=min(1280\\,ih):force_original_aspect_ratio=decrease:force_divisible_by=2',
             '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '28', '-pix_fmt', 'yuv420p',
             '-c:a', 'aac', '-b:a', '96k',
             '-movflags', '+faststart',
+            // потоки кодировщика и фильтров: без этого x264 берёт все ядра, а `-threads` перед входом относится только к декодеру
+            '-threads', String(threads), '-filter_threads', String(threads),
             out,
           ],
           { timeout: timeoutMs, maxBuffer: 1024 * 1024 },
         )
-      } catch {
-        throw new InvalidVideo('invalid_video')
+      } catch (err) {
+        // убит сигналом (нехватка памяти) или остановлен по времени: файл не обязательно плох, это сбой обработки
+        const failure = err as { killed?: boolean; signal?: string | null }
+        throw new InvalidVideo(failure.killed || failure.signal ? 'video_failed' : 'invalid_video')
       }
 
       const result = await probe(ffprobe, out, 30_000)

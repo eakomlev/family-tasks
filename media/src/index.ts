@@ -5,7 +5,7 @@ import { createFfmpegProcessor } from './video.js'
 
 const config = loadConfig()
 const store = createS3Store(config.s3)
-const app = buildApp({ config, store, video: createFfmpegProcessor({ maxSeconds: config.maxVideoSeconds }) })
+const app = buildApp({ config, store, video: createFfmpegProcessor({ maxSeconds: config.maxVideoSeconds, threads: config.ffmpegThreads, timeoutMs: config.ffmpegTimeoutSeconds * 1000 }) })
 
 // Хранилище после запуска контейнера отвечает не сразу (SeaweedFS после перезапуска до полуминуты), поэтому бакет создаём с повторами.
 async function prepareBucket() {

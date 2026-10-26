@@ -15,6 +15,9 @@ class FakeMedia implements MediaClient {
   videos: { family: string; id: string; size: number; type: string }[] = []
   deleted: string[] = []
   failWith: Error | null = null
+  // пока не пусто, загрузка «идёт»: позволяет проверить одновременные загрузки
+  hold: Promise<void> | null = null
+  started: (() => void) | null = null
   async upload() {
     return { width: 100, height: 100, size: 1000, thumbSize: 100 }
   }
@@ -23,6 +26,8 @@ class FakeMedia implements MediaClient {
   }
   async uploadVideo(family: string, id: string, body: Readable, length: number, type: string) {
     if (this.failWith) throw this.failWith
+    this.started?.()
+    if (this.hold) await this.hold
     const bytes = await drain(body)
     expect(bytes.length).toBe(length)
     this.videos.push({ family, id, size: bytes.length, type })
@@ -54,6 +59,8 @@ beforeEach(async () => {
   fake.videos = []
   fake.deleted = []
   fake.failWith = null
+  fake.hold = null
+  fake.started = null
   await resetSent()
 })
 afterAll(async () => {
@@ -98,7 +105,30 @@ describe('загрузка видео', () => {
     expect((await upload(fam.kid.token, 'family', VIDEO)).json()).toEqual({ error: 'video_too_long' })
     fake.failWith = new MediaRejected('invalid_video')
     expect((await upload(fam.kid.token, 'family', VIDEO)).json()).toEqual({ error: 'invalid_video' })
+    // сжатие оборвано (нехватка памяти или время): отдельный код, чтобы не говорить «не видео»
+    fake.failWith = new MediaRejected('video_failed')
+    expect((await upload(fam.kid.token, 'family', VIDEO)).json()).toEqual({ error: 'video_failed' })
     expect((await pool.query('select count(*)::int as n from media where family_id = $1', [fam.id])).rows[0].n).toBe(before)
+  })
+
+  it('одновременно у семьи одна загрузка: вторая сразу получает 503 media_busy, после окончания первой снова можно', async () => {
+    let release!: () => void
+    fake.hold = new Promise<void>((r) => (release = r))
+    const started = new Promise<void>((r) => (fake.started = r))
+    const first = upload(fam.kid.token, 'family', VIDEO)
+    await started
+    const second = await upload(fam.mom.token, 'family', VIDEO)
+    expect(second.statusCode).toBe(503)
+    expect(second.json()).toEqual({ error: 'media_busy' })
+    expect(second.headers['retry-after']).toBe('60')
+    release()
+    expect((await first).statusCode).toBe(201)
+    expect((await upload(fam.kid.token, 'family', VIDEO)).statusCode).toBe(201)
+    // сбой загрузки тоже освобождает место
+    fake.failWith = new Error('boom')
+    expect((await upload(fam.kid.token, 'family', VIDEO)).statusCode).toBe(502)
+    fake.failWith = null
+    expect((await upload(fam.kid.token, 'family', VIDEO)).statusCode).toBe(201)
   })
 
   it('сервис media недоступен: 502 без подробностей', async () => {

@@ -12,6 +12,8 @@ import {
   loadFiles,
   loadMedia,
   loadVideos,
+  createUploadGate,
+  maxActiveVideos,
   maxFileBytes,
   maxVideoBytes,
   mediaUrls,
@@ -287,6 +289,8 @@ export interface ChatOptions {
 
 export async function chatRoutes(app: FastifyInstance, { media = null }: Partial<ChatOptions> = {}) {
   const secret = media?.secret ?? null
+  // одновременные загрузки видео: сжатие тяжёлое, лишних отшиваем сразу («занято»), а не держим запрос до таймаута
+  const videoGate = createUploadGate(maxActiveVideos())
   async function me(req: FastifyRequest, reply: FastifyReply): Promise<Member | null> {
     const member = await authenticate(req)
     if (!member) {
@@ -633,14 +637,19 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       const { rows: used } = await pool.query<{ total: string }>('select coalesce(sum(size), 0) as total from media where family_id = $1', [member.family_id])
       if (Number(used[0].total) + length > mediaQuotaBytes()) return reply.code(413).send({ error: 'media_quota' })
 
+      const release = videoGate.acquire(member.family_id)
+      if (!release) return reply.code(503).header('Retry-After', '60').send({ error: 'media_busy' })
+
       const id = randomUUID()
       let result
       try {
         result = await media.client.uploadVideo(member.family_id, id, limitedStream(req.body, length), length, type.split(';')[0])
       } catch (err) {
-        if (err instanceof MediaRejected) return reply.code(400).send({ error: err.code === 'video_too_long' ? 'video_too_long' : 'invalid_video' })
+        if (err instanceof MediaRejected) return reply.code(400).send({ error: err.code === 'video_too_long' || err.code === 'video_failed' ? err.code : 'invalid_video' })
         req.log.error(err)
         return reply.code(502).send({ error: 'media_unavailable' })
+      } finally {
+        release()
       }
       await pool.query(
         "insert into media (id, family_id, uploader_id, kind, width, height, duration, size) values ($1, $2, $3, 'video', $4, $5, $6, $7)",

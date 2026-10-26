@@ -10,6 +10,8 @@ services:
     logging: *logging
     image: postgres:17-alpine
     restart: unless-stopped
+    # потолок памяти: Postgres не должен съесть сервер; при превышении Docker убьёт только этот контейнер (restart поднимет)
+    mem_limit: 2g
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -26,6 +28,7 @@ services:
     logging: *logging
     build: ./server
     restart: unless-stopped
+    mem_limit: 1g
     environment:
       PORT: 3000
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -51,6 +54,8 @@ services:
       MEDIA_QUOTA_BYTES: ${MEDIA_QUOTA_BYTES:-}
       MAX_FILE_BYTES: ${MAX_FILE_BYTES:-}
       MAX_VIDEO_BYTES: ${MAX_VIDEO_BYTES:-}
+      # сколько видео сжимается одновременно (остальным «занято, попробуйте позже»)
+      MEDIA_MAX_ACTIVE_VIDEOS: ${MEDIA_MAX_ACTIVE_VIDEOS:-}
     depends_on:
       db:
         condition: service_healthy
@@ -61,6 +66,7 @@ services:
     logging: *logging
     build: ./notifier
     restart: unless-stopped
+    mem_limit: 256m
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       SMTP_HOST: ${SMTP_HOST:-mailpit}
@@ -101,6 +107,7 @@ services:
     logging: *logging
     build: ./realtime
     restart: unless-stopped
+    mem_limit: 256m
     environment:
       PORT: 3000
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -121,6 +128,7 @@ services:
     logging: *logging
     build: ./scheduler
     restart: unless-stopped
+    mem_limit: 256m
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       # без публичного ключа VAPID и без FCM_ENABLED уведомления выключены, как у server
@@ -146,6 +154,11 @@ services:
     logging: *logging
     build: ./media
     restart: unless-stopped
+    # в потолок входит и ffmpeg: без ограничения потоков он брал до 670 МБ на 4K и 370 МБ на 1080p (при 512 МБ его убивали), с `-threads 2`
+    # около 190 МБ на 1080p; запас оставлен на ролики с телефона и на сам сервис
+    mem_limit: 1g
+    # сжатие занимает все ядра, на 6 ядрах сервера это тормозило бы остальные сервисы: не больше двух ядер (1080p в минуту сжимается за 10–20 секунд)
+    cpus: 2
     environment:
       PORT: 3000
       MEDIA_SECRET: ${MEDIA_SECRET:-}
@@ -153,6 +166,9 @@ services:
       MEDIA_MAX_FILE_BYTES: ${MAX_FILE_BYTES:-}
       MEDIA_MAX_VIDEO_BYTES: ${MAX_VIDEO_BYTES:-}
       MEDIA_MAX_VIDEO_SECONDS: ${MAX_VIDEO_SECONDS:-}
+      # сжатие видео: потоков у ffmpeg (по умолчанию 2, чтобы не занять все ядра) и предел времени одной обработки, секунды
+      MEDIA_FFMPEG_THREADS: ${MEDIA_FFMPEG_THREADS:-}
+      MEDIA_FFMPEG_TIMEOUT_SECONDS: ${MEDIA_FFMPEG_TIMEOUT_SECONDS:-}
       # внешнее S3-хранилище (рег.ру): адрес, бакет и ключи из .env, без них media не запустится
       S3_ENDPOINT: ${S3_ENDPOINT:-}
       S3_REGION: ${S3_REGION:-}
@@ -180,6 +196,7 @@ services:
     logging: *logging
     build: ./web
     restart: unless-stopped
+    mem_limit: 128m
     ports:
       - "${WEB_PORT:-8080}:80"
     depends_on:

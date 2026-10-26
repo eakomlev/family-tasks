@@ -13,6 +13,7 @@ services:
     logging: *logging
     image: caddy:2-alpine
     restart: unless-stopped
+    mem_limit: 128m
     environment:
       DOMAIN: ${DOMAIN:?Укажите DOMAIN в .env, например family.example.com}
     ports:

@@ -73,6 +73,40 @@ export const maxVideoBytes = () => {
   return Number.isFinite(n) && n > 0 ? n : 100 * 1024 * 1024
 }
 
+// Сколько видео сервис media обрабатывает одновременно на всех (по умолчанию 3): сжатие тяжёлое, лишние загрузки ждали бы десятки минут и
+// упирались в таймауты клиента.
+export const maxActiveVideos = () => {
+  const n = Number(process.env.MEDIA_MAX_ACTIVE_VIDEOS)
+  return Number.isInteger(n) && n > 0 ? n : 3
+}
+
+// Ограничитель одновременных загрузок видео: всего не больше `total`, от одной семьи не больше `perFamily`. `acquire` возвращает функцию
+// освобождения или null, если занято (тогда сразу отвечаем «занято», а не держим запрос). Считает в памяти процесса server.
+export interface UploadGate {
+  acquire(family: string): (() => void) | null
+}
+export function createUploadGate(total: number, perFamily = 1): UploadGate {
+  const byFamily = new Map<string, number>()
+  let active = 0
+  return {
+    acquire(family) {
+      const mine = byFamily.get(family) ?? 0
+      if (active >= total || mine >= perFamily) return null
+      active++
+      byFamily.set(family, mine + 1)
+      let released = false
+      return () => {
+        if (released) return
+        released = true
+        active--
+        const left = (byFamily.get(family) ?? 1) - 1
+        if (left <= 0) byFamily.delete(family)
+        else byFamily.set(family, left)
+      }
+    },
+  }
+}
+
 export function videoUrls(secret: string, family: string, id: string, now: Date): { thumbUrl: string; url: string } {
   const exp = expiryFor(now)
   const query = `?exp=${exp}&sig=${sign(secret, family, id, exp)}`

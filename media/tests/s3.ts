@@ -22,6 +22,8 @@ export const testConfig = (over: Partial<Config> = {}): Config => ({
   maxFileBytes: 50 * 1024 * 1024,
   maxVideoBytes: 100 * 1024 * 1024,
   maxVideoSeconds: 180,
+  ffmpegThreads: 2,
+  ffmpegTimeoutSeconds: 240,
   s3: testS3(),
   ...over,
 })
