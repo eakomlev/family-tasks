@@ -50,6 +50,21 @@ export const Square = styled.button<{ $dark: boolean; $mark?: 'last' | 'selected
   }
 `
 
+// подпись линии в углу клетки, как на chess.com: номер ряда слева сверху у левого края, буква вертикали справа снизу у нижнего;
+// цвет контрастный к клетке (тёмная подпись на светлой клетке и наоборот)
+export const Coord = styled.span<{ $kind: 'rank' | 'file'; $onDark: boolean }>`
+  position: absolute;
+  ${({ $kind }) => ($kind === 'rank' ? 'top: 4%; left: 6%;' : 'bottom: 2%; right: 6%;')}
+  font-size: 3cqw;
+  font-weight: 800;
+  line-height: 1;
+  color: ${({ $onDark }) => ($onDark ? '#eadfc8' : '#a9835a')};
+  /* над фигурой и подсветкой, чтобы шашка у края не закрывала подпись */
+  z-index: 2;
+  pointer-events: none;
+  user-select: none;
+`
+
 export const Piece = styled.span<{ $white: boolean }>`
   position: relative;
   font-size: 9.6cqw;

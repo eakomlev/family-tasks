@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Cell, Frame, Grid, Man, Mark } from './styles'
+import { Cell, Coord, Frame, Grid, Man, Mark } from './styles'
 
 const FILES = 'abcdefgh'
 
@@ -62,8 +62,8 @@ export function CheckersBoard({ board, legal, lastPath, orientation, canMove, on
   return (
     <Frame>
       <Grid role="grid" aria-label="Шашечная доска">
-        {order.flatMap((r) =>
-          columns.map((f) => {
+        {order.flatMap((r, row) =>
+          columns.map((f, col) => {
             const square = `${FILES[f]}${r + 1}`
             const piece = board[r * 8 + f]
             const dark = (f + r) % 2 === 0
@@ -81,6 +81,16 @@ export function CheckersBoard({ board, legal, lastPath, orientation, canMove, on
                 aria-label={`${square}${piece !== '.' ? `, ${piece === 'w' || piece === 'W' ? 'белая' : 'чёрная'} ${piece === 'W' || piece === 'B' ? 'дамка' : 'шашка'}` : ''}${target ? ', можно сходить' : ''}`}
                 onClick={() => press(square)}
               >
+                {col === 0 && (
+                  <Coord $kind="rank" $onDark={dark} aria-hidden>
+                    {r + 1}
+                  </Coord>
+                )}
+                {row === 7 && (
+                  <Coord $kind="file" $onDark={dark} aria-hidden>
+                    {FILES[f]}
+                  </Coord>
+                )}
                 {piece !== '.' && (
                   <Man $white={piece === 'w' || piece === 'W'} $movable={starts.has(square)}>
                     {(piece === 'W' || piece === 'B') && <span aria-hidden>♛︎</span>}

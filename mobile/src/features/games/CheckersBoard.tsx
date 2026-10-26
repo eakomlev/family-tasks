@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Pressable, View, useWindowDimensions } from 'react-native'
 import { useTheme } from 'styled-components/native'
 import { Text } from '@/components/Text'
+import { BoardCoord } from './BoardCoord'
 
 const FILES = 'abcdefgh'
 const LIGHT = '#eadfc8'
@@ -72,9 +73,9 @@ export function CheckersBoard({ board, legal, lastPath, orientation, canMove, on
 
   return (
     <View style={{ width: size * 8, height: size * 8, alignSelf: 'center', borderRadius: 6, overflow: 'hidden' }} accessibilityLabel="Шашечная доска">
-      {rows.map((r) => (
+      {rows.map((r, row) => (
         <View key={r} style={{ flexDirection: 'row' }}>
-          {columns.map((f) => {
+          {columns.map((f, col) => {
             const square = `${FILES[f]}${r + 1}`
             const piece = board[r * 8 + f]
             const dark = (f + r) % 2 === 0
@@ -90,6 +91,8 @@ export function CheckersBoard({ board, legal, lastPath, orientation, canMove, on
                 style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', backgroundColor: dark ? DARK : LIGHT }}
               >
                 {highlight && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: highlight }} />}
+                {col === 0 && <BoardCoord kind="rank" label={r + 1} onDark={dark} size={size} />}
+                {row === 7 && <BoardCoord kind="file" label={FILES[f]} onDark={dark} size={size} />}
                 {piece !== '.' && (
                   <View
                     style={{

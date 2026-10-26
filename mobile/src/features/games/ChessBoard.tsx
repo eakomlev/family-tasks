@@ -4,6 +4,7 @@ import { Chess, type Square } from 'chess.js'
 import { useTheme } from 'styled-components/native'
 import type { ChessMove, PromotionPiece } from '@/api'
 import { Text } from '@/components/Text'
+import { BoardCoord } from './BoardCoord'
 
 // Фигуры сплошными символами (с ︎, чтобы Android не рисовал их цветными эмодзи); цвет фигуры задаёт заливка
 const GLYPHS: Record<string, string> = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' }
@@ -83,9 +84,9 @@ export function ChessBoard({ fen, orientation, lastMove, canMove, onMove }: Prop
 
   return (
     <View style={{ width: size * 8, height: size * 8, alignSelf: 'center', borderRadius: 6, overflow: 'hidden' }} accessibilityLabel="Шахматная доска">
-      {order.map((r) => (
+      {order.map((r, row) => (
         <View key={r} style={{ flexDirection: 'row' }}>
-          {order.map((f) => {
+          {order.map((f, col) => {
             const cell = board[r][f]
             const square = `${FILES[f]}${8 - r}`
             const dark = (r + f) % 2 === 1
@@ -99,6 +100,8 @@ export function ChessBoard({ fen, orientation, lastMove, canMove, onMove }: Prop
                 style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', backgroundColor: dark ? DARK : LIGHT }}
               >
                 {highlight && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: highlight }} />}
+                {col === 0 && <BoardCoord kind="rank" label={8 - r} onDark={dark} size={size} />}
+                {row === 7 && <BoardCoord kind="file" label={FILES[f]} onDark={dark} size={size} />}
                 {cell && (
                   <Text
                     style={{

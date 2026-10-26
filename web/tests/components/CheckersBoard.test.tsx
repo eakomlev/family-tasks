@@ -26,6 +26,15 @@ describe('доска шашек', () => {
     expect(onPlay).toHaveBeenCalledWith(['c3', 'd4'])
   })
 
+  it('подписи линий как на chess.com: номера рядов слева, буквы вертикалей снизу; чёрным в обратном порядке', () => {
+    const labels = (container: HTMLElement) => [...container.querySelectorAll('[aria-hidden="true"]')].map((el) => el.textContent).join(' ')
+    const white = render(<CheckersBoard board={boardOf({ c3: 'w' })} legal={[]} lastPath={null} orientation="w" canMove onPlay={() => {}} />)
+    expect(labels(white.container)).toBe('8 7 6 5 4 3 2 1 a b c d e f g h')
+    cleanup()
+    const black = render(<CheckersBoard board={boardOf({ c3: 'w' })} legal={[]} lastPath={null} orientation="b" canMove onPlay={() => {}} />)
+    expect(labels(black.container)).toBe('1 2 3 4 5 6 7 8 h g f e d c b a')
+  })
+
   it('удар в несколько прыжков набирается по клеткам и уходит целиком', async () => {
     const onPlay = vi.fn()
     render(<CheckersBoard board={boardOf({ c3: 'w', d4: 'b', f6: 'b' })} legal={[['c3', 'e5', 'g7']]} lastPath={null} orientation="w" canMove onPlay={onPlay} />)

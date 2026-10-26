@@ -32,6 +32,15 @@ describe('шахматная доска', () => {
     expect(onMove).not.toHaveBeenCalled()
   })
 
+  it('подписи линий как на chess.com: номера рядов слева, буквы вертикалей снизу; чёрным в обратном порядке', () => {
+    const labels = (container: HTMLElement) => [...container.querySelectorAll('[aria-hidden="true"]')].map((el) => el.textContent).join(' ')
+    const white = render(<ChessBoard fen={START} orientation="w" lastMove={null} canMove onMove={() => {}} />)
+    expect(labels(white.container)).toBe('8 7 6 5 4 3 2 1 a b c d e f g h')
+    cleanup()
+    const black = render(<ChessBoard fen={START} orientation="b" lastMove={null} canMove onMove={() => {}} />)
+    expect(labels(black.container)).toBe('1 2 3 4 5 6 7 8 h g f e d c b a')
+  })
+
   it('нельзя ходить, пока не ваш ход: клетки недоступны', () => {
     render(<ChessBoard fen={START} orientation="w" lastMove={null} canMove={false} onMove={() => {}} />)
     expect(square('e2')).toBeDisabled()

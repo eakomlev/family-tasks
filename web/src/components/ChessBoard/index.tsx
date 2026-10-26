@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Chess, type Square as ChessSquare } from 'chess.js'
 import type { ChessMove, PromotionPiece } from '@/api'
-import { Dot, Frame, Grid, Piece, PromoButton, PromoChoices, PromoOverlay, Square } from './styles'
+import { Coord, Dot, Frame, Grid, Piece, PromoButton, PromoChoices, PromoOverlay, Square } from './styles'
 
 // Фигуры сплошными символами (с ︎, чтобы браузер не рисовал их цветными эмодзи); цвет фигуры задаёт заливка
 const GLYPHS: Record<string, string> = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' }
@@ -74,23 +74,34 @@ export function ChessBoard({ fen, orientation, lastMove, canMove, onMove }: Ches
   return (
     <Frame>
       <Grid role="grid" aria-label="Шахматная доска">
-        {order.flatMap((r) =>
-          order.map((f) => {
+        {order.flatMap((r, row) =>
+          order.map((f, col) => {
             const cell = board[r][f]
             const square = `${FILES[f]}${8 - r}`
             const mark = kingInCheck === square ? 'check' : selected === square ? 'selected' : lastMove && (lastMove.from === square || lastMove.to === square) ? 'last' : undefined
             const target = targets.has(square)
+            const dark = (r + f) % 2 === 1
             return (
               <Square
                 key={square}
                 type="button"
                 role="gridcell"
-                $dark={(r + f) % 2 === 1}
+                $dark={dark}
                 $mark={mark}
                 disabled={!canMove}
                 aria-label={`${square}${cell ? `, ${cell.color === 'w' ? 'белая' : 'чёрная'} ${PIECE_NAMES[cell.type]}` : ''}${target ? ', можно сходить' : ''}`}
                 onClick={() => press(square, cell?.color)}
               >
+                {col === 0 && (
+                  <Coord $kind="rank" $onDark={dark} aria-hidden>
+                    {8 - r}
+                  </Coord>
+                )}
+                {row === 7 && (
+                  <Coord $kind="file" $onDark={dark} aria-hidden>
+                    {FILES[f]}
+                  </Coord>
+                )}
                 {cell && <Piece $white={cell.color === 'w'}>{`${GLYPHS[cell.type]}︎`}</Piece>}
                 {target && <Dot $capture={!!cell} />}
               </Square>
