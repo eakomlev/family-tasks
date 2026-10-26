@@ -33,7 +33,7 @@
 | Списки | `FlatList` / `FlashList` | Чат, история монет, задания |
 | Жесты и анимации | `react-native-gesture-handler`, `react-native-reanimated` | Перетаскивание уроков, долгое нажатие, слайдер фото, конфетти |
 | Фото и файлы | `expo-image-picker`, `expo-image-manipulator`, `expo-document-picker`, `expo-file-system`, `expo-sharing`, `expo-media-library` | Замена `resizeToPhoto`, `savePhoto`, `lib/files.ts` |
-| Контакты | `expo-contacts` | Замена Contact Picker API (кнопка «Выбрать из контактов» теперь работает и на iPhone) |
+| Контакты | (было `expo-contacts`) | Выбор контактов для приглашения по email убран 26 октября 2026 вместе с самим приглашением по email: остаётся ссылка |
 | Push | `expo-notifications` (токен устройства), серверная часть своя | См. «Push» |
 | Ссылки | Universal Links / App Links через Expo Router | См. «Ссылки» |
 | Тесты | Vitest (логика, в Node) + React Native Testing Library для компонентов позже | Логика копируется вместе со своими Vitest-тестами; `react-native` и NetInfo подменены заглушками (`tests/stubs`) |
@@ -100,6 +100,8 @@
 - **Android 13+** и iOS требуют явного разрешения на уведомления: запрос показывается по действию человека («Включить уведомления»), как плашка `PushPrompt` в вебе.
 
 ## Ссылки, открывающие приложение (Universal Links / App Links)
+
+**Статус (26 октября 2026):** Android App Links сделаны (`docs/mobile.md`, «Ссылка-приглашение открывает приложение»); универсальные ссылки iPhone ещё нет. Письма-приглашения (`kind: 'invite'`) убраны, ссылка остаётся только `<домен>/join?code=…`; текст ниже сохранён как исходный план.
 
 Нужны для приглашений: письмо `kind: 'invite'` и ссылка семьи ведут на `<домен>/join?code=…&email=…`.
 

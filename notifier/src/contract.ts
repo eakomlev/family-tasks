@@ -20,16 +20,16 @@ export interface CodeEmail {
   ttlMinutes: number
 }
 
-export interface InviteEmail {
+export type EmailPayload = CodeEmail
+
+// SMS с кодом входа: `to` номер вида «+79XXXXXXXXX»
+export interface SmsPayload {
   v: 1
-  kind: 'invite'
+  kind: 'code'
   to: string
-  inviterName: string
-  link: string
+  code: string
   ttlMinutes: number
 }
-
-export type EmailPayload = CodeEmail | InviteEmail
 
 export interface PushPayload {
   v: 1
@@ -40,6 +40,7 @@ export interface PushPayload {
 export type Parsed =
   | { ok: true; channel: 'email'; payload: EmailPayload }
   | { ok: true; channel: 'push'; payload: PushPayload }
+  | { ok: true; channel: 'sms'; payload: SmsPayload }
   // версия новее, чем понимает этот notifier: строку не трогаем, её заберёт обновлённый
   | { ok: false; reason: 'unsupported_version' }
   | { ok: false; reason: 'invalid'; detail: string }
@@ -57,18 +58,21 @@ export function parsePayload(channel: string, raw: unknown): Parsed {
 
   if (channel === 'email') {
     const { kind, to, ttlMinutes } = raw
-    if (kind !== 'code' && kind !== 'invite') return { ok: false, reason: 'invalid', detail: 'unknown email kind' }
+    if (kind !== 'code') return { ok: false, reason: 'invalid', detail: 'unknown email kind' }
     if (!isString(to) || !to.includes('@')) return { ok: false, reason: 'invalid', detail: 'bad recipient' }
     if (typeof ttlMinutes !== 'number' || !(ttlMinutes > 0)) return { ok: false, reason: 'invalid', detail: 'bad ttl' }
-    if (kind === 'invite') {
-      const { inviterName, link } = raw
-      if (!isString(inviterName) || !inviterName) return { ok: false, reason: 'invalid', detail: 'bad inviter' }
-      if (!isString(link) || !/^https?:\/\//.test(link)) return { ok: false, reason: 'invalid', detail: 'bad link' }
-      return { ok: true, channel: 'email', payload: { v: 1, kind, to, inviterName, link, ttlMinutes } }
-    }
     const { code } = raw
     if (!isString(code) || !code) return { ok: false, reason: 'invalid', detail: 'bad code' }
     return { ok: true, channel: 'email', payload: { v: 1, kind, to, code, ttlMinutes } }
+  }
+
+  if (channel === 'sms') {
+    const { kind, to, code, ttlMinutes } = raw
+    if (kind !== 'code') return { ok: false, reason: 'invalid', detail: 'unknown sms kind' }
+    if (!isString(to) || !/^\+79\d{9}$/.test(to)) return { ok: false, reason: 'invalid', detail: 'bad recipient' }
+    if (!isString(code) || !code) return { ok: false, reason: 'invalid', detail: 'bad code' }
+    if (typeof ttlMinutes !== 'number' || !(ttlMinutes > 0)) return { ok: false, reason: 'invalid', detail: 'bad ttl' }
+    return { ok: true, channel: 'sms', payload: { v: 1, kind, to, code, ttlMinutes } }
   }
 
   if (channel === 'push') {

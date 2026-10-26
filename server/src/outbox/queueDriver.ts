@@ -11,7 +11,7 @@ const PUSH_TTL_SECONDS = 6 * 60 * 60
 // Устройство делает то же самое (уведомление с таким tag заменяет прежнее), так что человек ничего не теряет,
 // а провайдеру уходит меньше запросов. Строка, которую notifier уже взял в работу, имеет attempts > 0 и не трогается.
 export async function enqueueRow(db: Db, item: OutboxItem): Promise<void> {
-  const ttlSeconds = item.channel === 'email' ? item.payload.ttlMinutes * 60 : PUSH_TTL_SECONDS
+  const ttlSeconds = item.channel === 'push' ? PUSH_TTL_SECONDS : item.payload.ttlMinutes * 60
   const tag = item.channel === 'push' ? item.payload.message.tag : ''
   const subscriptionId = item.channel === 'push' ? item.payload.subscriptionId : null
   await db.query(

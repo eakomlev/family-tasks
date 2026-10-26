@@ -8,6 +8,8 @@ export function describeSignupError(err: unknown): { text: string; backToDetails
       return { text: 'В семье уже есть участник с таким именем. Выберите другое.', backToDetails: true }
     case 'email_taken':
       return { text: 'Этот email уже используется в семье. Укажите другой.', backToDetails: true }
+    case 'phone_taken':
+      return { text: 'Этот номер уже используется в семье. Укажите другой.', backToDetails: true }
     case 'invalid_code':
       return { text: 'Неверный код или срок его действия истёк.', backToDetails: false }
     case 'family_full':

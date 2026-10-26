@@ -4,6 +4,7 @@ import { createDailyBudget, createPushGate, limitMail, TokenBucket } from './lim
 import { startListener } from './listener.js'
 import { log } from './log.js'
 import { mailProviderFromEnv } from './providers/mail.js'
+import { smsProviderFromEnv } from './providers/sms.js'
 import { apnsProviderFromEnv } from './providers/apns.js'
 import { fcmProviderFromEnv } from './providers/fcm.js'
 import { createPushRouter } from './providers/pushRouter.js'
@@ -38,11 +39,15 @@ const BEAT_MS = 15_000
 const MAIL_DAILY_LIMIT = limitNum('MAIL_DAILY_LIMIT', 2800)
 const MAIL_RATE = Math.max(0.1, limitNum('MAIL_RATE_PER_SECOND', 2))
 const PUSH_RATE = Math.max(0.1, limitNum('PUSH_RATE_PER_SECOND', 50))
+// SMS платные (около 10 ₽), поэтому дневной потолок небольшой: это и защита от накрутки. 0 это без лимита.
+const SMS_DAILY_LIMIT = limitNum('SMS_DAILY_LIMIT', 100)
+const SMS_RATE = Math.max(0.1, limitNum('SMS_RATE_PER_SECOND', 2))
 
 const instance = hostname()
 const pool = createPool()
 const fcm = fcmProviderFromEnv(pool)
 const apns = apnsProviderFromEnv(pool)
+const sms = smsProviderFromEnv()
 const providers = {
   email: limitMail(mailProviderFromEnv(), {
     gate: new TokenBucket(MAIL_RATE, Math.max(1, MAIL_RATE)),
@@ -50,11 +55,19 @@ const providers = {
     limit: MAIL_DAILY_LIMIT,
     log,
   }),
+  sms: limitMail(sms.provider, {
+    name: 'sms',
+    gate: new TokenBucket(SMS_RATE, Math.max(1, SMS_RATE)),
+    budget: createDailyBudget(pool, 'sms', SMS_DAILY_LIMIT),
+    limit: SMS_DAILY_LIMIT,
+    log,
+  }),
   push: createPushRouter(pool, { web: pushProviderFromEnv(pool, { gate: createPushGate(PUSH_RATE), log }), fcm: fcm.provider, apns: apns.provider }),
 }
 if (!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY)) {
   log('warn', 'push_disabled', { hint: 'VAPID keys are not set: web push messages will be dropped' })
 }
+if (!sms.enabled) log('warn', 'sms_disabled', { hint: 'SMSAERO_EMAIL or SMSAERO_API_KEY is not set: SMS messages will be dropped' })
 if (!fcm.enabled) log('warn', 'fcm_disabled', { hint: 'FCM_SERVICE_ACCOUNT_BASE64 is not set: push to the app will be dropped' })
 if (!apns.enabled) log('warn', 'apns_disabled', { hint: 'APNS_KEY_BASE64, APNS_KEY_ID, APNS_TEAM_ID or APNS_BUNDLE_ID is not set: push to iPhone will be dropped' })
 
@@ -93,6 +106,7 @@ log('info', 'notifier_started', {
   mailDailyLimit: MAIL_DAILY_LIMIT,
   mailRatePerSecond: MAIL_RATE,
   pushRatePerSecond: PUSH_RATE,
+  smsDailyLimit: SMS_DAILY_LIMIT,
 })
 
 while (!stopping) {

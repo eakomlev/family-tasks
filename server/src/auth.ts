@@ -4,7 +4,8 @@ import type { PoolClient } from 'pg'
 import { hashToken, memberToken } from './codes.js'
 import { pool } from './db.js'
 
-export type Purpose = 'signup' | 'login'
+// verify: подтверждение нового телефона в профиле
+export type Purpose = 'signup' | 'login' | 'verify'
 type Db = Pick<PoolClient, 'query'>
 
 const CODE_TTL_MINUTES = 10
@@ -13,6 +14,7 @@ const RESEND_COOLDOWN_SECONDS = 60
 
 export const CODE_TTL = CODE_TTL_MINUTES
 
+// Ниже `email` это ключ получателя: у письма сам адрес, у SMS «tel:+79…» (см. contact.ts), таблица email_codes одна на оба способа.
 export const normalizeEmail = (email: string) => email.trim().toLowerCase()
 
 const hashCode = (email: string, purpose: Purpose, code: string) =>
@@ -104,7 +106,7 @@ export async function deleteExpiredSessions(): Promise<number> {
 // участник по токену сессии или null (для HTTP по заголовку, для WebSocket по первому сообщению)
 export async function authenticateToken(token: string) {
   const { rows } = await pool.query(
-    `select m.id, m.name, m.role, m.is_owner, m.email, m.avatar, to_char(m.birth_date, 'YYYY-MM-DD') as birth_date, m.created_at, m.family_id, f.code as family_code
+    `select m.id, m.name, m.role, m.is_owner, m.email, m.phone, m.avatar, to_char(m.birth_date, 'YYYY-MM-DD') as birth_date, m.created_at, m.family_id, f.code as family_code
      from sessions s
      join members m on m.id = s.member_id
      join families f on f.id = m.family_id

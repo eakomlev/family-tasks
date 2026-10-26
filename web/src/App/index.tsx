@@ -39,6 +39,7 @@ import MyDay from '@/pages/MyDay'
 import Profile from '@/pages/Profile'
 import ProfileEdit from '@/pages/ProfileEdit'
 import ProfileNotifications from '@/pages/ProfileNotifications'
+import ProfilePhone from '@/pages/ProfilePhone'
 import Share from '@/pages/Share'
 import ProfileSettings from '@/pages/ProfileSettings'
 import ProfileTheme from '@/pages/ProfileTheme'
@@ -103,6 +104,7 @@ export default function App() {
               <Route path="/profile/schedule" element={<Schedule />} />
               <Route path="/profile/trainings" element={<Trainings />} />
               <Route path="/profile/edit" element={<ProfileEdit />} />
+              <Route path="/profile/phone" element={<ProfilePhone />} />
               <Route path="/profile/notifications" element={<ProfileNotifications />} />
               <Route path="/profile/theme" element={<ProfileTheme />} />
               <Route path="/profile/settings" element={<ProfileSettings />} />

@@ -33,17 +33,18 @@ export interface CodeEmail {
   ttlMinutes: number
 }
 
-// письмо-приглашение в семью: ссылка на присоединение; ttlMinutes сколько письмо ждёт отправки
-export interface InviteEmail {
+export type EmailPayload = CodeEmail
+
+// SMS с кодом входа: `to` это номер в виде «+79XXXXXXXXX»
+export interface CodeSms {
   v: typeof PAYLOAD_VERSION
-  kind: 'invite'
+  kind: 'code'
   to: string
-  inviterName: string
-  link: string
+  code: string
   ttlMinutes: number
 }
 
-export type EmailPayload = CodeEmail | InviteEmail
+export type SmsPayload = CodeSms
 
 export interface PushPayload {
   v: typeof PAYLOAD_VERSION
@@ -54,3 +55,4 @@ export interface PushPayload {
 export type OutboxItem =
   | { channel: 'email'; priority: Priority; payload: EmailPayload }
   | { channel: 'push'; priority: Priority; payload: PushPayload }
+  | { channel: 'sms'; priority: Priority; payload: SmsPayload }

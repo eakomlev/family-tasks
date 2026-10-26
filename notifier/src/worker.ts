@@ -1,4 +1,4 @@
-import { parsePayload, type EmailPayload, type PushPayload } from './contract.js'
+import { parsePayload, type EmailPayload, type PushPayload, type SmsPayload } from './contract.js'
 import type { Db } from './db.js'
 import { log as defaultLog, type Log } from './log.js'
 import type { Outcome } from './outcome.js'
@@ -8,6 +8,7 @@ import { backoffSeconds, MAX_ATTEMPTS } from './retry.js'
 export interface Providers {
   email(payload: EmailPayload): Promise<Outcome>
   push(payload: PushPayload): Promise<Outcome>
+  sms(payload: SmsPayload): Promise<Outcome>
 }
 
 export interface BatchOptions {
@@ -45,13 +46,13 @@ export async function processBatch(db: Db, providers: Providers, options: BatchO
     skipped: 0,
     deferred: 0,
     reaped: 0,
-    byChannel: { email: { sent: 0, failed: 0 }, push: { sent: 0, failed: 0 } },
+    byChannel: { email: { sent: 0, failed: 0 }, push: { sent: 0, failed: 0 }, sms: { sent: 0, failed: 0 } },
   }
 
   for (const gone of await reap(db, now)) {
     stats.reaped++
     // просроченное и исчерпавшее попытки тоже не ушло
-    if (gone.channel === 'email' || gone.channel === 'push') stats.byChannel[gone.channel].failed++
+    if (gone.channel === 'email' || gone.channel === 'push' || gone.channel === 'sms') stats.byChannel[gone.channel].failed++
     log('error', gone.reason === 'expired' ? 'outbox_expired' : 'outbox_failed', {
       id: gone.id,
       channel: gone.channel,
@@ -87,7 +88,12 @@ export async function processBatch(db: Db, providers: Providers, options: BatchO
 
     let outcome: Outcome
     try {
-      outcome = parsed.channel === 'email' ? await providers.email(parsed.payload) : await providers.push(parsed.payload)
+      outcome =
+        parsed.channel === 'email'
+          ? await providers.email(parsed.payload)
+          : parsed.channel === 'sms'
+            ? await providers.sms(parsed.payload)
+            : await providers.push(parsed.payload)
     } catch (err) {
       outcome = { kind: 'retry', error: (err as Error).message }
     }

@@ -13,7 +13,4 @@ export const getInvite = (token: string) => request<Link>('/invite', {}, token)
 
 export const renewInvite = (token: string) => request<Link>('/invite', send('POST'), token)
 
-// Приглашение по email (только владелец): на адрес уходит письмо со ссылкой на присоединение
-export const inviteByEmail = (token: string, email: string) => request<void>('/invite/email', send('POST', { email }), token)
-
 export type * from './types'

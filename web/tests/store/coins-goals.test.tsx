@@ -37,7 +37,7 @@ beforeEach(() => {
   vi.mocked(api.getCoinBalance).mockReset().mockResolvedValue(500)
   vi.mocked(api.getGoal).mockReset().mockResolvedValue({ goal: goal(), balance: 500 })
   vi.mocked(api.purchaseGoal).mockReset()
-  vi.mocked(api.updateProfile).mockReset().mockResolvedValue({ member: { ...kid, email: 'x@y.z' } })
+  vi.mocked(api.updateProfile).mockReset().mockResolvedValue({ member: { ...kid, email: 'x@y.z', phone: null } })
   vi.mocked(api.setMood).mockReset().mockResolvedValue({ mood: { value: 5, at: '' } })
 })
 
@@ -153,7 +153,7 @@ describe('профиль: изменения видны сразу', () => {
     expect(screen.getByTestId('member-name')).toHaveTextContent('Миша')
 
     let finish!: () => void
-    vi.mocked(api.updateProfile).mockImplementation(() => new Promise((resolve) => (finish = () => resolve({ member: { ...kid, email: 'x@y.z' } }))))
+    vi.mocked(api.updateProfile).mockImplementation(() => new Promise((resolve) => (finish = () => resolve({ member: { ...kid, email: 'x@y.z', phone: null } }))))
     await userEvent.click(screen.getByText('rename'))
     expect(screen.getByTestId('name')).toHaveTextContent('Михаил')
     expect(screen.getByTestId('member-name')).toHaveTextContent('Михаил')

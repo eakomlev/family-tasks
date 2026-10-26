@@ -11,11 +11,12 @@ import { Screen } from '@/components/Screen'
 import { Heading, Text } from '@/components/Text'
 import { disablePush } from '@/features/notifications/usePush'
 import { useIdentity } from '@/identity/context'
+import { formatPhone } from '@/lib/contact'
 import { ageFromBirthDate, formatAge, formatBirthDate } from '@/lib/date'
 import { ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
 
-// Профиль кратко: фото, имя, роль, дата рождения и email; ниже пункты и «Выйти». Править имя, дату и фото: «Изменить».
+// Профиль кратко: фото, имя, роль, дата рождения, email и телефон; ниже пункты и «Выйти». Править имя, дату и фото: «Изменить».
 export function ProfileScreen() {
   const { identity, clear } = useIdentity()
   const confirm = useConfirm()
@@ -28,7 +29,7 @@ export function ProfileScreen() {
   async function handleLogout() {
     const ok = await confirm({
       title: 'Выйти из аккаунта?',
-      message: 'На этом устройстве вы выйдете из семьи. Вернуться можно, войдя по email.',
+      message: 'На этом устройстве вы выйдете из семьи. Вернуться можно, войдя по email или номеру телефона.',
       confirmLabel: 'Выйти',
       danger: true,
     })
@@ -57,7 +58,8 @@ export function ProfileScreen() {
           </View>
           <View style={{ alignItems: 'center', gap: 2 }}>
             {me.birthDate && <Text $tone="muted">{`${formatBirthDate(me.birthDate)} · ${formatAge(ageFromBirthDate(me.birthDate))}`}</Text>}
-            <Text $tone="muted">{me.email}</Text>
+            {me.email && <Text $tone="muted">{me.email}</Text>}
+            {me.phone && <Text $tone="muted">{formatPhone(me.phone)}</Text>}
           </View>
 
           {/* у ребёнка: монеты и переход к истории начислений */}
@@ -69,6 +71,7 @@ export function ProfileScreen() {
               <MenuLink to="/profile/trainings">Расписание тренировок</MenuLink>
             </>
           )}
+          <MenuLink to="/profile/phone">{me.phone ? 'Телефон для входа' : 'Добавить телефон для входа'}</MenuLink>
           <MenuLink to="/profile/notifications">Уведомления</MenuLink>
           <MenuLink to="/profile/theme">Тема</MenuLink>
           <MenuLink to="/profile/settings">Настройки</MenuLink>

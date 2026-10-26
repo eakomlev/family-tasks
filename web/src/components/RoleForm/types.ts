@@ -4,8 +4,6 @@ import type { Role } from '@/lib/roles'
 export interface RoleFormProps {
   roles: Role[]
   submitLabel: string
-  // адрес, который уже известен (из письма-приглашения): поле заполнено, его можно поправить
-  initialEmail?: string
   // должен бросить ApiError, если сервер отклонил запрос
   onSubmit: (data: SignupData) => Promise<void>
 }

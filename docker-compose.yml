@@ -40,9 +40,6 @@ services:
       APNS_ENABLED: ${APNS_ENABLED:-}
       # администраторы сервиса (раздел «Сервис» в профиле), email через запятую
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
-      # адрес сайта для ссылок в письмах-приглашениях: PUBLIC_URL или https://DOMAIN
-      PUBLIC_URL: ${PUBLIC_URL:-}
-      DOMAIN: ${DOMAIN:-}
       SMARTCAPTCHA_CLIENT_KEY: ${SMARTCAPTCHA_CLIENT_KEY:-}
       SMARTCAPTCHA_SERVER_KEY: ${SMARTCAPTCHA_SERVER_KEY:-}
       # дневной лимит писем: тот же, что у notifier (по нему API отказывает, когда бюджет исчерпан)
@@ -56,6 +53,8 @@ services:
       MAX_VIDEO_BYTES: ${MAX_VIDEO_BYTES:-}
       # сколько видео сжимается одновременно (остальным «занято, попробуйте позже»)
       MEDIA_MAX_ACTIVE_VIDEOS: ${MEDIA_MAX_ACTIVE_VIDEOS:-}
+      # вход по телефону: дневной потолок SMS (по нему API отказывает, когда бюджет исчерпан), тот же, что у notifier
+      SMS_DAILY_LIMIT: ${SMS_DAILY_LIMIT:-100}
     depends_on:
       db:
         condition: service_healthy
@@ -90,6 +89,12 @@ services:
       MAIL_DAILY_LIMIT: ${MAIL_DAILY_LIMIT:-2800}
       MAIL_RATE_PER_SECOND: ${MAIL_RATE_PER_SECOND:-2}
       PUSH_RATE_PER_SECOND: ${PUSH_RATE_PER_SECOND:-50}
+      # SMS с кодами входа (SMS Aero): без ключей SMS не отправляются; потолок в сутки и подпись (по умолчанию бесплатная «SMS Aero»)
+      SMSAERO_EMAIL: ${SMSAERO_EMAIL:-}
+      SMSAERO_API_KEY: ${SMSAERO_API_KEY:-}
+      SMSAERO_SIGN: ${SMSAERO_SIGN:-}
+      SMS_DAILY_LIMIT: ${SMS_DAILY_LIMIT:-100}
+      SMS_RATE_PER_SECOND: ${SMS_RATE_PER_SECOND:-2}
     healthcheck:
       test: ["CMD", "node", "dist/healthcheck.js"]
       interval: 30s

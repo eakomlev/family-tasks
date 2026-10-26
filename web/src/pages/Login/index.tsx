@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ApiError, login, requestEmailCode, type LoginOption } from '@/api'
+import { ApiError, login, requestCode, type LoginOption } from '@/api'
 import { AppLogo, AuthCard, AuthPage } from '@/components/AuthPage'
 import { BackLink } from '@/components/BackLink'
 import { CodeStep } from '@/components/CodeStep'
 import { ReplaceGuard } from '@/components/ReplaceGuard'
 import { useIdentity } from '@/identity/context'
 import { toIdentity } from '@/identity/utils'
+import { emptyContact, trimContact, type Contact } from '@/lib/contact'
 import { describeCodeError, isTooSoon } from '@/lib/errors'
 import { ChooseMember } from './components/ChooseMember'
-import { EmailStep } from './components/EmailStep'
+import { ContactStep } from './components/ContactStep'
 import type { Step } from './types'
 import { START_PATH } from '@/lib/routes'
 import { useInFlight } from '@/lib/useInFlight'
@@ -19,17 +20,17 @@ function LoginFlow() {
   const guard = useInFlight()
   const { save } = useIdentity()
   const navigate = useNavigate()
-  const [step, setStep] = useState<Step>('email')
-  const [email, setEmail] = useState('')
+  const [step, setStep] = useState<Step>('contact')
+  const [contact, setContact] = useState<Contact>(emptyContact())
   const [code, setCode] = useState('')
   const [options, setOptions] = useState<LoginOption[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
-  const trimmedEmail = email.trim()
-  const sendCode = () => requestEmailCode(trimmedEmail, 'login')
+  const trimmed = trimContact(contact)
+  const sendCode = () => requestCode(trimmed, 'login')
 
-  const handleEmail = guard(async () => {
+  const handleContact = guard(async () => {
     setBusy(true)
     setError(undefined)
     try {
@@ -47,11 +48,11 @@ function LoginFlow() {
     setBusy(true)
     setError(undefined)
     try {
-      await save(toIdentity(await login(trimmedEmail, enteredCode, memberId)))
+      await save(toIdentity(await login(trimmed, enteredCode, memberId)))
       navigate(START_PATH, { replace: true })
     } catch (err) {
       if (err instanceof ApiError && err.code === 'choose_member') {
-        // email состоит в нескольких семьях: код ещё действителен, просим выбрать
+        // контакт состоит в нескольких семьях: код ещё действителен, просим выбрать
         setCode(enteredCode)
         setOptions((err.body as { options: LoginOption[] }).options)
         setStep('choose')
@@ -67,13 +68,13 @@ function LoginFlow() {
   if (step === 'code') {
     return (
       <CodeStep
-        email={trimmedEmail}
+        contact={trimmed}
         busy={busy}
         error={error}
         submitLabel="Войти"
         onSubmit={(c) => finish(c)}
         onResend={sendCode}
-        onChangeEmail={() => { setStep('email'); setError(undefined) }}
+        onChangeContact={() => { setStep('contact'); setError(undefined) }}
       />
     )
   }
@@ -82,7 +83,7 @@ function LoginFlow() {
     return <ChooseMember options={options} busy={busy} error={error} onChoose={(id) => finish(code, id)} />
   }
 
-  return <EmailStep email={email} busy={busy} error={error} onEmailChange={setEmail} onSubmit={handleEmail} />
+  return <ContactStep contact={contact} busy={busy} error={error} onContactChange={setContact} onSubmit={handleContact} />
 }
 
 export default function Login() {

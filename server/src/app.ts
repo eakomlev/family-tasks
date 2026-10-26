@@ -10,7 +10,6 @@ import { coinRoutes } from './coins.js'
 import { eventRoutes } from './events.js'
 import { familyDeletionRoutes } from './familyDeletion.js'
 import { goalRoutes } from './goals.js'
-import { inviteRoutes } from './invites.js'
 import { createMediaClient, mediaEnv, type MediaClient } from './media/client.js'
 import { robloxRoutes } from './roblox.js'
 import { pushRoutes } from './push.js'
@@ -88,7 +87,6 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
     await flushRealtime()
   })
   await app.register(routes, { captcha })
-  await app.register(inviteRoutes)
   await app.register(scheduleRoutes)
   await app.register(trainingRoutes)
   await app.register(taskRoutes)

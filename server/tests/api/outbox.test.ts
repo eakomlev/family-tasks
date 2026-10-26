@@ -74,6 +74,18 @@ describe('очередь', () => {
     await pool.query('delete from outbox where id = $1', [row.id])
   })
 
+  it('SMS с кодом: строка канала sms, срок равен сроку кода (10 минут)', async () => {
+    await enqueue(pool, { channel: 'sms', priority: PRIORITY.code, payload: sample.sms as never })
+
+    const row = await rowFor('+79112223344')
+    expect(row).toMatchObject({ channel: 'sms', priority: 0, attempts: 0 })
+    expect(row.payload).toEqual(sample.sms)
+    const ttl = (new Date(row.expires_at).getTime() - new Date(row.created_at).getTime()) / 1000
+    expect(ttl).toBeGreaterThan(590)
+    expect(ttl).toBeLessThan(610)
+    await pool.query('delete from outbox where id = $1', [row.id])
+  })
+
   it('push: строка с сообщением и подпиской, срок 6 часов', async () => {
     const endpoint = await subscribe(fam.kid.id)
     const id = await subscriptionId(endpoint)

@@ -3,7 +3,6 @@ import { PageHeader } from '@/components/PageHeader'
 import { Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
-import { InviteByEmail } from './components/InviteByEmail'
 import { InviteSection } from './components/InviteSection'
 import { Card } from './styles'
 
@@ -22,11 +21,8 @@ export default function Invite() {
       {identity && data && (
         <>
           <Card>
-            <InviteByEmail token={identity.token} />
-          </Card>
-          <Card>
-            <h2>Отправить ссылку вручную</h2>
-            <p>Скопируйте ссылку или поделитесь ею в любом мессенджере.</p>
+            <h2>Ссылка-приглашение</h2>
+            <p>Скопируйте ссылку или поделитесь ею в любом мессенджере. Человек откроет её, подтвердит email или номер телефона кодом и выберет, кто он в семье.</p>
             <InviteSection token={identity.token} />
           </Card>
         </>

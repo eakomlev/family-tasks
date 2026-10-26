@@ -8,6 +8,7 @@ import { SlideInPage as Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { useIdentity } from '@/identity/context'
 import { START_PATH } from '@/lib/routes'
+import { formatPhone } from '@/lib/contact'
 import { ageFromBirthDate, formatAge, formatBirthDate } from '@/lib/date'
 import { ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
@@ -26,7 +27,7 @@ export default function Profile() {
   async function handleLogout() {
     const ok = await confirm({
       title: 'Выйти из аккаунта?',
-      message: 'На этом устройстве вы выйдете из семьи. Вернуться можно, войдя по email.',
+      message: 'На этом устройстве вы выйдете из семьи. Вернуться можно, войдя по email или номеру телефона.',
       confirmLabel: 'Выйти',
       danger: true,
     })
@@ -53,7 +54,8 @@ export default function Profile() {
           </Hero>
           <Facts>
             {me.birthDate && <li>{formatBirthDate(me.birthDate)} · {formatAge(ageFromBirthDate(me.birthDate))}</li>}
-            <li>{me.email}</li>
+            {me.email && <li>{me.email}</li>}
+            {me.phone && <li>{formatPhone(me.phone)}</li>}
           </Facts>
 
           {/* у ребёнка: монеты и переход к истории начислений */}
@@ -66,6 +68,7 @@ export default function Profile() {
                 <MenuLink to="/profile/trainings">Расписание тренировок</MenuLink>
               </>
             )}
+            <MenuLink to="/profile/phone">{me.phone ? 'Телефон для входа' : 'Добавить телефон для входа'}</MenuLink>
             <MenuLink to="/profile/notifications">Уведомления</MenuLink>
             <MenuLink to="/profile/theme">Тема</MenuLink>
             <MenuLink to="/profile/settings">Настройки</MenuLink>

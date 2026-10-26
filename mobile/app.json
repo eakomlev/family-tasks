@@ -24,6 +24,23 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "familytasks.ru",
+              "pathPrefix": "/join"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "POST_NOTIFICATIONS"
@@ -78,12 +95,6 @@
         {
           "color": "#10133a",
           "mode": "production"
-        }
-      ],
-      [
-        "expo-contacts",
-        {
-          "contactsPermission": "Нужен доступ к контактам, чтобы вы могли пригласить человека по его email."
         }
       ],
       [

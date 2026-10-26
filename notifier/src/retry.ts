@@ -3,9 +3,10 @@ export const MAX_ATTEMPTS = 3
 
 // Через сколько секунд повторять после неудачной попытки с этим номером (1-я, 2-я).
 // Код входа живёт 10 минут, поэтому задержки короткие; push терпит дольше.
-const DELAYS: Record<'email' | 'push', number[]> = {
+const DELAYS: Record<'email' | 'push' | 'sms', number[]> = {
   email: [5, 30],
   push: [60, 600],
+  sms: [5, 30],
 }
 
 // Не дольше часа: дольше не имеет смысла ждать, а строка всё равно истечёт.
@@ -13,7 +14,7 @@ const MAX_RETRY_AFTER_SECONDS = 3600
 
 // random передаётся параметром, чтобы разброс можно было проверить.
 export function backoffSeconds(
-  channel: 'email' | 'push',
+  channel: 'email' | 'push' | 'sms',
   attempt: number,
   retryAfterSeconds?: number,
   random: () => number = Math.random,

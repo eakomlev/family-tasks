@@ -9,5 +9,5 @@ export interface ProfilePatch {
 }
 
 export interface UpdateProfileResult {
-  member: Member & { email: string }
+  member: Member & { email: string | null; phone?: string | null }
 }

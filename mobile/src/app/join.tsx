@@ -48,7 +48,7 @@ function EnterCode({ onCode }: { onCode: (code: string) => void }) {
   )
 }
 
-function JoinWithCode({ code, email }: { code: string; email?: string }) {
+function JoinWithCode({ code }: { code: string }) {
   const { save } = useIdentity()
   const router = useRouter()
   const [invite, setInvite] = useState<InviteState>('checking')
@@ -82,15 +82,15 @@ function JoinWithCode({ code, email }: { code: string; email?: string }) {
   return (
     <Stack>
       <Text>Вас приглашают в семью.</Text>
-      <RoleForm roles={JOIN_ROLES} submitLabel="Присоединиться" initialEmail={email} onSubmit={handleSubmit} />
+      <RoleForm roles={JOIN_ROLES} submitLabel="Присоединиться" onSubmit={handleSubmit} />
     </Stack>
   )
 }
 
-// Присоединение по приглашению. Ссылка `/join?code=…&email=…` открывает приложение сразу на нужном шаге (универсальные ссылки подключим в фазе 6).
+// Присоединение по приглашению. Ссылка `/join?code=…` открывает приложение сразу на нужном шаге (универсальные ссылки подключим в фазе 6).
 export default function Join() {
   const router = useRouter()
-  const params = useLocalSearchParams<{ code?: string; email?: string }>()
+  const params = useLocalSearchParams<{ code?: string }>()
   const [entered, setEntered] = useState<string>()
   const code = params.code || entered
 
@@ -100,7 +100,7 @@ export default function Join() {
         ← Назад
       </Button>
       <Title>Присоединиться к семье</Title>
-      <ReplaceGuard>{code ? <JoinWithCode key={code} code={code} email={params.email} /> : <EnterCode onCode={setEntered} />}</ReplaceGuard>
+      <ReplaceGuard>{code ? <JoinWithCode key={code} code={code} /> : <EnterCode onCode={setEntered} />}</ReplaceGuard>
     </AuthScreen>
   )
 }

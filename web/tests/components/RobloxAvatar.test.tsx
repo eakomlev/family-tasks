@@ -42,7 +42,7 @@ describe('«Аватар из Roblox» на странице изменения 
   beforeEach(() => {
     setSession({ token: 'tok', memberId: 'kid' })
     vi.mocked(api.getRobloxAvatar).mockReset().mockResolvedValue({ image: `data:image/png;base64,${PNG_BASE64}` })
-    vi.mocked(api.updateProfile).mockReset().mockResolvedValue({ member: { ...kid, email: 'x@y.z' } })
+    vi.mocked(api.updateProfile).mockReset().mockResolvedValue({ member: { ...kid, email: 'x@y.z', phone: null } })
   })
 
   it('картинка из ответа сервера превращается в файл без fetch (CSP запрещает fetch по data:) и сохраняется в профиль', async () => {

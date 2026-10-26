@@ -9,14 +9,14 @@ import {
   createSession,
   discardEmailCode,
   issueEmailCode,
-  normalizeEmail,
   type Purpose,
 } from './auth.js'
 import { familyCode, hashToken, inviteCode } from './codes.js'
 import { pool } from './db.js'
 import type { CaptchaVerifier } from './captcha.js'
 import { coinBalance } from './coins.js'
-import { mailBudgetExhausted } from './outbox/budget.js'
+import { parseContact, type Contact } from './contact.js'
+import { mailBudgetExhausted, smsBudgetExhausted } from './outbox/budget.js'
 import { enqueue, PRIORITY } from './outbox/index.js'
 import { closeSession, publish } from './realtime.js'
 import { MAX_FAMILY_MEMBERS, ROLES, type Role } from './roles.js'
@@ -33,25 +33,32 @@ const publicStrict = { ...strictLimit, public: true }
 const nameSchema = { type: 'string', minLength: 1, maxLength: 40, pattern: '\\S' } as const
 const emailSchema = { type: 'string', format: 'email', maxLength: 254 } as const
 const codeSchema = { type: 'string', pattern: '^\\d{6}$' } as const
+// телефон приходит как ввёл человек («8 911 …», «+7 (911) …»), нормализует сервер; неверный номер это 400 invalid_phone
+const phoneSchema = { type: 'string', minLength: 5, maxLength: 30 } as const
+// способ связи: ровно один из двух, email или phone (проверяет parseContact)
+const anyContact = { anyOf: [{ required: ['email'] }, { required: ['phone'] }] } as const
 
 const emailCodeSchema = {
   body: {
     type: 'object',
-    required: ['email', 'purpose'],
+    required: ['purpose'],
+    ...anyContact,
     additionalProperties: false,
-    properties: { email: emailSchema, purpose: { enum: ['signup', 'login'] }, captchaToken: { type: 'string', maxLength: 4096 } },
+    properties: { email: emailSchema, phone: phoneSchema, purpose: { enum: ['signup', 'login'] }, captchaToken: { type: 'string', maxLength: 4096 } },
   },
 }
 
 const createFamilySchema = {
   body: {
     type: 'object',
-    required: ['role', 'name', 'email', 'code'],
+    required: ['role', 'name', 'code'],
+    ...anyContact,
     additionalProperties: false,
     properties: {
       role: { enum: ['mama', 'papa'] },
       name: nameSchema,
       email: emailSchema,
+      phone: phoneSchema,
       code: codeSchema,
     },
   },
@@ -60,12 +67,14 @@ const createFamilySchema = {
 const joinSchema = {
   body: {
     type: 'object',
-    required: ['role', 'name', 'email', 'code'],
+    required: ['role', 'name', 'code'],
+    ...anyContact,
     additionalProperties: false,
     properties: {
       role: { enum: ROLES },
       name: nameSchema,
       email: emailSchema,
+      phone: phoneSchema,
       code: codeSchema,
     },
   },
@@ -103,10 +112,12 @@ const updateProfileSchema = {
 const loginSchema = {
   body: {
     type: 'object',
-    required: ['email', 'code'],
+    required: ['code'],
+    ...anyContact,
     additionalProperties: false,
     properties: {
       email: emailSchema,
+      phone: phoneSchema,
       code: codeSchema,
       memberId: { type: 'string', format: 'uuid' },
     },
@@ -116,7 +127,8 @@ const loginSchema = {
 interface SignupBody {
   role: Role
   name: string
-  email: string
+  email?: string
+  phone?: string
   code: string
 }
 
@@ -124,14 +136,14 @@ async function insertMember(
   db: PoolClient,
   familyId: string,
   body: SignupBody,
-  email: string,
+  contact: Contact,
   isOwner: boolean,
 ) {
   const name = body.name.trim()
   const { rows } = await db.query(
-    `insert into members (family_id, name, email, role, is_owner)
-     values ($1, $2, $3, $4, $5) returning id`,
-    [familyId, name, email, body.role, isOwner],
+    `insert into members (family_id, name, email, phone, role, is_owner)
+     values ($1, $2, $3, $4, $5, $6) returning id`,
+    [familyId, name, contact.kind === 'email' ? contact.value : null, contact.kind === 'phone' ? contact.value : null, body.role, isOwner],
   )
   const id = rows[0].id as string
   const token = await createSession(db, id)
@@ -169,11 +181,14 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
   })
 
   // отправка кода на почту. Ответ не зависит от того, известен ли email, чтобы адреса нельзя было перебирать
-  app.post<{ Body: { email: string; purpose: Purpose; captchaToken?: string } }>(
+  // Работает и для телефона: тело с phone вместо email, код приходит SMS.
+  app.post<{ Body: { email?: string; phone?: string; purpose: Purpose; captchaToken?: string } }>(
     '/api/email-codes',
     { schema: emailCodeSchema, config: publicStrict },
     async (req, reply) => {
-      const email = normalizeEmail(req.body.email)
+      const parsed = parseContact(req.body)
+      if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
+      const { contact } = parsed
       const { purpose } = req.body
 
       // Капча первой и не зависит от адреса: ответ ничего не раскрывает про email, а бот не доходит ни до кода, ни до бюджета писем.
@@ -188,13 +203,16 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
       // Письма отправляет notifier в пределах дневного бюджета. Если он исчерпан, код не дойдёт до истечения (10 минут),
       // поэтому честно отказываем сразу. Проверка первая и не зависит от адреса, так что ответ ничего не раскрывает,
       // а код и пауза «раз в минуту» не создаются: после освобождения бюджета можно сразу повторить.
-      if (await mailBudgetExhausted(pool)) return reply.code(503).send({ error: 'mail_busy' })
+      // Для SMS то же самое, только бюджет свой (SMS платные): `sms_busy`.
+      if (contact.kind === 'phone' ? await smsBudgetExhausted(pool) : await mailBudgetExhausted(pool)) {
+        return reply.code(503).send({ error: contact.kind === 'phone' ? 'sms_busy' : 'mail_busy' })
+      }
 
       // Код и письмо в очереди фиксируются вместе: сбой очереди не оставит «код есть, письма нет» и не включит паузу.
       const tx = await pool.connect()
       try {
         await tx.query('begin')
-        const code = await issueEmailCode(email, purpose, tx)
+        const code = await issueEmailCode(contact.key, purpose, tx)
         if (!code) {
           await tx.query('rollback')
           return reply.code(429).send({ error: 'too_soon' })
@@ -202,13 +220,18 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
 
         // при входе письмо уходит только известному адресу, а ответ одинаков для любого
         const send =
-          purpose === 'signup' || (await tx.query('select 1 from members where email = $1 limit 1', [email])).rows.length > 0
+          purpose === 'signup' || (await tx.query(`select 1 from members where ${contact.column} = $1 limit 1`, [contact.value])).rows.length > 0
         if (send) {
           try {
-            await enqueue(tx, { channel: 'email', priority: PRIORITY.code, payload: { v: 1, kind: 'code', to: email, code, ttlMinutes: CODE_TTL } })
+            await enqueue(
+              tx,
+              contact.kind === 'email'
+                ? { channel: 'email', priority: PRIORITY.code, payload: { v: 1, kind: 'code', to: contact.value, code, ttlMinutes: CODE_TTL } }
+                : { channel: 'sms', priority: PRIORITY.code, payload: { v: 1, kind: 'code', to: contact.value, code, ttlMinutes: CODE_TTL } },
+            )
           } catch (err) {
             await tx.query('rollback').catch(() => {})
-            app.log.error(err, 'failed to queue email code')
+            app.log.error(err, 'failed to queue code')
             // при входе молчим, иначе ошибка выдала бы, что email известен; при регистрации честный сбой
             if (purpose === 'login') return reply.code(204).send()
             throw err
@@ -230,8 +253,10 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
     '/api/families',
     { schema: createFamilySchema, config: publicStrict },
     async (req, reply) => {
-      const email = normalizeEmail(req.body.email)
-      if (!(await checkEmailCode(email, 'signup', req.body.code))) {
+      const parsed = parseContact(req.body)
+      if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
+      const { contact } = parsed
+      if (!(await checkEmailCode(contact.key, 'signup', req.body.code))) {
         return reply.code(400).send({ error: 'invalid_code' })
       }
 
@@ -255,9 +280,9 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
           }
         }
 
-        const member = await insertMember(db, family.id, req.body, email, true)
+        const member = await insertMember(db, family.id, req.body, contact, true)
         const invite = await issueInvite(db, family.id)
-        await discardEmailCode(db, email, 'signup')
+        await discardEmailCode(db, contact.key, 'signup')
         await db.query('commit')
 
         return reply.code(201).send({ family: { code: family.code }, member, invite })
@@ -297,8 +322,10 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
         return reply.code(410).send({ error: 'invite_expired' })
       }
 
-      const email = normalizeEmail(req.body.email)
-      if (!(await checkEmailCode(email, 'signup', req.body.code))) {
+      const parsed = parseContact(req.body)
+      if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
+      const { contact } = parsed
+      if (!(await checkEmailCode(contact.key, 'signup', req.body.code))) {
         return reply.code(400).send({ error: 'invalid_code' })
       }
 
@@ -312,8 +339,8 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
           await db.query('rollback')
           return reply.code(409).send({ error: 'family_full' })
         }
-        const member = await insertMember(db, invite.family_id, req.body, email, false)
-        await discardEmailCode(db, email, 'signup')
+        const member = await insertMember(db, invite.family_id, req.body, contact, false)
+        await discardEmailCode(db, contact.key, 'signup')
         await db.query('commit')
         publish(invite.family_id, { type: 'members' })
         return reply.code(201).send({ family: { code: invite.family_code }, member })
@@ -322,6 +349,7 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
         const constraint = constraintOf(err)
         if (constraint === 'members_family_name_idx') return reply.code(409).send({ error: 'name_taken' })
         if (constraint === 'members_family_email_idx') return reply.code(409).send({ error: 'email_taken' })
+        if (constraint === 'members_family_phone_idx') return reply.code(409).send({ error: 'phone_taken' })
         throw err
       } finally {
         db.release()
@@ -330,12 +358,14 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
   )
 
   // вход по email и коду; если email есть в нескольких семьях, клиент должен выбрать участника
-  app.post<{ Body: { email: string; code: string; memberId?: string } }>(
+  app.post<{ Body: { email?: string; phone?: string; code: string; memberId?: string } }>(
     '/api/auth/login',
     { schema: loginSchema, config: publicStrict },
     async (req, reply) => {
-      const email = normalizeEmail(req.body.email)
-      if (!(await checkEmailCode(email, 'login', req.body.code))) {
+      const parsed = parseContact(req.body)
+      if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
+      const { contact } = parsed
+      if (!(await checkEmailCode(contact.key, 'login', req.body.code))) {
         return reply.code(401).send({ error: 'invalid_code' })
       }
 
@@ -344,8 +374,8 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
                 (select array_agg(o.name order by o.created_at) from members o
                  where o.family_id = m.family_id) as "familyMembers"
          from members m join families f on f.id = m.family_id
-         where m.email = $1 order by m.created_at`,
-        [email],
+         where m.${contact.column} = $1 order by m.created_at`,
+        [contact.value],
       )
       if (candidates.length === 0) return reply.code(401).send({ error: 'invalid_code' })
 
@@ -371,7 +401,7 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
       try {
         await db.query('begin')
         const token = await createSession(db, chosen.id)
-        await discardEmailCode(db, email, 'login')
+        await discardEmailCode(db, contact.key, 'login')
         await db.query('commit')
         return reply.code(201).send({
           family: { code: chosen.familyCode },
@@ -434,6 +464,7 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
         role: me.role,
         isOwner: me.is_owner,
         email: me.email,
+        phone: me.phone,
         // раздел «Сервис» (статистика) только у администраторов из ADMIN_EMAILS
         isAdmin: isAdminEmail(me.email),
         avatar: me.avatar,
@@ -502,7 +533,7 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
       try {
         const { rows } = await pool.query(
           `update members set ${sets.join(', ')} where id = $${values.length}
-           returning id, name, role, is_owner as "isOwner", email, avatar,
+           returning id, name, role, is_owner as "isOwner", email, phone, avatar,
                      to_char(birth_date, 'YYYY-MM-DD') as "birthDate"`,
           values,
         )
@@ -516,4 +547,70 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
       }
     },
   )
+
+  // ---- телефон в профиле: добавить или сменить (код приходит SMS на новый номер), убрать ----
+
+  const phoneBody = { type: 'object', required: ['phone'], additionalProperties: false, properties: { phone: phoneSchema } } as const
+
+  // Код на новый номер. Номер, который уже есть у другого участника этой семьи, не принимаем (иначе вход по нему был бы неоднозначным).
+  app.post<{ Body: { phone: string } }>('/api/me/phone-code', { schema: { body: phoneBody }, config: strictLimit }, async (req, reply) => {
+    const me = await authenticate(req)
+    if (!me) return reply.code(401).send({ error: 'unauthorized' })
+    const parsed = parseContact({ phone: req.body.phone })
+    if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
+    const { contact } = parsed
+    if (await smsBudgetExhausted(pool)) return reply.code(503).send({ error: 'sms_busy' })
+    const { rows: taken } = await pool.query('select 1 from members where family_id = $1 and phone = $2 and id <> $3', [me.family_id, contact.value, me.id])
+    if (taken[0]) return reply.code(409).send({ error: 'phone_taken' })
+
+    const tx = await pool.connect()
+    try {
+      await tx.query('begin')
+      const code = await issueEmailCode(contact.key, 'verify', tx)
+      if (!code) {
+        await tx.query('rollback')
+        return reply.code(429).send({ error: 'too_soon' })
+      }
+      await enqueue(tx, { channel: 'sms', priority: PRIORITY.code, payload: { v: 1, kind: 'code', to: contact.value, code, ttlMinutes: CODE_TTL } })
+      await tx.query('commit')
+      return reply.code(204).send()
+    } catch (err) {
+      await tx.query('rollback').catch(() => {})
+      throw err
+    } finally {
+      tx.release()
+    }
+  })
+
+  app.put<{ Body: { phone: string; code: string } }>(
+    '/api/me/phone',
+    { schema: { body: { type: 'object', required: ['phone', 'code'], additionalProperties: false, properties: { phone: phoneSchema, code: codeSchema } } }, config: strictLimit },
+    async (req, reply) => {
+      const me = await authenticate(req)
+      if (!me) return reply.code(401).send({ error: 'unauthorized' })
+      const parsed = parseContact({ phone: req.body.phone })
+      if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
+      const { contact } = parsed
+      if (!(await checkEmailCode(contact.key, 'verify', req.body.code))) return reply.code(400).send({ error: 'invalid_code' })
+      try {
+        await pool.query('update members set phone = $2 where id = $1', [me.id, contact.value])
+      } catch (err) {
+        if (constraintOf(err) === 'members_family_phone_idx') return reply.code(409).send({ error: 'phone_taken' })
+        throw err
+      }
+      await discardEmailCode(pool, contact.key, 'verify')
+      publish(me.family_id, { type: 'members' })
+      return { phone: contact.value }
+    },
+  )
+
+  // Убрать номер можно, пока остаётся другой способ входа (email).
+  app.delete('/api/me/phone', async (req, reply) => {
+    const me = await authenticate(req)
+    if (!me) return reply.code(401).send({ error: 'unauthorized' })
+    if (!me.email) return reply.code(400).send({ error: 'last_contact' })
+    await pool.query('update members set phone = null where id = $1', [me.id])
+    publish(me.family_id, { type: 'members' })
+    return reply.code(204).send()
+  })
 }

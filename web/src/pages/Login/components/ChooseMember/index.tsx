@@ -7,7 +7,7 @@ import type { ChooseMemberProps } from './types'
 export function ChooseMember({ options, busy, error, onChoose }: ChooseMemberProps) {
   return (
     <Stack>
-      <p>Этот email есть в нескольких семьях. В какую войти?</p>
+      <p>Эти данные для входа есть в нескольких семьях. В какую войти?</p>
       {options.map((o) => (
         <Choice key={o.id} type="button" disabled={busy} onClick={() => onChoose(o.id)}>
           <strong>{o.name} ({ROLE_LABELS[o.role]})</strong>

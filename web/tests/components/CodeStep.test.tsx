@@ -5,12 +5,12 @@ import { CodeStep } from '@/components/CodeStep'
 
 function setup(over: Partial<Parameters<typeof CodeStep>[0]> = {}) {
   const props = {
-    email: 'mama@example.com',
+    contact: { kind: 'email' as const, value: 'mama@example.com' },
     busy: false,
     submitLabel: 'Войти',
     onSubmit: vi.fn(),
     onResend: vi.fn().mockResolvedValue(undefined),
-    onChangeEmail: vi.fn(),
+    onChangeContact: vi.fn(),
     ...over,
   }
   render(<CodeStep {...props} />)
@@ -114,6 +114,6 @@ describe('CodeStep', () => {
     const props = setup({ error: 'Неверный код' })
     expect(screen.getByText('Неверный код')).toBeInTheDocument()
     click('Изменить email')
-    expect(props.onChangeEmail).toHaveBeenCalled()
+    expect(props.onChangeContact).toHaveBeenCalled()
   })
 })

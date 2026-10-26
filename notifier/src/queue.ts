@@ -3,7 +3,7 @@ import { MAX_ATTEMPTS } from './retry.js'
 
 export interface Row {
   id: string
-  channel: 'email' | 'push'
+  channel: 'email' | 'push' | 'sms'
   priority: number
   payload: unknown
   attempts: number
@@ -79,11 +79,11 @@ export interface ChannelCounts {
   sent: number
   failed: number
 }
-export type DeliveryCounts = Record<'email' | 'push', ChannelCounts>
+export type DeliveryCounts = Record<'email' | 'push' | 'sms', ChannelCounts>
 
 // Добавляет итоги прохода в дневные счётчики (сутки по UTC). Нулевые каналы пропускает: пустой проход ничего не пишет.
 export async function recordDelivery(db: Db, now: Date, counts: DeliveryCounts): Promise<void> {
-  for (const channel of ['email', 'push'] as const) {
+  for (const channel of ['email', 'push', 'sms'] as const) {
     const { sent, failed } = counts[channel]
     if (sent === 0 && failed === 0) continue
     await db.query(

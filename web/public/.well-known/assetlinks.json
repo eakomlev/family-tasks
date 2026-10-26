@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ru.familytasks.mobile",
+      "sha256_cert_fingerprints": [
+        "62:07:FE:11:0E:C8:A8:F0:7D:BE:ED:3E:12:5E:E5:4E:7B:00:A3:5C:6F:B9:20:47:A6:25:16:BD:65:B9:29:D8"
+      ]
+    }
+  }
+]

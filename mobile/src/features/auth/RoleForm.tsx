@@ -1,25 +1,24 @@
 import { useState } from 'react'
 import { Pressable } from 'react-native'
 import styled from 'styled-components/native'
-import { requestEmailCode, type SignupData } from '@/api'
+import { requestCode, type SignupData } from '@/api'
 import { Button } from '@/components/Button'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
 import { Text } from '@/components/Text'
+import { contactBody, emptyContact, isValidContact, trimContact, type Contact } from '@/lib/contact'
 import { describeCodeError, isTooSoon } from '@/lib/errors'
 import { ROLE_LABELS, type Role } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
-import { isValidEmail } from '@/lib/validation'
 import { CodeStep } from './CodeStep'
+import { ContactField } from './ContactField'
 import { describeSignupError } from './signupErrors'
 
 interface RoleFormProps {
   roles: Role[]
   submitLabel: string
-  // адрес, который уже известен (из письма-приглашения): поле заполнено, его можно поправить
-  initialEmail?: string
   // должен бросить ApiError, если сервер отклонил запрос
   onSubmit: (data: SignupData) => Promise<void>
 }
@@ -32,20 +31,19 @@ const RoleCard = styled(Pressable)<{ $selected: boolean }>`
   background-color: ${({ theme, $selected }) => ($selected ? theme.colors.accentSoft : theme.colors.surface)};
 `
 
-// Два шага: роль, имя и email, затем код из письма. Общий для создания семьи и присоединения по приглашению.
-export function RoleForm({ roles, submitLabel, initialEmail, onSubmit }: RoleFormProps) {
+// Два шага: роль, имя и способ связи (email или телефон), затем код из письма или SMS. Общий для создания семьи и присоединения по приглашению.
+export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
   const guard = useInFlight()
   const [step, setStep] = useState<'details' | 'code'>('details')
   const [role, setRole] = useState<Role | null>(null)
   const [name, setName] = useState('')
-  const [email, setEmail] = useState(initialEmail ?? '')
+  const [contact, setContact] = useState<Contact>(emptyContact())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
-  const trimmedEmail = email.trim()
-  const ready = role !== null && name.trim().length > 0 && isValidEmail(email) && !busy
+  const ready = role !== null && name.trim().length > 0 && isValidContact(contact) && !busy
 
-  const sendCode = () => requestEmailCode(trimmedEmail, 'signup')
+  const sendCode = () => requestCode(trimContact(contact), 'signup')
 
   const handleDetails = guard(async () => {
     if (!ready) return
@@ -68,7 +66,7 @@ export function RoleForm({ roles, submitLabel, initialEmail, onSubmit }: RoleFor
     setBusy(true)
     setError(undefined)
     try {
-      await onSubmit({ role, name: name.trim(), email: trimmedEmail, code })
+      await onSubmit({ role, name: name.trim(), ...contactBody(contact), code })
     } catch (err) {
       const { text, backToDetails } = describeSignupError(err)
       if (backToDetails) setStep('details')
@@ -80,13 +78,13 @@ export function RoleForm({ roles, submitLabel, initialEmail, onSubmit }: RoleFor
   if (step === 'code') {
     return (
       <CodeStep
-        email={trimmedEmail}
+        contact={trimContact(contact)}
         busy={busy}
         error={error}
         submitLabel={submitLabel}
         onSubmit={handleCode}
         onResend={sendCode}
-        onChangeEmail={() => {
+        onChangeContact={() => {
           setStep('details')
           setError(undefined)
         }}
@@ -111,19 +109,7 @@ export function RoleForm({ roles, submitLabel, initialEmail, onSubmit }: RoleFor
         <Input value={name} onChangeText={setName} maxLength={40} autoComplete="given-name" placeholder="Например, Аня" />
       </Field>
 
-      <Field label="Email" hint="По нему вы будете входить с любого устройства. Ребёнок может указать почту родителя.">
-        <Input
-          value={email}
-          onChangeText={setEmail}
-          maxLength={254}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete="email"
-          textContentType="emailAddress"
-          placeholder="name@example.com"
-        />
-      </Field>
+      <ContactField contact={contact} onChange={setContact} hint="По нему вы будете входить с любого устройства. Ребёнок может указать почту или номер родителя." />
 
       {error && <Notice tone="error">{error}</Notice>}
 

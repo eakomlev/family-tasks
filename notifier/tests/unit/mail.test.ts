@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { classifyMailError, createMailProvider, renderCode, renderEmail, renderInvite } from '../../src/providers/mail.js'
+import { classifyMailError, createMailProvider, renderCode } from '../../src/providers/mail.js'
 
 const payload = { v: 1, kind: 'code', to: 'a@test.local', code: '123456', ttlMinutes: 10 } as const
 
@@ -22,27 +22,6 @@ describe('письмо с кодом', () => {
     const sendMail = vi.fn(async () => { throw Object.assign(new Error('boom'), { code: 'ETIMEDOUT' }) })
     const result = await createMailProvider({ sendMail }, 'x')(payload)
     expect(result).toEqual({ kind: 'retry', error: 'ETIMEDOUT boom' })
-  })
-})
-
-describe('письмо-приглашение', () => {
-  const invite = { v: 1, kind: 'invite', to: 'guest@test.local', inviterName: 'Лена', link: 'https://family.test/join?code=abc', ttlMinutes: 1440 } as const
-
-  it('в теме имя пригласившего, в тексте ссылка', () => {
-    const { subject, text } = renderInvite(invite)
-    expect(subject).toBe('Лена приглашает вас в семью в «Моей Семье»')
-    expect(text).toContain('Лена приглашает вас')
-    expect(text).toContain('https://family.test/join?code=abc')
-  })
-
-  it('провайдер выбирает текст по виду письма', async () => {
-    const sendMail = vi.fn(async () => ({}))
-    const provider = createMailProvider({ sendMail }, 'x')
-    await provider(invite)
-    await provider(payload)
-    expect(sendMail).toHaveBeenNthCalledWith(1, { from: 'x', to: 'guest@test.local', ...renderEmail(invite) })
-    expect(sendMail).toHaveBeenNthCalledWith(2, { from: 'x', to: 'a@test.local', ...renderCode(payload) })
-    expect(renderEmail(invite).subject).not.toContain('Код для входа')
   })
 })
 

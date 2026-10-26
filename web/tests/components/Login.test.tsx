@@ -10,7 +10,7 @@ import Login from '@/pages/Login'
 
 vi.mock('@/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api')>()),
-  requestEmailCode: vi.fn(),
+  requestCode: vi.fn(),
   login: vi.fn(),
 }))
 
@@ -47,7 +47,7 @@ async function toCodeStep() {
 
 // фигурные скобки обязательны: иначе beforeEach вернёт мок и Vitest вызовет его как очистку после теста
 beforeEach(() => {
-  vi.mocked(api.requestEmailCode).mockReset().mockResolvedValue(undefined)
+  vi.mocked(api.requestCode).mockReset().mockResolvedValue(undefined)
   vi.mocked(api.login).mockReset()
 })
 
@@ -65,18 +65,18 @@ describe('вход по email', () => {
   it('просит код на email без пробелов по краям и переходит к вводу кода', async () => {
     renderLogin()
     await toCodeStep()
-    expect(api.requestEmailCode).toHaveBeenCalledWith('mama@example.com', 'login')
+    expect(api.requestCode).toHaveBeenCalledWith({ kind: 'email', value: 'mama@example.com' }, 'login')
     expect(screen.getByText('mama@example.com')).toBeInTheDocument()
   })
 
   it('«слишком часто» не ошибка: форма кода всё равно открывается', async () => {
-    vi.mocked(api.requestEmailCode).mockRejectedValue(new ApiError(429, 'too_soon'))
+    vi.mocked(api.requestCode).mockRejectedValue(new ApiError(429, 'too_soon'))
     renderLogin()
     await toCodeStep()
   })
 
   it('другая ошибка отправки кода остаётся на первом шаге', async () => {
-    vi.mocked(api.requestEmailCode).mockRejectedValue(new ApiError(503, 'mail_busy'))
+    vi.mocked(api.requestCode).mockRejectedValue(new ApiError(503, 'mail_busy'))
     renderLogin()
     typeEmail('mama@example.com')
     click('Получить код')
@@ -91,7 +91,7 @@ describe('вход по email', () => {
     typeCode('123456')
     click('Войти')
     expect(await screen.findByText('Стартовая страница')).toBeInTheDocument()
-    expect(api.login).toHaveBeenCalledWith('mama@example.com', '123456', undefined)
+    expect(api.login).toHaveBeenCalledWith({ kind: 'email', value: 'mama@example.com' }, '123456', undefined)
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ memberId: 'm1', token: 'tok' }))
   })
 
@@ -119,11 +119,11 @@ describe('вход по email', () => {
     await toCodeStep()
     typeCode('123456')
     click('Войти')
-    expect(await screen.findByText(/есть в нескольких семьях/)).toBeInTheDocument()
+    expect(await screen.findByText(/в нескольких семьях/)).toBeInTheDocument()
     expect(screen.getByText('Семья: Лена, Петя')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /Бабушка/ }))
     await waitFor(() => expect(screen.getByText('Стартовая страница')).toBeInTheDocument())
-    expect(api.login).toHaveBeenLastCalledWith('mama@example.com', '123456', 'm9')
+    expect(api.login).toHaveBeenLastCalledWith({ kind: 'email', value: 'mama@example.com' }, '123456', 'm9')
   })
 
   it('«Изменить email» возвращает к первому шагу', async () => {

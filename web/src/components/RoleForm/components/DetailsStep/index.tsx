@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react'
 import { Button } from '@/components/Button'
 import { CaptchaNotice } from '@/components/CaptchaNotice'
+import { ContactField } from '@/components/ContactField'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
@@ -13,13 +14,13 @@ export function DetailsStep({
   roles,
   role,
   name,
-  email,
+  contact,
   busy,
   ready,
   error,
   onRoleChange,
   onNameChange,
-  onEmailChange,
+  onContactChange,
   onSubmit,
 }: DetailsStepProps) {
   function handleSubmit(e: FormEvent) {
@@ -49,16 +50,11 @@ export function DetailsStep({
         />
       </Field>
 
-      <Field label="Email" hint="По нему вы будете входить с любого устройства. Ребёнок может указать почту родителя.">
-        <Input
-          type="email"
-          value={email}
-          onChange={(e) => onEmailChange(e.target.value)}
-          maxLength={254}
-          autoComplete="email"
-          placeholder="name@example.com"
-        />
-      </Field>
+      <ContactField
+        contact={contact}
+        onChange={onContactChange}
+        hint="По нему вы будете входить с любого устройства. Ребёнок может указать почту или номер родителя."
+      />
 
       {error && <Notice $tone="error">{error}</Notice>}
 

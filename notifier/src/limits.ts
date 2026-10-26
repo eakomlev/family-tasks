@@ -1,4 +1,3 @@
-import type { EmailPayload } from './contract.js'
 import type { Db } from './db.js'
 import type { Log } from './log.js'
 import type { Outcome } from './outcome.js'
@@ -125,6 +124,8 @@ export function createDailyBudget(db: Db, provider: string, limit: number, clock
 }
 
 export interface MailLimiterOptions {
+  // имя провайдера в журнале: события `<name>_budget_80` и `<name>_budget_exhausted`; по умолчанию mail
+  name?: string
   gate: TokenBucket
   budget: DailyBudget
   // 0: без дневного лимита
@@ -142,8 +143,8 @@ const BUDGET_RETRY_SECONDS = 60
 
 // Ограничения для писем: скорость в секунду и дневной бюджет. Не отправленное из-за лимита откладывается без траты попытки.
 // Если отправка не удалась, единица бюджета возвращается (письмо провайдер не принял).
-export function limitMail(inner: (payload: EmailPayload) => Promise<Outcome>, options: MailLimiterOptions) {
-  const { gate, budget, limit, log, sleep = defaultSleep } = options
+export function limitMail<P>(inner: (payload: P) => Promise<Outcome>, options: MailLimiterOptions) {
+  const { gate, budget, limit, log, sleep = defaultSleep, name = 'mail' } = options
   const logged = new Set<string>()
   // каждое предупреждение раз в сутки на экземпляр, иначе журнал заполнился бы повторами
   const once = (key: string, fn: () => void) => {
@@ -152,7 +153,7 @@ export function limitMail(inner: (payload: EmailPayload) => Promise<Outcome>, op
     fn()
   }
 
-  return async (payload: EmailPayload): Promise<Outcome> => {
+  return async (payload: P): Promise<Outcome> => {
     const wait = gate.waitMs()
     if (wait > MAX_SLEEP_MS) {
       gate.refund()
@@ -162,11 +163,11 @@ export function limitMail(inner: (payload: EmailPayload) => Promise<Outcome>, op
     const slot = await budget.reserve()
     if (!slot.ok) {
       gate.refund()
-      once(`${slot.day}:out`, () => log('error', 'mail_budget_exhausted', { day: slot.day, used: slot.used, limit }))
+      once(`${slot.day}:out`, () => log('error', `${name}_budget_exhausted`, { day: slot.day, used: slot.used, limit }))
       return { kind: 'defer', seconds: BUDGET_RETRY_SECONDS, reason: 'daily_budget' }
     }
     if (limit > 0 && slot.used >= Math.ceil(limit * WARN_SHARE)) {
-      once(`${slot.day}:80`, () => log('warn', 'mail_budget_80', { day: slot.day, used: slot.used, limit }))
+      once(`${slot.day}:80`, () => log('warn', `${name}_budget_80`, { day: slot.day, used: slot.used, limit }))
     }
 
     if (wait > 0) await sleep(wait)

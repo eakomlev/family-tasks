@@ -8,21 +8,10 @@ export function describeCodeError(err: unknown): string {
     if (err.code === 'too_soon') return 'Код уже отправлен. Подождите минуту и попробуйте снова.'
     if (err.code === 'network') return 'Нет связи с сервером. Попробуйте ещё раз.'
     if (err.code === 'mail_busy') return MAIL_BUSY_TEXT
+    if (err.code === 'sms_busy') return SMS_BUSY_TEXT
+    if (err.code === 'invalid_phone') return INVALID_PHONE_TEXT
   }
-  return 'Не удалось отправить код. Проверьте email и попробуйте ещё раз.'
-}
-
-// Письмо-приглашение по email (владелец): понятные причины отказа
-export function describeInviteEmailError(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.code === 'already_member') return 'Уже в семье'
-    if (err.code === 'family_full') return 'В семье уже 6 участников'
-    if (err.code === 'too_soon') return 'Уже отправлено, повторить можно через 10 минут'
-    if (err.code === 'invite_limit') return 'Сегодня отправлено слишком много приглашений'
-    if (err.code === 'mail_busy') return MAIL_BUSY_TEXT
-    if (err.code === 'network') return 'Нет связи с сервером'
-  }
-  return 'Не удалось отправить'
+  return 'Не удалось отправить код. Проверьте email или номер и попробуйте ещё раз.'
 }
 
 // Проверка капчей: окно закрыли, не загрузилась или сервер не принял токен
@@ -35,6 +24,8 @@ function describeCaptchaError(err: ApiError): string | undefined {
 
 // Дневной лимит писем исчерпан: код не придёт, пока он не освободится.
 const MAIL_BUSY_TEXT = 'Сервис отправки писем сейчас перегружен. Попробуйте позже.'
+const SMS_BUSY_TEXT = 'Сервис отправки SMS сейчас перегружен. Попробуйте позже или войдите по email.'
+export const INVALID_PHONE_TEXT = 'Введите российский мобильный номер, например +7 911 123-45-67.'
 
 // Повторная отправка кода: email уже проверен, поэтому общий текст другой, а понятные причины показываем как есть.
 export function describeResendError(err: unknown): string {
@@ -44,6 +35,7 @@ export function describeResendError(err: unknown): string {
     if (err.code === 'too_soon') return 'Код уже отправлен. Подождите минуту и попробуйте снова.'
     if (err.code === 'network') return 'Нет связи с сервером. Попробуйте ещё раз.'
     if (err.code === 'mail_busy') return MAIL_BUSY_TEXT
+    if (err.code === 'sms_busy') return SMS_BUSY_TEXT
   }
   return 'Не удалось отправить код. Попробуйте позже.'
 }

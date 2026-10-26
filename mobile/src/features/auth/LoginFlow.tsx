@@ -1,38 +1,37 @@
 import { useState } from 'react'
 import { useRouter } from 'expo-router'
-import { ApiError, login, requestEmailCode, type LoginOption } from '@/api'
+import { ApiError, login, requestCode, type LoginOption } from '@/api'
 import { Button } from '@/components/Button'
-import { Field } from '@/components/Field'
-import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
 import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { toIdentity } from '@/identity/utils'
+import { emptyContact, isValidContact, trimContact, type Contact } from '@/lib/contact'
 import { describeCodeError, isTooSoon } from '@/lib/errors'
 import { ROLE_LABELS } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
-import { isValidEmail } from '@/lib/validation'
 import { CodeStep } from './CodeStep'
+import { ContactField } from './ContactField'
 
-type Step = 'email' | 'code' | 'choose'
+type Step = 'contact' | 'code' | 'choose'
 
-// Вход по email и коду из письма. Если email состоит в нескольких семьях, после кода просим выбрать участника.
+// Вход по email или телефону и коду из письма или SMS. Если контакт состоит в нескольких семьях, после кода просим выбрать участника.
 export function LoginFlow() {
   const guard = useInFlight()
   const { save } = useIdentity()
   const router = useRouter()
-  const [step, setStep] = useState<Step>('email')
-  const [email, setEmail] = useState('')
+  const [step, setStep] = useState<Step>('contact')
+  const [contact, setContact] = useState<Contact>(emptyContact())
   const [code, setCode] = useState('')
   const [options, setOptions] = useState<LoginOption[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
-  const trimmedEmail = email.trim()
-  const sendCode = () => requestEmailCode(trimmedEmail, 'login')
+  const trimmed = trimContact(contact)
+  const sendCode = () => requestCode(trimmed, 'login')
 
-  const handleEmail = guard(async () => {
+  const handleContact = guard(async () => {
     setBusy(true)
     setError(undefined)
     try {
@@ -50,12 +49,12 @@ export function LoginFlow() {
     setBusy(true)
     setError(undefined)
     try {
-      await save(toIdentity(await login(trimmedEmail, enteredCode, memberId)))
+      await save(toIdentity(await login(trimmed, enteredCode, memberId)))
       // сохранённый вход переключает группу экранов сам; на всякий случай уходим на стартовую страницу
       router.replace('/')
     } catch (err) {
       if (err instanceof ApiError && err.code === 'choose_member') {
-        // email состоит в нескольких семьях: код ещё действителен, просим выбрать
+        // контакт состоит в нескольких семьях: код ещё действителен, просим выбрать
         setCode(enteredCode)
         setOptions((err.body as { options: LoginOption[] }).options)
         setStep('choose')
@@ -71,14 +70,14 @@ export function LoginFlow() {
   if (step === 'code') {
     return (
       <CodeStep
-        email={trimmedEmail}
+        contact={trimmed}
         busy={busy}
         error={error}
         submitLabel="Войти"
         onSubmit={(c) => finish(c)}
         onResend={sendCode}
-        onChangeEmail={() => {
-          setStep('email')
+        onChangeContact={() => {
+          setStep('contact')
           setError(undefined)
         }}
       />
@@ -88,7 +87,7 @@ export function LoginFlow() {
   if (step === 'choose') {
     return (
       <Stack>
-        <Text>Этот email есть в нескольких семьях. В какую войти?</Text>
+        <Text>Эти данные для входа есть в нескольких семьях. В какую войти?</Text>
         {options.map((o) => (
           <Button key={o.id} disabled={busy} onPress={() => finish(code, o.id)}>
             {`${o.name} (${ROLE_LABELS[o.role]})`}
@@ -102,26 +101,16 @@ export function LoginFlow() {
     )
   }
 
+  const ready = isValidContact(contact) && !busy
+
   return (
     <Stack>
-      <Text>Введите email, с которым вы создали семью или присоединились к ней. Мы отправим на него одноразовый код.</Text>
-      <Field label="Email">
-        <Input
-          value={email}
-          onChangeText={setEmail}
-          maxLength={254}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete="email"
-          textContentType="emailAddress"
-          placeholder="name@example.com"
-          returnKeyType="send"
-          onSubmitEditing={() => isValidEmail(email) && !busy && handleEmail()}
-        />
-      </Field>
+      <Text>
+        {`Введите ${contact.kind === 'email' ? 'email' : 'номер телефона'}, с которым вы создали семью или присоединились к ней. Мы отправим на него одноразовый код${contact.kind === 'email' ? '.' : ' в SMS.'}`}
+      </Text>
+      <ContactField contact={contact} onChange={setContact} onSubmitEditing={() => ready && handleContact()} />
       {error && <Notice tone="error">{error}</Notice>}
-      <Button variant="primary" disabled={!isValidEmail(email) || busy} onPress={handleEmail}>
+      <Button variant="primary" disabled={!ready} onPress={handleContact}>
         {busy ? 'Подождите…' : 'Получить код'}
       </Button>
     </Stack>

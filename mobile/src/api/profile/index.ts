@@ -15,3 +15,8 @@ export type * from './types'
 
 // Удаление своего аккаунта со всеми данными (нельзя ребёнку и создателю семьи)
 export const deleteAccount = (token: string) => request<void>('/me', send('DELETE'), token)
+
+// Телефон в профиле: код приходит SMS на новый номер, после подтверждения кодом номер сохраняется; убрать можно, пока есть email
+export const requestPhoneCode = (token: string, phone: string) => request<void>('/me/phone-code', send('POST', { phone }), token)
+export const savePhone = (token: string, phone: string, code: string) => request<{ phone: string }>('/me/phone', send('PUT', { phone, code }), token)
+export const removePhone = (token: string) => request<void>('/me/phone', send('DELETE'), token)

@@ -1,28 +1,27 @@
 import { useState } from 'react'
-import { requestEmailCode } from '@/api'
+import { requestCode } from '@/api'
 import { CodeStep } from '@/components/CodeStep'
 import { describeCodeError, isTooSoon } from '@/lib/errors'
 import type { Role } from '@/lib/roles'
-import { isValidEmail } from '@/lib/validation'
+import { contactBody, emptyContact, isValidContact, trimContact, type Contact } from '@/lib/contact'
 import { DetailsStep } from './components/DetailsStep'
 import type { RoleFormProps, Step } from './types'
 import { describeSignupError } from './utils'
 import { useInFlight } from '@/lib/useInFlight'
 
-// два шага: роль, имя и email, затем код из письма
-export function RoleForm({ roles, submitLabel, initialEmail, onSubmit }: RoleFormProps) {
+// два шага: роль, имя и способ связи (email или телефон), затем код из письма или SMS
+export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
   const guard = useInFlight()
   const [step, setStep] = useState<Step>('details')
   const [role, setRole] = useState<Role | null>(null)
   const [name, setName] = useState('')
-  const [email, setEmail] = useState(initialEmail ?? '')
+  const [contact, setContact] = useState<Contact>(emptyContact())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
-  const trimmedEmail = email.trim()
-  const ready = role !== null && name.trim().length > 0 && isValidEmail(email) && !busy
+  const ready = role !== null && name.trim().length > 0 && isValidContact(contact) && !busy
 
-  const sendCode = () => requestEmailCode(trimmedEmail, 'signup')
+  const sendCode = () => requestCode(trimContact(contact), 'signup')
 
   const handleDetails = guard(async () => {
     if (!ready) return
@@ -45,7 +44,7 @@ export function RoleForm({ roles, submitLabel, initialEmail, onSubmit }: RoleFor
     setBusy(true)
     setError(undefined)
     try {
-      await onSubmit({ role, name: name.trim(), email: trimmedEmail, code })
+      await onSubmit({ role, name: name.trim(), ...contactBody(contact), code })
     } catch (err) {
       const { text, backToDetails } = describeSignupError(err)
       if (backToDetails) setStep('details')
@@ -57,13 +56,13 @@ export function RoleForm({ roles, submitLabel, initialEmail, onSubmit }: RoleFor
   if (step === 'code') {
     return (
       <CodeStep
-        email={trimmedEmail}
+        contact={trimContact(contact)}
         busy={busy}
         error={error}
         submitLabel={submitLabel}
         onSubmit={handleCode}
         onResend={sendCode}
-        onChangeEmail={() => { setStep('details'); setError(undefined) }}
+        onChangeContact={() => { setStep('details'); setError(undefined) }}
       />
     )
   }
@@ -73,13 +72,13 @@ export function RoleForm({ roles, submitLabel, initialEmail, onSubmit }: RoleFor
       roles={roles}
       role={role}
       name={name}
-      email={email}
+      contact={contact}
       busy={busy}
       ready={ready}
       error={error}
       onRoleChange={setRole}
       onNameChange={setName}
-      onEmailChange={setEmail}
+      onContactChange={setContact}
       onSubmit={handleDetails}
     />
   )

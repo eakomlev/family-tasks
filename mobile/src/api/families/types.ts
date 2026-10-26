@@ -23,7 +23,9 @@ export interface SessionResult {
 export interface SignupData {
   role: Role
   name: string
-  email: string
+  // ровно одно из двух: email или телефон (код подтверждения придёт письмом или в SMS)
+  email?: string
+  phone?: string
   code: string
 }
 
@@ -34,7 +36,8 @@ export interface CreateFamilyResult extends SessionResult {
 export interface FamilyOverview {
   // coins: баланс виртуальных монет, есть только у детей
   // isAdmin: администратор сервиса (раздел «Сервис» в профиле), приходит только про самого себя
-  member: Member & { email: string; coins?: number; isAdmin?: boolean }
+  // email и phone: у участника может быть только один из них
+  member: Member & { email: string | null; phone?: string | null; coins?: number; isAdmin?: boolean }
   family: { code: string }
   members: Member[]
 }

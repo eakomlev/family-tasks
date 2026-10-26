@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { EmailPayload, PushPayload } from '../../src/contract.js'
+import type { EmailPayload, PushPayload, SmsPayload } from '../../src/contract.js'
 import type { Outcome } from '../../src/outcome.js'
 import { processBatch, type Providers } from '../../src/worker.js'
 import type { Db } from '../../src/db.js'
@@ -14,6 +14,7 @@ function providers(email: () => Promise<Outcome> | Outcome = () => ({ kind: 'sen
   return {
     email: vi.fn(async (_payload: EmailPayload) => email()),
     push: vi.fn(async (_payload: PushPayload) => push()),
+    sms: vi.fn(async (_payload: SmsPayload): Promise<Outcome> => ({ kind: 'sent' })),
   } satisfies Providers
 }
 const run = (p: Providers, extra = {}) => processBatch(pool, p, { now: NOW, log: noLog, ...extra })
@@ -266,7 +267,7 @@ describe('счётчики отправки для страницы «Серви
     await insertRow({ payload: emailPayload('retry@test.local') })
     const email = vi.fn(async (p: EmailPayload): Promise<Outcome> =>
       p.to.startsWith('skip') ? { kind: 'skip', reason: 'gone' } : p.to.startsWith('defer') ? { kind: 'defer', seconds: 5, reason: 'x' } : { kind: 'retry', error: 'e' })
-    await run({ email, push: vi.fn(async () => ({ kind: 'sent' as const })) })
+    await run({ email, push: vi.fn(async () => ({ kind: 'sent' as const })), sms: vi.fn(async () => ({ kind: 'sent' as const })) })
     expect(await statsFor()).toEqual([])
   })
 

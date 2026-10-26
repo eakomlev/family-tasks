@@ -41,7 +41,7 @@ export const statsFor = async () =>
   (await pool.query('select channel, day::text, sent, failed from delivery_stats order by day, channel')).rows
 
 export interface NewRow {
-  channel?: 'email' | 'push'
+  channel?: 'email' | 'push' | 'sms'
   priority?: number
   payload?: unknown
   attempts?: number

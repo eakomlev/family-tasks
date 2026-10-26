@@ -5,21 +5,24 @@ import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
 import { Text } from '@/components/Text'
+import { describeContact, type Contact } from '@/lib/contact'
 import { describeResendError } from '@/lib/errors'
 import { isCompleteCode, RESEND_SECONDS, sanitizeCode } from './codeUtils'
 
 interface CodeStepProps {
-  email: string
+  // куда отправлен код: от этого зависят тексты (письмо или SMS)
+  contact: Contact
   busy: boolean
   error?: string
   submitLabel: string
   onSubmit: (code: string) => void
   onResend: () => Promise<unknown>
-  onChangeEmail: () => void
+  onChangeContact: () => void
 }
 
-// Ввод кода из письма: общий шаг для регистрации, присоединения и входа
-export function CodeStep({ email, busy, error, submitLabel, onSubmit, onResend, onChangeEmail }: CodeStepProps) {
+// Ввод кода из письма или SMS: общий шаг для регистрации, присоединения и входа
+export function CodeStep({ contact, busy, error, submitLabel, onSubmit, onResend, onChangeContact }: CodeStepProps) {
+  const byPhone = contact.kind === 'phone'
   const [code, setCode] = useState('')
   const [wait, setWait] = useState(RESEND_SECONDS)
   const [resendError, setResendError] = useState<string>()
@@ -45,9 +48,10 @@ export function CodeStep({ email, busy, error, submitLabel, onSubmit, onResend, 
   return (
     <Stack>
       <Text>
-        Мы отправили код на <Text $weight="extraBold">{email}</Text>. Он действует 10 минут.
+        {byPhone ? 'Мы отправили SMS с кодом на номер ' : 'Мы отправили код на '}
+        <Text $weight="extraBold">{describeContact(contact)}</Text>. Он действует 10 минут.{byPhone ? ' SMS может идти до пары минут.' : ''}
       </Text>
-      <Field label="Код из письма">
+      <Field label={byPhone ? 'Код из SMS' : 'Код из письма'}>
         <Input
           value={code}
           onChangeText={(value) => setCode(sanitizeCode(value))}
@@ -67,8 +71,8 @@ export function CodeStep({ email, busy, error, submitLabel, onSubmit, onResend, 
       <Button disabled={wait > 0 || busy} onPress={resend}>
         {wait > 0 ? `Отправить код ещё раз (${wait} с)` : 'Отправить код ещё раз'}
       </Button>
-      <Button variant="text" onPress={onChangeEmail}>
-        Изменить email
+      <Button variant="text" onPress={onChangeContact}>
+        {byPhone ? 'Изменить номер' : 'Изменить email'}
       </Button>
     </Stack>
   )

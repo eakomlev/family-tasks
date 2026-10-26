@@ -4,12 +4,14 @@ import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
+import { describeContact } from '@/lib/contact'
 import { describeResendError } from '@/lib/errors'
 import type { CodeStepProps } from './types'
 import { isCompleteCode, RESEND_SECONDS, sanitizeCode } from './utils'
 
-// ввод кода из письма: общий шаг для регистрации, присоединения и входа
-export function CodeStep({ email, busy, error, submitLabel, onSubmit, onResend, onChangeEmail }: CodeStepProps) {
+// ввод кода из письма или SMS: общий шаг для регистрации, присоединения и входа
+export function CodeStep({ contact, busy, error, submitLabel, onSubmit, onResend, onChangeContact }: CodeStepProps) {
+  const byPhone = contact.kind === 'phone'
   const [code, setCode] = useState('')
   const [wait, setWait] = useState(RESEND_SECONDS)
   const [resendError, setResendError] = useState<string>()
@@ -39,9 +41,12 @@ export function CodeStep({ email, busy, error, submitLabel, onSubmit, onResend, 
 
   return (
     <Stack as="form" onSubmit={handleSubmit}>
-      <p>Мы отправили код на <strong>{email}</strong>. Он действует 10 минут.</p>
+      <p>
+        {byPhone ? 'Мы отправили SMS с кодом на номер' : 'Мы отправили код на'} <strong>{describeContact(contact)}</strong>. Он действует 10 минут.
+        {byPhone && ' SMS может идти до пары минут.'}
+      </p>
 
-      <Field label="Код из письма">
+      <Field label={byPhone ? 'Код из SMS' : 'Код из письма'}>
         <Input
           value={code}
           onChange={(e) => setCode(sanitizeCode(e.target.value))}
@@ -61,7 +66,7 @@ export function CodeStep({ email, busy, error, submitLabel, onSubmit, onResend, 
       <Button type="button" disabled={wait > 0 || busy} onClick={resend}>
         {wait > 0 ? `Отправить код ещё раз (${wait} с)` : 'Отправить код ещё раз'}
       </Button>
-      <Button $variant="text" type="button" onClick={onChangeEmail}>Изменить email</Button>
+      <Button $variant="text" type="button" onClick={onChangeContact}>{byPhone ? 'Изменить номер' : 'Изменить email'}</Button>
     </Stack>
   )
 }

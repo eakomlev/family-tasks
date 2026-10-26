@@ -1,1 +1,1 @@
-export type Step = 'email' | 'code' | 'choose'
+export type Step = 'contact' | 'code' | 'choose'
