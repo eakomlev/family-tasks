@@ -1,4 +1,4 @@
-import type { MediaStats, QueueStats } from '@/store/admin'
+import type { MediaStats, QueueStats, SmsStats } from '@/store/admin'
 
 // Сколько может ждать самое старое сообщение, прежде чем это считается проблемой.
 export const STALE_SECONDS = 300
@@ -113,6 +113,64 @@ export function mediaAlerts(media: MediaStats): QueueAlert[] {
       tone: media.busiestFamilyBytes >= media.quotaBytes ? 'error' : 'warning',
       text: `Одна из семей заняла ${share}% своей квоты на фото (${formatBytes(media.busiestFamilyBytes)} из ${formatBytes(media.quotaBytes)}).`,
     })
+  }
+  return alerts
+}
+
+// Остаток на счёте SMS Aero, ниже которого предупреждаем и бьём тревогу (одно SMS стоит около 10 ₽: 100 ₽ это примерно 10 кодов).
+export const SMS_BALANCE_WARN = 100
+export const SMS_BALANCE_CRITICAL = 30
+// Остаток проверяется раз в 5 минут: если дольше 15, notifier не обновляет его.
+export const SMS_BALANCE_STALE_SECONDS = 900
+
+// «530,22 ₽», целые без копеек: «12 ₽»
+export function formatRub(amount: number): string {
+  const whole = Number.isInteger(amount)
+  return `${amount.toLocaleString('ru-RU', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 })} ₽`
+}
+
+// Сколько SMS ещё можно отправить на остаток по средней цене за последнюю неделю; null, если цены ещё нет
+export function smsLeft(sms: SmsStats): number | null {
+  const amount = sms.balance.amount
+  if (amount === null || sms.week.sent <= 0 || sms.week.spend <= 0) return null
+  return Math.max(0, Math.floor(amount / (sms.week.spend / sms.week.sent)))
+}
+
+// «26 окт» по дате суток (YYYY-MM-DD), без часового пояса
+export function formatDay(day: string): string {
+  const [y, m, d] = day.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'UTC' }).replace('.', '')
+}
+
+// Что стоит сказать администратору про SMS. Пустой список: всё в порядке.
+export function smsAlerts(sms: SmsStats, now: Date): QueueAlert[] {
+  if (!sms.configured) {
+    return [{ tone: 'muted', text: 'SMS не настроены: у notifier нет ключей SMS Aero (SMSAERO_EMAIL и SMSAERO_API_KEY), вход по телефону не работает.' }]
+  }
+  const alerts: QueueAlert[] = []
+  const { amount, checkedSeconds, error } = sms.balance
+
+  if (error) {
+    alerts.push({ tone: 'warning', text: `Не удалось проверить остаток на счёте SMS Aero: ${error}` })
+  } else if (checkedSeconds !== null && checkedSeconds > SMS_BALANCE_STALE_SECONDS) {
+    alerts.push({ tone: 'warning', text: `Остаток на счёте не обновлялся ${formatAge(checkedSeconds)}. Проверьте сервис отправки.` })
+  }
+
+  if (amount !== null && amount < SMS_BALANCE_CRITICAL) {
+    alerts.push({ tone: 'error', text: `На счёте SMS Aero осталось ${formatRub(amount)}: скоро коды входа по телефону перестанут приходить. Пополните счёт.` })
+  } else if (amount !== null && amount < SMS_BALANCE_WARN) {
+    alerts.push({ tone: 'warning', text: `На счёте SMS Aero осталось ${formatRub(amount)}. Скоро понадобится пополнение.` })
+  }
+
+  const { usedToday, limit } = sms
+  if (limit > 0 && usedToday >= limit) {
+    alerts.push({ tone: 'error', text: `Дневной лимит SMS исчерпан: коды по телефону не отправляются до ${nextUtcMidnightLabel(now)} (полночь по UTC).` })
+  } else if (limit > 0 && usedToday >= limit * MAIL_WARN_SHARE) {
+    alerts.push({ tone: 'warning', text: `Израсходовано ${Math.floor((usedToday / limit) * 100)}% дневного лимита SMS.` })
+  }
+
+  if (sms.today.failed > 0) {
+    alerts.push({ tone: 'warning', text: `Сегодня не удалось отправить SMS: ${sms.today.failed}. Причины в журнале notifier.` })
   }
   return alerts
 }

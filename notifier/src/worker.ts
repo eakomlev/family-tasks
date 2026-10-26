@@ -46,7 +46,7 @@ export async function processBatch(db: Db, providers: Providers, options: BatchO
     skipped: 0,
     deferred: 0,
     reaped: 0,
-    byChannel: { email: { sent: 0, failed: 0 }, push: { sent: 0, failed: 0 }, sms: { sent: 0, failed: 0 } },
+    byChannel: { email: { sent: 0, failed: 0, spend: 0 }, push: { sent: 0, failed: 0, spend: 0 }, sms: { sent: 0, failed: 0, spend: 0 } },
   }
 
   for (const gone of await reap(db, now)) {
@@ -102,6 +102,7 @@ export async function processBatch(db: Db, providers: Providers, options: BatchO
       case 'sent':
         stats.sent++
         stats.byChannel[row.channel].sent++
+        stats.byChannel[row.channel].spend += outcome.cost ?? 0
         await complete(db, row.id)
         return
       case 'skip':

@@ -27,11 +27,23 @@ const mediaStats = {
   configured: true, alive: true, photos: 1234, bytes: 3 * 1024 * 1024 * 1024, unattached: { photos: 3, bytes: 4 * 1024 * 1024 },
   quotaBytes: 2 * 1024 * 1024 * 1024, busiestFamilyBytes: 512 * 1024 * 1024,
 }
-const serve = (over: { queue?: unknown; media?: unknown } = {}) =>
+const smsStats = {
+  configured: true,
+  balance: { amount: 530.22, checkedSeconds: 120, error: null },
+  today: { sent: 5, failed: 1, spend: 49.45 },
+  week: { sent: 10, failed: 1, spend: 98.9 },
+  days: [{ day: '2026-10-26', sent: 5, failed: 1, spend: 49.45 }, { day: '2026-10-25', sent: 5, failed: 0, spend: 49.45 }],
+  waiting: 2,
+  retrying: 1,
+  limit: 100,
+  usedToday: 37,
+}
+const serve = (over: { queue?: unknown; media?: unknown; sms?: unknown } = {}) =>
   vi.fn(async (url: string) => {
     if (String(url).startsWith('/api/admin/stats')) return new Response(JSON.stringify(stats))
     if (String(url) === '/api/admin/queue') return new Response(JSON.stringify(over.queue ?? queue))
     if (String(url) === '/api/admin/media') return new Response(JSON.stringify(over.media ?? mediaStats))
+    if (String(url) === '/api/admin/sms') return new Response(JSON.stringify(over.sms ?? smsStats))
     return new Response('{}', { status: 500 })
   })
 
@@ -178,5 +190,50 @@ describe('раздел «Сервис»', () => {
       expect(await screen.findByText('1 234')).toBeInTheDocument()
       expect(await screen.findByText('Не удалось загрузить состояние очереди.')).toBeInTheDocument()
     })
+  })
+})
+
+describe('SMS на странице «Сервис»', () => {
+  it('показаны остаток, расход, очередь, потолок и по дням', async () => {
+    vi.stubGlobal('fetch', serve())
+    renderAt('/profile/service', true)
+    const region = await screen.findByRole('region', { name: 'SMS' })
+    expect(await within(region).findByText('530,22 ₽')).toBeInTheDocument()
+    expect(region).toHaveTextContent('Хватит примерно на53 SMS')
+    expect(region).toHaveTextContent('Отправлено сегодня5')
+    expect(region).toHaveTextContent('Потрачено сегодня49,45 ₽')
+    expect(region).toHaveTextContent('За 7 суток10 SMS · 98,90 ₽')
+    expect(region).toHaveTextContent('Ждут отправки2 · повтор 1')
+    expect(region).toHaveTextContent('Лимит за сутки (UTC)37 из 100')
+    expect(region).toHaveTextContent('Остаток проверен2 мин назад')
+    expect(region).toHaveTextContent('26 окт5 SMS · 49,45 ₽ · ошибок 1')
+    expect(region).toHaveTextContent('25 окт5 SMS · 49,45 ₽')
+    // неудачи сегодня: предупреждение
+    expect(region).toHaveTextContent('Сегодня не удалось отправить SMS: 1')
+  })
+
+  it('деньги кончаются: ошибка с суммой', async () => {
+    vi.stubGlobal('fetch', serve({ sms: { ...smsStats, balance: { amount: 12.5, checkedSeconds: 30, error: null }, today: { sent: 5, failed: 0, spend: 49.45 } } }))
+    renderAt('/profile/service', true)
+    const region = await screen.findByRole('region', { name: 'SMS' })
+    expect(await within(region).findByText(/осталось 12,50 ₽/)).toBeInTheDocument()
+  })
+
+  it('SMS не настроены: пояснение вместо чисел', async () => {
+    vi.stubGlobal(
+      'fetch',
+      serve({ sms: { ...smsStats, configured: false, balance: { amount: null, checkedSeconds: null, error: null }, days: [], today: { sent: 0, failed: 0, spend: 0 }, week: { sent: 0, failed: 0, spend: 0 } } }),
+    )
+    renderAt('/profile/service', true)
+    const region = await screen.findByRole('region', { name: 'SMS' })
+    expect(await within(region).findByText(/SMS не настроены/)).toBeInTheDocument()
+    expect(region).not.toHaveTextContent('Остаток на счёте')
+  })
+
+  it('у сервера старой версии (нет /api/admin/sms) блока просто нет', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url) === '/api/admin/sms' ? new Response('{}', { status: 404 }) : serve()(url))))
+    renderAt('/profile/service', true)
+    expect(await screen.findByRole('region', { name: 'Очередь отправки' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'SMS' })).toBeNull()
   })
 })

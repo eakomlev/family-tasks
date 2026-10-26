@@ -22,13 +22,17 @@ export type Fetcher = (
 // оператора, доставка занимает от секунд до пары минут). 5xx, сеть, нехватка денег (402), неверный ключ и ограничение по IP временные: после
 // пополнения или исправления настроек повтор может пройти. Остальные 4xx (неверный номер, подпись, текст) постоянные.
 export function classifySmsAnswer(status: number, body: string): Outcome {
-  let parsed: { success?: boolean; message?: string | null } = {}
+  let parsed: { success?: boolean; message?: string | null; data?: { cost?: number | string } } = {}
   try {
     parsed = JSON.parse(body) as typeof parsed
   } catch {
     // не JSON: ответ прокси или сбой шлюза
   }
-  if (status >= 200 && status < 300 && parsed.success === true) return { kind: 'sent' }
+  if (status >= 200 && status < 300 && parsed.success === true) {
+    // в ответе есть стоимость этого сообщения: по ней считается расход за сутки
+    const cost = Number(parsed.data?.cost)
+    return Number.isFinite(cost) && cost >= 0 && parsed.data?.cost !== undefined ? { kind: 'sent', cost } : { kind: 'sent' }
+  }
   const error = `sms ${status} ${parsed.message ?? body.slice(0, 120)}`.trim()
   if (status === 402 || status === 429 || status === 401 || status === 403 || status >= 500) return { kind: 'retry', error }
   if (status >= 400 && status < 500) return { kind: 'fail', error }

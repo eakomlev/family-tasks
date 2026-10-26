@@ -47,6 +47,24 @@ export interface MediaStats {
   busiestFamilyBytes: number
 }
 
+// SMS: сколько отправлено и потрачено, остаток на счёте у SMS Aero, дневной потолок (сутки по UTC). Вход по телефону.
+export interface SmsStats {
+  // false, пока notifier ни разу не записал остаток: ключи SMS Aero не заданы
+  configured: boolean
+  // остаток на счёте, рубли (null: ещё ни одной удачной проверки), давность проверки и ошибка последней проверки
+  balance: { amount: number | null; checkedSeconds: number | null; error: string | null }
+  today: { sent: number; failed: number; spend: number }
+  // за последние 7 суток, включая сегодня
+  week: { sent: number; failed: number; spend: number }
+  // по дням, свежие первыми (только дни с отправками)
+  days: { day: string; sent: number; failed: number; spend: number }[]
+  waiting: number
+  retrying: number
+  // 0: без дневного лимита
+  limit: number
+  usedToday: number
+}
+
 // Статистика сервиса для администратора. Аргумент: начало сегодняшнего дня в ISO (часовой пояс знает только клиент).
 export const adminApi = api.injectEndpoints({
   endpoints: (build) => ({
@@ -59,7 +77,10 @@ export const adminApi = api.injectEndpoints({
     getMediaStats: build.query<MediaStats, void>({
       query: () => ({ path: '/admin/media' }),
     }),
+    getSmsStats: build.query<SmsStats, void>({
+      query: () => ({ path: '/admin/sms' }),
+    }),
   }),
 })
 
-export const { useGetServiceStatsQuery, useGetQueueStatsQuery, useGetMediaStatsQuery } = adminApi
+export const { useGetServiceStatsQuery, useGetQueueStatsQuery, useGetMediaStatsQuery, useGetSmsStatsQuery } = adminApi

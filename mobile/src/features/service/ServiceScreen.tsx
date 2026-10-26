@@ -9,9 +9,9 @@ import { Stack } from '@/components/Stack'
 import { Heading, Text } from '@/components/Text'
 import { useNow } from '@/lib/useNow'
 import { useProfile } from '@/profile/context'
-import { useGetMediaStatsQuery, useGetQueueStatsQuery, useGetServiceStatsQuery } from '@/store/admin'
+import { useGetMediaStatsQuery, useGetQueueStatsQuery, useGetServiceStatsQuery, useGetSmsStatsQuery } from '@/store/admin'
 import { startOfDayIso } from '../myDay/utils'
-import { formatAge, formatBytes, mediaAlerts, queueAlerts } from './utils'
+import { formatAge, formatBytes, formatDay, formatRub, mediaAlerts, queueAlerts, smsAlerts, smsLeft } from './utils'
 
 const format = (n: number) => n.toLocaleString('ru-RU')
 
@@ -43,6 +43,7 @@ export function ServiceScreen() {
   const { data: stats, isError } = useGetServiceStatsQuery(startOfDayIso(now), { skip: !isAdmin, pollingInterval: 30_000 })
   const { data: queue, isError: queueFailed } = useGetQueueStatsQuery(undefined, { skip: !isAdmin, pollingInterval: 30_000 })
   const { data: media } = useGetMediaStatsQuery(undefined, { skip: !isAdmin, pollingInterval: 30_000 })
+  const { data: sms } = useGetSmsStatsQuery(undefined, { skip: !isAdmin, pollingInterval: 30_000 })
 
   if (data && !isAdmin) return <Redirect href="/profile" />
 
@@ -98,6 +99,39 @@ export function ServiceScreen() {
           </>
         )}
       </Stack>
+
+      {sms && (
+        <Stack $gap={8}>
+          <Heading>SMS (вход по телефону)</Heading>
+          {smsAlerts(sms, now).map((alert) => (
+            <Notice key={alert.text} tone={alert.tone}>
+              {alert.text}
+            </Notice>
+          ))}
+          {sms.configured && (
+            <>
+              <Tiles>
+                <Tile label="Остаток на счёте" value={sms.balance.amount === null ? '—' : formatRub(sms.balance.amount)} />
+                <Tile label="Хватит примерно на" value={smsLeft(sms) === null ? '—' : `${format(smsLeft(sms) ?? 0)} SMS`} />
+                <Tile label="Отправлено сегодня" value={format(sms.today.sent)} />
+                <Tile label="Потрачено сегодня" value={formatRub(sms.today.spend)} />
+                <Tile small label="За 7 суток" value={`${format(sms.week.sent)} SMS · ${formatRub(sms.week.spend)}`} />
+                <Tile small label="Не удалось сегодня" value={format(sms.today.failed)} />
+                <Tile small label="Ждут отправки" value={`${format(sms.waiting)}${sms.retrying > 0 ? ` · повтор ${format(sms.retrying)}` : ''}`} />
+                <Tile small label="Лимит за сутки (UTC)" value={sms.limit > 0 ? `${format(sms.usedToday)} из ${format(sms.limit)}` : format(sms.usedToday)} />
+                <Tile small label="Остаток проверен" value={sms.balance.checkedSeconds === null ? '—' : `${formatAge(sms.balance.checkedSeconds)} назад`} />
+              </Tiles>
+              {sms.days.length > 0 && (
+                <Tiles>
+                  {sms.days.map((d) => (
+                    <Tile small key={d.day} label={formatDay(d.day)} value={`${format(d.sent)} SMS · ${formatRub(d.spend)}${d.failed > 0 ? ` · ошибок ${format(d.failed)}` : ''}`} />
+                  ))}
+                </Tiles>
+              )}
+            </>
+          )}
+        </Stack>
+      )}
 
       {queue?.scheduler && (
         <Stack $gap={8}>

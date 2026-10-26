@@ -5,6 +5,7 @@ import { startListener } from './listener.js'
 import { log } from './log.js'
 import { mailProviderFromEnv } from './providers/mail.js'
 import { smsProviderFromEnv } from './providers/sms.js'
+import { BALANCE_CHECK_MS, refreshSmsBalance } from './smsBalance.js'
 import { apnsProviderFromEnv } from './providers/apns.js'
 import { fcmProviderFromEnv } from './providers/fcm.js'
 import { createPushRouter } from './providers/pushRouter.js'
@@ -99,6 +100,13 @@ const beatTimer = setInterval(() => {
 }, BEAT_MS)
 void beat(pool, instance, new Date()).catch(() => {})
 
+// Остаток на счёте SMS Aero для страницы «Сервис»: при старте и раз в несколько минут (ошибка проверки только в журнал и таблицу)
+const smsConfig = process.env.SMSAERO_EMAIL && process.env.SMSAERO_API_KEY ? { email: process.env.SMSAERO_EMAIL, apiKey: process.env.SMSAERO_API_KEY, sign: '' } : null
+const balanceTimer = smsConfig
+  ? setInterval(() => void refreshSmsBalance(pool, smsConfig, undefined, log).catch((err) => log('warn', 'sms_balance_failed', { error: (err as Error).message })), BALANCE_CHECK_MS)
+  : undefined
+if (smsConfig) void refreshSmsBalance(pool, smsConfig, undefined, log).catch((err) => log('warn', 'sms_balance_failed', { error: (err as Error).message }))
+
 log('info', 'notifier_started', {
   instance,
   batch: BATCH,
@@ -125,6 +133,7 @@ while (!stopping) {
 }
 
 clearInterval(beatTimer)
+if (balanceTimer) clearInterval(balanceTimer)
 await listener.close()
 await pool.end()
 log('info', 'notifier_stopped', { instance })

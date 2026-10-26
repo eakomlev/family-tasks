@@ -31,6 +31,12 @@ describe('SMS Aero: ответы шлюза', () => {
     expect(classifySmsAnswer(200, JSON.stringify({ success: true, data: { id: 1, status: 8 } }))).toEqual({ kind: 'sent' })
   })
 
+  it('стоимость сообщения из ответа попадает в итог отправки', () => {
+    expect(classifySmsAnswer(200, JSON.stringify({ success: true, data: { cost: 9.89 } }))).toEqual({ kind: 'sent', cost: 9.89 })
+    expect(classifySmsAnswer(200, JSON.stringify({ success: true, data: { cost: '3.5' } }))).toEqual({ kind: 'sent', cost: 3.5 })
+    expect(classifySmsAnswer(200, JSON.stringify({ success: true, data: { cost: 'abc' } }))).toEqual({ kind: 'sent' })
+  })
+
   it('нехватка денег, неверный ключ, ограничения и сбои шлюза временные', () => {
     expect(classifySmsAnswer(402, '{"success":false,"message":"Not enough money"}')).toMatchObject({ kind: 'retry' })
     expect(classifySmsAnswer(401, '{"success":false}')).toMatchObject({ kind: 'retry' })

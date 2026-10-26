@@ -78,20 +78,23 @@ export async function reap(db: Db, now: Date): Promise<Reaped[]> {
 export interface ChannelCounts {
   sent: number
   failed: number
+  // расход за проход, рубли (только SMS: цену сообщает провайдер)
+  spend: number
 }
 export type DeliveryCounts = Record<'email' | 'push' | 'sms', ChannelCounts>
 
 // Добавляет итоги прохода в дневные счётчики (сутки по UTC). Нулевые каналы пропускает: пустой проход ничего не пишет.
 export async function recordDelivery(db: Db, now: Date, counts: DeliveryCounts): Promise<void> {
   for (const channel of ['email', 'push', 'sms'] as const) {
-    const { sent, failed } = counts[channel]
-    if (sent === 0 && failed === 0) continue
+    const { sent, failed, spend } = counts[channel]
+    if (sent === 0 && failed === 0 && spend === 0) continue
     await db.query(
-      `insert into delivery_stats (channel, day, sent, failed)
-       values ($1, (($2::timestamptz) at time zone 'UTC')::date, $3, $4)
+      `insert into delivery_stats (channel, day, sent, failed, spend)
+       values ($1, (($2::timestamptz) at time zone 'UTC')::date, $3, $4, $5)
        on conflict (channel, day) do update
-         set sent = delivery_stats.sent + excluded.sent, failed = delivery_stats.failed + excluded.failed`,
-      [channel, now, sent, failed],
+         set sent = delivery_stats.sent + excluded.sent, failed = delivery_stats.failed + excluded.failed,
+             spend = delivery_stats.spend + excluded.spend`,
+      [channel, now, sent, failed, spend],
     )
   }
 }

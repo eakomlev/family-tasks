@@ -3,7 +3,7 @@ import { authenticate } from './auth.js'
 import { pool } from './db.js'
 import type { MediaClient } from './media/client.js'
 import { mediaQuotaBytes } from './media/index.js'
-import { mailDailyLimit } from './outbox/budget.js'
+import { mailDailyLimit, smsDailyLimit } from './outbox/budget.js'
 
 // Адреса администраторов сервиса: переменная ADMIN_EMAILS (через запятую, регистр не важен). Читается при каждой проверке,
 // поэтому в тестах её можно задать до запроса. Пусто: администраторов нет, раздел «Сервис» недоступен никому.
@@ -58,6 +58,25 @@ export interface QueueStats {
   realtime: { alive: boolean; instances: number; connections: number; lastBeatSeconds: number | null }
 }
 
+// SMS для страницы «Сервис»: отправлено и потрачено, остаток на счёте у SMS Aero, дневной потолок. Сутки по UTC.
+export interface SmsStats {
+  // ключи SMS Aero заданы у notifier: он пишет остаток в provider_balance; пока записи нет, считаем, что SMS не настроены
+  configured: boolean
+  // остаток на счёте, рубли (null: ещё ни одной удачной проверки), сколько секунд назад проверен и ошибка последней проверки
+  balance: { amount: number | null; checkedSeconds: number | null; error: string | null }
+  today: { sent: number; failed: number; spend: number }
+  // за последние 7 суток, включая сегодня
+  week: { sent: number; failed: number; spend: number }
+  // по дням, свежие первыми (только дни, в которые что-то отправлялось)
+  days: { day: string; sent: number; failed: number; spend: number }[]
+  // ещё не бравшиеся в работу и ждущие повтора
+  waiting: number
+  retrying: number
+  // limit 0: без дневного лимита; usedToday без ждущих в очереди
+  limit: number
+  usedToday: number
+}
+
 // Фото в чатах для страницы «Сервис»: что сохранено и занимает место, жив ли сервис media.
 export interface MediaStats {
   // настроены ли фото (MEDIA_SECRET и MEDIA_INTERNAL_TOKEN); если нет, остальное нули и alive false
@@ -102,6 +121,46 @@ export async function adminRoutes(app: FastifyInstance, { media = null }: Partia
       unattached: { photos: r.loose_photos, bytes: r.loose_bytes },
       quotaBytes: mediaQuotaBytes(),
       busiestFamilyBytes: r.busiest,
+    }
+    return stats
+  })
+
+  // SMS: расход, остаток на счёте и потолок. Права те же, что у остальных страниц «Сервиса».
+  app.get('/api/admin/sms', async (req, reply) => {
+    const me = await authenticate(req)
+    if (!me) return reply.code(401).send({ error: 'unauthorized' })
+    if (!isAdminEmail(me.email)) return reply.code(404).send({ error: 'not_found' })
+
+    const { rows: [r] } = await pool.query(
+      `select
+         (select count(*) from provider_balance where provider = 'smsaero')::int as has_balance,
+         (select balance::float8 from provider_balance where provider = 'smsaero') as balance,
+         (select floor(extract(epoch from now() - checked_at))::int from provider_balance where provider = 'smsaero') as checked,
+         (select error from provider_balance where provider = 'smsaero') as balance_error,
+         (select count(*) from outbox where channel = 'sms' and attempts = 0)::int as waiting,
+         (select count(*) from outbox where channel = 'sms' and attempts > 0)::int as retrying,
+         coalesce((select count from provider_usage where provider = 'sms' and day = (now() at time zone 'UTC')::date), 0)::int as used`,
+    )
+    const { rows: days } = await pool.query<{ day: string; sent: number; failed: number; spend: number }>(
+      `select day::text as day, sent, failed, spend::float8 as spend from delivery_stats
+        where channel = 'sms' and day > (now() at time zone 'UTC')::date - 7 order by day desc`,
+    )
+    const today = new Date().toISOString().slice(0, 10)
+    const sum = (rows: typeof days) => ({
+      sent: rows.reduce((n, d) => n + d.sent, 0),
+      failed: rows.reduce((n, d) => n + d.failed, 0),
+      spend: Math.round(rows.reduce((n, d) => n + d.spend, 0) * 100) / 100,
+    })
+    const stats: SmsStats = {
+      configured: r.has_balance > 0,
+      balance: { amount: r.balance, checkedSeconds: r.checked, error: r.balance_error },
+      today: sum(days.filter((d) => d.day === today)),
+      week: sum(days),
+      days,
+      waiting: r.waiting,
+      retrying: r.retrying,
+      limit: smsDailyLimit(),
+      usedToday: r.used,
     }
     return stats
   })
