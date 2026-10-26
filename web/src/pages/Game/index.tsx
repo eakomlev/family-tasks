@@ -13,6 +13,7 @@ import { useIdentity } from '@/identity/context'
 import { describeGameError } from '@/lib/errors'
 import { gameTitle, lastMoveText, myMark, opponentOf, resultText } from '@/lib/games'
 import { memberLabel } from '@/lib/roles'
+import { useGameSounds } from '@/lib/useGameSounds'
 import { useInFlight } from '@/lib/useInFlight'
 import { useProfile } from '@/profile/context'
 import { useViewingChat } from '@/realtime/context'
@@ -49,6 +50,8 @@ export default function Game() {
   useViewingChat(identity && id ? `game-${id}` : undefined)
 
   const game = query.data?.game
+  // ходы, взятия, шах и конец партии звучат (отключается в «Настройках»)
+  useGameSounds(game)
   if (!identity || !id) return null
   if (query.isError && !game && query.error && 'status' in query.error && query.error.status === 404) return <Navigate to="/" replace />
 

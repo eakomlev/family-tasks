@@ -18,6 +18,7 @@ import { useViewingChat } from '@/realtime/context'
 import { ApiError } from '@/api'
 import { goBack } from '@/lib/navigation'
 import { toApiError } from '@/store/api'
+import { useGameSounds } from './useGameSounds'
 import { useAcceptGameMutation, useInviteToGameMutation, useCancelGameMutation, useDeclineGameMutation, useGetGameQuery, useMoveInGameMutation, usePlaceInGameMutation, usePlayInGameMutation, useResignGameMutation, useOfferDrawMutation, useAcceptDrawMutation, useDeclineDrawMutation } from '@/store/games'
 import { CheckersBoard } from './CheckersBoard'
 import { ChessBoard } from './ChessBoard'
@@ -51,6 +52,8 @@ export function GameScreen({ id }: { id: string }) {
   useViewingChat(identity ? `game-${id}` : undefined)
 
   const game = query.data?.game
+  // ходы, взятия, шах и конец партии звучат (отключается в «Настройках»)
+  useGameSounds(game)
   if (!identity) return null
   if (query.isError && !game) {
     const missing = query.error && 'status' in query.error && query.error.status === 404

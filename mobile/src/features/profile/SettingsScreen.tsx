@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { View } from 'react-native'
 import { Button } from '@/components/Button'
+import { Checkbox } from '@/components/Checkbox'
+import { isGameSoundOn, setGameSoundOn } from '@/features/games/gameSound'
 import { PageHeader } from '@/components/PageHeader'
 import { Screen } from '@/components/Screen'
 import { Slider } from '@/components/Slider'
@@ -16,9 +19,10 @@ const Card = styled.View`
   background-color: ${({ theme }) => theme.colors.surface};
 `
 
-// Настройки приложения на этом устройстве. Пока одна: размер шрифта (меняет все тексты сразу и запоминается).
+// Настройки приложения на этом устройстве. Размер шрифта (меняет все тексты сразу) и звуки в играх; всё запоминается на устройстве.
 export function SettingsScreen() {
   const scale = useFontScale()
+  const [gameSound, setGameSound] = useState(isGameSoundOn)
   return (
     <Screen header={<PageHeader fallback="/profile">Настройки</PageHeader>}>
       <Heading>Размер шрифта</Heading>
@@ -39,6 +43,18 @@ export function SettingsScreen() {
       <Card>
         <Text $weight="extraBold">Так будет выглядеть текст</Text>
         <Text $tone="muted">Задания, чаты, календарь и остальные экраны меняются сразу. Настройка хранится на этом устройстве.</Text>
+      </Card>
+      <Heading>Звуки</Heading>
+      <Card>
+        <Checkbox
+          checked={gameSound}
+          onChange={(on) => {
+            setGameSound(on)
+            setGameSoundOn(on)
+          }}
+        >
+          Звуки в играх (ходы, взятия, шах)
+        </Checkbox>
       </Card>
       {scale !== FONT_SCALE_DEFAULT && (
         <Button variant="text" onPress={() => setFontScale(FONT_SCALE_DEFAULT)}>
