@@ -3,11 +3,13 @@ import { ApiError, sendTestPush } from '@/api'
 import { Button } from '@/components/Button'
 import { Notice } from '@/components/Notice'
 import { Stack } from '@/components/Stack'
+import { Switch } from '@/components/Switch'
 import { usePushSubscription } from '@/lib/usePushSubscription'
 import type { NotificationsSettingProps } from './types'
 import { STATUS_HINTS } from './utils'
 import { useInFlight } from '@/lib/useInFlight'
 
+// Уведомления на этом устройстве: переключатель включает и выключает их полностью; когда включены, можно отправить проверочное
 export function NotificationsSetting({ token }: NotificationsSettingProps) {
   const guard = useInFlight()
   const { status, busy, error, enable, disable } = usePushSubscription(token)
@@ -36,26 +38,23 @@ export function NotificationsSetting({ token }: NotificationsSettingProps) {
   })
 
   const hint = STATUS_HINTS[status]
+  // переключать можно, только если браузер умеет и не запрещено: в остальных состояниях объясняет подсказка ниже
+  const available = status === 'on' || status === 'off'
 
   return (
     <Stack as="section">
+      <Switch checked={status === 'on'} disabled={!available || busy} onChange={(e) => void (e.target.checked ? enable() : disable())}>
+        Уведомления
+      </Switch>
       {hint && <Notice $tone="muted">{hint}</Notice>}
       {error && <Notice $tone="error">{error}</Notice>}
 
-      {status === 'off' && (
-        <Button $variant="primary" type="button" disabled={busy} onClick={enable}>
-          {busy ? 'Подождите…' : 'Включить уведомления'}
-        </Button>
-      )}
       {status === 'on' && (
         <>
           <Button type="button" disabled={testing} onClick={handleTest}>
             {testing ? 'Отправляем…' : 'Проверить уведомление'}
           </Button>
           {testResult && <Notice $tone="muted">{testResult}</Notice>}
-          <Button type="button" disabled={busy} onClick={disable}>
-            {busy ? 'Подождите…' : 'Выключить уведомления'}
-          </Button>
         </>
       )}
     </Stack>

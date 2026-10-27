@@ -72,10 +72,8 @@ export function ProfileScreen() {
               <MenuLink to="/profile/trainings">Расписание тренировок</MenuLink>
             </>
           )}
-          <MenuLink to="/profile/phone">{me.phone ? 'Телефон для входа' : 'Добавить телефон для входа'}</MenuLink>
-          <MenuLink to="/profile/notifications">Уведомления</MenuLink>
-          <MenuLink to="/profile/theme">Тема</MenuLink>
-          <MenuLink to="/profile/settings">Настройки</MenuLink>
+          <MenuLink to="/profile/notifications" icon="notifications-outline">Уведомления и звуки</MenuLink>
+          <MenuLink to="/profile/theme" icon="color-palette-outline">Оформление</MenuLink>
           <ExternalLink onPress={() => openLegal(PRIVACY_PATH)}>Политика обработки данных</ExternalLink>
           <ExternalLink onPress={() => openLegal(TERMS_PATH)}>Пользовательское соглашение</ExternalLink>
           {me.isAdmin && <MenuLink to="/profile/service">Сервис</MenuLink>}

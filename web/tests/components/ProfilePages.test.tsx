@@ -51,15 +51,16 @@ describe('страницы профиля', () => {
     expect(screen.getByRole('heading', { name: 'Изменить профиль' })).toBeInTheDocument()
   })
 
-  it('«Уведомления» и «Тема» открываются отдельными страницами со ссылкой назад', () => {
+  it('«Уведомления и звуки» и «Оформление» открываются отдельными страницами со ссылкой назад', () => {
     renderPage(<ProfileNotifications />)
-    expect(screen.getByRole('heading', { name: 'Уведомления' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Уведомления и звуки' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Назад' })).toHaveAttribute('href', '/profile')
   })
 
-  it('тема: три варианта выбора', () => {
+  it('оформление: три варианта темы и размер шрифта', () => {
     renderPage(<ProfileTheme />)
-    expect(screen.getByRole('heading', { name: 'Тема' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Оформление' })).toBeInTheDocument()
     expect(screen.getAllByRole('radio')).toHaveLength(3)
+    expect(screen.getByRole('slider')).toBeInTheDocument()
   })
 })

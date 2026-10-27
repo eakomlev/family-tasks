@@ -1,5 +1,7 @@
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio'
 
+import { getKv } from './kv'
+
 let player: AudioPlayer | undefined
 let prepared = false
 
@@ -9,9 +11,18 @@ function prepare() {
   void setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers' }).catch(() => {})
 }
 
+// Звук отправки можно выключить («Уведомления и звуки»): хранится на устройстве, по умолчанию включён
+const SEND_SOUND_KEY = 'sendSound'
+export const isSendSoundOn = (): boolean => getKv().getItem(SEND_SOUND_KEY) !== '0'
+export function setSendSoundOn(on: boolean): void {
+  if (on) getKv().removeItem(SEND_SOUND_KEY)
+  else getKv().setItem(SEND_SOUND_KEY, '0')
+}
+
 // Тихий короткий звук отправки сообщения (assets/sounds/send.wav). Не перебивает музыку и подкасты, в беззвучном режиме молчит.
 // Любая ошибка звука не должна мешать отправке: просто без звука.
 export function playSendSound() {
+  if (!isSendSoundOn()) return
   try {
     prepare()
     player ??= createAudioPlayer(require('../../assets/sounds/send.wav'))

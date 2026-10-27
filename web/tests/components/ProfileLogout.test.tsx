@@ -37,7 +37,7 @@ describe('«Выйти» на странице профиля', () => {
   it('кнопка последняя на странице, после пунктов меню', () => {
     renderProfile()
     const logout = screen.getByRole('button', { name: 'Выйти' })
-    const theme = screen.getByRole('link', { name: /Тема/ })
+    const theme = screen.getByRole('link', { name: /Оформление/ })
     expect(theme.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const all = [...document.querySelectorAll('button, input, textarea, a')]
     expect(all[all.length - 1]).toBe(logout)
@@ -83,10 +83,10 @@ describe('профиль кратко', () => {
     expect(document.querySelectorAll('input, textarea')).toHaveLength(0)
   })
 
-  it('у родителя пункты «Уведомления» и «Тема», расписаний нет', () => {
+  it('у родителя пункты «Уведомления и звуки» и «Оформление», расписаний нет', () => {
     renderProfile()
     expect(screen.getByRole('link', { name: /Уведомления/ })).toHaveAttribute('href', '/profile/notifications')
-    expect(screen.getByRole('link', { name: /Тема/ })).toHaveAttribute('href', '/profile/theme')
+    expect(screen.getByRole('link', { name: /Оформление/ })).toHaveAttribute('href', '/profile/theme')
     expect(screen.queryByRole('link', { name: /Расписание/ })).not.toBeInTheDocument()
   })
 

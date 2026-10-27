@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDispatch } from 'react-redux'
 import { View } from 'react-native'
 import { getRobloxAvatar, type ProfilePatch } from '@/api'
 import { Avatar } from '@/components/Avatar'
@@ -16,8 +17,9 @@ import { ageFromBirthDate, formatAge } from '@/lib/date'
 import { pickSquareImage } from '@/lib/image'
 import { useInFlight } from '@/lib/useInFlight'
 import { useProfile } from '@/profile/context'
-import { toApiError } from '@/store/api'
+import { api, toApiError } from '@/store/api'
 import { useUpdateProfileMutation } from '@/store/profile'
+import { ProfileContact } from './ProfileContact'
 import { describePhotoError, describeSaveError } from './errors'
 
 const AVATAR_SIZE = 128
@@ -27,6 +29,7 @@ export function ProfileEditScreen() {
   const guard = useInFlight()
   const { identity, save } = useIdentity()
   const { data } = useProfile()
+  const dispatch = useDispatch()
   const [updateProfile] = useUpdateProfileMutation()
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState<string>()
@@ -160,6 +163,9 @@ export function ProfileEditScreen() {
           {busy ? 'Сохраняем…' : 'Сохранить'}
         </Button>
       </Stack>
+
+      {/* способы входа: указанные только читаются, недостающий добавляется здесь же (код из SMS или письма) */}
+      <ProfileContact email={me.email} phone={me.phone} token={token} onSaved={() => dispatch(api.util.invalidateTags(['Me']))} />
     </Screen>
   )
 }

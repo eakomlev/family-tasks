@@ -7,7 +7,8 @@ import { ChatsContext } from '@/chat/context'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
 import { IdentityContext } from '@/identity/context'
 import ChatArchive from '@/pages/ChatArchive'
-import ProfileSettings from '@/pages/ProfileSettings'
+import ProfileNotifications from '@/pages/ProfileNotifications'
+import ProfileTheme from '@/pages/ProfileTheme'
 import Share from '@/pages/Share'
 import { ProfileContext } from '@/profile/context'
 import { makeStore } from '@/store'
@@ -35,7 +36,8 @@ function renderPage(path: string, element: React.ReactNode, chats: ChatSummary[]
                 <Routes>
                   <Route path="/share" element={element} />
                   <Route path="/chat/archive" element={element} />
-                  <Route path="/profile/settings" element={element} />
+                  <Route path="/profile/theme" element={element} />
+                  <Route path="/profile/notifications" element={element} />
                   <Route path="/chat/:chat" element={<Landing />} />
                 </Routes>
               </MemoryRouter>
@@ -103,9 +105,9 @@ describe('Архив чатов', () => {
   })
 })
 
-describe('Настройки', () => {
+describe('Оформление и звуки', () => {
   it('ползунок меняет размер шрифта, сохраняет его и применяет к странице', () => {
-    renderPage('/profile/settings', <ProfileSettings />, [])
+    renderPage('/profile/theme', <ProfileTheme />, [])
     expect(screen.getByText('Размер шрифта: 100%')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Стандартный размер' })).not.toBeInTheDocument()
     fireEvent.change(screen.getByRole('slider'), { target: { value: '1.25' } })
@@ -116,7 +118,7 @@ describe('Настройки', () => {
 
   it('«Стандартный размер» возвращает 100% и стирает сохранённое', () => {
     localStorage.setItem('fontScale', '1.3')
-    renderPage('/profile/settings', <ProfileSettings />, [])
+    renderPage('/profile/theme', <ProfileTheme />, [])
     expect(screen.getByText('Размер шрифта: 130%')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Стандартный размер' }))
     expect(screen.getByText('Размер шрифта: 100%')).toBeInTheDocument()
@@ -124,14 +126,27 @@ describe('Настройки', () => {
     expect(document.documentElement.style.fontSize).toBe('')
   })
 
-  it('звук при отправке: по умолчанию включён, выключатель сохраняется', () => {
-    renderPage('/profile/settings', <ProfileSettings />, [])
-    const box = screen.getByRole('checkbox', { name: /Звук и вибрация/ })
+  it('звук при отправке: по умолчанию включён, переключатель сохраняется', () => {
+    renderPage('/profile/notifications', <ProfileNotifications />, [])
+    const box = screen.getByRole('switch', { name: /Звук и вибрация/ })
     expect(box).toBeChecked()
     fireEvent.click(box)
     expect(box).not.toBeChecked()
     expect(localStorage.getItem('sendSound')).toBe('0')
     fireEvent.click(box)
     expect(localStorage.getItem('sendSound')).toBeNull()
+  })
+
+  it('на «Уведомления и звуки» есть переключатель уведомлений и звуки игр', () => {
+    renderPage('/profile/notifications', <ProfileNotifications />, [])
+    expect(screen.getByRole('switch', { name: 'Уведомления' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: /Звуки в играх/ })).toBeChecked()
+  })
+
+  it('«Оформление» собирает тему и размер шрифта на одной странице', () => {
+    renderPage('/profile/theme', <ProfileTheme />, [])
+    expect(screen.getByRole('heading', { name: 'Оформление' })).toBeInTheDocument()
+    expect(screen.getByRole('radiogroup', { name: 'Тема оформления' })).toBeInTheDocument()
+    expect(screen.getByRole('slider')).toBeInTheDocument()
   })
 })

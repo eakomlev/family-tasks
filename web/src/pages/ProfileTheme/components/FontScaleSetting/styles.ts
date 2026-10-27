@@ -3,7 +3,6 @@ import styled from 'styled-components'
 export const Row = styled.div`
   display: grid;
   gap: 0.8rem;
-  margin-top: 1rem;
 
   label {
     font-weight: 800;

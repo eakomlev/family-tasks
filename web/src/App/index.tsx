@@ -40,11 +40,9 @@ import MyDay from '@/pages/MyDay'
 import Profile from '@/pages/Profile'
 import ProfileEdit from '@/pages/ProfileEdit'
 import ProfileNotifications from '@/pages/ProfileNotifications'
-import ProfilePhone from '@/pages/ProfilePhone'
 import Privacy from '@/pages/Privacy'
 import Terms from '@/pages/Terms'
 import Share from '@/pages/Share'
-import ProfileSettings from '@/pages/ProfileSettings'
 import ProfileTheme from '@/pages/ProfileTheme'
 import Schedule from '@/pages/Schedule'
 import Service from '@/pages/Service'
@@ -110,10 +108,12 @@ export default function App() {
               <Route path="/profile/schedule" element={<Schedule />} />
               <Route path="/profile/trainings" element={<Trainings />} />
               <Route path="/profile/edit" element={<ProfileEdit />} />
-              <Route path="/profile/phone" element={<ProfilePhone />} />
+              {/* телефон и email теперь добавляются в форме «Изменить профиль» */}
+              <Route path="/profile/phone" element={<Navigate to="/profile/edit" replace />} />
               <Route path="/profile/notifications" element={<ProfileNotifications />} />
               <Route path="/profile/theme" element={<ProfileTheme />} />
-              <Route path="/profile/settings" element={<ProfileSettings />} />
+              {/* размер шрифта переехал на страницу «Оформление», звуки на «Уведомления и звуки» */}
+              <Route path="/profile/settings" element={<Navigate to="/profile/theme" replace />} />
               <Route path="/profile/service" element={<Service />} />
               {/* прежние адреса настроек (закладки, уже отправленные уведомления) */}
               <Route path="/settings" element={<Navigate to="/profile" replace />} />

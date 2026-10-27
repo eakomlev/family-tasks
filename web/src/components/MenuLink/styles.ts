@@ -29,3 +29,20 @@ export const Chevron = styled.span`
   font-size: 1.25rem;
   line-height: 1;
 `
+
+// значок пункта: акцентный контур на мягкой подложке; текст после него занимает остаток строки
+export const Icon = styled.span`
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-right: -0.25rem;
+  border-radius: 0.7rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+
+  + span {
+    flex: 1;
+  }
+`

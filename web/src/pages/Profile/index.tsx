@@ -4,6 +4,7 @@ import { Button } from '@/components/Button'
 import { CoinBalanceCard } from '@/components/CoinBalance'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { MenuLink } from '@/components/MenuLink'
+import { BellIcon, PaletteIcon } from '@/components/MenuLink/icons'
 import { SlideInPage as Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { useIdentity } from '@/identity/context'
@@ -14,7 +15,7 @@ import { ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
 import { Badge, EditLink, Facts, Hero, LogoutBox, Menu } from './styles'
 
-// Профиль кратко: фото, имя, роль, дата рождения и email; ниже пункты (расписания у детей, уведомления, тема) и «Выйти».
+// Профиль кратко: фото, имя, роль, дата рождения и email; ниже пункты (расписания у детей, уведомления и звуки, оформление) и «Выйти».
 // Править имя, дату рождения и фото: «Изменить» справа сверху.
 export default function Profile() {
   const { identity, clear } = useIdentity()
@@ -68,10 +69,8 @@ export default function Profile() {
                 <MenuLink to="/profile/trainings">Расписание тренировок</MenuLink>
               </>
             )}
-            <MenuLink to="/profile/phone">{me.phone ? 'Телефон для входа' : 'Добавить телефон для входа'}</MenuLink>
-            <MenuLink to="/profile/notifications">Уведомления</MenuLink>
-            <MenuLink to="/profile/theme">Тема</MenuLink>
-            <MenuLink to="/profile/settings">Настройки</MenuLink>
+            <MenuLink to="/profile/notifications" icon={<BellIcon />}>Уведомления и звуки</MenuLink>
+            <MenuLink to="/profile/theme" icon={<PaletteIcon />}>Оформление</MenuLink>
             <MenuLink to="/privacy">Политика обработки данных</MenuLink>
             <MenuLink to="/terms">Пользовательское соглашение</MenuLink>
             {/* статистика сервиса: только у администраторов (ADMIN_EMAILS на сервере) */}

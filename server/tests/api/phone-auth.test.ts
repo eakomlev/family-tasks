@@ -240,28 +240,47 @@ describe('телефон в профиле', () => {
     expect(login.statusCode).toBe(201)
     expect(login.json().member.name).toBe('Лена')
 
-    // и номер можно убрать, пока есть email
-    expect((await api(app, token, 'DELETE', '/api/me/phone')).statusCode).toBe(204)
-    expect((await api(app, token, 'GET', '/api/me')).json().member.phone).toBeNull()
+    // номер, как и email, задаётся один раз: сменить и убрать его нельзя
+    expect((await api(app, token, 'POST', '/api/me/phone-code', { phone: phone(18) })).json()).toEqual({ error: 'contact_locked' })
+    expect((await api(app, token, 'PUT', '/api/me/phone', { phone: phone(18), code: '123456' })).json()).toEqual({ error: 'contact_locked' })
+    expect((await api(app, token, 'DELETE', '/api/me/phone')).statusCode).toBe(404)
+    expect((await api(app, token, 'GET', '/api/me')).json().member.phone).toBe(phone(13))
   })
 
   it('номер другого участника семьи занять нельзя, без токена и с неверным номером отказ', async () => {
     const owner = await registerFamily('Лена', phone(14))
     const token = owner.json().member.token
     const invite = owner.json().invite.code
-    await requestCode(phone(15), 'signup')
-    const joined = await api(app, null, 'POST', `/api/invites/${invite}/join`, { consent: true, role: 'papa', name: 'Игорь', phone: phone(15), code: await lastCode(phone(15)) })
+    // второй участник вступил по email: номера у него нет, поэтому может его добавить, но чужой занять не сможет
+    const igor = mailAddr('igor')
+    await api(app, null, 'POST', '/api/email-codes', { email: igor, purpose: 'signup' })
+    const igorCode = (await pool.query(`select payload->>'code' as code from outbox where channel = 'email' and payload->>'to' = $1 order by id desc limit 1`, [igor])).rows[0].code
+    const joined = await api(app, null, 'POST', `/api/invites/${invite}/join`, { consent: true, role: 'papa', name: 'Игорь', email: igor, code: igorCode })
     const second = joined.json().member.token
 
     expect((await api(app, second, 'POST', '/api/me/phone-code', { phone: phone(14) })).json()).toEqual({ error: 'phone_taken' })
     expect((await api(app, null, 'POST', '/api/me/phone-code', { phone: phone(16) })).statusCode).toBe(401)
-    expect((await api(app, token, 'POST', '/api/me/phone-code', { phone: '+380501234567' })).json()).toEqual({ error: 'invalid_phone' })
+    expect((await api(app, second, 'POST', '/api/me/phone-code', { phone: '+380501234567' })).json()).toEqual({ error: 'invalid_phone' })
   })
 
-  it('единственный способ входа убрать нельзя', async () => {
+  it('участнику с телефоном можно добавить email: код на адрес, подтверждение, потом вход по нему; повторно менять нельзя', async () => {
     const owner = await registerFamily('Лена', phone(17))
-    const res = await api(app, owner.json().member.token, 'DELETE', '/api/me/phone')
-    expect(res.statusCode).toBe(400)
-    expect(res.json()).toEqual({ error: 'last_contact' })
+    const token = owner.json().member.token
+    const address = mailAddr('lena-add')
+    const mailCodeOf = async () => (await pool.query(`select payload->>'code' as code from outbox where channel = 'email' and payload->>'to' = $1 order by id desc limit 1`, [address])).rows[0].code as string
+
+    expect((await api(app, null, 'POST', '/api/me/email-code', { email: address })).statusCode).toBe(401)
+    expect((await api(app, token, 'POST', '/api/me/email-code', { email: address })).statusCode).toBe(204)
+    const code = await mailCodeOf()
+    expect((await api(app, token, 'PUT', '/api/me/email', { email: address, code: code === '111111' ? '222222' : '111111' })).json()).toEqual({ error: 'invalid_code' })
+    const ok = await api(app, token, 'PUT', '/api/me/email', { email: address, code })
+    expect(ok.statusCode).toBe(200)
+    expect(ok.json()).toEqual({ email: address })
+    expect((await api(app, token, 'GET', '/api/me')).json().member).toMatchObject({ email: address, phone: phone(17) })
+
+    // теперь есть и email: менять нельзя
+    expect((await api(app, token, 'POST', '/api/me/email-code', { email: mailAddr('other') })).json()).toEqual({ error: 'contact_locked' })
+    expect((await api(app, token, 'PUT', '/api/me/email', { email: mailAddr('other'), code: '123456' })).json()).toEqual({ error: 'contact_locked' })
   })
+
 })

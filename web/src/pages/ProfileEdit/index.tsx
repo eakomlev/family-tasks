@@ -1,13 +1,15 @@
 import { useState } from 'react'
+import { useDispatch } from 'react-redux'
 import { getRobloxAvatar, type ProfilePatch } from '@/api'
 import { PageHeader } from '@/components/PageHeader'
 import { SlideInPage as Page } from '@/components/Page'
 import { useIdentity } from '@/identity/context'
 import { dataUrlToFile, resizeToAvatar } from '@/lib/image'
 import { useProfile } from '@/profile/context'
-import { toApiError } from '@/store/api'
+import { api, toApiError } from '@/store/api'
 import { useUpdateProfileMutation } from '@/store/profile'
 import { AvatarEditor } from './components/AvatarEditor'
+import { ProfileContact } from './components/ProfileContact'
 import { ProfileForm } from './components/ProfileForm'
 import { describePhotoError } from './utils'
 import { useInFlight } from '@/lib/useInFlight'
@@ -17,6 +19,7 @@ export default function ProfileEdit() {
   const { identity, save } = useIdentity()
   const { data } = useProfile()
   const [updateProfile] = useUpdateProfileMutation()
+  const dispatch = useDispatch()
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState<string>()
 
@@ -75,6 +78,9 @@ export default function ProfileEdit() {
       />
 
       <ProfileForm name={data.me.name} birthDate={data.me.birthDate} onSave={saveProfile} />
+
+      {/* способы входа: указанные только читаются, недостающий добавляется здесь же (код из SMS или письма) */}
+      <ProfileContact email={data.me.email} phone={data.me.phone} token={token} onSaved={() => dispatch(api.util.invalidateTags(['Me']))} />
     </Page>
   )
 }

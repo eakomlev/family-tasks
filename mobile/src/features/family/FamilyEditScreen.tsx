@@ -18,8 +18,6 @@ import { useProfile } from '@/profile/context'
 import { api } from '@/store/api'
 
 const Row = styled.View`
-  flex-direction: row;
-  align-items: center;
   gap: 12px;
   padding: 12px 14px;
   border-radius: 18px;
@@ -91,15 +89,18 @@ export function FamilyEditScreen() {
       <View style={{ gap: 8 }}>
         {others.map((m) => (
           <Row key={m.id}>
-            <Avatar name={m.name} seed={m.id} src={m.avatar} size={44} />
-            <View style={{ flex: 1 }}>
-              <Text $weight="extraBold">{m.name}</Text>
-              <Text $size={13} $tone="muted">
-                {ROLE_LABELS[m.role]}
-              </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Avatar name={m.name} seed={m.id} src={m.avatar} size={44} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text $weight="extraBold">{m.name}</Text>
+                <Text $size={13} $tone="muted">
+                  {ROLE_LABELS[m.role]}
+                </Text>
+              </View>
             </View>
-            <Button variant="danger" disabled={busyId !== undefined} onPress={() => void remove(m)}>
-              {isAdult(m.role) ? 'Убрать' : 'Удалить'}
+            {/* кнопка отдельной строкой: рядом с именем на узком экране ей не хватало места */}
+            <Button variant="danger" style={{ minHeight: 40, alignSelf: 'flex-start' }} disabled={busyId !== undefined} onPress={() => void remove(m)}>
+              {isAdult(m.role) ? 'Убрать из семьи' : 'Удалить аккаунт'}
             </Button>
           </Row>
         ))}

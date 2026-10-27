@@ -13,7 +13,7 @@ import { START_PATH } from '@/lib/routes'
 import { CREATOR_ROLES } from '@/lib/roles'
 import Login from '@/pages/Login'
 import Profile from '@/pages/Profile'
-import ProfilePhone from '@/pages/ProfilePhone'
+import { ProfileContact } from '@/pages/ProfileEdit/components/ProfileContact'
 import { ProfileContext } from '@/profile/context'
 import { makeStore } from '@/store'
 
@@ -23,7 +23,8 @@ vi.mock('@/api', async (importOriginal) => ({
   login: vi.fn(),
   requestPhoneCode: vi.fn(),
   savePhone: vi.fn(),
-  removePhone: vi.fn(),
+  requestProfileEmailCode: vi.fn(),
+  saveEmail: vi.fn(),
   logout: vi.fn(),
 }))
 
@@ -35,7 +36,8 @@ beforeEach(() => {
   vi.mocked(api.login).mockReset()
   vi.mocked(api.requestPhoneCode).mockReset().mockResolvedValue(undefined)
   vi.mocked(api.savePhone).mockReset()
-  vi.mocked(api.removePhone).mockReset().mockResolvedValue(undefined)
+  vi.mocked(api.requestProfileEmailCode).mockReset().mockResolvedValue(undefined)
+  vi.mocked(api.saveEmail).mockReset()
 })
 
 describe('контакт: телефон или email', () => {
@@ -193,35 +195,55 @@ describe('телефон в профиле', () => {
     )
   }
 
-  it('профиль показывает номер и ведёт на страницу номера', () => {
+  const contact = (props: { email: string | null; phone?: string | null }) => <ProfileContact {...props} token="tok" onSaved={onSaved} />
+  const onSaved = vi.fn()
+
+  it('профиль показывает номер, а пункта про телефон в меню больше нет', () => {
     renderPage(<Profile />, { phone: '+79112223344' })
     expect(screen.getByText(PHONE)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Телефон для входа' })).toHaveAttribute('href', '/profile/phone')
+    expect(screen.queryByRole('link', { name: /телефон/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Уведомления и звуки' })).toHaveAttribute('href', '/profile/notifications')
+    expect(screen.getByRole('link', { name: 'Оформление' })).toHaveAttribute('href', '/profile/theme')
+    expect(screen.queryByRole('link', { name: 'Тема' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Настройки' })).not.toBeInTheDocument()
   })
 
-  it('без номера: пункт «Добавить телефон для входа»; у участника без email показан только номер', () => {
-    renderPage(<Profile />, { email: null })
-    expect(screen.getByRole('link', { name: 'Добавить телефон для входа' })).toBeInTheDocument()
-    renderPage(<Profile />, { email: null, phone: '+79112223344' })
-    expect(screen.getAllByText(PHONE).length).toBeGreaterThan(0)
-  })
-
-  it('добавление: код на новый номер, подтверждение, сообщение «Готово»', async () => {
+  it('указанный email только для чтения, номер можно добавить тут же: код, подтверждение', async () => {
+    onSaved.mockClear()
     vi.mocked(api.savePhone).mockResolvedValue({ phone: '+79112223344' })
-    renderPage(<ProfilePhone />, {})
+    renderPage(contact({ email: 'l@x.y', phone: null }), {})
+    expect(screen.getByDisplayValue('l@x.y')).toBeDisabled()
     fireEvent.change(screen.getByLabelText('Номер телефона'), { target: { value: PHONE } })
     click('Получить код')
     const code = await screen.findByLabelText('Код из SMS')
-    expect(api.requestPhoneCode).toHaveBeenCalledWith('tok', PHONE)
+    expect(api.requestPhoneCode).toHaveBeenCalledWith('tok', '+79112223344')
     fireEvent.change(code, { target: { value: '123456' } })
     click('Подтвердить')
-    expect(await screen.findByText(/войти можно по номеру/)).toBeInTheDocument()
-    expect(api.savePhone).toHaveBeenCalledWith('tok', PHONE, '123456')
+    await waitFor(() => expect(api.savePhone).toHaveBeenCalledWith('tok', '+79112223344', '123456'))
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+  })
+
+  it('участник с телефоном добавляет email письмом', async () => {
+    vi.mocked(api.saveEmail).mockResolvedValue({ email: 'new@x.y' })
+    renderPage(contact({ email: null, phone: '+79112223344' }), { email: null, phone: '+79112223344' })
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new@x.y' } })
+    click('Получить код')
+    fireEvent.change(await screen.findByLabelText('Код из письма'), { target: { value: '654321' } })
+    click('Подтвердить')
+    await waitFor(() => expect(api.saveEmail).toHaveBeenCalledWith('tok', 'new@x.y', '654321'))
+    expect(api.requestProfileEmailCode).toHaveBeenCalledWith('tok', 'new@x.y')
+  })
+
+  it('когда указаны и email, и номер, оба только для чтения и ничего добавлять не предлагается', () => {
+    renderPage(contact({ email: 'l@x.y', phone: '+79112223344' }), {})
+    expect(screen.getByDisplayValue('l@x.y')).toBeDisabled()
+    expect(screen.getByDisplayValue(PHONE)).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Получить код' })).not.toBeInTheDocument()
   })
 
   it('неверный код и занятый номер: понятные сообщения', async () => {
     vi.mocked(api.requestPhoneCode).mockRejectedValueOnce(new ApiError(409, 'phone_taken'))
-    renderPage(<ProfilePhone />, {})
+    renderPage(contact({ email: 'l@x.y', phone: null }), {})
     fireEvent.change(screen.getByLabelText('Номер телефона'), { target: { value: PHONE } })
     click('Получить код')
     expect(await screen.findByText(/уже есть у другого участника/)).toBeInTheDocument()
@@ -231,17 +253,5 @@ describe('телефон в профиле', () => {
     fireEvent.change(await screen.findByLabelText('Код из SMS'), { target: { value: '000000' } })
     click('Подтвердить')
     expect(await screen.findByText('Неверный код или срок его действия истёк.')).toBeInTheDocument()
-  })
-
-  it('убрать номер можно только при наличии email и после подтверждения', async () => {
-    renderPage(<ProfilePhone />, { phone: '+79112223344' })
-    click('Убрать номер')
-    fireEvent.click(await screen.findByRole('button', { name: 'Убрать' }))
-    await waitFor(() => expect(api.removePhone).toHaveBeenCalledWith('tok'))
-  })
-
-  it('без email кнопки «Убрать номер» нет: это единственный способ входа', () => {
-    renderPage(<ProfilePhone />, { email: null, phone: '+79112223344' })
-    expect(screen.queryByRole('button', { name: 'Убрать номер' })).not.toBeInTheDocument()
   })
 })

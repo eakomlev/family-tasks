@@ -19,7 +19,9 @@ export const deleteAccount = (token: string) => request<void>('/me', send('DELET
 // Телефон в профиле: код приходит SMS на новый номер, после подтверждения кодом номер сохраняется; убрать можно, пока есть email
 export const requestPhoneCode = (token: string, phone: string) => request<void>('/me/phone-code', send('POST', { phone }), token)
 export const savePhone = (token: string, phone: string, code: string) => request<{ phone: string }>('/me/phone', send('PUT', { phone, code }), token)
-export const removePhone = (token: string) => request<void>('/me/phone', send('DELETE'), token)
+// Email для участника, который зарегистрировался по телефону: код приходит письмом на новый адрес. Способ связи задаётся один раз (409 contact_locked)
+export const requestProfileEmailCode = (token: string, email: string) => request<void>('/me/email-code', send('POST', { email }), token)
+export const saveEmail = (token: string, email: string, code: string) => request<{ email: string }>('/me/email', send('PUT', { email, code }), token)
 
 // Согласие на обработку персональных данных (экран согласия у прежних участников): сервер фиксирует текущую редакцию
 export const acceptConsent = (token: string) => request<void>('/me/consent', send('POST'), token)

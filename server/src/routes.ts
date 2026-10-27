@@ -666,6 +666,8 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
   app.post<{ Body: { phone: string } }>('/api/me/phone-code', { schema: { body: phoneBody }, config: strictLimit }, async (req, reply) => {
     const me = await authenticate(req)
     if (!me) return reply.code(401).send({ error: 'unauthorized' })
+    // способ связи задаётся один раз и потом не меняется (как email)
+    if (me.phone) return reply.code(409).send({ error: 'contact_locked' })
     const parsed = parseContact({ phone: req.body.phone })
     if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
     const { contact } = parsed
@@ -698,6 +700,7 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
     async (req, reply) => {
       const me = await authenticate(req)
       if (!me) return reply.code(401).send({ error: 'unauthorized' })
+      if (me.phone) return reply.code(409).send({ error: 'contact_locked' })
       const parsed = parseContact({ phone: req.body.phone })
       if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
       const { contact } = parsed
@@ -714,13 +717,62 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
     },
   )
 
-  // Убрать номер можно, пока остаётся другой способ входа (email).
-  app.delete('/api/me/phone', async (req, reply) => {
-    const me = await authenticate(req)
-    if (!me) return reply.code(401).send({ error: 'unauthorized' })
-    if (!me.email) return reply.code(400).send({ error: 'last_contact' })
-    await pool.query('update members set phone = null where id = $1', [me.id])
-    publish(me.family_id, { type: 'members' })
-    return reply.code(204).send()
-  })
+  // Email добавляют участнику, который зарегистрировался по телефону: тот же порядок (код на новый адрес, потом подтверждение), только письмом.
+  // Как и номер, email задаётся один раз и не меняется; убрать способ связи тоже нельзя.
+  app.post<{ Body: { email: string } }>(
+    '/api/me/email-code',
+    { schema: { body: { type: 'object', required: ['email'], additionalProperties: false, properties: { email: emailSchema } } }, config: strictLimit },
+    async (req, reply) => {
+      const me = await authenticate(req)
+      if (!me) return reply.code(401).send({ error: 'unauthorized' })
+      if (me.email) return reply.code(409).send({ error: 'contact_locked' })
+      const parsed = parseContact({ email: req.body.email })
+      if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
+      const { contact } = parsed
+      if (await mailBudgetExhausted(pool)) return reply.code(503).send({ error: 'mail_busy' })
+      const { rows: taken } = await pool.query('select 1 from members where family_id = $1 and email = $2 and id <> $3', [me.family_id, contact.value, me.id])
+      if (taken[0]) return reply.code(409).send({ error: 'email_taken' })
+
+      const tx = await pool.connect()
+      try {
+        await tx.query('begin')
+        const code = await issueEmailCode(contact.key, 'verify', tx)
+        if (!code) {
+          await tx.query('rollback')
+          return reply.code(429).send({ error: 'too_soon' })
+        }
+        await enqueue(tx, { channel: 'email', priority: PRIORITY.code, payload: { v: 1, kind: 'code', to: contact.value, code, ttlMinutes: CODE_TTL } })
+        await tx.query('commit')
+        return reply.code(204).send()
+      } catch (err) {
+        await tx.query('rollback').catch(() => {})
+        throw err
+      } finally {
+        tx.release()
+      }
+    },
+  )
+
+  app.put<{ Body: { email: string; code: string } }>(
+    '/api/me/email',
+    { schema: { body: { type: 'object', required: ['email', 'code'], additionalProperties: false, properties: { email: emailSchema, code: codeSchema } } }, config: strictLimit },
+    async (req, reply) => {
+      const me = await authenticate(req)
+      if (!me) return reply.code(401).send({ error: 'unauthorized' })
+      if (me.email) return reply.code(409).send({ error: 'contact_locked' })
+      const parsed = parseContact({ email: req.body.email })
+      if (!parsed.ok) return reply.code(400).send({ error: parsed.error })
+      const { contact } = parsed
+      if (!(await checkEmailCode(contact.key, 'verify', req.body.code))) return reply.code(400).send({ error: 'invalid_code' })
+      try {
+        await pool.query('update members set email = $2 where id = $1', [me.id, contact.value])
+      } catch (err) {
+        if (constraintOf(err) === 'members_family_email_idx') return reply.code(409).send({ error: 'email_taken' })
+        throw err
+      }
+      await discardEmailCode(pool, contact.key, 'verify')
+      publish(me.family_id, { type: 'members' })
+      return { email: contact.value }
+    },
+  )
 }
