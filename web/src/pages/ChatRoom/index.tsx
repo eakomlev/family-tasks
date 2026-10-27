@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { FAMILY_CHAT, isEventChat, listMessages, uploadChatFile, uploadChatPhoto, uploadChatVideo, type ChatMessage, type ChatVideo, type MessageFeedback } from '@/api'
 import { Avatar } from '@/components/Avatar'
 import { TabIcon } from '@/components/TabBar/TabIcon'
@@ -18,6 +18,7 @@ import { playSendFeedback } from '@/lib/sendFeedback'
 import { videoContentType } from '@/lib/video'
 import { useGetEventQuery } from '@/store/events'
 import { useDeleteMessageMutation, useEditMessageMutation, useGetMessagesQuery, useGiveFeedbackMutation, useMarkChatReadMutation, useSendMessageMutation } from '@/store/chat'
+import { copyText } from '@/lib/clipboard'
 import { currentMood } from '@/lib/mood'
 import { isParent, memberLabel } from '@/lib/roles'
 import { retryRead } from '@/lib/retry'
@@ -35,7 +36,7 @@ import { PhotoViewer } from './components/PhotoViewer'
 import { VideoViewer } from './components/VideoViewer'
 import type { OutgoingMessage } from './components/Composer/types'
 import { BackButton, DayLabel, Title, Empty, Feed, FeedContent, FamilyIcon, Header, MenuButton, Room, Top, TopTabs, WhoLink } from './styles'
-import { appendMessage, groupByDay, mergeLatest, messageStatus, participantsLabel, replaceMessage, visitLabel } from './utils'
+import { appendMessage, forwardedText, groupByDay, mergeLatest, messageStatus, messageText, participantsLabel, replaceMessage, visitLabel } from './utils'
 
 // «рядом с низом»: тогда новое сообщение прокручивает переписку само, а не сбивает чтение старых
 const NEAR_BOTTOM_PX = 160
@@ -217,6 +218,7 @@ function Conversation({ chat }: { chat: string | undefined }) {
   const eventQuery = useGetEventQuery(eventId ?? '', { skip: !eventId })
 
   // текст, переданный через «Поделиться»
+  const navigate = useNavigate()
   const sharedText = (useLocation().state as { share?: string } | null)?.share
 
   // мои сообщения, которые уходят или не ушли: показываются в ленте сразу
@@ -474,6 +476,12 @@ function Conversation({ chat }: { chat: string | undefined }) {
             setReplyingTo(feedbackFor)
             setFeedbackFor(undefined)
           }}
+          onCopy={messageText(feedbackFor) ? () => copyText(messageText(feedbackFor)) : undefined}
+          onForward={
+            messageText(feedbackFor)
+              ? () => navigate('/share', { state: { text: forwardedText(feedbackFor, sender(feedbackFor.senderId) ?? 'Участник') } })
+              : undefined
+          }
           onEdit={
             feedbackFor.senderId === me && feedbackFor.caption
               ? () => {

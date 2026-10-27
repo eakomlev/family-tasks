@@ -1,6 +1,6 @@
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
-import type { Contact, ContactKind } from '@/lib/contact'
+import { formatPhoneInput, type Contact, type ContactKind } from '@/lib/contact'
 import { Kinds, KindTab } from './styles'
 import type { ContactFieldProps } from './types'
 
@@ -40,7 +40,7 @@ export function ContactField({ contact, onChange, hint, switchable = true }: Con
           <Input
             type="tel"
             value={contact.value}
-            onChange={(e) => onChange({ kind: 'phone', value: e.target.value })}
+            onChange={(e) => onChange({ kind: 'phone', value: formatPhoneInput(e.target.value) })}
             maxLength={30}
             inputMode="tel"
             autoComplete="tel"

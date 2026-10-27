@@ -79,6 +79,16 @@ describe('код на телефон', () => {
     expect(await smsTo(phone(3))).toBe(1)
   })
 
+  it('для SMS пауза повтора две минуты: через 90 секунд ещё 429, через 130 можно', async () => {
+    expect((await requestCode(phone(30), 'signup')).statusCode).toBe(204)
+    const shift = (seconds: number) => pool.query(`update email_codes set created_at = now() - make_interval(secs => $2) where email = $1`, [`tel:${phone(30)}`, seconds])
+    await shift(90)
+    expect((await requestCode(phone(30), 'signup')).json()).toEqual({ error: 'too_soon' })
+    await shift(130)
+    expect((await requestCode(phone(30), 'signup')).statusCode).toBe(204)
+    expect(await smsTo(phone(30))).toBe(2)
+  })
+
   it('при входе SMS уходит только известному номеру, а ответ одинаков', async () => {
     const { number } = await registerFamily('Лена')
     await pool.query(`delete from outbox where channel = 'sms' and payload->>'to' = $1`, [number])

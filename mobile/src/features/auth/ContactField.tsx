@@ -2,7 +2,7 @@ import { View } from 'react-native'
 import { Chip } from '@/components/Chip'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
-import type { Contact, ContactKind } from '@/lib/contact'
+import { formatPhoneInput, type Contact, type ContactKind } from '@/lib/contact'
 
 interface ContactFieldProps {
   contact: Contact
@@ -55,7 +55,7 @@ export function ContactField({ contact, onChange, hint, switchable = true, onSub
         <Field label="Номер телефона" hint={hint}>
           <Input
             value={contact.value}
-            onChangeText={(value) => onChange({ kind: 'phone', value })}
+            onChangeText={(value) => onChange({ kind: 'phone', value: formatPhoneInput(value) })}
             maxLength={30}
             keyboardType="phone-pad"
             autoComplete="tel"

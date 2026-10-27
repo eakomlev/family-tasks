@@ -89,4 +89,32 @@ describe('FeedbackDialog', () => {
     setup()
     expect(document.body.style.overflow).toBe('hidden')
   })
+
+  it("«Копировать» копирует и закрывает окно", async () => {
+    const onCopy = vi.fn().mockResolvedValue(undefined)
+    const { onClose, user } = setup({ onCopy })
+    await user.click(screen.getByRole('button', { name: 'Копировать' }))
+    expect(onCopy).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+  })
+
+  it('«Переслать» передаёт управление', async () => {
+    const onForward = vi.fn()
+    const { user } = setup({ onForward })
+    await user.click(screen.getByRole('button', { name: 'Переслать' }))
+    expect(onForward).toHaveBeenCalledTimes(1)
+  })
+
+  it('если копирование не удалось, окно остаётся и показывает ошибку', async () => {
+    const { onClose, user } = setup({ onCopy: vi.fn().mockRejectedValue(new Error('no')) })
+    await user.click(screen.getByRole('button', { name: 'Копировать' }))
+    expect(await screen.findByText('Не удалось скопировать.')).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('без текста (одни вложения) кнопок нет', () => {
+    setup()
+    expect(screen.queryByRole('button', { name: 'Копировать' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Переслать' })).not.toBeInTheDocument()
+  })
 })

@@ -57,6 +57,9 @@ interface FeedbackDialogProps {
   onSubmit: (feedback: MessageFeedback) => Promise<void>
   // действия над сообщением: ответить (любое), изменить и удалить (только своё); кнопки показываются, если действие передано
   onReply?: () => void
+  // копировать и переслать текст сообщения (у сообщения только с вложениями кнопок нет); копирование должно бросить ошибку, если не удалось
+  onCopy?: () => Promise<void>
+  onForward?: () => void
   onEdit?: () => void
   // должен бросить ошибку, если не удалось
   onDelete?: () => Promise<void>
@@ -72,7 +75,7 @@ const Row = styled(Pressable)`
 
 // Компактное окно над сообщением (открывается долгим нажатием): реакция и, если это родитель и сообщение ребёнка, монеты автору.
 // Выбор применяется сразу, кнопки «Отправить» нет: повторное нажатие на свою реакцию снимает её.
-export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onReply, onEdit, onDelete, onClose }: FeedbackDialogProps) {
+export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onReply, onCopy, onForward, onEdit, onDelete, onClose }: FeedbackDialogProps) {
   const { colors } = useTheme()
   const guard = useInFlight()
   const [busy, setBusy] = useState(false)
@@ -88,6 +91,19 @@ export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onRepl
       await onSubmit(feedback)
     } catch {
       setError('Не удалось отправить. Попробуйте ещё раз.')
+      setBusy(false)
+    }
+  })
+
+  const copy = guard(async () => {
+    if (busy || !onCopy) return
+    setBusy(true)
+    setError(undefined)
+    try {
+      await onCopy()
+      onClose()
+    } catch {
+      setError('Не удалось скопировать.')
       setBusy(false)
     }
   })
@@ -133,12 +149,24 @@ export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onRepl
               </View>
             )}
 
-            {(onReply || onEdit || onDelete) && (
+            {(onReply || onCopy || onForward || onEdit || onDelete) && (
               <View>
                 {onReply && (
                   <Row disabled={busy} accessibilityRole="button" onPress={onReply}>
                     <Ionicons name="arrow-undo-outline" size={22} color={colors.text} />
                     <Text $weight="bold">Ответить</Text>
+                  </Row>
+                )}
+                {onCopy && (
+                  <Row disabled={busy} accessibilityRole="button" onPress={() => void copy()}>
+                    <Ionicons name="copy-outline" size={22} color={colors.text} />
+                    <Text $weight="bold">Копировать</Text>
+                  </Row>
+                )}
+                {onForward && (
+                  <Row disabled={busy} accessibilityRole="button" onPress={onForward}>
+                    <Ionicons name="arrow-redo-outline" size={22} color={colors.text} />
+                    <Text $weight="bold">Переслать</Text>
                   </Row>
                 )}
                 {onEdit && (

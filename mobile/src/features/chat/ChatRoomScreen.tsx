@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Pressable, View } from 'react-native'
+import * as Clipboard from 'expo-clipboard'
 import { Redirect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -27,6 +28,7 @@ import { playSendSound } from '@/lib/sound'
 import { takePendingShare } from '@/lib/incomingShare'
 import { Composer, type OutgoingMessage } from './Composer'
 import { FeedbackDialog } from './FeedbackDialog'
+import { forwardedText, messageText, setPendingForward } from './forward'
 import { MessageBubble } from './MessageBubble'
 import { PhotoViewer } from './PhotoViewer'
 import { VideoPlayer } from './VideoPlayer'
@@ -430,6 +432,12 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
             setReplyingTo(feedbackFor)
             setFeedbackFor(undefined)
           }}
+          onCopy={messageText(feedbackFor) ? async () => { await Clipboard.setStringAsync(messageText(feedbackFor)) } : undefined}
+          onForward={messageText(feedbackFor) ? () => {
+            setPendingForward(forwardedText(feedbackFor, sender(feedbackFor.senderId) ?? 'Участник'))
+            setFeedbackFor(undefined)
+            router.push('/forward')
+          } : undefined}
           onEdit={feedbackFor.senderId === me && feedbackFor.caption ? () => {
             setReplyingTo(undefined)
             setEditing(feedbackFor)

@@ -12,7 +12,7 @@ const COIN_CHOICES = REWARD_CHOICES.filter((n) => n > 0)
 
 // Компактное окно над сообщением (открывается долгим нажатием): реакция и, если это родитель и сообщение ребёнка, монеты автору.
 // Выбор применяется сразу, кнопки «Отправить» нет: повторное нажатие на свою реакцию снимает её.
-export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onReply, onEdit, onDelete, onClose }: FeedbackDialogProps) {
+export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onReply, onCopy, onForward, onEdit, onDelete, onClose }: FeedbackDialogProps) {
   const guard = useInFlight()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
@@ -39,6 +39,19 @@ export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onRepl
       await onSubmit(feedback)
     } catch {
       setError('Не удалось отправить. Попробуйте ещё раз.')
+      setBusy(false)
+    }
+  })
+
+  const copy = guard(async () => {
+    if (busy || !onCopy) return
+    setBusy(true)
+    setError(undefined)
+    try {
+      await onCopy()
+      onClose()
+    } catch {
+      setError('Не удалось скопировать.')
       setBusy(false)
     }
   })
@@ -93,9 +106,11 @@ export function FeedbackDialog({ authorName, canAward, myEmoji, onSubmit, onRepl
           </Coins>
         )}
 
-        {(onReply || onEdit || onDelete) && (
+        {(onReply || onCopy || onForward || onEdit || onDelete) && (
           <Actions role="group" aria-label="Действия">
             {onReply && <ActionButton type="button" disabled={busy} onClick={onReply}>Ответить</ActionButton>}
+            {onCopy && <ActionButton type="button" disabled={busy} onClick={() => void copy()}>Копировать</ActionButton>}
+            {onForward && <ActionButton type="button" disabled={busy} onClick={onForward}>Переслать</ActionButton>}
             {onEdit && <ActionButton type="button" disabled={busy} onClick={onEdit}>Изменить</ActionButton>}
             {onDelete && (
               <ActionButton type="button" $danger disabled={busy} onClick={() => void remove()}>

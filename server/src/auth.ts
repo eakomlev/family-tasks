@@ -10,7 +10,9 @@ type Db = Pick<PoolClient, 'query'>
 
 const CODE_TTL_MINUTES = 10
 const MAX_ATTEMPTS = 5
+// между отправками кода: для письма минута, для SMS две (платные и идут дольше; ключ получателя SMS начинается с «tel:»)
 const RESEND_COOLDOWN_SECONDS = 60
+const RESEND_COOLDOWN_SMS_SECONDS = 120
 
 export const CODE_TTL = CODE_TTL_MINUTES
 
@@ -20,14 +22,14 @@ export const normalizeEmail = (email: string) => email.trim().toLowerCase()
 const hashCode = (email: string, purpose: Purpose, code: string) =>
   hashToken(`${email}:${purpose}:${code}`)
 
-// Возвращает код или null, если предыдущий выдан меньше минуты назад.
+// Возвращает код или null, если предыдущий выдан слишком недавно (минута для письма, две минуты для SMS).
 // Строка пишется для любого email (даже неизвестного), чтобы поведение не выдавало, есть ли он в системе.
 // db: клиент транзакции, чтобы код и постановка письма в очередь фиксировались вместе.
 export async function issueEmailCode(email: string, purpose: Purpose, db: Db = pool): Promise<string | null> {
   const recent = await db.query(
     `select 1 from email_codes
      where email = $1 and purpose = $2 and created_at > now() - make_interval(secs => $3)`,
-    [email, purpose, RESEND_COOLDOWN_SECONDS],
+    [email, purpose, email.startsWith('tel:') ? RESEND_COOLDOWN_SMS_SECONDS : RESEND_COOLDOWN_SECONDS],
   )
   if (recent.rows[0]) return null
 

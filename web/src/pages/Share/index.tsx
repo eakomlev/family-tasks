@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useChats } from '@/chat/context'
 import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
@@ -15,12 +15,14 @@ export default function Share() {
   const { identity } = useIdentity()
   const { data } = useProfile()
   const { chats } = useChats()
-  const shared = [params.get('title'), params.get('text'), params.get('url')].filter(Boolean).join('\n').trim()
+  // пересылка сообщения из переписки передаёт текст через состояние перехода, а «Поделиться» из других приложений через адрес
+  const forwarded = (useLocation().state as { text?: string } | null)?.text
+  const shared = forwarded ?? [params.get('title'), params.get('text'), params.get('url')].filter(Boolean).join('\n').trim()
   const members = data?.members ?? []
 
   return (
     <Page>
-      <PageHeader to="/chat">Поделиться</PageHeader>
+      <PageHeader to="/chat">{forwarded ? 'Переслать' : 'Поделиться'}</PageHeader>
       {!shared ? (
         <Notice $tone="muted">Нечего отправлять. Поделитесь текстом или ссылкой из другого приложения.</Notice>
       ) : (

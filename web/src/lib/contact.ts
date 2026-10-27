@@ -19,6 +19,18 @@ export function normalizePhone(input: string): string | null {
   return match ? `+7${match[1]}` : null
 }
 
+// Подстановка при вводе номера: цифры раскладываются в «+7 911 123-45-67» по мере набора. Начало «9…», «8…» и «7…» приводится к «+7»,
+// «+» и пробелы ставятся сами. Разделителей в конце нет, поэтому стирание с конца идёт по одному символу.
+export function formatPhoneInput(input: string): string {
+  let digits = input.replace(/\D/g, '')
+  if (!digits) return ''
+  if (digits[0] === '8') digits = '7' + digits.slice(1)
+  else if (digits[0] !== '7') digits = '7' + digits
+  digits = digits.slice(0, 11)
+  const [a, b, c, d] = [digits.slice(1, 4), digits.slice(4, 7), digits.slice(7, 9), digits.slice(9, 11)]
+  return ['+7', a, [b, c, d].filter(Boolean).join('-')].filter(Boolean).join(' ')
+}
+
 // «+7 911 222-33-44» для показа
 export function formatPhone(input: string): string {
   const phone = normalizePhone(input)

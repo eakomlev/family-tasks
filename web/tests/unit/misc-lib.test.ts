@@ -56,7 +56,7 @@ describe('inviteLink', () => {
 
 describe('тексты ошибок', () => {
   it('describeCodeError различает «слишком рано» и «нет связи»', () => {
-    expect(describeCodeError(new ApiError(429, 'too_soon'))).toMatch(/Подождите минуту/)
+    expect(describeCodeError(new ApiError(429, 'too_soon'))).toMatch(/Подождите немного/)
     expect(describeCodeError(new ApiError(0, 'network'))).toMatch(/Нет связи/)
     expect(describeCodeError(new Error('x'))).toMatch(/Не удалось отправить код/)
   })
@@ -65,7 +65,7 @@ describe('тексты ошибок', () => {
   })
   it('describeResendError: понятные причины как есть, остальное общим текстом', () => {
     expect(describeResendError(new ApiError(503, 'mail_busy'))).toMatch(/перегружен/)
-    expect(describeResendError(new ApiError(429, 'too_soon'))).toMatch(/Подождите минуту/)
+    expect(describeResendError(new ApiError(429, 'too_soon'))).toMatch(/Подождите немного/)
     expect(describeResendError(new ApiError(0, 'network'))).toMatch(/Нет связи/)
     expect(describeResendError(new ApiError(500, 'internal_error'))).toBe('Не удалось отправить код. Попробуйте позже.')
     expect(describeResendError(new Error('x'))).toBe('Не удалось отправить код. Попробуйте позже.')

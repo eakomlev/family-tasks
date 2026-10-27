@@ -7,13 +7,14 @@ import { Stack } from '@/components/Stack'
 import { describeContact } from '@/lib/contact'
 import { describeResendError } from '@/lib/errors'
 import type { CodeStepProps } from './types'
-import { isCompleteCode, RESEND_SECONDS, sanitizeCode } from './utils'
+import { isCompleteCode, RESEND_SECONDS, RESEND_SMS_SECONDS, sanitizeCode } from './utils'
 
 // ввод кода из письма или SMS: общий шаг для регистрации, присоединения и входа
 export function CodeStep({ contact, busy, error, submitLabel, onSubmit, onResend, onChangeContact }: CodeStepProps) {
   const byPhone = contact.kind === 'phone'
   const [code, setCode] = useState('')
-  const [wait, setWait] = useState(RESEND_SECONDS)
+  const pause = byPhone ? RESEND_SMS_SECONDS : RESEND_SECONDS
+  const [wait, setWait] = useState(pause)
   const [resendError, setResendError] = useState<string>()
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export function CodeStep({ contact, busy, error, submitLabel, onSubmit, onResend
     setResendError(undefined)
     try {
       await onResend()
-      setWait(RESEND_SECONDS)
+      setWait(pause)
     } catch (err) {
       setResendError(describeResendError(err))
     }

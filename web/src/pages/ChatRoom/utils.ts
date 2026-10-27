@@ -126,3 +126,9 @@ export function canSendMessage(text: string, attachments: { status: 'uploading' 
 // Следующий и предыдущий номер при листании фото по кругу.
 export const nextIndex = (index: number, count: number) => (index + 1) % count
 export const prevIndex = (index: number, count: number) => (index - 1 + count) % count
+
+// Текст сообщения для копирования и пересылки (без заглушек вроде «📷 Фото»): у сообщения только с вложениями текста нет
+export const messageText = (message: ChatMessage): string => message.caption.trim()
+
+// Пересылка отправляет текст с пометкой, от кого он (вложения не пересылаются)
+export const forwardedText = (message: ChatMessage, authorName: string): string => `Переслано от ${authorName}:\n${messageText(message)}`

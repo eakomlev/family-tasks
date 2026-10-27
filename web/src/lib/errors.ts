@@ -5,7 +5,7 @@ export function describeCodeError(err: unknown): string {
   if (err instanceof ApiError) {
     const captcha = describeCaptchaError(err)
     if (captcha) return captcha
-    if (err.code === 'too_soon') return 'Код уже отправлен. Подождите минуту и попробуйте снова.'
+    if (err.code === 'too_soon') return 'Код уже отправлен. Подождите немного и попробуйте снова.'
     if (err.code === 'network') return 'Нет связи с сервером. Попробуйте ещё раз.'
     if (err.code === 'mail_busy') return MAIL_BUSY_TEXT
     if (err.code === 'sms_busy') return SMS_BUSY_TEXT
@@ -32,7 +32,7 @@ export function describeResendError(err: unknown): string {
   if (err instanceof ApiError) {
     const captcha = describeCaptchaError(err)
     if (captcha) return captcha
-    if (err.code === 'too_soon') return 'Код уже отправлен. Подождите минуту и попробуйте снова.'
+    if (err.code === 'too_soon') return 'Код уже отправлен. Подождите немного и попробуйте снова.'
     if (err.code === 'network') return 'Нет связи с сервером. Попробуйте ещё раз.'
     if (err.code === 'mail_busy') return MAIL_BUSY_TEXT
     if (err.code === 'sms_busy') return SMS_BUSY_TEXT

@@ -12,6 +12,9 @@ export interface FeedbackDialogProps {
   onSubmit: (feedback: MessageFeedback) => Promise<void>
   // действия над сообщением: ответить (любое), изменить и удалить (только своё); кнопки есть, если действие передано
   onReply?: () => void
+  // копировать и переслать текст сообщения (у сообщения только с вложениями кнопок нет); копирование бросает ошибку, если не вышло
+  onCopy?: () => Promise<void>
+  onForward?: () => void
   onEdit?: () => void
   // бросает ошибку, если не вышло
   onDelete?: () => Promise<void>

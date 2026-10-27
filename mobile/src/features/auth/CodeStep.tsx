@@ -7,7 +7,7 @@ import { Stack } from '@/components/Stack'
 import { Text } from '@/components/Text'
 import { describeContact, type Contact } from '@/lib/contact'
 import { describeResendError } from '@/lib/errors'
-import { isCompleteCode, RESEND_SECONDS, sanitizeCode } from './codeUtils'
+import { isCompleteCode, RESEND_SECONDS, RESEND_SMS_SECONDS, sanitizeCode } from './codeUtils'
 
 interface CodeStepProps {
   // куда отправлен код: от этого зависят тексты (письмо или SMS)
@@ -24,7 +24,8 @@ interface CodeStepProps {
 export function CodeStep({ contact, busy, error, submitLabel, onSubmit, onResend, onChangeContact }: CodeStepProps) {
   const byPhone = contact.kind === 'phone'
   const [code, setCode] = useState('')
-  const [wait, setWait] = useState(RESEND_SECONDS)
+  const pause = byPhone ? RESEND_SMS_SECONDS : RESEND_SECONDS
+  const [wait, setWait] = useState(pause)
   const [resendError, setResendError] = useState<string>()
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export function CodeStep({ contact, busy, error, submitLabel, onSubmit, onResend
     setResendError(undefined)
     try {
       await onResend()
-      setWait(RESEND_SECONDS)
+      setWait(pause)
     } catch (err) {
       setResendError(describeResendError(err))
     }
