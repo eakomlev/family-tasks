@@ -3,7 +3,6 @@ import { Navigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import { ApiError, removeMember, type Member } from '@/api'
 import { Avatar } from '@/components/Avatar'
-import { Button } from '@/components/Button'
 import { useConfirm } from '@/components/ConfirmDialog/context'
 import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
@@ -13,7 +12,7 @@ import { isAdult, ROLE_LABELS } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
 import { useProfile } from '@/profile/context'
 import { api } from '@/store/api'
-import { DeleteLink, List, Name, Row } from './styles'
+import { DeleteLink, List, Name, Row, RowButton } from './styles'
 
 function describeError(err: unknown): string {
   if (err instanceof ApiError && err.code === 'network') return 'Нет связи с сервером. Попробуйте ещё раз.'
@@ -83,9 +82,9 @@ export default function FamilyEdit() {
               {m.name}
               <small>{ROLE_LABELS[m.role]}</small>
             </Name>
-            <Button $variant="danger" type="button" disabled={busyId !== undefined} onClick={() => void remove(m)}>
+            <RowButton $variant="danger" type="button" disabled={busyId !== undefined} onClick={() => void remove(m)}>
               {isAdult(m.role) ? 'Убрать' : 'Удалить'}
-            </Button>
+            </RowButton>
           </Row>
         ))}
       </List>

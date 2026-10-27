@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
+import { Button } from '@/components/Button'
 
 export const List = styled.ul`
   display: grid;
@@ -11,6 +12,7 @@ export const List = styled.ul`
 
 export const Row = styled.li`
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
   padding: 0.6rem 1rem;
@@ -21,7 +23,7 @@ export const Row = styled.li`
 `
 
 export const Name = styled.span`
-  flex: 1;
+  flex: 1 1 8rem;
   min-width: 0;
   font-weight: 800;
   overflow-wrap: anywhere;
@@ -51,4 +53,12 @@ export const DeleteLink = styled(Link)`
     outline-offset: 2px;
     border-radius: 0.4rem;
   }
+`
+
+// кнопка в строке участника: общая «Button» растягивается на всю ширину, здесь она по размеру текста
+export const RowButton = styled(Button)`
+  flex: none;
+  width: auto;
+  min-height: 2.5rem;
+  padding: 0.4rem 1.1rem;
 `
