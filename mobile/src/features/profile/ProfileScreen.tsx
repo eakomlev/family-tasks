@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { CoinBalanceCard } from '@/components/Coins'
 import { useConfirm } from '@/components/ConfirmDialog'
-import { ExternalLink, MenuLink } from '@/components/MenuLink'
+import { MenuLink } from '@/components/MenuLink'
 import { Screen } from '@/components/Screen'
 import { Heading, Text } from '@/components/Text'
 import { disablePush } from '@/features/notifications/usePush'
@@ -74,15 +74,24 @@ export function ProfileScreen() {
           )}
           <MenuLink to="/profile/notifications" icon="notifications-outline">Уведомления и звуки</MenuLink>
           <MenuLink to="/profile/theme" icon="color-palette-outline">Оформление</MenuLink>
-          <ExternalLink onPress={() => openLegal(PRIVACY_PATH)}>Политика обработки данных</ExternalLink>
-          <ExternalLink onPress={() => openLegal(TERMS_PATH)}>Пользовательское соглашение</ExternalLink>
           {me.isAdmin && <MenuLink to="/profile/service">Сервис</MenuLink>}
           {/* ребёнок и создатель семьи свой аккаунт отдельно не удаляют (создатель удаляет семью целиком) */}
           {me.role !== 'child' && !me.isOwner && <MenuLink to="/profile/delete">Удалить аккаунт</MenuLink>}
         </>
       )}
 
-      <Button onPress={handleLogout}>Выйти</Button>
+      {/* как на первом экране: серые ссылки мелким текстом */}
+      <Text $size={13} $tone="muted" style={{ textAlign: 'center' }}>
+        <Text $size={13} $tone="muted" onPress={() => openLegal(PRIVACY_PATH)} accessibilityRole="link" style={{ textDecorationLine: 'underline' }}>
+          Политика обработки данных
+        </Text>
+        {' · '}
+        <Text $size={13} $tone="muted" onPress={() => openLegal(TERMS_PATH)} accessibilityRole="link" style={{ textDecorationLine: 'underline' }}>
+          Пользовательское соглашение
+        </Text>
+      </Text>
+
+      <Button variant="danger" onPress={handleLogout}>Выйти</Button>
     </Screen>
   )
 }

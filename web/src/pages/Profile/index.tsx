@@ -3,6 +3,7 @@ import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/Button'
 import { CoinBalanceCard } from '@/components/CoinBalance'
 import { useConfirm } from '@/components/ConfirmDialog/context'
+import { Link } from 'react-router-dom'
 import { MenuLink } from '@/components/MenuLink'
 import { BellIcon, PaletteIcon } from '@/components/MenuLink/icons'
 import { SlideInPage as Page } from '@/components/Page'
@@ -13,7 +14,7 @@ import { formatPhone } from '@/lib/contact'
 import { ageFromBirthDate, formatAge, formatBirthDate } from '@/lib/date'
 import { ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
-import { Badge, EditLink, Facts, Hero, LogoutBox, Menu } from './styles'
+import { Badge, EditLink, Facts, Hero, Legal, LogoutBox, Menu } from './styles'
 
 // Профиль кратко: фото, имя, роль, дата рождения и email; ниже пункты (расписания у детей, уведомления и звуки, оформление) и «Выйти».
 // Править имя, дату рождения и фото: «Изменить» справа сверху.
@@ -71,8 +72,6 @@ export default function Profile() {
             )}
             <MenuLink to="/profile/notifications" icon={<BellIcon />}>Уведомления и звуки</MenuLink>
             <MenuLink to="/profile/theme" icon={<PaletteIcon />}>Оформление</MenuLink>
-            <MenuLink to="/privacy">Политика обработки данных</MenuLink>
-            <MenuLink to="/terms">Пользовательское соглашение</MenuLink>
             {/* статистика сервиса: только у администраторов (ADMIN_EMAILS на сервере) */}
             {me.isAdmin && <MenuLink to="/profile/service">Сервис</MenuLink>}
             {/* ребёнок и создатель семьи свой аккаунт отдельно не удаляют (создатель удаляет семью целиком) */}
@@ -81,8 +80,13 @@ export default function Profile() {
         </>
       )}
 
+      {/* как на первом экране: серые ссылки мелким текстом */}
+      <Legal>
+        <Link to="/privacy">Политика обработки данных</Link> · <Link to="/terms">Пользовательское соглашение</Link>
+      </Legal>
+
       <LogoutBox>
-        <Button type="button" onClick={handleLogout}>Выйти</Button>
+        <Button $variant="danger" type="button" onClick={handleLogout}>Выйти</Button>
       </LogoutBox>
     </Page>
   )

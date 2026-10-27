@@ -75,3 +75,14 @@ export const LogoutBox = styled.div`
   margin-top: auto;
   padding-top: 1.5rem;
 `
+
+export const Legal = styled.p`
+  margin: 1.25rem 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+
+  a {
+    color: inherit;
+  }
+`
