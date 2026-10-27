@@ -15,6 +15,8 @@ export const Bar = styled.nav`
   border: 1px solid var(--tabbar-border);
   border-radius: 999px;
   background: var(--tabbar-bg);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   box-shadow: var(--tabbar-shadow);
 
   :root[data-keyboard] & {
@@ -146,7 +148,7 @@ export const Badge = styled.span`
   min-width: 1.1rem;
   height: 1.1rem;
   padding: 0 0.25rem;
-  border: 2px solid var(--tabbar-bg);
+  border: 2px solid var(--tabbar-bg-solid);
   border-radius: 999px;
   box-sizing: content-box;
   background: var(--error);

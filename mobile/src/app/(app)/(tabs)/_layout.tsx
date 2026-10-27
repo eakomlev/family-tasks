@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { Animated, Pressable, Text, View } from 'react-native'
 import { TopTabs, type MaterialTopTabBarProps } from 'expo-router/js-top-tabs'
 import { Ionicons } from '@expo/vector-icons'
+import { BlurView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from 'styled-components/native'
 import { useChats } from '@/chat/context'
 import { useIdentity } from '@/identity/context'
+import { withAlpha } from '@/lib/colorAlpha'
 import { todayIso } from '@/lib/date'
 import { countActionable } from '@/lib/occurrences'
 import { isParent } from '@/lib/roles'
@@ -64,7 +66,8 @@ function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
           marginBottom: 12 + insets.bottom * 0.4,
           borderRadius: 32,
           padding: PAD,
-          backgroundColor: colors.tabbarBg,
+          // подложка полупрозрачная, под ней лёгкое размытие (BlurView ниже); цвет акцентной капсулы и значков не меняется
+          backgroundColor: withAlpha(colors.tabbarBg, 0.72),
           borderWidth: 1,
           borderColor: colors.tabbarBorder,
           flexDirection: 'row',
@@ -73,10 +76,14 @@ function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
           shadowOpacity: dark ? 0.35 : 0.14,
           shadowRadius: 12,
           shadowOffset: { width: 0, height: 6 },
-          elevation: 10,
+          // на Android тень под полупрозрачной подложкой просвечивала бы: оставляем только рамку
+          elevation: 0,
         }}
         onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
       >
+        <View pointerEvents="none" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: 31, overflow: 'hidden' }}>
+          <BlurView intensity={30} tint={dark ? 'dark' : 'light'} experimentalBlurMethod="dimezisBlurView" style={{ flex: 1 }} />
+        </View>
         {tabWidth > 0 && (
           <Animated.View
             pointerEvents="none"
