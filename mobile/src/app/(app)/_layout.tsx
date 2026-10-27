@@ -11,6 +11,7 @@ import { loadTasksView, useTasksView } from '@/features/tasks/viewState'
 import { useIdentity } from '@/identity/context'
 import { ProfileProvider } from '@/profile'
 import { NotificationsBridge } from '@/features/notifications/NotificationsBridge'
+import { NoFamilyScreen } from '@/features/family/NoFamilyScreen'
 import { ConsentScreen } from '@/features/legal/ConsentScreen'
 import { ShareReceiver } from '@/features/share/ShareReceiver'
 import { useProfile } from '@/profile/context'
@@ -79,6 +80,8 @@ function TopRight() {
 function Content() {
   const { data } = useProfile()
   if (data?.me.consentRequired) return <ConsentScreen />
+  // взрослого убрали из семьи: аккаунт остался, ему нужно создать семью или вступить в другую
+  if (data?.me.detached) return <NoFamilyScreen />
   return (
     <>
       <Stack screenOptions={{ headerShown: false }} />

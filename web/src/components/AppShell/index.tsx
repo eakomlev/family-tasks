@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ChatsProvider } from '@/chat'
 import { Avatar } from '@/components/Avatar'
 import { ConsentGate } from '@/components/ConsentGate'
+import { NoFamilyGate } from '@/components/NoFamilyGate'
 import { PushPrompt } from '@/components/PushPrompt'
 import { TabBar } from '@/components/TabBar'
 import { useIdentity } from '@/identity/context'
@@ -25,6 +26,8 @@ function Shell() {
   if (!identity) return null
   // согласие на обработку персональных данных ещё не дано (участник из прежних версий) или текст обновился: сначала оно
   if (data?.me.consentRequired) return <ConsentGate />
+  // взрослого убрали из семьи: аккаунт остался, ему нужно создать семью или вступить в другую
+  if (data?.me.detached) return <NoFamilyGate />
   // переписка (/chat/:chat) занимает весь экран, без панели табов (информация о чате обычная страница)
   const chatRoom = pathname.startsWith('/chat/') && !pathname.endsWith('/info') && pathname !== '/chat/archive'
   // как в приложении: панель табов только на четырёх главных разделах, на вложенных страницах её нет (там шапка со стрелкой «назад»)

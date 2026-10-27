@@ -61,14 +61,10 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('ссылка на странице семьи', () => {
-  it('создатель видит «Удалить семейный аккаунт» в самом низу страницы и переходит по ней', async () => {
+  it('на странице семьи ссылки больше нет: удаление семьи вынесено на страницу «Изменить семью»', () => {
     renderAt('/family')
-    const link = screen.getByRole('link', { name: 'Удалить семейный аккаунт' })
-    expect(link).toHaveAttribute('href', '/family/delete')
-    // ссылка последняя на странице, после списка участников
-    expect(document.querySelector('main')!.lastElementChild).toBe(link)
-    await userEvent.click(link)
-    expect(screen.getByRole('heading', { name: 'Удаление семейного аккаунта' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Удалить семейный аккаунт' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Изменить' })).toHaveAttribute('href', '/family/edit')
   })
 
   it('остальным участникам ссылки нет', () => {

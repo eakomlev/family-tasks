@@ -24,6 +24,8 @@ import { trainingRoutes } from './trainings.js'
 declare module 'fastify' {
   interface FastifyContextConfig {
     public?: boolean
+    // доступен участнику без семьи (убранному из семьи взрослому): ему открыты только вход, «кто я», создание семьи и вступление по ссылке
+    detached?: boolean
   }
 }
 
@@ -66,7 +68,10 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
   // Авторизация по умолчанию: без токена отвечаем 401 раньше проверки тела и параметров (иначе схему можно «прощупать» без входа).
   app.addHook('onRequest', async (req, reply) => {
     if (!req.url.startsWith('/api/') || req.routeOptions.config.public) return
-    if (!(await authenticate(req))) return reply.code(401).send({ error: 'unauthorized' })
+    const member = await authenticate(req)
+    if (!member) return reply.code(401).send({ error: 'unauthorized' })
+    // без семьи делать почти нечего: всё остальное привязано к семье
+    if (member.family_id === null && !req.routeOptions.config.detached) return reply.code(403).send({ error: 'no_family' })
   })
 
   // Сбои сервера не показывают клиенту внутренний текст ошибки (запросы к базе, пути); ошибки клиента отдаются как обычно.

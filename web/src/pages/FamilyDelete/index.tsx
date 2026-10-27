@@ -80,7 +80,7 @@ export default function FamilyDelete() {
 
   return (
     <Page>
-      <PageHeader to="/family">Удаление семейного аккаунта</PageHeader>
+      <PageHeader to="/family/edit">Удаление семейного аккаунта</PageHeader>
       <p>Вы собираетесь удалить семью. Будет удалено без возможности восстановления:</p>
       <Losses>
         <li>

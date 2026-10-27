@@ -91,7 +91,8 @@ async function loadTasks(db: Db, memberId: string, day: string): Promise<TaskInf
 export async function runTick(pool: pg.Pool, now = new Date()): Promise<{ sent: number }> {
   const { rows: subs } = await pool.query<SubscriptionRow>(
     `select s.id, s.time_zone, m.id as member_id, m.role, m.family_id
-     from push_subscriptions s join members m on m.id = s.member_id`,
+     from push_subscriptions s join members m on m.id = s.member_id
+     where m.family_id is not null`, // участнику без семьи напоминать не о чем
   )
 
   const families = new Map<string, MemberInfo[]>()

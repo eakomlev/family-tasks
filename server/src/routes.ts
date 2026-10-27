@@ -148,6 +148,8 @@ async function insertMember(
   isOwner: boolean,
 ) {
   const name = body.name.trim()
+  // человек начинает с нуля: прежняя запись без семьи с этим контактом не нужна (иначе у контакта было бы две записи)
+  await db.query(`delete from members where family_id is null and ${contact.column} = $1`, [contact.value])
   const { rows } = await db.query(
     `insert into members (family_id, name, email, phone, role, is_owner, consent_version, consent_at)
      values ($1, $2, $3, $4, $5, $6, $7, now()) returning id`,
@@ -156,6 +158,21 @@ async function insertMember(
   const id = rows[0].id as string
   const token = await createSession(db, id)
   return { id, name, role: body.role, isOwner, token }
+}
+
+// новая семья с неповторяющимся кодом
+async function insertFamily(db: PoolClient): Promise<{ id: string; code: string }> {
+  for (;;) {
+    const code = familyCode()
+    try {
+      await db.query('savepoint code_try')
+      const { rows } = await db.query('insert into families (code) values ($1) returning id', [code])
+      return { id: rows[0].id as string, code }
+    } catch (err) {
+      if (!constraintOf(err)) throw err
+      await db.query('rollback to savepoint code_try')
+    }
+  }
 }
 
 export async function issueInvite(db: Pick<PoolClient, 'query'>, familyId: string) {
@@ -273,21 +290,7 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
       try {
         await db.query('begin')
 
-        let family: { id: string; code: string } | undefined
-        while (!family) {
-          const code = familyCode()
-          try {
-            await db.query('savepoint code_try')
-            const { rows } = await db.query(
-              'insert into families (code) values ($1) returning id',
-              [code],
-            )
-            family = { id: rows[0].id, code }
-          } catch (err) {
-            if (!constraintOf(err)) throw err
-            await db.query('rollback to savepoint code_try')
-          }
-        }
+        const family = await insertFamily(db)
 
         const member = await insertMember(db, family.id, req.body, contact, true)
         const invite = await issueInvite(db, family.id)
@@ -383,7 +386,7 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
         `select m.id, m.name, m.role, m.is_owner as "isOwner", f.code as "familyCode",
                 (select array_agg(o.name order by o.created_at) from members o
                  where o.family_id = m.family_id) as "familyMembers"
-         from members m join families f on f.id = m.family_id
+         from members m left join families f on f.id = m.family_id
          where m.${contact.column} = $1 order by m.created_at`,
         [contact.value],
       )
@@ -414,7 +417,8 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
         await discardEmailCode(db, contact.key, 'login')
         await db.query('commit')
         return reply.code(201).send({
-          family: { code: chosen.familyCode },
+          // без семьи кода нет: клиент покажет страницу «Создать семью или присоединиться»
+          family: { code: chosen.familyCode ?? '' },
           member: { id: chosen.id, name: chosen.name, role: chosen.role, isOwner: chosen.isOwner, token },
         })
       } catch (err) {
@@ -457,18 +461,22 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
   })
 
   // текущий участник и состав семьи
-  app.get('/api/me', async (req, reply) => {
+  app.get('/api/me', { config: { detached: true } }, async (req, reply) => {
     const me = await authenticate(req)
     if (!me) return reply.code(401).send({ error: 'unauthorized' })
+    // участник без семьи видит только себя
+    const detached = me.family_id === null
     const { rows: members } = await pool.query(
       `select id, name, role, is_owner as "isOwner", avatar,
               to_char(birth_date, 'YYYY-MM-DD') as "birthDate",
               case when role = 'child' and mood is not null then json_build_object('value', mood, 'at', mood_at) end as mood
-       from members where family_id = $1 order by created_at`,
-      [me.family_id],
+       from members where ${detached ? 'id' : 'family_id'} = $1 order by created_at`,
+      [detached ? me.id : me.family_id],
     )
     return {
       member: {
+        // нет семьи: клиент ведёт на страницу «Создать семью или присоединиться по ссылке»
+        ...(detached ? { detached: true } : {}),
         id: me.id,
         name: me.name,
         role: me.role,
@@ -485,7 +493,7 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
         // монеты есть только у детей и только свои: у остальных поля нет
         ...(me.role === 'child' ? { coins: await coinBalance(pool, me.id) } : {}),
       },
-      family: { code: me.family_code },
+      family: { code: me.family_code ?? '' },
       members,
     }
   })
@@ -561,7 +569,89 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
   )
 
   // Согласие на обработку персональных данных у уже зарегистрированного участника (экран согласия после обновления): фиксируем текущую редакцию.
-  app.post('/api/me/consent', async (req, reply) => {
+  // Участник без семьи создаёт новую: он становится её создателем (роль мама или папа), аккаунт и вход остаются прежними.
+  app.post<{ Body: { role: 'mama' | 'papa' } }>(
+    '/api/me/family',
+    { schema: { body: { type: 'object', required: ['role'], additionalProperties: false, properties: { role: { enum: ['mama', 'papa'] } } } }, config: { detached: true, ...strictLimit } },
+    async (req, reply) => {
+      const me = await authenticate(req)
+      if (!me) return reply.code(401).send({ error: 'unauthorized' })
+      if (me.family_id !== null) return reply.code(409).send({ error: 'already_in_family' })
+
+      const db = await pool.connect()
+      try {
+        await db.query('begin')
+        const family = await insertFamily(db)
+        const { rowCount } = await db.query('update members set family_id = $1, role = $2, is_owner = true where id = $3 and family_id is null', [family.id, req.body.role, me.id])
+        if (!rowCount) {
+          await db.query('rollback')
+          return reply.code(409).send({ error: 'already_in_family' })
+        }
+        const invite = await issueInvite(db, family.id)
+        await db.query('commit')
+        return reply.code(201).send({ family: { code: family.code }, member: { id: me.id, name: me.name, role: req.body.role, isOwner: true }, invite })
+      } catch (err) {
+        await db.query('rollback').catch(() => {})
+        throw err
+      } finally {
+        db.release()
+      }
+    },
+  )
+
+  // Участник без семьи вступает в другую по коду приглашения (из ссылки); имя, контакты, фото и дата рождения остаются при нём, роль выбирает заново.
+  app.post<{ Body: { inviteCode: string; role: Role } }>(
+    '/api/me/join',
+    {
+      schema: { body: { type: 'object', required: ['inviteCode', 'role'], additionalProperties: false, properties: { inviteCode: { type: 'string', minLength: 1, maxLength: 100 }, role: { enum: ['mama', 'papa', 'grandma', 'grandpa'] } } } },
+      config: { detached: true, ...strictLimit },
+    },
+    async (req, reply) => {
+      const me = await authenticate(req)
+      if (!me) return reply.code(401).send({ error: 'unauthorized' })
+      if (me.family_id !== null) return reply.code(409).send({ error: 'already_in_family' })
+
+      const { rows } = await pool.query(
+        `select i.family_id, i.expires_at, f.code as family_code
+         from invites i join families f on f.id = i.family_id where i.code = $1`,
+        [req.body.inviteCode.trim()],
+      )
+      const invite = rows[0]
+      if (!invite) return reply.code(404).send({ error: 'invite_not_found' })
+      if (new Date(invite.expires_at) < new Date()) return reply.code(410).send({ error: 'invite_expired' })
+
+      const db = await pool.connect()
+      try {
+        await db.query('begin')
+        // блокировка семьи: два одновременных вступления не обойдут лимит
+        await db.query('select id from families where id = $1 for update', [invite.family_id])
+        const { rows: count } = await db.query('select count(*)::int as n from members where family_id = $1', [invite.family_id])
+        if (count[0].n >= MAX_FAMILY_MEMBERS) {
+          await db.query('rollback')
+          return reply.code(409).send({ error: 'family_full' })
+        }
+        const { rowCount } = await db.query('update members set family_id = $1, role = $2, is_owner = false where id = $3 and family_id is null', [invite.family_id, req.body.role, me.id])
+        if (!rowCount) {
+          await db.query('rollback')
+          return reply.code(409).send({ error: 'already_in_family' })
+        }
+        await db.query('commit')
+        publish(invite.family_id, { type: 'members' })
+        return reply.code(200).send({ family: { code: invite.family_code }, member: { id: me.id, name: me.name, role: req.body.role, isOwner: false } })
+      } catch (err) {
+        await db.query('rollback').catch(() => {})
+        const constraint = constraintOf(err)
+        if (constraint === 'members_family_name_idx') return reply.code(409).send({ error: 'name_taken' })
+        if (constraint === 'members_family_email_idx') return reply.code(409).send({ error: 'email_taken' })
+        if (constraint === 'members_family_phone_idx') return reply.code(409).send({ error: 'phone_taken' })
+        throw err
+      } finally {
+        db.release()
+      }
+    },
+  )
+
+  app.post('/api/me/consent', { config: { detached: true } }, async (req, reply) => {
     const me = await authenticate(req)
     if (!me) return reply.code(401).send({ error: 'unauthorized' })
     await pool.query('update members set consent_version = $2, consent_at = now() where id = $1', [me.id, CONSENT_VERSION])

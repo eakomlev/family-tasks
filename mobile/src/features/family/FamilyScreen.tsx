@@ -6,7 +6,7 @@ import { MenuLink } from '@/components/MenuLink'
 import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Button } from '@/components/Button'
-import { Heading, Text, PageTitle } from '@/components/Text'
+import { Heading, Text, Title, TOP_RIGHT_RESERVE } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { MAX_FAMILY_MEMBERS, ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
@@ -32,7 +32,15 @@ export function FamilyScreen() {
 
   return (
     <Screen>
-      <PageTitle>Ваша семья</PageTitle>
+      {/* справа место занято значком профиля, «Изменить» (только создателю) стоит левее него */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: TOP_RIGHT_RESERVE }}>
+        <Title style={{ flex: 1 }}>Ваша семья</Title>
+        {data?.me.isOwner && (
+          <Button variant="text" onPress={() => router.push('/family/edit')}>
+            Изменить
+          </Button>
+        )}
+      </View>
       <Text>{`Вы вошли как ${identity.name} (${ROLE_LABELS[identity.role]}).`}</Text>
 
       <Heading>{`Участники${data ? ` (${data.members.length} из ${MAX_FAMILY_MEMBERS})` : ''}`}</Heading>
@@ -64,12 +72,6 @@ export function FamilyScreen() {
       {data?.me.isOwner && data.members.length < MAX_FAMILY_MEMBERS && <MenuLink to="/family/invite">Пригласить</MenuLink>}
       {data?.me.isOwner && data.members.length >= MAX_FAMILY_MEMBERS && (
         <Notice>{`В семье максимум участников (${MAX_FAMILY_MEMBERS}), пригласить ещё кого-то нельзя.`}</Notice>
-      )}
-      {/* в самом низу, только создателю семьи */}
-      {data?.me.isOwner && (
-        <Button variant="text" onPress={() => router.push('/family/delete')}>
-          Удалить семейный аккаунт
-        </Button>
       )}
     </Screen>
   )

@@ -89,7 +89,7 @@ export function FamilyDeleteScreen() {
   ]
 
   return (
-    <Screen header={<PageHeader fallback="/family">Удаление семейного аккаунта</PageHeader>}>
+    <Screen header={<PageHeader fallback="/family/edit">Удаление семейного аккаунта</PageHeader>}>
       <Text>Вы собираетесь удалить семью. Будет удалено без возможности восстановления:</Text>
       <Stack $gap={6}>
         {losses.map((line) => (

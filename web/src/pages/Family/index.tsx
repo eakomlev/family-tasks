@@ -6,7 +6,7 @@ import { useIdentity } from '@/identity/context'
 import { MAX_FAMILY_MEMBERS, ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
 import { MemberRow } from './components/MemberRow'
-import { DeleteLink, Members } from './styles'
+import { EditLink, Head, Members } from './styles'
 
 export default function Family() {
   const { identity } = useIdentity()
@@ -16,7 +16,11 @@ export default function Family() {
 
   return (
     <Page>
-      <h1>Ваша семья</h1>
+      <Head>
+        <h1>Ваша семья</h1>
+        {/* менять состав семьи и удалять её может только создатель */}
+        {data?.me.isOwner && <EditLink to="/family/edit">Изменить</EditLink>}
+      </Head>
       <p>Вы вошли как <strong>{identity.name}</strong> ({ROLE_LABELS[identity.role]}). Код семьи: <code>{identity.familyCode}</code></p>
 
       <h2>Участники{data && ` (${data.members.length} из ${MAX_FAMILY_MEMBERS})`}</h2>
@@ -30,8 +34,6 @@ export default function Family() {
 
       {data?.me.isOwner && data.members.length < MAX_FAMILY_MEMBERS && <MenuLink to="/family/invite">Пригласить</MenuLink>}
       {data?.me.isOwner && data.members.length >= MAX_FAMILY_MEMBERS && <Notice $tone="muted">В семье максимум участников ({MAX_FAMILY_MEMBERS}), пригласить ещё кого-то нельзя.</Notice>}
-      {/* в самом низу, только создателю семьи */}
-      {data?.me.isOwner && <DeleteLink to="/family/delete">Удалить семейный аккаунт</DeleteLink>}
     </Page>
   )
 }

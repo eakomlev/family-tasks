@@ -111,7 +111,7 @@ export async function authenticateToken(token: string) {
     `select m.id, m.name, m.role, m.is_owner, m.email, m.phone, m.consent_version, m.avatar, to_char(m.birth_date, 'YYYY-MM-DD') as birth_date, m.created_at, m.family_id, f.code as family_code
      from sessions s
      join members m on m.id = s.member_id
-     join families f on f.id = m.family_id
+     left join families f on f.id = m.family_id
      where s.token_hash = $1 and s.last_used_at > now() - make_interval(days => $2)`,
     [hashToken(token), SESSION_TTL_DAYS],
   )

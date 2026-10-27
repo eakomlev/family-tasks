@@ -196,7 +196,12 @@ export async function startRealtime(options: RealtimeOptions): Promise<Realtime>
     try {
       const clients = [...hub.clients()]
       const live = await liveSessions(pool, [...new Set(clients.map((c) => c.tokenHash))])
-      for (const client of clients) if (!live.has(client.tokenHash)) client.socket.close(CLOSE_UNAUTHORIZED, 'session ended')
+      for (const client of clients) {
+        const now = live.get(client.tokenHash)
+        if (!now) client.socket.close(CLOSE_UNAUTHORIZED, 'session ended')
+        // сессия жива, но принадлежит уже другой записи или другой семье (взрослого убрали из семьи): пусть переподключится и перезапросит данные
+        else if (now.memberId !== client.memberId || now.familyId !== client.familyId) client.socket.close(CLOSE_RESYNC, 'member changed')
+      }
     } catch (err) {
       log('warn', 'session_check_failed', { error: (err as Error).message })
     }

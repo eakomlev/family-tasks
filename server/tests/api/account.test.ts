@@ -89,3 +89,118 @@ describe('удаление своего аккаунта', () => {
     expect((await api(app, fam.dad.token, 'DELETE', '/api/me')).status).toBe(401)
   })
 })
+
+describe('создатель убирает участника', () => {
+  let f: TestFamily
+  beforeAll(async () => {
+    f = await createFamily()
+  })
+  afterAll(async () => {
+    await removeFamilies(f.id)
+  })
+
+  it('не создателю, себе и чужому участнику нельзя, без входа 401', async () => {
+    expect((await api(app, f.dad.token, 'DELETE', `/api/members/${f.kid.id}`)).body.error).toBe('owner_only')
+    const self = await api(app, f.mom.token, 'DELETE', `/api/members/${f.mom.id}`)
+    expect(self.status).toBe(400)
+    expect(self.body.error).toBe('cannot_remove_owner')
+    // участник другой семьи (из первой) для этой семьи не существует
+    expect((await api(app, f.mom.token, 'DELETE', `/api/members/${fam.kid.id}`)).status).toBe(404)
+    expect((await api(app, f.mom.token, 'DELETE', '/api/members/not-a-uuid')).status).toBe(404)
+    expect((await api(app, null, 'DELETE', `/api/members/${f.kid.id}`)).status).toBe(401)
+    expect(await count('select count(*) from members where family_id = $1', f.id)).toBe(4)
+  })
+
+  it('взрослого убирает из семьи со всем связанным, но аккаунт и вход остаются', async () => {
+    const chat = directKey(f.dad.id, f.kid.id)
+    await pool.query('insert into messages (family_id, chat_key, sender_id, text) values ($1, $2, $3, $4), ($1, $5, $3, $6)', [f.id, chat, f.dad.id, 'папа ребёнку', 'family', 'папа всем'])
+    await pool.query(`insert into tasks (family_id, author_id, assignee_id, title) values ($1, $2, $3, 'Задание от папы')`, [f.id, f.dad.id, f.kid.id])
+    const res = await api(app, f.mom.token, 'DELETE', `/api/members/${f.dad.id}`)
+    expect(res.status).toBe(204)
+    // семейное исчезло
+    expect(await count('select count(*) from members where id = $1', f.dad.id)).toBe(0)
+    expect(await count('select count(*) from messages where chat_key = $1 or sender_id = $2', chat, f.dad.id)).toBe(0)
+    expect(await count("select count(*) from tasks where title = 'Задание от папы'")).toBe(0)
+    expect(await count('select count(*) from members where family_id = $1', f.id)).toBe(3)
+    // аккаунт без семьи остался с теми же контактами, а сессия по-прежнему действует
+    const { rows } = await pool.query('select id, name, role, family_id from members where email = $1', [f.dad.email])
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ name: 'Папа', role: 'papa', family_id: null })
+    const me = await api(app, f.dad.token, 'GET', '/api/me')
+    expect(me.status).toBe(200)
+    expect(me.body.member).toMatchObject({ id: rows[0].id, detached: true, name: 'Папа' })
+    expect(me.body.members).toHaveLength(1)
+  })
+
+  it('без семьи доступны только «кто я», создание семьи и вступление; остальное 403 no_family', async () => {
+    for (const [method, url] of [['GET', '/api/tasks?from=2026-01-01&to=2026-01-02'], ['GET', '/api/chats'], ['GET', '/api/invite'], ['POST', '/api/invite']] as const) {
+      const res = await api(app, f.dad.token, method, url)
+      expect([method, url, res.status, res.body.error]).toEqual([method, url, 403, 'no_family'])
+    }
+  })
+
+  it('без семьи можно вступить в другую по ссылке: аккаунт тот же, роль выбирается заново', async () => {
+    const other = await createFamily()
+    // в той семье имя «Папа» уже занято: сначала проверяем отказ, потом освобождаем
+    try {
+      const code = (await pool.query(`insert into invites (family_id, code, expires_at) values ($1, 'det-' || substr(md5(random()::text), 1, 8), now() + interval '1 day') returning code`, [other.id])).rows[0].code as string
+      expect((await api(app, f.dad.token, 'POST', '/api/me/join', { inviteCode: 'нет-такого', role: 'papa' })).body.error).toBe('invite_not_found')
+      expect((await api(app, f.dad.token, 'POST', '/api/me/join', { inviteCode: code, role: 'grandpa' })).body.error).toBe('name_taken')
+      await pool.query('delete from members where id = $1', [other.dad.id])
+      const res = await api(app, f.dad.token, 'POST', '/api/me/join', { inviteCode: code, role: 'grandpa' })
+      expect(res.status).toBe(200)
+      expect(res.body.member).toMatchObject({ name: 'Папа', role: 'grandpa', isOwner: false })
+      const me = await api(app, f.dad.token, 'GET', '/api/me')
+      expect(me.body.member.detached).toBeUndefined()
+      expect(me.body.members.map((m: { name: string }) => m.name)).toContain('Папа')
+      expect(me.body.family.code).toBe(res.body.family.code)
+      expect((await api(app, f.dad.token, 'POST', '/api/me/join', { inviteCode: code, role: 'papa' })).body.error).toBe('already_in_family')
+    } finally {
+      await removeFamilies(other.id)
+      await pool.query('delete from members where email = $1', [f.dad.email])
+    }
+  })
+
+  it('без семьи можно создать свою: человек становится создателем, получает приглашение', async () => {
+    // взрослого снова убираем: у новой семьи свой токен не нужен, берём сестру-ребёнка нельзя, поэтому заводим отдельную пару
+    const g = await createFamily()
+    try {
+      expect((await api(app, g.mom.token, 'DELETE', `/api/members/${g.dad.id}`)).status).toBe(204)
+      expect((await api(app, g.dad.token, 'POST', '/api/me/family', { role: 'child' })).status).toBe(400)
+      const res = await api(app, g.dad.token, 'POST', '/api/me/family', { role: 'mama' })
+      expect(res.status).toBe(201)
+      expect(res.body.member).toMatchObject({ name: 'Папа', role: 'mama', isOwner: true })
+      expect(res.body.invite.code).toBeTruthy()
+      const me = await api(app, g.dad.token, 'GET', '/api/me')
+      expect(me.body.member).toMatchObject({ isOwner: true, role: 'mama' })
+      expect(me.body.family.code).toBe(res.body.family.code)
+      expect((await api(app, g.dad.token, 'POST', '/api/me/family', { role: 'mama' })).body.error).toBe('already_in_family')
+      await pool.query('delete from families where code = $1', [res.body.family.code])
+    } finally {
+      await removeFamilies(g.id)
+      await pool.query('delete from members where email = $1', [g.dad.email])
+    }
+  })
+
+  it('без семьи можно удалить аккаунт совсем', async () => {
+    const g = await createFamily()
+    try {
+      await api(app, g.mom.token, 'DELETE', `/api/members/${g.dad.id}`)
+      expect((await api(app, g.dad.token, 'DELETE', '/api/me')).status).toBe(204)
+      expect(await count('select count(*) from members where email = $1', g.dad.email)).toBe(0)
+      expect((await api(app, g.dad.token, 'GET', '/api/me')).status).toBe(401)
+    } finally {
+      await removeFamilies(g.id)
+    }
+  })
+
+  it('ребёнка удаляет полностью', async () => {
+    await pool.query(`insert into tasks (family_id, author_id, assignee_id, title) values ($1, $2, $3, 'Задание ребёнку')`, [f.id, f.mom.id, f.kid.id])
+    expect((await api(app, f.mom.token, 'DELETE', `/api/members/${f.kid.id}`)).status).toBe(204)
+    expect(await count('select count(*) from members where id = $1', f.kid.id)).toBe(0)
+    expect(await count('select count(*) from tasks where assignee_id = $1', f.kid.id)).toBe(0)
+    expect(await count('select count(*) from members where id = $1', f.mom.id)).toBe(1)
+    // повтор: участника уже нет
+    expect((await api(app, f.mom.token, 'DELETE', `/api/members/${f.kid.id}`)).status).toBe(404)
+  })
+})
