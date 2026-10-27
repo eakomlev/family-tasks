@@ -1,50 +1,6 @@
-import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
-// ---- шапка страницы (PageHeader): «+» и настройки справа; под ней период с переключателями ----
-
-// «+» просто знак без фона
-export const IconLink = styled(Link)`
-  flex: none;
-  width: 2.5rem;
-  height: 2.5rem;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--accent);
-
-  svg {
-    width: 1.8rem;
-    height: 1.8rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2.4;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-`
-
-// настройки: тот же размер, но без заливки
-export const SettingsLink = styled(IconLink)`
-  color: var(--muted);
-  border: 1px solid var(--border);
-
-  svg {
-    width: 1.3rem;
-    height: 1.3rem;
-    stroke-width: 2.2;
-  }
-
-  &:hover {
-    color: var(--accent);
-  }
-`
+// ---- период с переключателями под шапкой (кнопки шапки общие с «Заданиями»: pages/Tasks/styles) ----
 
 export const Period = styled.div`
   display: flex;

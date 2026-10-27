@@ -139,6 +139,52 @@ export const Badge = styled.span<{ $state: TaskState }>`
           `}
 `
 
+// фото исполнителя слева; значок состояния сидит на его правом нижнем углу
+export const Lead = styled.span`
+  position: relative;
+  flex: none;
+  display: grid;
+`
+
+export const Mark = styled.span<{ $state: TaskState }>`
+  position: absolute;
+  right: -0.25rem;
+  bottom: -0.25rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  box-sizing: content-box;
+
+  svg {
+    width: 0.8rem;
+    height: 0.8rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  ${({ $state }) =>
+    $state === 'done'
+      ? css`
+          background: var(--lime);
+          color: var(--on-lime);
+        `
+      : $state === 'pending'
+        ? css`
+            background: var(--review-bg);
+            color: var(--review-text);
+          `
+        : css`
+            background: color-mix(in srgb, var(--error) 22%, var(--surface));
+            color: var(--error);
+          `}
+`
+
 // плашка награды справа: золотая, у выполненного приглушённая
 export const Reward = styled.span<{ $done: boolean }>`
   flex: none;
@@ -179,12 +225,6 @@ export const Meta = styled.span<{ $late?: boolean }>`
   color: ${({ $late }) => ($late ? 'var(--error)' : 'var(--muted)')};
   font-size: 0.85rem;
   font-weight: 700;
-`
-
-export const Who = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
 `
 
 export const Chevron = styled.span`

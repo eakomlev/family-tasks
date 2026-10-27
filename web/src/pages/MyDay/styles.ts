@@ -14,7 +14,7 @@ export const CalendarLink = styled(Link)`
   width: 3rem;
   height: 3rem;
   margin-top: -0.5rem;
-  border-radius: 1rem;
+  border-radius: 50%;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 

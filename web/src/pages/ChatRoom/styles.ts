@@ -120,14 +120,16 @@ export const BackButton = styled(Link).attrs({ state: BACK_STATE })`
   flex: none;
   display: grid;
   place-items: center;
-  width: 2rem;
-  height: 2.25rem;
-  margin-left: -0.4rem;
-  color: var(--accent);
+  /* такая же стрелка, как в шапке остальных страниц (components/PageHeader): круглая, цвет текста, размер 2,5rem */
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-left: -0.5rem;
+  border-radius: 50%;
+  color: var(--text);
 
   svg {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 1.6rem;
+    height: 1.6rem;
     fill: none;
     stroke: currentColor;
     stroke-width: 2.2;
@@ -135,9 +137,13 @@ export const BackButton = styled(Link).attrs({ state: BACK_STATE })`
     stroke-linejoin: round;
   }
 
+  &:hover {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    text-decoration: none;
+  }
+
   &:focus-visible {
     outline: 2px solid var(--accent);
-    border-radius: 0.5rem;
   }
 `
 

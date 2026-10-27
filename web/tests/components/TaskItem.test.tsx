@@ -59,8 +59,8 @@ describe('TaskItem', () => {
 
   it('показывает просрочку и исполнителя', () => {
     renderItem({ occurrence: occ('a', '2026-10-09'), assignee: member, showAssignee: true })
-    expect(screen.getByText('Просрочено, 9 октября')).toBeInTheDocument()
-    expect(screen.getByText('Миша')).toBeInTheDocument()
+    // срок, время и имя исполнителя одной строкой через запятую
+    expect(screen.getByText('Просрочено, 9 октября, Миша')).toBeInTheDocument()
   })
 
   it('у выполненного: кто и когда отметил', () => {

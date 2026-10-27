@@ -52,8 +52,11 @@ export default function MyDay() {
     <Screen
       header={
         // шапка закреплена: календарь слева, справа остаётся место под монеты и значок профиля
-        <Pressable onPress={() => router.push('/calendar')} accessibilityRole="button" accessibilityLabel="Семейный календарь" hitSlop={8} style={{ alignSelf: 'flex-start', height: 38, justifyContent: 'center' }}>
-          <Ionicons name="calendar-outline" size={30} color={colors.text} />
+        <Pressable onPress={() => router.push('/calendar')} accessibilityRole="button" accessibilityLabel="Семейный календарь" hitSlop={8} style={{ alignSelf: 'flex-start' }}>
+          {/* круглая кнопка: значок календаря на карточке */}
+          <View style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface }}>
+            <Ionicons name="calendar-outline" size={22} color={colors.text} />
+          </View>
         </Pressable>
       }
       refreshControl={<RefreshControl refreshing={false} onRefresh={() => void dispatch(api.util.invalidateTags(['Me', 'Tasks', 'Goals', 'Schedule', 'Trainings']))} />}

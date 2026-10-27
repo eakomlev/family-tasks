@@ -103,10 +103,11 @@ export function TaskItem({ task, occurrence, assignee, showAssignee, author, don
 
   const open = () => router.push({ pathname: '/tasks/[taskId]', params: occurrence.date ? { taskId: task.id, date: occurrence.date } : { taskId: task.id } })
 
+  // вторая строка: срок, время и повтор, потом через запятую имя исполнителя («10:00, Миша»), дальше остальные пометки
+  const line = [...parts, ...(showAssignee && assignee ? [assignee.name] : [])].join(', ')
   const metaLines = [
     pending ? (review ? 'Ждёт вашего подтверждения' : 'Ждёт подтверждения родителей') : null,
-    ...parts,
-    showAssignee && assignee ? assignee.name : null,
+    line || null,
     from || null,
     doneBy && occurrence.done ? `выполнил(а): ${doneBy.name}, ${formatDateTime(occurrence.done.at)}` : null,
   ].filter((line): line is string => !!line)

@@ -7,6 +7,7 @@ import { useDispatch } from 'react-redux'
 import { useTheme } from 'styled-components/native'
 import { PageHeader } from '@/components/PageHeader'
 import { PillTabs, type PillTab } from '@/components/PillTabs'
+import { MenuButton } from '@/components/PopupMenu'
 import { Screen } from '@/components/Screen'
 import { Heading, Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
@@ -150,12 +151,16 @@ export function CalendarScreen() {
         <PageHeader
           fallback="/"
           right={
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <Pressable onPress={() => router.push({ pathname: '/calendar/events/new', params: { date: anchor, view } })} accessibilityRole="button" accessibilityLabel="Новое событие" hitSlop={8}>
-                <Ionicons name="add" size={30} color={colors.accent} />
-              </Pressable>
-              <Pressable onPress={() => router.push('/calendar/settings')} accessibilityRole="button" accessibilityLabel="Настройки календаря" hitSlop={8}>
-                <Ionicons name="options-outline" size={24} color={colors.text} />
+            // как на «Заданиях»: меню «три точки» (настройки), правее круглая «＋» нового события
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <MenuButton actions={[{ key: 'settings', label: 'Настройки календаря', onSelect: () => router.push('/calendar/settings') }]} />
+              <Pressable
+                onPress={() => router.push({ pathname: '/calendar/events/new', params: { date: anchor, view } })}
+                accessibilityRole="button"
+                accessibilityLabel="Новое событие"
+                style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accent }}
+              >
+                <Ionicons name="add" size={26} color="#ffffff" />
               </Pressable>
             </View>
           }

@@ -4,7 +4,7 @@ import { IdentityContext } from '@/identity/context'
 import { coinsWord } from '@/lib/coins'
 import { formatDateTime } from '@/lib/date'
 import { useLongPress } from '@/lib/useLongPress'
-import { Actions, Body, Badge, Card, Chevron, Reward, Hidden, Inner, Meta, Row, Shell, Title, Who } from './styles'
+import { Actions, Body, Badge, Card, Chevron, Lead, Mark, Reward, Hidden, Inner, Meta, Row, Shell, Title } from './styles'
 import { TaskIcon } from './TaskIcon'
 import { TaskMenu } from './TaskMenu'
 import type { TaskItemProps, TaskState } from './types'
@@ -42,28 +42,36 @@ export function TaskItem({ task, occurrence, assignee, showAssignee, author, don
 
   // «от …» полезно, когда задание дал не сам исполнитель
   const from = authorLabel(author, assignee)
+  // вторая строка: срок, время и повтор, потом через запятую имя исполнителя («10:00, Миша»)
+  const line = [...parts, ...(showAssignee && assignee ? [assignee.name] : [])].join(', ')
   const to = `/tasks/${task.id}${occurrence.date ? `?date=${occurrence.date}` : ''}`
 
   const content = (
     <>
-      <Badge $state={state}>
-        <TaskIcon state={state} />
-      </Badge>
+      {assignee ? (
+        // фото исполнителя: сразу видно, чьё задание; состояние (выполнено, просрочено, на проверке) отмечено значком на углу фото
+        <Lead>
+          <Avatar name={assignee.name} seed={assignee.id} src={assignee.avatar} size="2.75rem" />
+          {state !== 'todo' && (
+            <Mark $state={state}>
+              <TaskIcon state={state} />
+            </Mark>
+          )}
+        </Lead>
+      ) : (
+        <Badge $state={state}>
+          <TaskIcon state={state} />
+        </Badge>
+      )}
       <Body>
         <Title $done={done}>
           {state !== 'todo' && <Hidden>{STATE_LABELS[state]} </Hidden>}
           {task.title}
         </Title>
-        {(parts.length > 0 || pending || (showAssignee && assignee) || from || doneBy) && (
+        {(line || pending || from || doneBy) && (
           <Meta $late={late}>
             {pending && <span>{occurrence.pending && review ? 'Ждёт вашего подтверждения' : 'Ждёт подтверждения родителей'}</span>}
-            {parts.map((part) => <span key={part}>{part}</span>)}
-            {showAssignee && assignee && (
-              <Who>
-                <Avatar name={assignee.name} seed={assignee.id} src={assignee.avatar} size="1.1rem" />
-                {assignee.name}
-              </Who>
-            )}
+            {line && <span>{line}</span>}
             {from && <span>{from}</span>}
             {doneBy && occurrence.done && <span>выполнил(а): {doneBy.name}, {formatDateTime(occurrence.done.at)}</span>}
           </Meta>

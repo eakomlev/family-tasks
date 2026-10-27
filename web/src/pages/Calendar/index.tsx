@@ -1,5 +1,5 @@
 import { useMemo, useRef, type TouchEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { Stack } from '@/components/Stack'
@@ -31,7 +31,9 @@ import { useListTasksQuery } from '@/store/tasks'
 import { AgendaList } from './components/AgendaList'
 import { DayTimeline } from './components/DayTimeline'
 import { MonthView } from './components/MonthView'
-import { Arrow, DayHeading, DaySection, Dot, Empty, IconLink, Legend, Period, SettingsLink, Switch, SwipeArea, SwitchSpace, Today, ViewHighlight, ViewItem } from './styles'
+import { MenuButton } from '@/components/PopupMenu'
+import { Actions, AddLink } from '@/pages/Tasks/styles'
+import { Arrow, DayHeading, DaySection, Dot, Empty, Legend, Period, Switch, SwipeArea, SwitchSpace, Today, ViewHighlight, ViewItem } from './styles'
 
 const VIEWS: { view: CalendarView; label: string }[] = [
   { view: 'day', label: 'День' },
@@ -47,6 +49,7 @@ export default function Calendar() {
   const { identity } = useIdentity()
   const { data: profile } = useProfile()
   const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
   const now = useNow()
   const today = todayIso(now)
   const [settings] = useCalendarSettings(identity?.memberId ?? '')
@@ -107,20 +110,15 @@ export default function Calendar() {
       <PageHeader
         to={START_PATH}
         right={
-          <>
-            <IconLink to={`/calendar/events/new?date=${anchor}`} aria-label="Новое событие">
+          // как на «Заданиях»: меню «три точки» (настройки), правее круглая «＋» нового события
+          <Actions>
+            <MenuButton actions={[{ key: 'settings', label: 'Настройки календаря', onSelect: () => navigate('/calendar/settings') }]} />
+            <AddLink to={`/calendar/events/new?date=${anchor}`} aria-label="Новое событие" title="Новое событие">
               <svg viewBox="0 0 24 24" aria-hidden>
                 <path d="M12 5v14M5 12h14" />
               </svg>
-            </IconLink>
-            <SettingsLink to="/calendar/settings" aria-label="Настройки календаря">
-              <svg viewBox="0 0 24 24" aria-hidden>
-                <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
-                <circle cx="16" cy="7" r="2" />
-                <circle cx="8" cy="17" r="2" />
-              </svg>
-            </SettingsLink>
-          </>
+            </AddLink>
+          </Actions>
         }
       >
         Календарь

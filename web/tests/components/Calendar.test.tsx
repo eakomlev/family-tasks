@@ -158,7 +158,9 @@ describe('календарь: виды', () => {
   it('«+» слева сверху ведёт к новому событию на выбранный день', () => {
     renderAt('/calendar?view=month&date=2026-11-05')
     expect(screen.getByRole('link', { name: 'Новое событие' })).toHaveAttribute('href', '/calendar/events/new?date=2026-11-05')
-    expect(screen.getByRole('link', { name: 'Настройки календаря' })).toHaveAttribute('href', '/calendar/settings')
+    // настройки лежат в меню «три точки», как на «Заданиях»
+    fireEvent.click(screen.getByRole('button', { name: 'Меню' }))
+    expect(screen.getByRole('menuitem', { name: 'Настройки календаря' })).toBeInTheDocument()
   })
 })
 

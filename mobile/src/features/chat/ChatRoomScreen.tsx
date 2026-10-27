@@ -318,8 +318,9 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: -28 }}
       />
       <Header style={{ paddingTop: insets.top + 8 }}>
-        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/chat'))} accessibilityRole="button" accessibilityLabel="К списку чатов" hitSlop={10}>
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
+        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/chat'))} accessibilityRole="button" accessibilityLabel="К списку чатов" hitSlop={12} style={{ alignSelf: 'center', height: 44, justifyContent: 'center' }}>
+          {/* та же стрелка, что в шапке остальных экранов (components/BackLink) */}
+          <Ionicons name="chevron-back" size={28} color={colors.text} />
         </Pressable>
         <Pressable
           onPress={() => router.push({ pathname: '/chat/[chat]/info', params: { chat } })}
