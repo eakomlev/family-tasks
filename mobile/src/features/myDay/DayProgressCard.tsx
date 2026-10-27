@@ -5,6 +5,7 @@ import styled from 'styled-components/native'
 import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
 import { todayIso } from '@/lib/date'
+import { tasksHome } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
 import { useListGoalsQuery } from '@/store/goals'
 import { useListTasksQuery } from '@/store/tasks'
@@ -60,7 +61,7 @@ export function DayProgressCard({ now }: { now: Date }) {
   const path = goal ? goalProgress(goal, balance) : null
 
   return (
-    <Pressable onPress={() => router.push('/tasks')} accessibilityRole="button" accessibilityHint="Открыть задачи">
+    <Pressable onPress={() => router.push(tasksHome(identity?.role))} accessibilityRole="button" accessibilityHint={isChild ? undefined : 'Открыть задачи'} disabled={isChild}>
     <Box accessibilityLabel={`Прогресс дня. Сделано заданий: ${count.done} из ${count.total}`}>
       <View style={{ width: 86, height: 86, alignItems: 'center', justifyContent: 'center' }}>
         <Svg width={86} height={86} viewBox="0 0 86 86" style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>

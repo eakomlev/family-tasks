@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -83,10 +83,11 @@ describe('TodayTasks: мои задания', () => {
     expect(screen.queryByText(/заданий на сегодня и без срока нет/i)).not.toBeInTheDocument()
   })
 
-  it('без единого задания: подсказка', async () => {
+  it('без единого задания: блока нет', async () => {
     vi.mocked(api.listTasks).mockResolvedValue({ tasks: [], occurrences: [] })
     renderBlock()
-    expect(await screen.findByText('Заданий на сегодня и без срока нет.')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('Загрузка…')).not.toBeInTheDocument())
+    expect(screen.queryByText('Задания на сегодня')).not.toBeInTheDocument()
     expect(screen.queryByText('Без срока')).not.toBeInTheDocument()
   })
 })
@@ -113,10 +114,11 @@ describe('TodayTasks: выполненные задания', () => {
     expect(screen.queryByText('Сделанное')).not.toBeInTheDocument()
   })
 
-  it('заданий не было вовсе: прежняя подсказка', async () => {
+  it('заданий не было вовсе: блока нет', async () => {
     vi.mocked(api.listTasks).mockResolvedValue({ tasks: [], occurrences: [] })
     renderBlock('child')
-    expect(await screen.findByText('Заданий на сегодня и без срока нет.')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('Загрузка…')).not.toBeInTheDocument())
+    expect(screen.queryByText('Задания на сегодня')).not.toBeInTheDocument()
   })
 
   it('у родителя свои выполненные остаются в списке', async () => {

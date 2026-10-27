@@ -3,6 +3,7 @@ import { type TaskInput } from '@/api'
 import { PageHeader } from '@/components/PageHeader'
 import { Notice } from '@/components/Notice'
 import { SlideInPage as Page } from '@/components/Page'
+import { tasksHome } from '@/lib/roles'
 import { useIdentity } from '@/identity/context'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
@@ -22,6 +23,7 @@ export default function TaskForm() {
 
   const token = identity?.token
   const me = identity?.memberId
+  const home = tasksHome(identity?.role)
 
   // задание для изменения: из кэша сразу, свежее следом
   const query = useGetTaskQuery({ id: taskId ?? '' }, { skip: !token || !taskId })
@@ -35,13 +37,13 @@ export default function TaskForm() {
 
   if (!token || !me) return null
   const members = data?.members ?? []
-  if (state === 'missing') return <Navigate to="/tasks" replace />
+  if (state === 'missing') return <Navigate to={home} replace />
   // изменять может только автор
   if (task && task.authorId !== me) return <Navigate to={`/tasks/${task.id}`} replace />
 
   async function create(input: TaskInput) {
     await createTask(input).unwrap().catch(toApiError)
-    navigate('/tasks', { replace: true })
+    navigate(home, { replace: true })
   }
 
   async function update(input: TaskInput) {
@@ -51,12 +53,12 @@ export default function TaskForm() {
 
   async function remove() {
     await deleteTask(task!.id).unwrap().catch(toApiError)
-    navigate('/tasks', { replace: true })
+    navigate(home, { replace: true })
   }
 
   return (
     <Page>
-      <PageHeader to={taskId ? `/tasks/${taskId}` : '/tasks'}>{taskId ? 'Изменить задание' : 'Новое задание'}</PageHeader>
+      <PageHeader to={taskId ? `/tasks/${taskId}` : home}>{taskId ? 'Изменить задание' : 'Новое задание'}</PageHeader>
 
       {!taskId && members.length > 0 && (
         <TaskEditor initial={emptyForm(members.some((m) => m.id === preselected) ? preselected! : me)} members={members} me={me} submitLabel="Создать" onSubmit={create} />

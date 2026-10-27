@@ -49,3 +49,29 @@ export const ProfileLink = styled(Link)`
     outline-offset: 2px;
   }
 `
+
+// «＋» нового задания ребёнка на «Моём дне» (вкладки «Задачи» у него нет): круглая кнопка рядом с балансом
+export const AddLink = styled(Link)`
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  box-shadow: var(--accent-shadow);
+
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+`

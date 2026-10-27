@@ -355,6 +355,8 @@ export async function taskRoutes(app: FastifyInstance) {
   app.post<{ Body: TaskBody }>('/api/tasks', { schema: writeSchema }, async (req, reply) => {
     const member = await me(req, reply)
     if (!member) return
+    // ребёнок ставит задания только себе
+    if (member.role === 'child' && req.body.assigneeId !== member.id) return reply.code(403).send({ error: 'child_self_only' })
     const role = await assigneeRole(req.body.assigneeId, member.family_id)
     if (!role) return reply.code(400).send({ error: 'assignee_not_found' })
     const rewardProblem = rewardError(req.body.reward, role, member.role)
@@ -383,6 +385,8 @@ export async function taskRoutes(app: FastifyInstance) {
     const existing = await findTask(req.params.id, member)
     if (!existing) return reply.code(404).send({ error: 'task_not_found' })
     if (existing.authorId !== member.id) return reply.code(403).send({ error: 'forbidden' })
+    // ребёнок ставит задания только себе
+    if (member.role === 'child' && req.body.assigneeId !== member.id) return reply.code(403).send({ error: 'child_self_only' })
     const role = await assigneeRole(req.body.assigneeId, member.family_id)
     if (!role) return reply.code(400).send({ error: 'assignee_not_found' })
     const rewardProblem = rewardError(req.body.reward, role, member.role)

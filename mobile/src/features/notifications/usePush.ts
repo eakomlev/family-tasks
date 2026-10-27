@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Platform } from 'react-native'
 import * as Notifications from 'expo-notifications'
-import { registerDevice, sendTestPush, unsubscribePush } from '@/api'
+import { registerDevice, unsubscribePush } from '@/api'
 import { useIdentity } from '@/identity/context'
 import { getKv } from '@/lib/kv'
 
@@ -111,17 +111,5 @@ export function usePush() {
     }
   }, [sessionToken, busy])
 
-  const test = useCallback(async () => {
-    if (!sessionToken) return false
-    setError(undefined)
-    try {
-      await sendTestPush(sessionToken)
-      return true
-    } catch {
-      setError('Не удалось отправить проверочное уведомление.')
-      return false
-    }
-  }, [sessionToken])
-
-  return { state, busy, error, enable, disable, test }
+  return { state, busy, error, enable, disable }
 }

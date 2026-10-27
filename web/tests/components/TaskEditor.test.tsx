@@ -65,7 +65,7 @@ describe('TaskEditor', () => {
     const chip = (name: string | RegExp) => screen.getByRole('button', { name })
     const custom = () => screen.queryByLabelText('Своя награда, монет') as HTMLInputElement | null
 
-    it('ребёнок награду не назначает: плашек нет ни при задании себе, ни при задании другому ребёнку', async () => {
+    it('ребёнок ставит задание только себе: выбора исполнителя и плашек награды нет', async () => {
       const kidMembers: Member[] = [...members, { id: 'm3', name: 'Аня', role: 'child', avatar: null, isOwner: false }]
       render(
         <ConfirmProvider>
@@ -73,8 +73,7 @@ describe('TaskEditor', () => {
         </ConfirmProvider>,
       )
       expect(group()).not.toBeInTheDocument()
-      await userEvent.selectOptions(screen.getByLabelText('Кому'), 'm3')
-      expect(group()).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Кому')).not.toBeInTheDocument()
     })
 
     it('плашек нет, пока исполнитель взрослый (я)', () => {

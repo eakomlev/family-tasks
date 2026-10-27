@@ -97,22 +97,16 @@ describe('баланс монет сверху', () => {
     expect(screen.queryByRole('link', { name: /Монеты/ })).not.toBeInTheDocument()
   })
 
-  it('на странице профиля значка профиля нет, а баланс остаётся', async () => {
-    renderShell(kid, 45, '/profile')
-    expect(await screen.findByRole('link', { name: /Монеты: 45/ })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /^Профиль/ })).not.toBeInTheDocument()
+  it('баланс только на «Моём дне»: на профиле, в чатах и календаре его нет', async () => {
+    for (const path of ['/profile', '/chat', '/chat/family', '/calendar']) {
+      const { unmount } = renderShell(kid, 45, path)
+      await screen.findByText(/Страница профиля|Список чатов|Переписка|Страница календаря/)
+      expect(screen.queryByRole('link', { name: /Монеты/ })).not.toBeInTheDocument()
+      unmount()
+    }
   })
 
-  it('в переписке баланс скрыт, в списке чатов остаётся', async () => {
-    const { unmount } = renderShell(kid, 120, '/chat/family')
-    await screen.findByText('Переписка')
-    expect(screen.queryByRole('link', { name: /Монеты/ })).not.toBeInTheDocument()
-    unmount()
-    renderShell(kid, 120, '/chat')
-    expect(await screen.findByRole('link', { name: /Монеты: 120/ })).toBeInTheDocument()
-  })
-
-  it('значок профиля только на «Моём дне», в других разделах и на подстраницах его нет (баланс у ребёнка остаётся)', async () => {
+  it('значок профиля только на «Моём дне», в других разделах и на подстраницах его нет', async () => {
     const day = renderShell(mama, undefined, '/my-day')
     expect(await screen.findByRole('link', { name: /^Профиль/ })).toBeInTheDocument()
     day.unmount()
@@ -122,9 +116,6 @@ describe('баланс монет сверху', () => {
       expect(screen.queryByRole('link', { name: /^Профиль/ })).not.toBeInTheDocument()
       unmount()
     }
-    renderShell(kid, 45, '/calendar')
-    expect(await screen.findByRole('link', { name: /Монеты: 45/ })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /^Профиль/ })).not.toBeInTheDocument()
   })
 
   it('панель табов только на главных разделах, на вложенных страницах и в переписке её нет', async () => {

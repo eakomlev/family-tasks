@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { isParent } from '@/lib/roles'
 import { Chip } from '@/components/Chip'
 import { MenuButton } from '@/components/PopupMenu'
@@ -20,7 +21,13 @@ import { buildDone, buildSections } from './utils'
 // сколько дней вперёд показываем в предстоящих
 const DAYS_AHEAD = 7
 
+// у ребёнка вкладки «Задачи» нет: его задания на «Моём дне»
 export default function Tasks() {
+  const { identity } = useIdentity()
+  return identity?.role === 'child' ? <Navigate to="/my-day" replace /> : <TasksList />
+}
+
+function TasksList() {
   const { identity } = useIdentity()
   const { data } = useProfile()
   const today = todayIso(useNow())

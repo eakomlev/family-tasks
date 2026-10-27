@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { makeStore } from '@/store'
 import type { Member } from '@/api'
 import { TabBar } from '@/components/TabBar'
-import { TABS } from '@/components/TabBar/utils'
+import { TABS, tabsFor } from '@/components/TabBar/utils'
 import { ChatsContext } from '@/chat/context'
 import { IdentityContext } from '@/identity/context'
 import ProfileEdit from '@/pages/ProfileEdit'
@@ -39,6 +39,11 @@ describe('таб-бар без «Настроек»', () => {
     )
     expect(screen.getAllByRole('link')).toHaveLength(4)
     expect(screen.queryByRole('link', { name: /Настройки/ })).not.toBeInTheDocument()
+  })
+
+  it('у ребёнка три таба: без «Задач»', () => {
+    expect(tabsFor('child').map((t) => t.path)).toEqual(['/my-day', '/chat', '/family'])
+    expect(tabsFor('mama')).toBe(TABS)
   })
 })
 

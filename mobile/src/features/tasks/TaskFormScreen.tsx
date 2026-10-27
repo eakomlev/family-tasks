@@ -5,6 +5,7 @@ import { Notice } from '@/components/Notice'
 import { Screen } from '@/components/Screen'
 import { Text } from '@/components/Text'
 import { useIdentity } from '@/identity/context'
+import { tasksHome } from '@/lib/roles'
 import { goBack } from '@/lib/navigation'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
@@ -21,6 +22,7 @@ export function TaskFormScreen({ taskId, assignee }: { taskId?: string; assignee
 
   const token = identity?.token
   const me = identity?.memberId
+  const home = tasksHome(identity?.role)
 
   // задание для изменения: из кэша сразу, свежее следом
   const query = useGetTaskQuery({ id: taskId ?? '' }, { skip: !token || !taskId })
@@ -34,13 +36,13 @@ export function TaskFormScreen({ taskId, assignee }: { taskId?: string; assignee
 
   if (!token || !me) return null
   const members = data?.members ?? []
-  if (state === 'missing') return <Redirect href="/tasks" />
+  if (state === 'missing') return <Redirect href={home} />
   // изменять может только автор
   if (task && task.authorId !== me) return <Redirect href={{ pathname: '/tasks/[taskId]', params: { taskId: task.id } }} />
 
   async function create(input: TaskInput) {
     await createTask(input).unwrap().catch(toApiError)
-    goBack(router, '/tasks')
+    goBack(router, home)
   }
 
   async function update(input: TaskInput) {
@@ -51,11 +53,11 @@ export function TaskFormScreen({ taskId, assignee }: { taskId?: string; assignee
   async function remove() {
     await deleteTask(task!.id).unwrap().catch(toApiError)
     // задания больше нет: возвращаемся на список, минуя его страницу
-    router.dismissTo('/tasks')
+    router.dismissTo(home)
   }
 
   return (
-    <Screen header={<PageHeader fallback="/tasks">{taskId ? 'Изменить задание' : 'Новое задание'}</PageHeader>}>
+    <Screen header={<PageHeader fallback={home}>{taskId ? 'Изменить задание' : 'Новое задание'}</PageHeader>}>
 
       {!taskId && members.length > 0 && (
         <TaskEditor initial={emptyForm(members.some((m) => m.id === assignee) ? assignee! : me)} members={members} me={me} submitLabel="Создать" onSubmit={create} />

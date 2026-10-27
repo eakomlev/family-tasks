@@ -41,7 +41,7 @@ export function FamilyScreen() {
           </Button>
         )}
       </View>
-      <Text>{`Вы вошли как ${identity.name} (${ROLE_LABELS[identity.role]}).`}</Text>
+      {identity.role !== 'child' && <Text>{`Вы вошли как ${identity.name} (${ROLE_LABELS[identity.role]}).`}</Text>}
 
       <Heading>{`Участники${data ? ` (${data.members.length} из ${MAX_FAMILY_MEMBERS})` : ''}`}</Heading>
       {failed && !data && <Notice tone="error">Не удалось загрузить список. Проверьте соединение.</Notice>}

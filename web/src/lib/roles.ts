@@ -24,3 +24,6 @@ export const isParent = (role: Role | undefined): boolean => role === 'mama' || 
 
 // Взрослые (родители, бабушка, дедушка) видят все задания и данные детей; менять многое могут только родители.
 export const isAdult = (role: Role | undefined): boolean => role !== undefined && role !== 'child'
+
+// Куда ведёт «к заданиям»: у ребёнка вкладки «Задачи» нет, его задания на «Моём дне»
+export const tasksHome = (role: Role | undefined): string => (role === 'child' ? '/my-day' : '/tasks')

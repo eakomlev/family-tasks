@@ -3,9 +3,11 @@ import { useChats } from '@/chat/context'
 import { useTaskBadge } from '@/tasks/context'
 import { Badge, Bar, Highlight, Icon, IconWrap, Label, TabLink, Tabs } from './styles'
 import { TabIcon } from './TabIcon'
-import { TABS } from './utils'
+import type { Tab } from './types'
+import { TABS as ALL_TABS } from './utils'
 
-export function TabBar() {
+// tabs: какие разделы показать (по умолчанию все четыре; у ребёнка без «Задач», см. `tabsFor`)
+export function TabBar({ tabs: TABS = ALL_TABS }: { tabs?: Tab[] }) {
   const { unread } = useChats()
   const tasks = useTaskBadge()
   const { pathname } = useLocation()

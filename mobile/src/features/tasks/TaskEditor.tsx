@@ -29,6 +29,7 @@ function describeError(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.code === 'forbidden') return 'Изменять задание может только тот, кто его создал.'
     if (err.code === 'task_not_found') return 'Задание не найдено: возможно, его уже удалили.'
+    if (err.code === 'child_self_only') return 'Ребёнок может ставить задания только себе.'
     if (err.code === 'assignee_not_found') return 'Исполнитель не найден в семье.'
   }
   return 'Не удалось сохранить задание. Попробуйте ещё раз.'
@@ -55,6 +56,7 @@ export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDele
   const assigneeIsChild = members.find((m) => m.id === form.assigneeId)?.role === 'child'
   // награду назначают только родители (мама, папа): ребёнок, бабушка и дедушка не могут выдать монеты
   const meIsParent = isParent(members.find((m) => m.id === me)?.role)
+  const meIsChild = members.find((m) => m.id === me)?.role === 'child'
   const canReward = assigneeIsChild && meIsParent
 
   const patch = (changes: Partial<FormState>) => {
@@ -94,7 +96,7 @@ export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDele
     setBusy(true)
     setError(undefined)
     try {
-      await onSubmit(toInput(form))
+      await onSubmit(toInput(meIsChild ? { ...form, assigneeId: me } : form))
     } catch (err) {
       setError(describeError(err))
       setBusy(false)
@@ -132,15 +134,18 @@ export function TaskEditor({ initial, members, me, submitLabel, onSubmit, onDele
         />
       </Field>
 
-      <Field label="Кому">
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {members.map((m) => (
-            <Chip key={m.id} active={form.assigneeId === m.id} onPress={() => changeAssignee(m.id)}>
-              {m.id === me ? `${m.name} (я)` : m.name}
-            </Chip>
-          ))}
-        </View>
-      </Field>
+      {/* ребёнок ставит задания только себе: выбора исполнителя нет */}
+      {!meIsChild && (
+        <Field label="Кому">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {members.map((m) => (
+              <Chip key={m.id} active={form.assigneeId === m.id} onPress={() => changeAssignee(m.id)}>
+                {m.id === me ? `${m.name} (я)` : m.name}
+              </Chip>
+            ))}
+          </View>
+        </Field>
+      )}
 
       {/* монеты только за задания детей */}
       {canReward && <CoinPicker value={form.reward} custom={form.rewardCustom} onChange={(reward, rewardCustom) => patch({ reward, rewardCustom })} />}

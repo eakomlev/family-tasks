@@ -71,17 +71,15 @@ describe('награда в задании', () => {
 })
 
 describe('награду назначают только родители', () => {
-  it('ребёнок не может указать награду: ни себе, ни другому ребёнку', async () => {
-    for (const assigneeId of [fam.kid.id, fam.sis.id]) {
-      const res = await create(fam.kid.token, { assigneeId, reward: 10 })
-      expect(res.status).toBe(400)
-      expect(res.body.error).toBe('reward_requires_parent')
-    }
+  it('ребёнок не может указать награду даже себе', async () => {
+    const res = await create(fam.kid.token, { assigneeId: fam.kid.id, reward: 10 })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('reward_requires_parent')
   })
 
-  it('ребёнок создаёт задание без награды (и себе, и другим), а родитель с наградой', async () => {
+  it('ребёнок создаёт задание себе без награды, а родитель с наградой', async () => {
     expect((await create(fam.kid.token, { assigneeId: fam.kid.id, reward: 0 })).status).toBe(201)
-    expect((await create(fam.kid.token, { assigneeId: fam.sis.id, reward: undefined })).status).toBe(201)
+    expect((await create(fam.kid.token, { assigneeId: fam.kid.id, reward: undefined })).status).toBe(201)
     expect((await create(fam.dad.token, { assigneeId: fam.kid.id, reward: 10 })).status).toBe(201)
   })
 

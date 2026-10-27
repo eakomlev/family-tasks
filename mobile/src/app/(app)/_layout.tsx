@@ -39,6 +39,8 @@ function TopRight() {
   const showAvatar = pathname === '/'
   // на «Заданиях» вместо значка профиля кнопка «＋»: новое задание (выбранный в фильтре человек сразу становится исполнителем)
   const showAdd = pathname === '/tasks'
+  // у ребёнка вкладки «Задачи» нет: «＋» на «Моём дне», задание только себе
+  const childAdd = identity.role === 'child' && pathname === '/'
   // на списке чатов вместо значка профиля меню: пока в нём «Архив»
   const showChatMenu = pathname === '/chat'
   const coins = data?.me.coins
@@ -51,10 +53,10 @@ function TopRight() {
           actions={[{ key: 'done', label: 'Показать завершённые', checked: tasksView.showDone, onSelect: () => changeTasksView({ showDone: !tasksView.showDone }) }]}
         />
       )}
-      {showAdd && (
+      {(showAdd || childAdd) && (
         <Pressable
           onPress={() => {
-            const filter = loadTasksView(identity.memberId).filter
+            const filter = childAdd ? undefined : loadTasksView(identity.memberId).filter
             router.push(filter ? { pathname: '/tasks/new', params: { assignee: filter } } : '/tasks/new')
           }}
           accessibilityRole="button"

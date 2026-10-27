@@ -21,7 +21,7 @@ export default function Family() {
         {/* менять состав семьи и удалять её может только создатель */}
         {data?.me.isOwner && <EditLink to="/family/edit">Изменить</EditLink>}
       </Head>
-      <p>Вы вошли как <strong>{identity.name}</strong> ({ROLE_LABELS[identity.role]}). Код семьи: <code>{identity.familyCode}</code></p>
+      {identity.role !== 'child' && <p>Вы вошли как <strong>{identity.name}</strong> ({ROLE_LABELS[identity.role]}). Код семьи: <code>{identity.familyCode}</code></p>}
 
       <h2>Участники{data && ` (${data.members.length} из ${MAX_FAMILY_MEMBERS})`}</h2>
       {failed && !data && <Notice $tone="error">Не удалось загрузить список. Проверьте соединение.</Notice>}

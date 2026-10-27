@@ -155,18 +155,27 @@ function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
   )
 }
 
-// Четыре главных раздела: страницы листаются пальцем влево и вправо (как страницы), панель табов плавающая. Остальные экраны (задание,
+// Четыре главных раздела (у ребёнка три, без «Задач»): страницы листаются пальцем влево и вправо (как страницы), панель табов плавающая. Остальные экраны (задание,
 // переписка, профиль, календарь…) лежат рядом, в `(app)`, общим стеком поверх табов: скрытые вкладки в Expo Router не открываются.
 export default function TabsLayout() {
+  const { identity } = useIdentity()
   const taskBadge = useTaskBadge()
   const { unread } = useChats()
+  const isChild = identity?.role === 'child'
   const badges = { tasks: taskBadge, chat: unread > 0 ? unread : undefined }
 
   return (
     <TopTabs tabBarPosition="bottom" tabBar={(props) => <FloatingTabBar {...props} badges={badges} />} screenOptions={{ swipeEnabled: true, lazy: true, lazyPreloadDistance: 1 }}>
-      {TABS.map((tab) => (
-        <TopTabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />
-      ))}
+      {/* у ребёнка вкладки «Задачи» нет: его задания на «Моём дне» */}
+      {TABS.map((tab) =>
+        tab.name === 'tasks' ? (
+          <TopTabs.Protected key={tab.name} guard={!isChild}>
+            <TopTabs.Screen name={tab.name} options={{ title: tab.title }} />
+          </TopTabs.Protected>
+        ) : (
+          <TopTabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />
+        ),
+      )}
     </TopTabs>
   )
 }

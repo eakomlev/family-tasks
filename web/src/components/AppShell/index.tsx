@@ -13,9 +13,9 @@ import { RealtimeProvider } from '@/realtime'
 import { RealtimeBridge } from '@/store/RealtimeBridge'
 import { useProfile } from '@/profile/context'
 import { CoinBalance } from '@/components/CoinBalance'
-import { TABS } from '@/components/TabBar/utils'
+import { tabsFor } from '@/components/TabBar/utils'
 import { START_PATH } from '@/lib/routes'
-import { Content, ProfileLink, Root, TopRight } from './styles'
+import { AddLink, Content, ProfileLink, Root, TopRight } from './styles'
 
 function Shell() {
   const { identity } = useIdentity()
@@ -24,6 +24,7 @@ function Shell() {
   const navigate = useNavigate()
   const touch = useRef<{ x: number; y: number; ok: boolean } | null>(null)
   if (!identity) return null
+  const TABS = tabsFor(identity.role)
   // согласие на обработку персональных данных ещё не дано (участник из прежних версий) или текст обновился: сначала оно
   if (data?.me.consentRequired) return <ConsentGate />
   // взрослого убрали из семьи: аккаунт остался, ему нужно создать семью или вступить в другую
@@ -37,6 +38,8 @@ function Shell() {
   const hideAvatar = pathname !== START_PATH
   // монеты есть только у детей; баланс показываем только на «Моём дне»
   const showCoins = data?.me.coins !== undefined && !hideAvatar
+  // у ребёнка вкладки «Задачи» нет: «＋» нового задания (только себе) на «Моём дне»
+  const showAdd = identity.role === 'child' && !hideAvatar
 
   // Главные разделы листаются пальцем влево и вправо. Жест не трогаем там, где палец начался на поле ввода,
   // полосе прокрутки вбок или своём слайдере (помечено data-no-swipe или role=tablist/slider).
@@ -60,10 +63,17 @@ function Shell() {
   }
 
   return (
-    <Root onTouchStart={swipe.start} onTouchEnd={swipe.end} $noTabs={noTabs} $reserve={showCoins ? (hideAvatar ? '6.5rem' : '9.5rem') : hideAvatar ? '0rem' : '3.25rem'}>
+    <Root onTouchStart={swipe.start} onTouchEnd={swipe.end} $noTabs={noTabs} $reserve={showCoins ? (hideAvatar ? '6.5rem' : showAdd ? '12.4rem' : '9.5rem') : hideAvatar ? '0rem' : '3.25rem'}>
       <PushPrompt />
       <TopRight $fixed={chatRoom}>
         {showCoins && <CoinBalance coins={data.me.coins!} />}
+        {showAdd && (
+          <AddLink to="/tasks/new" aria-label="Новая задача" title="Новая задача">
+            <svg viewBox="0 0 24 24" aria-hidden>
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </AddLink>
+        )}
         {/* на странице профиля и в переписке значок не нужен */}
         {!hideAvatar && (
           <ProfileLink to="/profile" aria-label={`Профиль: ${identity.name}`}>
@@ -74,7 +84,7 @@ function Shell() {
       <Content>
         <Outlet />
       </Content>
-      {!noTabs && <TabBar />}
+      {!noTabs && <TabBar tabs={TABS} />}
     </Root>
   )
 }

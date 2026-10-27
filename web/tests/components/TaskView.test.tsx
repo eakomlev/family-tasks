@@ -41,6 +41,7 @@ function renderView(me: Member, loaded: { task: Task; occurrence: Occurrence | n
           <Routes>
             <Route path="/tasks/:taskId" element={<TaskView />} />
             <Route path="/tasks" element={<p>Список заданий</p>} />
+            <Route path="/my-day" element={<p>Мой день</p>} />
             <Route path="/tasks/:taskId/edit" element={<p>Форма изменения</p>} />
           </Routes>
         </MemoryRouter>
@@ -176,7 +177,7 @@ describe('страница задания', () => {
     expect(await screen.findByText('Форма изменения')).toBeInTheDocument()
   })
 
-  it('отметка выполнения: запрос на сервер и экран поздравления; закрытие ведёт к списку', async () => {
+  it('отметка выполнения: запрос на сервер и экран поздравления; закрытие у ребёнка ведёт на «Мой день»', async () => {
     const user = userEvent.setup()
     renderView(members[1], { task: base, occurrence: occ('a', '2026-10-12') })
     await user.click(await screen.findByRole('button', { name: 'Отметить выполненным' }))
@@ -186,7 +187,7 @@ describe('страница задания', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Отлично' }))
-    expect(await screen.findByText('Список заданий')).toBeInTheDocument()
+    expect(await screen.findByText('Мой день')).toBeInTheDocument()
   })
 
   it('при ошибке поздравления нет, показано сообщение', async () => {
@@ -216,7 +217,7 @@ describe('страница задания', () => {
     expect(screen.queryByRole('button', { name: /выполн/i })).not.toBeInTheDocument()
   })
 
-  it('неизвестное задание ведёт к списку', async () => {
+  it('неизвестное задание у ребёнка ведёт на «Мой день»', async () => {
     vi.mocked(api.getTask).mockRejectedValue(new api.ApiError(404, 'task_not_found'))
     const identity = { familyCode: 'c', memberId: 'm2', name: 'Миша', role: 'child' as const, token: 'tok' }
     render(
@@ -227,12 +228,13 @@ describe('страница задания', () => {
             <Routes>
               <Route path="/tasks/:taskId" element={<TaskView />} />
               <Route path="/tasks" element={<p>Список заданий</p>} />
+              <Route path="/my-day" element={<p>Мой день</p>} />
             </Routes>
           </MemoryRouter>
         </ProfileContext.Provider>
       </IdentityContext.Provider>
       </Provider>,
     )
-    expect(await screen.findByText('Список заданий')).toBeInTheDocument()
+    expect(await screen.findByText('Мой день')).toBeInTheDocument()
   })
 })

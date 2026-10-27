@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeStore } from '@/store'
 import { setSession } from '@/store/session'
@@ -26,7 +26,12 @@ function renderTasks(role: Identity['role']) {
     <Provider store={makeStore({ hydrate: false })}>
     <IdentityContext.Provider value={{ identity, save: async () => {}, clear: async () => {} }}>
       <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false }}>
-        <MemoryRouter><Tasks /></MemoryRouter>
+        <MemoryRouter>
+          <Routes>
+            <Route path="/" element={<Tasks />} />
+            <Route path="/my-day" element={<p>Мой день</p>} />
+          </Routes>
+        </MemoryRouter>
       </ProfileContext.Provider>
     </IdentityContext.Provider>
     </Provider>,
@@ -51,11 +56,11 @@ describe('страница «Задания»: фильтр по людям', ()
     expect(group).toHaveTextContent('Миша')
   })
 
-  it('у ребёнка фильтра нет: сервер и так отдаёт только его задания', async () => {
+  it('у ребёнка страницы заданий нет: его ведёт на «Мой день»', async () => {
     renderTasks('child')
-    await screen.findByText('Вынести мусор')
+    expect(await screen.findByText('Мой день')).toBeInTheDocument()
+    expect(screen.queryByText('Вынести мусор')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Чьи задания')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Лена' })).not.toBeInTheDocument()
   })
 })
 

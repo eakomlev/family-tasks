@@ -94,6 +94,13 @@ describe('создание', () => {
       expect((await create(fam.mom.token, { assigneeId: outsider.mom.id })).body).toEqual({ error: 'assignee_not_found' })
     })
 
+    it('ребёнок ставит задания только себе', async () => {
+      const toSister = await create(fam.kid.token, { assigneeId: fam.sis.id })
+      expect(toSister.status).toBe(403)
+      expect(toSister.body).toEqual({ error: 'child_self_only' })
+      expect((await create(fam.kid.token, { assigneeId: fam.kid.id })).status).toBe(201)
+    })
+
     it('без авторизации 401', async () => {
       expect((await api(app, null, 'POST', '/api/tasks', task())).status).toBe(401)
     })
@@ -212,14 +219,14 @@ describe('одно задание и его вхождение', () => {
 })
 
 describe('ребёнок видит только свои задания', () => {
-  // мама дала задание ребёнку, сестре и себе; сестра дала задание себе и маме
-  let forKid: string, forSis: string, forMom: string, sisOwn: string, sisForMom: string
+  // мама дала задание ребёнку, сестре и себе; сестра дала два задания себе
+  let forKid: string, forSis: string, forMom: string, sisOwn: string, sisSecond: string
   beforeAll(async () => {
     forKid = (await create(fam.mom.token, { title: 'Ребёнку', assigneeId: fam.kid.id })).body.task.id
     forSis = (await create(fam.mom.token, { title: 'Сестре', assigneeId: fam.sis.id })).body.task.id
     forMom = (await create(fam.mom.token, { title: 'Маме', assigneeId: fam.mom.id })).body.task.id
     sisOwn = (await create(fam.sis.token, { title: 'Своё сестры', assigneeId: fam.sis.id })).body.task.id
-    sisForMom = (await create(fam.sis.token, { title: 'Сестра маме', assigneeId: fam.mom.id })).body.task.id
+    sisSecond = (await create(fam.sis.token, { title: 'Сестра себе', assigneeId: fam.sis.id })).body.task.id
   })
 
   const titles = async (token: string, from = '2026-10-12', to = '2026-10-12') =>
@@ -228,17 +235,17 @@ describe('ребёнок видит только свои задания', () =>
   it('в списке: назначенные ему и созданные им; чужие задания не видны', async () => {
     const kid = await titles(fam.kid.token)
     expect(kid).toContain('Ребёнку')
-    for (const hidden of ['Сестре', 'Маме', 'Своё сестры', 'Сестра маме']) expect(kid).not.toContain(hidden)
+    for (const hidden of ['Сестре', 'Маме', 'Своё сестры', 'Сестра себе']) expect(kid).not.toContain(hidden)
 
     const sis = await titles(fam.sis.token)
-    expect(sis).toEqual(expect.arrayContaining(['Сестре', 'Своё сестры', 'Сестра маме']))
+    expect(sis).toEqual(expect.arrayContaining(['Сестре', 'Своё сестры', 'Сестра себе']))
     for (const hidden of ['Ребёнку', 'Маме']) expect(sis).not.toContain(hidden)
   })
 
   it('родители видят все задания семьи', async () => {
     for (const parent of [fam.mom, fam.dad]) {
       expect(await titles(parent.token)).toEqual(
-        expect.arrayContaining(['Ребёнку', 'Сестре', 'Маме', 'Своё сестры', 'Сестра маме']),
+        expect.arrayContaining(['Ребёнку', 'Сестре', 'Маме', 'Своё сестры', 'Сестра себе']),
       )
     }
   })
@@ -259,9 +266,9 @@ describe('ребёнок видит только свои задания', () =>
     expect((await api(app, fam.kid.token, 'GET', `/api/tasks/${forKid}`)).status).toBe(200)
     expect((await api(app, fam.kid.token, 'POST', `/api/tasks/${forKid}/complete`, { date: '2026-10-12' })).status).toBe(204)
     // сестра создала задание маме: видит, меняет и удаляет как автор
-    expect((await api(app, fam.sis.token, 'GET', `/api/tasks/${sisForMom}`)).status).toBe(200)
-    expect((await api(app, fam.sis.token, 'PUT', `/api/tasks/${sisForMom}`, task({ title: 'Сестра маме 2', assigneeId: fam.mom.id }))).status).toBe(200)
-    expect((await api(app, fam.sis.token, 'DELETE', `/api/tasks/${sisForMom}`)).status).toBe(204)
+    expect((await api(app, fam.sis.token, 'GET', `/api/tasks/${sisSecond}`)).status).toBe(200)
+    expect((await api(app, fam.sis.token, 'PUT', `/api/tasks/${sisSecond}`, task({ title: 'Сестра себе 2', assigneeId: fam.sis.id }))).status).toBe(200)
+    expect((await api(app, fam.sis.token, 'DELETE', `/api/tasks/${sisSecond}`)).status).toBe(204)
     expect((await api(app, fam.sis.token, 'GET', `/api/tasks/${sisOwn}`)).status).toBe(200)
   })
 

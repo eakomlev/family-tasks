@@ -8,6 +8,7 @@ import { Screen } from '@/components/Screen'
 import { Stack } from '@/components/Stack'
 import { Text, Title } from '@/components/Text'
 import { ActiveGames } from '@/features/games/ActiveGames'
+import { DailyFact } from '@/features/myDay/DailyFact'
 import { DayProgressCard } from '@/features/myDay/DayProgressCard'
 import { EarnedToday } from '@/features/myDay/EarnedToday'
 import { FamilyChildren } from '@/features/myDay/FamilyChildren'
@@ -76,6 +77,7 @@ export default function MyDay() {
       </Stack>
       <PushPrompt />
       <DayProgressCard now={now} />
+      <DailyFact now={now} />
       <EarnedToday now={now} />
       <PendingReview />
       <ActiveGames />

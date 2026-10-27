@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { isParent } from '@/lib/roles'
+import { tasksHome, isParent } from '@/lib/roles'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError, type Occurrence, type Task } from '@/api'
 import { Avatar } from '@/components/Avatar'
@@ -36,6 +36,7 @@ export default function TaskView() {
 
   const token = identity?.token
   const me = identity?.memberId
+  const home = tasksHome(identity?.role)
 
   // задание из кэша сразу (в том числе сохранённого на устройстве), свежее приходит следом и после каждого сигнала сокета
   const query = useGetTaskQuery({ id: taskId ?? '', date }, { skip: !token || !taskId })
@@ -74,7 +75,7 @@ export default function TaskView() {
     task ? 'ready' : queryError && 'status' in queryError && queryError.status === 404 ? 'missing' : queryError ? 'failed' : 'loading'
 
   if (!token || !me) return null
-  if (state === 'missing') return <Navigate to="/tasks" replace />
+  if (state === 'missing') return <Navigate to={home} replace />
 
   const members = data?.members ?? []
   const byId = (id: string) => members.find((m) => m.id === id)
@@ -128,7 +129,7 @@ export default function TaskView() {
 
   return (
     <Page>
-      <PageHeader to="/tasks" right={task && state === 'ready' && task.authorId === me ? <EditLink to={`/tasks/${task.id}/edit`}>Изменить</EditLink> : undefined}>
+      <PageHeader to={home} right={task && state === 'ready' && task.authorId === me ? <EditLink to={`/tasks/${task.id}/edit`}>Изменить</EditLink> : undefined}>
         Задание
       </PageHeader>
       {state === 'loading' && <p>Загрузка…</p>}
@@ -201,7 +202,7 @@ export default function TaskView() {
             )}
           </Actions>
 
-          {celebrating && <Celebration title={task.title} reward={task.assigneeId === me ? task.reward : undefined} onClose={() => navigate('/tasks', { replace: true })} />}
+          {celebrating && <Celebration title={task.title} reward={task.assigneeId === me ? task.reward : undefined} onClose={() => navigate(home, { replace: true })} />}
         </>
       )}
     </Page>

@@ -33,6 +33,9 @@ export function TodayTasks({ now }: TodayTasksProps) {
     .sort((a, b) => rank(a) - rank(b) || byTimeThenTitle(a, b))
   const empty = list_.length === 0
 
+  // заданий нет вовсе: блок не показываем (ни заголовка, ни подсказки)
+  if (list && empty && !allDone) return null
+
   const renderItem = (entry: (typeof mine)[number]) => (
     <TaskItem
       key={occurrenceKey(entry.task.id, entry.occurrence.date)}
@@ -54,7 +57,7 @@ export function TodayTasks({ now }: TodayTasksProps) {
       {failed && <Notice $tone="error">Не удалось загрузить задания. Проверьте соединение.</Notice>}
       {!list && !failed && <p>Загрузка…</p>}
       {list && empty && (
-        <Notice $tone="muted">{allDone ? 'Все задания на сегодня выполнены.' : 'Заданий на сегодня и без срока нет.'}</Notice>
+        <Notice $tone="muted">Все задания на сегодня выполнены.</Notice>
       )}
       {list_.length > 0 && <List>{list_.map(renderItem)}</List>}
     </Stack>

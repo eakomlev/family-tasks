@@ -14,7 +14,7 @@ import { describeFullRepeat, describeOccurrenceDue } from '@/features/tasks/view
 import { useIdentity } from '@/identity/context'
 import { coinsWord } from '@/lib/coins'
 import { formatDateTime, todayIso } from '@/lib/date'
-import { isParent } from '@/lib/roles'
+import { isParent, tasksHome } from '@/lib/roles'
 import { useInFlight } from '@/lib/useInFlight'
 import { useNow } from '@/lib/useNow'
 import { goBack } from '@/lib/navigation'
@@ -48,6 +48,7 @@ export default function TaskView() {
 
   const token = identity?.token
   const me = identity?.memberId
+  const home = tasksHome(identity?.role)
 
   // задание из кэша сразу, свежее приходит следом и после каждого сигнала сокета
   const query = useGetTaskQuery({ id: taskId ?? '', date: date ?? null }, { skip: !token || !taskId })
@@ -125,7 +126,7 @@ export default function TaskView() {
   })
 
   if (!token || !me) return null
-  if (state === 'missing') return <Redirect href="/tasks" />
+  if (state === 'missing') return <Redirect href={home} />
 
   const person = (id: string) => {
     const member = byId(id)
@@ -144,7 +145,7 @@ export default function TaskView() {
     <Screen
       header={
         <PageHeader
-          fallback="/tasks"
+          fallback={home}
           right={task && task.authorId === me ? <Button variant="text" onPress={() => router.push({ pathname: '/tasks/[taskId]/edit', params: { taskId: task.id } })}>Изменить</Button> : undefined}
         >
           Задание
@@ -210,7 +211,7 @@ export default function TaskView() {
             )}
           </Stack>
 
-          {celebrating && <Celebration title={task.title} reward={task.assigneeId === me ? task.reward : undefined} onClose={() => goBack(router, '/tasks')} />}
+          {celebrating && <Celebration title={task.title} reward={task.assigneeId === me ? task.reward : undefined} onClose={() => goBack(router, home)} />}
         </>
       )}
     </Screen>
