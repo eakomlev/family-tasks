@@ -52,7 +52,7 @@ const lightColors = css`
   --hero-track: rgb(255 255 255 / 0.22);
   /* панель табов: в светлой теме белая «таблетка», выбранный таб мягкий индиго */
   /* подложка панели табов полупрозрачная с лёгким размытием, а непрозрачный цвет нужен там, где под ней ничего не должно просвечивать (кайма счётчика) */
-  --tabbar-bg: rgb(255 255 255 / 0.72);
+  --tabbar-bg: rgb(255 255 255 / 0.55);
   --tabbar-bg-solid: #fff;
   --tabbar-border: #e6e8f2;
   --tabbar-shadow: 0 12px 28px rgb(40 50 120 / 0.14);
@@ -126,7 +126,7 @@ const darkColors = css`
   --hero-text: #fff;
   --hero-muted: #b9b2ff;
   --hero-track: #2e2a86;
-  --tabbar-bg: rgb(26 31 61 / 0.72);
+  --tabbar-bg: rgb(26 31 61 / 0.55);
   --tabbar-bg-solid: #1a1f3d;
   --tabbar-border: #2c3260;
   --tabbar-shadow: 0 14px 30px rgb(0 0 0 / 0.45);

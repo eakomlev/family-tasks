@@ -94,21 +94,65 @@ export const Arrow = styled.button`
   }
 `
 
-// переключатель День / Неделя / Месяц: плавающая «таблетка» внизу, как в приложении
+// переключатель День / Неделя / Месяц: плавающая «таблетка» внизу, как нижняя панель табов (те же цвета, полупрозрачная подложка с размытием,
+// подсветка выбранного плавно переезжает между равными колонками)
 export const Switch = styled.div`
   position: fixed;
-  left: 50%;
-  bottom: calc(1rem + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
+  right: 0;
+  bottom: calc(var(--tabbar-bottom, 0px) + var(--tabbar-gap, 0.6rem));
+  left: 0;
   z-index: 20;
-  display: flex;
-  gap: 0.35rem;
-  align-items: center;
-  padding: 0.35rem;
-  border: 1px solid var(--border);
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  width: min(calc(100% - 1.5rem), 22rem);
+  height: var(--tabbar-bar-height, 4rem);
+  margin: 0 auto;
+  padding: 0.3rem;
+  border: 1px solid var(--tabbar-border);
   border-radius: 999px;
-  background: var(--surface);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  background: var(--tabbar-bg);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--tabbar-shadow);
+`
+
+export const ViewHighlight = styled.span<{ $index: number; $count: number }>`
+  position: absolute;
+  top: 0.3rem;
+  bottom: 0.3rem;
+  left: 0.3rem;
+  width: calc((100% - 0.6rem - 4px * (${({ $count }) => $count} - 1)) / ${({ $count }) => $count});
+  border-radius: 999px;
+  background: var(--tabbar-active-bg);
+  transform: translateX(calc(${({ $index }) => $index} * (100% + 4px)));
+  transition: transform 0.28s cubic-bezier(0.3, 1.2, 0.5, 1);
+  pointer-events: none;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+`
+
+export const ViewItem = styled.button<{ $active: boolean }>`
+  position: relative;
+  min-width: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: ${({ $active }) => ($active ? 'var(--tabbar-active-text)' : 'var(--tabbar-icon)')};
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 `
 
 // запас под плавающим переключателем
@@ -121,15 +165,24 @@ export const SwipeArea = styled.div`
   touch-action: pan-y;
 `
 
+// «Сегодня»: такая же стеклянная таблетка над переключателем, видна только когда открыт другой день
 export const Today = styled.button`
-  margin-left: 0.2rem;
-  padding: 0.3rem 0.7rem;
-  border: 1px solid var(--border);
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tabbar-bottom, 0px) + var(--tabbar-gap, 0.6rem) + var(--tabbar-bar-height, 4rem) + 0.5rem);
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--tabbar-border);
   border-radius: 999px;
-  background: transparent;
-  color: var(--accent);
+  background: var(--tabbar-bg);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--tabbar-shadow);
+  color: var(--tabbar-active-text);
   font: inherit;
   font-size: 0.85rem;
+  font-weight: 800;
   cursor: pointer;
 `
 

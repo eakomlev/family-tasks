@@ -67,7 +67,7 @@ function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
           borderRadius: 32,
           padding: PAD,
           // подложка полупрозрачная, под ней лёгкое размытие (BlurView ниже); цвет акцентной капсулы и значков не меняется
-          backgroundColor: withAlpha(colors.tabbarBg, 0.72),
+          backgroundColor: withAlpha(colors.tabbarBg, 0.55),
           borderWidth: 1,
           borderColor: colors.tabbarBorder,
           flexDirection: 'row',

@@ -1,6 +1,5 @@
 import { useMemo, useRef, type TouchEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Chip } from '@/components/Chip'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { Stack } from '@/components/Stack'
@@ -32,7 +31,7 @@ import { useListTasksQuery } from '@/store/tasks'
 import { AgendaList } from './components/AgendaList'
 import { DayTimeline } from './components/DayTimeline'
 import { MonthView } from './components/MonthView'
-import { Arrow, DayHeading, DaySection, Dot, Empty, IconLink, Legend, Period, SettingsLink, Switch, SwipeArea, SwitchSpace, Today } from './styles'
+import { Arrow, DayHeading, DaySection, Dot, Empty, IconLink, Legend, Period, SettingsLink, Switch, SwipeArea, SwitchSpace, Today, ViewHighlight, ViewItem } from './styles'
 
 const VIEWS: { view: CalendarView; label: string }[] = [
   { view: 'day', label: 'День' },
@@ -185,17 +184,18 @@ export default function Calendar() {
       <SwitchSpace />
 
       <Switch role="group" aria-label="Вид календаря">
+        <ViewHighlight aria-hidden $index={Math.max(0, VIEWS.findIndex((v) => v.view === view))} $count={VIEWS.length} />
         {VIEWS.map((v) => (
-          <Chip key={v.view} type="button" aria-pressed={view === v.view} $active={view === v.view} onClick={() => go(v.view, anchor)}>
+          <ViewItem key={v.view} type="button" aria-pressed={view === v.view} $active={view === v.view} onClick={() => go(v.view, anchor)}>
             {v.label}
-          </Chip>
+          </ViewItem>
         ))}
-        {anchor !== today && (
-          <Today type="button" onClick={() => go(view, today)}>
-            Сегодня
-          </Today>
-        )}
       </Switch>
+      {anchor !== today && (
+        <Today type="button" onClick={() => go(view, today)}>
+          Сегодня
+        </Today>
+      )}
     </Page>
   )
 }
