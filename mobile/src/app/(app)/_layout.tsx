@@ -21,7 +21,7 @@ import { RealtimeBridge } from '@/store/RealtimeBridge'
 // переписка (/chat/<чат>) занимает весь экран
 const inChatRoom = (pathname: string) => pathname.startsWith('/chat/') && pathname.length > '/chat/'.length
 
-// Правый верхний угол: баланс монет ребёнка и значок профиля (только на «Моём дне»), «＋» новой задачи (на «Заданиях») или меню чатов с архивом
+// Правый верхний угол: баланс монет ребёнка и значок профиля (оба только на «Моём дне»), «＋» новой задачи (на «Заданиях») или меню чатов с архивом
 function TopRight() {
   const { identity } = useIdentity()
   const { data } = useProfile()
@@ -45,7 +45,7 @@ function TopRight() {
 
   return (
     <View style={{ position: 'absolute', top: insets.top + 8, right: 16, flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 10 }} pointerEvents="box-none">
-      {coins !== undefined && <CoinBalance coins={coins} />}
+      {showAvatar && coins !== undefined && <CoinBalance coins={coins} />}
       {showAdd && (
         <MenuButton
           actions={[{ key: 'done', label: 'Показать завершённые', checked: tasksView.showDone, onSelect: () => changeTasksView({ showDone: !tasksView.showDone }) }]}
