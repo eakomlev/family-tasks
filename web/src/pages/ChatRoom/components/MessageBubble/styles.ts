@@ -106,6 +106,7 @@ export const PhotoButton = styled.button<{ $ratio?: number }>`
 export const Text = styled.div`
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  font-size: 1.05rem;
 `
 
 export const Footer = styled.div`

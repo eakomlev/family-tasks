@@ -174,7 +174,7 @@ export const GlobalStyle = createGlobalStyle`
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font: 500 16px/1.5 'Nunito Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font: 500 1rem/1.5 'Nunito Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   #root { min-height: 100dvh; }
