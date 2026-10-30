@@ -27,7 +27,7 @@ describe('useAppBadge', () => {
     Reflect.deleteProperty(navigator, 'clearAppBadge')
   })
 
-  it('ставит число, при нуле снимает, пока числа нет, не трогает, при закрытии снимает', () => {
+  it('ставит число, при нуле снимает, пока числа нет, не трогает и сохраняет при закрытии', () => {
     const { rerender, unmount } = renderHook(({ count }: { count: number | undefined }) => useAppBadge(count), { initialProps: { count: undefined as number | undefined } })
     expect(setAppBadge).not.toHaveBeenCalled()
     expect(clearAppBadge).not.toHaveBeenCalled()
@@ -36,7 +36,7 @@ describe('useAppBadge', () => {
     rerender({ count: 0 })
     expect(clearAppBadge).toHaveBeenCalledTimes(1)
     unmount()
-    expect(clearAppBadge).toHaveBeenCalledTimes(2)
+    expect(clearAppBadge).toHaveBeenCalledTimes(1)
   })
 
   it('там, где значка нет (Badging API не поддерживается), ничего не падает', () => {

@@ -21,5 +21,4 @@ export function useAppBadge(count: number | undefined) {
   useEffect(() => {
     if (count !== undefined) apply(count)
   }, [count])
-  useEffect(() => () => apply(0), [])
 }
