@@ -206,13 +206,60 @@ export const Dot = styled.i<{ $kind: string }>`
 
 // ---- список записей дня ----
 
-export const DaySection = styled.section<{ $today?: boolean }>`
+export const WeekDayStrip = styled.div`
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+`
+
+export const WeekDayButton = styled.button<{ $selected: boolean; $today: boolean; $weekend: boolean }>`
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  > span:first-child {
+    color: ${({ $weekend }) => ($weekend ? 'var(--cal-holiday)' : 'var(--muted)')};
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  > span:last-child {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid ${({ $selected, $today }) => ($selected || $today ? 'var(--accent)' : 'var(--border)')};
+    border-radius: 50%;
+    background: ${({ $selected }) => ($selected ? 'var(--accent)' : 'var(--surface)')};
+    color: ${({ $selected, $weekend }) => ($selected ? 'var(--accent-text)' : $weekend ? 'var(--cal-holiday)' : 'var(--text)')};
+    font-size: 0.95rem;
+    font-weight: ${({ $selected, $today }) => ($selected || $today ? 800 : 600)};
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+`
+
+export const DaySection = styled.section<{ $today?: boolean; $selected?: boolean }>`
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  padding: ${({ $today }) => ($today ? '0.6rem' : '0')};
+  padding: ${({ $today, $selected }) => ($today || $selected ? '0.6rem' : '0')};
   border-radius: 0.9rem;
-  background: ${({ $today }) => ($today ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'transparent')};
+  background: ${({ $today, $selected }) => ($selected ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : $today ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'transparent')};
 
   h2 {
     margin: 0;

@@ -1,4 +1,4 @@
-import { useMemo, useRef, type TouchEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type TouchEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
@@ -21,7 +21,8 @@ import {
   eachDay,
 } from '@/lib/calendar'
 import { CALENDAR_KINDS, useCalendarSettings, type CalendarView } from '@/lib/calendarSettings'
-import { todayIso } from '@/lib/date'
+import { isoWeekdayOf, todayIso } from '@/lib/date'
+import { WEEK_DAYS } from '@/lib/weekdays'
 import { useChildTrainings } from '@/lib/useChildTrainings'
 import { useNow } from '@/lib/useNow'
 import { isAdult } from '@/lib/roles'
@@ -33,7 +34,7 @@ import { DayTimeline } from './components/DayTimeline'
 import { MonthView } from './components/MonthView'
 import { MenuButton } from '@/components/PopupMenu'
 import { Actions, AddLink } from '@/pages/Tasks/styles'
-import { Arrow, DayHeading, DaySection, Dot, Empty, Legend, Period, Switch, SwipeArea, SwitchSpace, Today, ViewHighlight, ViewItem } from './styles'
+import { Arrow, DayHeading, DaySection, Dot, Empty, Legend, Period, Switch, SwipeArea, SwitchSpace, Today, ViewHighlight, ViewItem, WeekDayButton, WeekDayStrip } from './styles'
 
 const VIEWS: { view: CalendarView; label: string }[] = [
   { view: 'day', label: 'День' },
@@ -59,6 +60,19 @@ export default function Calendar() {
   const queryView = params.get('view')
   const view: CalendarView = VIEWS.some((v) => v.view === queryView) ? (queryView as CalendarView) : settings.view
   const range = rangeFor(view, anchor)
+  const weekDays = useMemo(() => eachDay(range.from, range.to), [range.from, range.to])
+  const [selectedWeekDay, setSelectedWeekDay] = useState(() => (weekDays.includes(today) ? today : anchor))
+  const weekDayNodes = useRef(new Map<string, HTMLElement>())
+
+  useEffect(() => {
+    if (view !== 'week') return
+    setSelectedWeekDay((current) => (today >= range.from && today <= range.to ? today : current >= range.from && current <= range.to ? current : range.from))
+  }, [view, today, range.from, range.to])
+
+  useEffect(() => {
+    if (view !== 'week') return
+    weekDayNodes.current.get(selectedWeekDay)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }, [view, selectedWeekDay, range.from])
 
   const members = profile?.members ?? []
   const viewerRole = identity?.role ?? 'child'
@@ -101,6 +115,10 @@ export default function Calendar() {
     },
   }
   const go = (nextView: CalendarView, date: string) => setParams({ view: nextView, date }, { replace: true })
+  const selectWeekDay = (day: string) => {
+    setSelectedWeekDay(day)
+    go('week', day)
+  }
   const loading = (!eventData && events.isFetching) || (!taskData && tasks.isFetching)
 
   if (!identity) return null
@@ -152,15 +170,47 @@ export default function Calendar() {
           </>
         )}
 
-        {view === 'week' &&
-          eachDay(range.from, range.to).map((day) => (
-            <DaySection key={day} $today={day === today} aria-label={formatDayHeading(day)}>
-              <DayHeading type="button" onClick={() => go('day', day)}>
-                {formatDayHeading(day)}
-              </DayHeading>
-              <AgendaList items={byDay.get(day) ?? []} emptyText="—" />
-            </DaySection>
-          ))}
+        {view === 'week' && (
+          <>
+            <WeekDayStrip aria-label="Дни недели">
+              {weekDays.map((day) => {
+                const weekday = WEEK_DAYS[isoWeekdayOf(day) - 1]
+                return (
+                  <WeekDayButton
+                    key={day}
+                    type="button"
+                    $selected={day === selectedWeekDay}
+                    $today={day === today}
+                    $weekend={weekday.value >= 6}
+                    aria-label={`${weekday.full}, ${Number(day.slice(-2))}`}
+                    aria-pressed={day === selectedWeekDay}
+                    onClick={() => selectWeekDay(day)}
+                  >
+                    <span>{weekday.short}</span>
+                    <span>{Number(day.slice(-2))}</span>
+                  </WeekDayButton>
+                )
+              })}
+            </WeekDayStrip>
+            {weekDays.map((day) => (
+              <DaySection
+                key={day}
+                ref={(node) => {
+                  if (node) weekDayNodes.current.set(day, node)
+                  else weekDayNodes.current.delete(day)
+                }}
+                $today={day === today}
+                $selected={day === selectedWeekDay}
+                aria-label={formatDayHeading(day)}
+              >
+                <DayHeading type="button" onClick={() => go('day', day)} style={{ color: day === selectedWeekDay ? 'var(--accent)' : undefined }}>
+                  {formatDayHeading(day)}
+                </DayHeading>
+                <AgendaList items={byDay.get(day) ?? []} emptyText="—" />
+              </DaySection>
+            ))}
+          </>
+        )}
 
         {view === 'day' && (
           <>

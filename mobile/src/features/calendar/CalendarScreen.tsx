@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react'
-import { Animated, Pressable, RefreshControl, ScrollView, View } from 'react-native'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Animated, Pressable, RefreshControl, ScrollView, View, type ScrollViewInstance } from 'react-native'
 import PagerView from 'react-native-pager-view'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -29,7 +29,8 @@ import {
   visibleItems,
 } from '@/lib/calendar'
 import { CALENDAR_KINDS, useCalendarSettings, type CalendarView } from '@/lib/calendarSettings'
-import { todayIso } from '@/lib/date'
+import { isoWeekdayOf, todayIso } from '@/lib/date'
+import { WEEK_DAYS } from '@/lib/weekdays'
 import { isAdult } from '@/lib/roles'
 import { useChildTrainings } from '@/lib/useChildTrainings'
 import { useNow } from '@/lib/useNow'
@@ -62,6 +63,25 @@ export function CalendarScreen() {
 
   const anchor = isIsoDate(params.date) ? params.date : today
   const view: CalendarView = VIEWS.some((v) => v.view === params.view) ? (params.view as CalendarView) : settings.view
+  const weekStart = startOfWeek(anchor)
+  const weekEnd = endOfWeek(anchor)
+  const weekDays = useMemo(() => eachDay(weekStart, weekEnd), [weekStart, weekEnd])
+  const [selectedWeekDay, setSelectedWeekDay] = useState(() => (weekDays.includes(today) ? today : anchor))
+  const weekScroll = useRef<ScrollViewInstance>(null)
+  const weekDayOffsets = useRef(new Map<string, number>())
+
+  // При входе в недельный вид выбираем сегодня, если он в этой неделе; иначе сохраняем выбор или берём её первый день.
+  useEffect(() => {
+    if (view !== 'week') return
+    setSelectedWeekDay((current) => (today >= weekStart && today <= weekEnd ? today : current >= weekStart && current <= weekEnd ? current : weekStart))
+  }, [view, today, weekStart, weekEnd])
+
+  useEffect(() => {
+    if (view !== 'week') return
+    const y = weekDayOffsets.current.get(selectedWeekDay)
+    if (y !== undefined) weekScroll.current?.scrollTo({ y: Math.max(0, y - 8), animated: false })
+  }, [view, selectedWeekDay, weekStart])
+
   // одни данные на все три страницы: период месяца (целые недели) вмещает и неделю, и день
   const range = rangeFor('month', anchor)
 
@@ -90,6 +110,12 @@ export function CalendarScreen() {
   }, [eventData, taskData, members, trainings, range.from, range.to, settings, viewerRole, identity?.memberId])
 
   const go = (nextView: CalendarView, date: string) => router.setParams({ view: nextView, date })
+  const selectWeekDay = (day: string) => {
+    setSelectedWeekDay(day)
+    go('week', day)
+    const y = weekDayOffsets.current.get(day)
+    if (y !== undefined) weekScroll.current?.scrollTo({ y: Math.max(0, y - 8), animated: true })
+  }
   const loading = (!eventData && events.isFetching) || (!taskData && tasks.isFetching)
   const refresh = () => void dispatch(api.util.invalidateTags(['Events', 'Tasks', 'Trainings']))
 
@@ -191,12 +217,57 @@ export function CalendarScreen() {
 
         <View key="week" style={{ flex: 1, gap: 12 }}>
           {selector('week')}
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 14, paddingBottom: 8 }} refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} />}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 4 }} accessibilityLabel="Дни недели">
+            {weekDays.map((day) => {
+              const weekday = WEEK_DAYS[isoWeekdayOf(day) - 1]
+              const selected = day === selectedWeekDay
+              const todayMark = day === today
+              return (
+                <Pressable
+                  key={day}
+                  onPress={() => selectWeekDay(day)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${weekday.full}, ${Number(day.slice(-2))}`}
+                  accessibilityState={{ selected }}
+                  style={{ flex: 1, alignItems: 'center', gap: 4 }}
+                >
+                  <Text $size={12} $weight="bold" $tone={weekday.value >= 6 ? 'error' : 'muted'}>
+                    {weekday.short}
+                  </Text>
+                  <View
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 19,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: todayMark && !selected ? 1.5 : 1,
+                      borderColor: selected || todayMark ? colors.accent : colors.border,
+                      backgroundColor: selected ? colors.accent : colors.surface,
+                    }}
+                  >
+                    <Text $size={15} $weight={selected || todayMark ? 'black' : 'bold'} style={selected ? { color: colors.accentText } : undefined}>
+                      {Number(day.slice(-2))}
+                    </Text>
+                  </View>
+                </Pressable>
+              )
+            })}
+          </View>
+          <ScrollView ref={weekScroll} style={{ flex: 1 }} contentContainerStyle={{ gap: 14, paddingBottom: 8 }} refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} />}>
             {loading && <Text $tone="muted">Загрузка…</Text>}
-            {eachDay(startOfWeek(anchor), endOfWeek(anchor)).map((day) => (
-              <View key={day} style={{ gap: 6 }}>
+            {weekDays.map((day) => (
+              <View
+                key={day}
+                style={{ gap: 6 }}
+                onLayout={(event) => {
+                  const y = event.nativeEvent.layout.y
+                  weekDayOffsets.current.set(day, y)
+                  if (day === selectedWeekDay) weekScroll.current?.scrollTo({ y: Math.max(0, y - 8), animated: false })
+                }}
+              >
                 <Pressable onPress={() => go('day', day)} accessibilityRole="button">
-                  <Heading style={day === today ? { color: colors.accent } : undefined}>{formatDayHeading(day)}</Heading>
+                  <Heading style={day === today || day === selectedWeekDay ? { color: colors.accent } : undefined}>{formatDayHeading(day)}</Heading>
                 </Pressable>
                 <AgendaList items={byDay.get(day) ?? []} emptyText="—" />
               </View>
