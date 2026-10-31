@@ -19,7 +19,7 @@
         var saved = localStorage.getItem('theme')
         if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved
         var dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
-        document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#0b0e1f' : '#f5f6fb')
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#000000' : '#f5f6fb')
       } catch (e) {}
     </script>
   </head>
