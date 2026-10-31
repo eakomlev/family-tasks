@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useContext, useEffect, useState } from 'react'
 import { Animated, Pressable, Text, View } from 'react-native'
 import { TopTabs, type MaterialTopTabBarProps } from 'expo-router/js-top-tabs'
 import { Ionicons } from '@expo/vector-icons'
@@ -15,6 +15,7 @@ import { emitTabReselect } from '@/lib/tabBar'
 import { useNow } from '@/lib/useNow'
 import { useListPendingTasksQuery, useListTasksQuery } from '@/store/tasks'
 import { FONT_FAMILY } from '@/theme/fonts'
+import { TabBarBlurContext, type TabBarBlurTarget } from '@/lib/tabBarBlur'
 
 type IconName = keyof typeof Ionicons.glyphMap
 
@@ -43,6 +44,7 @@ type BarProps = MaterialTopTabBarProps & {
 // Лежит поверх листаемых страниц.
 function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
   const { colors, dark, fontScale } = useTheme()
+  const blurContext = useContext(TabBarBlurContext)
   const insets = useSafeAreaInsets()
   // Подсветка идёт за самой страницей, а не за состоянием навигации: оно обновляется, когда пролистывание закончилось, и подсветка отставала.
   // «Ближайший» таб считаем по положению страниц (меняется на полпути между соседями), по нажатию подсвечиваем сразу.
@@ -82,7 +84,13 @@ function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
         onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
       >
         <View pointerEvents="none" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: 31, overflow: 'hidden' }}>
-          <BlurView intensity={30} tint={dark ? 'dark' : 'light'} experimentalBlurMethod="dimezisBlurView" style={{ flex: 1 }} />
+          <BlurView
+            intensity={70}
+            tint={dark ? 'dark' : 'light'}
+            blurTarget={blurContext?.target ?? undefined}
+            blurMethod="dimezisBlurView"
+            style={{ flex: 1 }}
+          />
         </View>
         {tabWidth > 0 && (
           <Animated.View
@@ -163,19 +171,23 @@ export default function TabsLayout() {
   const { unread } = useChats()
   const isChild = identity?.role === 'child'
   const badges = { tasks: taskBadge, chat: unread > 0 ? unread : undefined }
+  const [blurTarget, setBlurTarget] = useState<TabBarBlurTarget | null>(null)
+  const setTarget = useCallback((target: TabBarBlurTarget | null) => setBlurTarget(target), [])
 
   return (
-    <TopTabs tabBarPosition="bottom" tabBar={(props) => <FloatingTabBar {...props} badges={badges} />} screenOptions={{ swipeEnabled: true, lazy: true, lazyPreloadDistance: 1 }}>
-      {/* у ребёнка вкладки «Задачи» нет: его задания на «Моём дне» */}
-      {TABS.map((tab) =>
-        tab.name === 'tasks' ? (
-          <TopTabs.Protected key={tab.name} guard={!isChild}>
-            <TopTabs.Screen name={tab.name} options={{ title: tab.title }} />
-          </TopTabs.Protected>
-        ) : (
-          <TopTabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />
-        ),
-      )}
-    </TopTabs>
+    <TabBarBlurContext.Provider value={{ target: blurTarget, setTarget }}>
+      <TopTabs tabBarPosition="bottom" tabBar={(props) => <FloatingTabBar {...props} badges={badges} />} screenOptions={{ swipeEnabled: true, lazy: true, lazyPreloadDistance: 1 }}>
+        {/* у ребёнка вкладки «Задачи» нет: его задания на «Моём дне» */}
+        {TABS.map((tab) =>
+          tab.name === 'tasks' ? (
+            <TopTabs.Protected key={tab.name} guard={!isChild}>
+              <TopTabs.Screen name={tab.name} options={{ title: tab.title }} />
+            </TopTabs.Protected>
+          ) : (
+            <TopTabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />
+          ),
+        )}
+      </TopTabs>
+    </TabBarBlurContext.Provider>
   )
 }
