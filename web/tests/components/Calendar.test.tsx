@@ -265,10 +265,11 @@ describe('форма события: правила', () => {
     // в многодневном событии конец может быть «раньше» по часам, на весь день время не важно
     expect(validateEvent({ ...ok, endDate: '2026-11-08', startTime: '20:00', endTime: '09:00' })).toBeNull()
     expect(validateEvent({ ...ok, allDay: true, startTime: '12:00', endTime: '11:00' })).toBeNull()
-    expect(toInput(ok)).toEqual({ title: 'Театр', startDate: '2026-11-07', endDate: '2026-11-07', startTime: '10:00', endTime: '11:00', allFamily: true, memberIds: [] })
+    expect(toInput(ok)).toEqual({ title: 'Театр', startDate: '2026-11-07', endDate: '2026-11-07', startTime: '10:00', endTime: '11:00', allFamily: true, memberIds: [], familyIds: [] })
     expect(toInput({ ...ok, allDay: true, allFamily: false, memberIds: ['kid'] })).toMatchObject({ startTime: null, endTime: null, allFamily: false, memberIds: ['kid'] })
-    // при «вся семья» выбранные участники не отправляются
+    // при «вся семья» участники своей семьи не отправляются, но выбранный участник связанной семьи остаётся
     expect(toInput({ ...ok, allFamily: true, memberIds: ['kid'] }).memberIds).toEqual([])
+    expect(toInput({ ...ok, allFamily: true, memberIds: ['external-kid'], familyIds: ['linked-family'] }, ['external-kid']).memberIds).toEqual(['external-kid'])
   })
 })
 
@@ -292,6 +293,7 @@ describe('создание и изменение события', () => {
         endTime: '19:00',
         allFamily: true,
         memberIds: [],
+        familyIds: [],
       }),
     )
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/calendar?view=week&date=2026-11-07'))
@@ -307,7 +309,7 @@ describe('создание и изменение события', () => {
     expect(screen.getByText('Событие увидите только вы.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Вы участвуете всегда' })).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Миша' }))
-    expect(screen.getByText(/увидят только выбранные участники/)).toBeInTheDocument()
+    expect(screen.getByText(/увидят выбранные участники и семьи/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Создать событие' }))
     await waitFor(() =>
       expect(api.createEvent).toHaveBeenCalledWith('tok', expect.objectContaining({ title: 'Отпуск', startTime: null, endTime: null, allFamily: false, memberIds: ['kid'] })),

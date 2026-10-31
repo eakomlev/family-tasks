@@ -13,7 +13,7 @@ export function tagsForEvent(event: RealtimeEvent): readonly TagItem[] {
     case 'tasks':
       return ['Tasks', 'Pending', 'Done']
     case 'members':
-      return ['Me', 'Coins', 'Earned']
+      return ['Me', 'Coins', 'Earned', 'Chats', 'Messages']
     case 'schedule':
       return [{ type: 'Schedule', id: event.memberId }]
     case 'trainings':

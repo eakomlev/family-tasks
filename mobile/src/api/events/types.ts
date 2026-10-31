@@ -10,6 +10,7 @@ export interface FamilyEvent {
   endTime: string | null
   allFamily: boolean
   memberIds: string[]
+  familyIds?: string[]
   authorId: string
   createdAt: string
 }
@@ -23,4 +24,5 @@ export interface EventInput {
   endTime: string | null
   allFamily: boolean
   memberIds: string[]
+  familyIds: string[]
 }

@@ -9,6 +9,7 @@ import { gameRoutes } from './games.js'
 import { coinRoutes } from './coins.js'
 import { eventRoutes } from './events.js'
 import { familyDeletionRoutes } from './familyDeletion.js'
+import { familyConnectionRoutes } from './familyConnections.js'
 import { goalRoutes } from './goals.js'
 import { createMediaClient, mediaEnv, type MediaClient } from './media/client.js'
 import { robloxRoutes } from './roblox.js'
@@ -104,6 +105,7 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
   await app.register(eventRoutes, { media })
   await app.register(accountRoutes, { media })
   await app.register(familyDeletionRoutes)
+  await app.register(familyConnectionRoutes)
   await app.register(adminRoutes, { media })
   return app
 }

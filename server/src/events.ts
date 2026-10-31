@@ -30,6 +30,7 @@ const eventBody = {
     endTime: { anyOf: [time, { type: 'null' }] },
     allFamily: { type: 'boolean' },
     memberIds: { type: 'array', items: { type: 'string', format: 'uuid' }, maxItems: MAX_MEMBERS, uniqueItems: true },
+    familyIds: { type: 'array', items: { type: 'string', format: 'uuid' }, maxItems: 5, uniqueItems: true },
   },
 }
 
@@ -47,6 +48,7 @@ interface EventInput {
   endTime?: string | null
   allFamily?: boolean
   memberIds?: string[]
+  familyIds?: string[]
 }
 
 export interface EventDto {
@@ -59,6 +61,7 @@ export interface EventDto {
   allFamily: boolean
   // участники (у события «вся семья» пусто)
   memberIds: string[]
+  familyIds: string[]
   authorId: string
   createdAt: string
 }
@@ -66,11 +69,24 @@ export interface EventDto {
 const COLUMNS = `e.id, e.title, to_char(e.start_date, 'YYYY-MM-DD') as "startDate", to_char(e.end_date, 'YYYY-MM-DD') as "endDate",
   to_char(e.start_time, 'HH24:MI') as "startTime", to_char(e.end_time, 'HH24:MI') as "endTime",
   e.all_family as "allFamily", e.author_id as "authorId", e.created_at as "createdAt",
-  coalesce((select json_agg(em.member_id order by em.member_id) from event_members em where em.event_id = e.id), '[]'::json) as "memberIds"`
+  coalesce((select json_agg(em.member_id order by em.member_id) from event_members em where em.event_id = e.id), '[]'::json) as "memberIds",
+  coalesce((select json_agg(ef.family_id order by ef.family_id) from event_family_targets ef where ef.event_id = e.id), '[]'::json) as "familyIds"`
 
 // условие видимости: $N это id участника
-const visible = (param: number) =>
-  `(e.all_family or e.author_id = $${param} or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = $${param}))`
+const visible = (memberParam: number, familyParam: number) =>
+  `(e.author_id = $${memberParam}
+    or (e.family_id = $${familyParam} and (e.all_family or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = $${memberParam})))
+    or exists (
+      select 1 from event_family_targets ef join family_connections fc on
+        (fc.family_a_id = e.family_id and fc.family_b_id = ef.family_id) or (fc.family_b_id = e.family_id and fc.family_a_id = ef.family_id)
+      where ef.event_id = e.id and ef.family_id = $${familyParam}
+    )
+    or exists (
+      select 1 from event_members em join members target on target.id = em.member_id
+      join family_connections fc on
+        (fc.family_a_id = e.family_id and fc.family_b_id = target.family_id) or (fc.family_b_id = e.family_id and fc.family_a_id = target.family_id)
+      where em.event_id = e.id and em.member_id = $${memberParam}
+    ))`
 
 // Проверка тела: настоящие даты, время парой, конец не раньше начала. Возвращает код ошибки или null.
 function validate(body: EventInput): string | null {
@@ -97,7 +113,7 @@ export async function eventRoutes(app: FastifyInstance, { media = null }: Partia
   }
 
   async function load(id: string, memberId: string, familyId: string): Promise<EventDto | undefined> {
-    const { rows } = await pool.query<EventDto>(`select ${COLUMNS} from events e where e.id = $1 and e.family_id = $2 and ${visible(3)}`, [id, familyId, memberId])
+    const { rows } = await pool.query<EventDto>(`select ${COLUMNS} from events e where e.id = $1 and ${visible(3, 2)}`, [id, familyId, memberId])
     return rows[0]
   }
 
@@ -105,15 +121,46 @@ export async function eventRoutes(app: FastifyInstance, { media = null }: Partia
   async function checkMembers(ids: string[], familyId: string): Promise<string[] | null> {
     const unique = [...new Set(ids)]
     if (unique.length === 0) return unique
-    const { rows } = await pool.query('select id from members where family_id = $1 and id = any($2)', [familyId, unique])
+    const { rows } = await pool.query(
+      `select m.id from members m where m.id = any($2) and (m.family_id = $1 or exists (
+        select 1 from family_connections fc where
+          (fc.family_a_id = $1 and fc.family_b_id = m.family_id) or (fc.family_b_id = $1 and fc.family_a_id = m.family_id)
+      ))`, [familyId, unique])
+    return rows.length === unique.length ? unique : null
+  }
+
+  async function selectedMembers(ids: string[], familyId: string, allFamily: boolean): Promise<string[] | null> {
+    const checked = await checkMembers(ids, familyId)
+    if (!checked || !allFamily || checked.length === 0) return checked
+    const { rows } = await pool.query<{ id: string }>(
+      'select id from members where id = any($1) and family_id <> $2', [checked, familyId])
+    return rows.map((row) => row.id)
+  }
+
+  async function checkFamilies(ids: string[], familyId: string): Promise<string[] | null> {
+    const unique = [...new Set(ids)]
+    if (unique.length === 0) return unique
+    const { rows } = await pool.query(
+      `select fc.family_b_id as id from family_connections fc where fc.family_a_id = $1 and fc.family_b_id = any($2)
+       union all
+       select fc.family_a_id as id from family_connections fc where fc.family_b_id = $1 and fc.family_a_id = any($2)`, [familyId, unique])
     return rows.length === unique.length ? unique : null
   }
 
   // Кому видно событие (и значит, кто участвует в его чате): автор, участники или вся семья
   async function participantsOf(eventId: string, familyId: string): Promise<string[]> {
     const { rows } = await pool.query<{ id: string }>(
-      `select m.id from members m join events e on e.id = $1 and e.family_id = m.family_id
-       where m.family_id = $2 and (e.all_family or m.id = e.author_id or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = m.id))`,
+      `select distinct m.id from members m join events e on e.id = $1
+       where e.family_id = $2 and (
+         (m.family_id = e.family_id and (e.all_family or m.id = e.author_id or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = m.id)))
+         or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = m.id and (
+           m.family_id = e.family_id or exists (select 1 from family_connections fc where
+             (fc.family_a_id = e.family_id and fc.family_b_id = m.family_id) or (fc.family_b_id = e.family_id and fc.family_a_id = m.family_id))
+         ))
+         or exists (select 1 from event_family_targets ef join family_connections fc on
+             (fc.family_a_id = e.family_id and fc.family_b_id = ef.family_id) or (fc.family_b_id = e.family_id and fc.family_a_id = ef.family_id)
+           where ef.event_id = e.id and ef.family_id = m.family_id)
+       )`,
       [eventId, familyId],
     )
     return rows.map((r) => r.id)
@@ -133,7 +180,7 @@ export async function eventRoutes(app: FastifyInstance, { media = null }: Partia
     if ((Date.parse(to) - Date.parse(from)) / 86_400_000 > MAX_RANGE_DAYS) return reply.code(400).send({ error: 'range_too_long' })
     const { rows } = await pool.query<EventDto>(
       `select ${COLUMNS} from events e
-       where e.family_id = $1 and e.start_date <= $3 and e.end_date >= $2 and ${visible(4)}
+       where e.start_date <= $3 and e.end_date >= $2 and ${visible(4, 1)}
        order by e.start_date, e.start_time nulls first, e.created_at`,
       [member.family_id, from, to, member.id],
     )
@@ -154,8 +201,10 @@ export async function eventRoutes(app: FastifyInstance, { media = null }: Partia
     const problem = validate(req.body)
     if (problem) return reply.code(400).send({ error: problem })
     const allFamily = req.body.allFamily === true
-    const memberIds = allFamily ? [] : await checkMembers(req.body.memberIds ?? [], member.family_id)
+    const memberIds = await selectedMembers(req.body.memberIds ?? [], member.family_id, allFamily)
     if (!memberIds) return reply.code(400).send({ error: 'invalid_members' })
+    const familyIds = await checkFamilies(req.body.familyIds ?? [], member.family_id)
+    if (!familyIds) return reply.code(400).send({ error: 'invalid_families' })
 
     const db = await pool.connect()
     let id: string
@@ -168,6 +217,7 @@ export async function eventRoutes(app: FastifyInstance, { media = null }: Partia
       )
       id = rows[0].id
       for (const memberId of memberIds) await db.query('insert into event_members (event_id, member_id) values ($1, $2)', [id, memberId])
+      for (const familyId of familyIds) await db.query('insert into event_family_targets (event_id, family_id) values ($1, $2)', [id, familyId])
       await db.query('commit')
     } catch (err) {
       await db.query('rollback').catch(() => {})
@@ -176,6 +226,8 @@ export async function eventRoutes(app: FastifyInstance, { media = null }: Partia
       db.release()
     }
     publish(member.family_id, { type: 'events' })
+    for (const familyId of familyIds) publish(familyId, { type: 'events' })
+    for (const memberId of memberIds) publishTo(memberId, { type: 'events' })
     return reply.code(201).send({ event: await load(id, member.id, member.family_id) })
   })
 
@@ -188,8 +240,10 @@ export async function eventRoutes(app: FastifyInstance, { media = null }: Partia
     const problem = validate(req.body)
     if (problem) return reply.code(400).send({ error: problem })
     const allFamily = req.body.allFamily === true
-    const memberIds = allFamily ? [] : await checkMembers(req.body.memberIds ?? [], member.family_id)
+    const memberIds = await selectedMembers(req.body.memberIds ?? [], member.family_id, allFamily)
     if (!memberIds) return reply.code(400).send({ error: 'invalid_members' })
+    const familyIds = await checkFamilies(req.body.familyIds ?? [], member.family_id)
+    if (!familyIds) return reply.code(400).send({ error: 'invalid_families' })
 
     const before = await participantsOf(existing.id, member.family_id)
     const db = await pool.connect()
@@ -201,6 +255,8 @@ export async function eventRoutes(app: FastifyInstance, { media = null }: Partia
       )
       await db.query('delete from event_members where event_id = $1', [existing.id])
       for (const memberId of memberIds) await db.query('insert into event_members (event_id, member_id) values ($1, $2)', [existing.id, memberId])
+      await db.query('delete from event_family_targets where event_id = $1', [existing.id])
+      for (const familyId of familyIds) await db.query('insert into event_family_targets (event_id, family_id) values ($1, $2)', [existing.id, familyId])
       await db.query('commit')
     } catch (err) {
       await db.query('rollback').catch(() => {})
@@ -209,7 +265,10 @@ export async function eventRoutes(app: FastifyInstance, { media = null }: Partia
       db.release()
     }
     publish(member.family_id, { type: 'events' })
-    signalChat(existing.id, before, await participantsOf(existing.id, member.family_id))
+    for (const familyId of new Set([...existing.familyIds, ...familyIds])) publish(familyId, { type: 'events' })
+    const after = await participantsOf(existing.id, member.family_id)
+    for (const memberId of new Set([...before, ...after])) publishTo(memberId, { type: 'events' })
+    signalChat(existing.id, before, after)
     return { event: await load(existing.id, member.id, member.family_id) }
   })
 
@@ -254,6 +313,8 @@ export async function eventRoutes(app: FastifyInstance, { media = null }: Partia
       }
     }
     publish(member.family_id, { type: 'events' })
+    for (const familyId of existing.familyIds) publish(familyId, { type: 'events' })
+    for (const memberId of people) publishTo(memberId, { type: 'events' })
     signalChat(existing.id, people)
     return reply.code(204).send()
   })

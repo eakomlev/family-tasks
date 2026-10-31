@@ -22,6 +22,7 @@ import { useInFlight } from '@/lib/useInFlight'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
 import { useCreateEventMutation, useDeleteEventMutation, useGetEventQuery, useUpdateEventMutation } from '@/store/events'
+import { useGetFamilyConnectionsQuery } from '@/store/familyConnections'
 import { describeEventError } from './eventErrors'
 import { emptyEventForm, fromEvent, toInput, validateEvent, withEnd, withStart, type EventFormState } from './eventForm'
 
@@ -35,6 +36,7 @@ export function EventFormScreen({ id, date, view }: { id?: string; date?: string
   const { colors } = useTheme()
   const { identity } = useIdentity()
   const { data: profile } = useProfile()
+  const linkedFamilies = useGetFamilyConnectionsQuery()
 
   const event = useGetEventQuery(id ?? '', { skip: !identity || !id })
   const [createEvent] = useCreateEventMutation()
@@ -64,14 +66,16 @@ export function EventFormScreen({ id, date, view }: { id?: string; date?: string
     setError(undefined)
   }
   const toggle = (memberId: string) => patch({ memberIds: form.memberIds.includes(memberId) ? form.memberIds.filter((x) => x !== memberId) : [...form.memberIds, memberId] })
+  const toggleFamily = (familyId: string) => patch({ familyIds: form.familyIds.includes(familyId) ? form.familyIds.filter((x) => x !== familyId) : [...form.familyIds, familyId] })
+  const linkedMemberIds = linkedFamilies.data?.connections.flatMap((family) => family.members.map((member) => member.id)) ?? []
 
   const save = guard(async () => {
     const problem = validateEvent(form)
     if (problem) return setError(problem)
     setBusy(true)
     try {
-      if (id) await updateEvent({ id, input: toInput(form) }).unwrap().catch(toApiError)
-      else await createEvent(toInput(form)).unwrap().catch(toApiError)
+      if (id) await updateEvent({ id, input: toInput(form, linkedMemberIds) }).unwrap().catch(toApiError)
+      else await createEvent(toInput(form, linkedMemberIds)).unwrap().catch(toApiError)
       router.dismissTo({ pathname: '/calendar', params: { ...(view ? { view } : {}), date: form.startDate } })
     } catch (err) {
       setError(describeEventError(err))
@@ -154,9 +158,31 @@ export function EventFormScreen({ id, date, view }: { id?: string; date?: string
                   )
                 })}
               </View>
-              <Notice>{form.memberIds.length === 0 ? 'Событие увидите только вы.' : 'Событие увидят только выбранные участники и вы.'}</Notice>
+              <Notice>{form.memberIds.length === 0 && form.familyIds.length === 0 ? 'Событие увидите только вы.' : 'Событие увидят выбранные участники и семьи.'}</Notice>
             </>
           )}
+          {!!linkedFamilies.data?.connections.length && <>
+            <Field label="Связанные семьи">
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {linkedFamilies.data.connections.map((family) => {
+                  const on = form.familyIds.includes(family.familyId)
+                  return <Pressable key={family.familyId} onPress={() => toggleFamily(family.familyId)} accessibilityRole="button" accessibilityState={{ selected: on }} style={{ paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1.5, borderColor: on ? colors.accent : colors.border, backgroundColor: on ? colors.accentSoft : colors.surface }}>
+                    <Text $weight="bold" $size={14}>{`Вся семья ${family.surname ?? family.code}`}</Text>
+                  </Pressable>
+                })}
+              </View>
+            </Field>
+            <Text $tone="muted">Можно пригласить связанную семью целиком или выбрать отдельных участников.</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {linkedFamilies.data.connections.flatMap((family) => family.members).map((member) => {
+                const on = form.memberIds.includes(member.id)
+                return <Pressable key={member.id} onPress={() => toggle(member.id)} accessibilityRole="button" accessibilityState={{ selected: on }} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1.5, borderColor: on ? colors.accent : colors.border, backgroundColor: on ? colors.accentSoft : colors.surface }}>
+                  <Avatar name={memberLabel(member, identity.role)} seed={member.id} src={member.avatar} size={26} />
+                  <Text $weight="bold" $size={14}>{memberLabel(member, identity.role)}</Text>
+                </Pressable>
+              })}
+            </View>
+          </>}
 
           {error && <Notice tone="error">{error}</Notice>}
           <Button variant="primary" disabled={busy} onPress={save}>

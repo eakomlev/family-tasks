@@ -24,3 +24,17 @@ export interface MemberFamilyResult {
 export const createFamilyForMe = (token: string, role: 'mama' | 'papa') => request<MemberFamilyResult>('/me/family', send('POST', { role }), token)
 export const joinFamilyAsMe = (token: string, inviteCode: string, role: 'mama' | 'papa' | 'grandma' | 'grandpa') =>
   request<MemberFamilyResult>('/me/join', send('POST', { inviteCode, role }), token)
+
+export interface FamilyConnectionMember { id: string; name: string; role: Role; isOwner: boolean; avatar: string | null; birthDate: string | null }
+export interface FamilyConnectionsData {
+  surname: string | null
+  connections: { familyId: string; code: string; surname: string | null; members: FamilyConnectionMember[] }[]
+  requests: { id: string; status: string; createdAt: string; outgoing: boolean; familyCode: string; surname: string | null; fromSurname: string }[]
+}
+export const getFamilyConnections = (token: string) => request<FamilyConnectionsData>('/family/connections', {}, token)
+export const sendFamilyConnectionRequest = (token: string, familyCode: string, surname: string) =>
+  request<{ id: string }>('/family/connections/requests', send('POST', { familyCode, surname }), token)
+export const respondFamilyConnectionRequest = (token: string, id: string, action: 'accept' | 'reject', surname?: string) =>
+  request<void>(`/family/connections/requests/${id}`, send('POST', { action, surname }), token)
+export const disconnectFamily = (token: string, familyId: string) =>
+  request<void>(`/family/connections/${familyId}`, send('DELETE'), token)

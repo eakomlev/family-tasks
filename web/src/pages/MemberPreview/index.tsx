@@ -10,19 +10,22 @@ import { ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
 import { ChildCoins } from './components/ChildCoins'
 import { Actions, Badge, ChatLink, Hero, PlayLink } from './styles'
+import { useGetFamilyConnectionsQuery } from '@/store/familyConnections'
 
 // краткая карточка другого участника семьи (только просмотр)
 export default function MemberPreview() {
   const { memberId } = useParams()
   const { identity } = useIdentity()
   const { data, failed } = useProfile()
+  const { data: linked } = useGetFamilyConnectionsQuery()
 
   // свой профиль открывается на странице редактирования
   if (memberId === identity?.memberId) return <Navigate to="/profile" replace />
 
-  const member = data?.members.find((m) => m.id === memberId)
+  const member = data?.members.find((m) => m.id === memberId) ?? linked?.connections.flatMap((family) => family.members).find((m) => m.id === memberId)
+  const isLinkedMember = !!member && !data?.members.some((m) => m.id === member.id)
   // участника нет в семье (например, неверная ссылка)
-  if (data && !member) return <Navigate to="/family" replace />
+  if (linked && !member) return <Navigate to="/family" replace />
 
   return (
     <Page>
@@ -57,7 +60,7 @@ export default function MemberPreview() {
         </Hero>
       )}
       {/* расписания ребёнка видят и правят родители */}
-      {member?.role === 'child' && identity?.role !== 'child' && (
+      {member?.role === 'child' && !isLinkedMember && identity?.role !== 'child' && (
         <>
           <ChildCoins memberId={member.id} />
           <MenuLink to={`/family/${member.id}/goals`}>Цели</MenuLink>

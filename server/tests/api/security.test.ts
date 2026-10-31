@@ -95,7 +95,7 @@ describe('ошибки сервера', () => {
   it('внутренний текст ошибки клиенту не уходит', async () => {
     const original = pool.query.bind(pool)
     const spy = vi.spyOn(pool, 'query').mockImplementation(((...args: unknown[]) =>
-      String(args[0]).includes('from members where family_id') && String(args[0]).includes('id <> $2')
+      String(args[0]).includes('from members m where m.id <> $2')
         ? Promise.reject(new Error('секрет: relation "members" is broken'))
         : (original as (...a: unknown[]) => unknown)(...args)) as typeof pool.query)
     try {

@@ -22,9 +22,10 @@ describe('форма события: правила', () => {
     // в многодневном событии конец может быть «раньше» по часам, на весь день время не важно
     expect(validateEvent({ ...ok, endDate: '2026-11-08', startTime: '20:00', endTime: '09:00' })).toBeNull()
     expect(validateEvent({ ...ok, allDay: true, startTime: '12:00', endTime: '11:00' })).toBeNull()
-    expect(toInput(ok)).toEqual({ title: 'Театр', startDate: '2026-11-07', endDate: '2026-11-07', startTime: '10:00', endTime: '11:00', allFamily: true, memberIds: [] })
+    expect(toInput(ok)).toEqual({ title: 'Театр', startDate: '2026-11-07', endDate: '2026-11-07', startTime: '10:00', endTime: '11:00', allFamily: true, memberIds: [], familyIds: [] })
     expect(toInput({ ...ok, allDay: true, allFamily: false, memberIds: ['kid'] })).toMatchObject({ startTime: null, endTime: null, allFamily: false, memberIds: ['kid'] })
-    // при «вся семья» выбранные участники не отправляются
+    // при «вся семья» участники своей семьи не отправляются, но выбранный участник связанной семьи остаётся
     expect(toInput({ ...ok, allFamily: true, memberIds: ['kid'] }).memberIds).toEqual([])
+    expect(toInput({ ...ok, allFamily: true, memberIds: ['external-kid'], familyIds: ['linked-family'] }, ['external-kid']).memberIds).toEqual(['external-kid'])
   })
 })

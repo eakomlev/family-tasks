@@ -10,6 +10,7 @@ export interface EventFormState {
   allFamily: boolean
   // участники кроме автора (автор видит событие всегда)
   memberIds: string[]
+  familyIds: string[]
 }
 
 export const DEFAULT_START = '10:00'
@@ -24,6 +25,7 @@ export const emptyEventForm = (date: string): EventFormState => ({
   endTime: DEFAULT_END,
   allFamily: true,
   memberIds: [],
+  familyIds: [],
 })
 
 export function fromEvent(event: FamilyEvent, authorId: string): EventFormState {
@@ -36,10 +38,11 @@ export function fromEvent(event: FamilyEvent, authorId: string): EventFormState 
     endTime: event.endTime ?? DEFAULT_END,
     allFamily: event.allFamily,
     memberIds: event.memberIds.filter((id) => id !== authorId),
+    familyIds: event.familyIds ?? [],
   }
 }
 
-export function toInput(form: EventFormState): EventInput {
+export function toInput(form: EventFormState, linkedMemberIds: string[] = []): EventInput {
   return {
     title: form.title.trim(),
     startDate: form.startDate,
@@ -47,7 +50,8 @@ export function toInput(form: EventFormState): EventInput {
     startTime: form.allDay ? null : form.startTime,
     endTime: form.allDay ? null : form.endTime,
     allFamily: form.allFamily,
-    memberIds: form.allFamily ? [] : form.memberIds,
+    memberIds: form.allFamily ? form.memberIds.filter((id) => linkedMemberIds.includes(id)) : form.memberIds,
+    familyIds: form.familyIds,
   }
 }
 

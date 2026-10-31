@@ -9,6 +9,8 @@ import { IdentityContext } from '@/identity/context'
 import Family from '@/pages/Family'
 import FamilyDelete from '@/pages/FamilyDelete'
 import { ProfileContext } from '@/profile/context'
+import { Provider } from 'react-redux'
+import { makeStore } from '@/store'
 
 vi.mock('@/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api')>()),
@@ -30,19 +32,21 @@ function Where() {
 function renderAt(path: string, me: Member = mama) {
   const identity = { familyCode: 'c', memberId: me.id, name: me.name, role: me.role, token: 'tok' }
   return render(
-    <IdentityContext.Provider value={{ identity, save: async () => {}, clear }}>
-      <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false }}>
-        <ConfirmProvider>
-          <MemoryRouter initialEntries={[path]}>
-            <Where />
-            <Routes>
-              <Route path="/family" element={<Family />} />
-              <Route path="/family/delete" element={<FamilyDelete />} />
-            </Routes>
-          </MemoryRouter>
-        </ConfirmProvider>
-      </ProfileContext.Provider>
-    </IdentityContext.Provider>,
+    <Provider store={makeStore({ hydrate: false })}>
+      <IdentityContext.Provider value={{ identity, save: async () => {}, clear }}>
+        <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members }, failed: false }}>
+          <ConfirmProvider>
+            <MemoryRouter initialEntries={[path]}>
+              <Where />
+              <Routes>
+                <Route path="/family" element={<Family />} />
+                <Route path="/family/delete" element={<FamilyDelete />} />
+              </Routes>
+            </MemoryRouter>
+          </ConfirmProvider>
+        </ProfileContext.Provider>
+      </IdentityContext.Provider>
+    </Provider>,
   )
 }
 

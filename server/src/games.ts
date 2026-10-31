@@ -160,11 +160,27 @@ export async function gameRoutes(app: FastifyInstance) {
 
   const roleOf = async (id: string) => (await pool.query<{ role: string }>('select role from members where id = $1', [id])).rows[0]?.role ?? ''
 
+  // Межсемейная партия доступна участникам только пока между их семьями есть активная связь.
+  const linkedOpponent = (game = 'g', member = '$3') => `exists (
+    select 1 from members opponent
+    join family_connections fc on
+      (fc.family_a_id = ${member}.family_id and fc.family_b_id = opponent.family_id)
+      or (fc.family_b_id = ${member}.family_id and fc.family_a_id = opponent.family_id)
+    where opponent.id = case when ${game}.inviter_id = ${member}.id then ${game}.invitee_id else ${game}.inviter_id end
+  )`
+  const sameFamilyOpponent = (game = 'g', member = '$3') => `exists (
+    select 1 from members opponent
+    where opponent.id = case when ${game}.inviter_id = ${member}.id then ${game}.invitee_id else ${game}.inviter_id end
+      and opponent.family_id = ${member}.family_id
+  )`
+
   // Игра, в которой участвует этот участник, под блокировкой. Чужая и несуществующая одинаково «не найдено».
   async function lockGame(db: PoolClient, member: Member, id: string): Promise<GameRow | null> {
     const { rows } = await db.query<GameRow>(
-      'select * from games where id = $1 and family_id = $2 and (inviter_id = $3 or invitee_id = $3) for update',
-      [id, member.family_id, member.id],
+      `select g.* from games g join members actor on actor.id = $2
+       where g.id = $1 and (g.inviter_id = $2 or g.invitee_id = $2)
+         and (${sameFamilyOpponent('g', 'actor')} or ${linkedOpponent('g', 'actor')}) for update of g`,
+      [id, member.id],
     )
     return rows[0] ?? null
   }
@@ -198,11 +214,12 @@ export async function gameRoutes(app: FastifyInstance) {
     const member = await me(req, reply)
     if (!member) return
     const { rows } = await pool.query<GameRow>(
-      `select * from games
-       where family_id = $1 and (inviter_id = $2 or invitee_id = $2)
-         and (status in ('invited', 'active') or (status = 'finished' and updated_at > now() - make_interval(hours => $3)))
-       order by updated_at desc`,
-      [member.family_id, member.id, FINISHED_VISIBLE_HOURS],
+      `select g.* from games g join members actor on actor.id = $1
+       where (g.inviter_id = $1 or g.invitee_id = $1)
+         and (${sameFamilyOpponent('g', 'actor')} or ${linkedOpponent('g', 'actor')})
+         and (status in ('invited', 'active') or (status = 'finished' and updated_at > now() - make_interval(hours => $2)))
+       order by g.updated_at desc`,
+      [member.id, FINISHED_VISIBLE_HOURS],
     )
     return { games: rows.map(toDto) }
   })
@@ -215,15 +232,16 @@ export async function gameRoutes(app: FastifyInstance) {
       const member = await me(req, reply)
       if (!member) return
       const { rows } = await pool.query<{ kind: GameKind; wins: string; losses: string; draws: string }>(
-        `select kind,
-                count(*) filter (where result->>'winnerId' = $2::uuid::text) as wins,
-                count(*) filter (where result->>'winnerId' = $3::uuid::text) as losses,
+        `select g.kind,
+                count(*) filter (where g.result->>'winnerId' = $1::uuid::text) as wins,
+                count(*) filter (where g.result->>'winnerId' = $2::uuid::text) as losses,
                 count(*) filter (where result->>'winnerId' is null) as draws
-         from games
-         where family_id = $1 and status = 'finished' and result is not null
-           and ((inviter_id = $2::uuid and invitee_id = $3::uuid) or (inviter_id = $3::uuid and invitee_id = $2::uuid))
-         group by kind`,
-        [member.family_id, member.id, req.query.opponentId],
+         from games g join members actor on actor.id = $1
+         where g.status = 'finished' and g.result is not null
+           and ((g.inviter_id = $1::uuid and g.invitee_id = $2::uuid) or (g.inviter_id = $2::uuid and g.invitee_id = $1::uuid))
+           and (${sameFamilyOpponent('g', 'actor')} or ${linkedOpponent('g', 'actor')})
+         group by g.kind`,
+        [member.id, req.query.opponentId],
       )
       const byKind = new Map(rows.map((r) => [r.kind, r]))
       return {
@@ -238,7 +256,10 @@ export async function gameRoutes(app: FastifyInstance) {
   app.get<{ Params: { id: string } }>('/api/games/:id', { schema: { params: idParams } }, async (req, reply) => {
     const member = await me(req, reply)
     if (!member) return
-    const { rows } = await pool.query<GameRow>('select * from games where id = $1 and family_id = $2 and (inviter_id = $3 or invitee_id = $3)', [req.params.id, member.family_id, member.id])
+    const { rows } = await pool.query<GameRow>(
+      `select g.* from games g join members actor on actor.id = $2
+       where g.id = $1 and (g.inviter_id = $2 or g.invitee_id = $2)
+         and (${sameFamilyOpponent('g', 'actor')} or ${linkedOpponent('g', 'actor')})`, [req.params.id, member.id])
     if (!rows[0]) return reply.code(404).send({ error: 'game_not_found' })
     return { game: toDto(rows[0]) }
   })
@@ -261,7 +282,12 @@ export async function gameRoutes(app: FastifyInstance) {
       if (!member) return
       const { kind, opponentId } = req.body
       if (opponentId === member.id) return reply.code(400).send({ error: 'invalid_opponent' })
-      const { rows: opponents } = await pool.query<{ id: string; role: string }>('select id, role from members where id = $1 and family_id = $2', [opponentId, member.family_id])
+      const { rows: opponents } = await pool.query<{ id: string; role: string }>(
+        `select opponent.id, opponent.role from members opponent
+         where opponent.id = $1 and (opponent.family_id = $2 or exists (
+           select 1 from family_connections fc where
+             (fc.family_a_id = $2 and fc.family_b_id = opponent.family_id) or (fc.family_b_id = $2 and fc.family_a_id = opponent.family_id)
+         ))`, [opponentId, member.family_id])
       if (!opponents[0]) return reply.code(404).send({ error: 'member_not_found' })
 
       let row: GameRow

@@ -131,6 +131,8 @@ interface Member {
 }
 
 interface Chat {
+  // семья-хранилище: для межсемейного чата это канонически меньший id двух семей
+  familyId: string
   // для запросов: ключ в таблице сообщений
   key: string
   // кто участвует (для рассылки)
@@ -304,15 +306,22 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
   async function resolveChat(member: Member, chat: string, reply: FastifyReply): Promise<Chat | null> {
     if (chat === FAMILY_CHAT) {
       const { rows } = await pool.query('select id from members where family_id = $1', [member.family_id])
-      return { key: FAMILY_CHAT, participants: rows.map((r) => r.id as string), otherId: null, eventTitle: null, view: () => FAMILY_CHAT }
+      return { familyId: member.family_id, key: FAMILY_CHAT, participants: rows.map((r) => r.id as string), otherId: null, eventTitle: null, view: () => FAMILY_CHAT }
     }
     if (chat.startsWith(EVENT_CHAT_PREFIX)) {
       // чат события доступен тем, кому видно само событие; чужое и несуществующее одинаково «не найдено»
       const eventId = chat.slice(EVENT_CHAT_PREFIX.length)
-      const { rows: events } = await pool.query<{ title: string; allFamily: boolean; authorId: string }>(
-        `select e.title, e.all_family as "allFamily", e.author_id as "authorId" from events e
-         where e.id = $1 and e.family_id = $2
-           and (e.all_family or e.author_id = $3 or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = $3))`,
+      const { rows: events } = await pool.query<{ title: string; familyId: string }>(
+        `select e.title, e.family_id as "familyId" from events e
+         where e.id = $1 and (
+           (e.family_id = $2 and (e.all_family or e.author_id = $3 or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = $3)))
+           or exists (select 1 from event_members em join members target on target.id = em.member_id
+             join family_connections fc on (fc.family_a_id = e.family_id and fc.family_b_id = target.family_id) or (fc.family_b_id = e.family_id and fc.family_a_id = target.family_id)
+             where em.event_id = e.id and em.member_id = $3)
+           or exists (select 1 from event_family_targets ef join family_connections fc on
+             (fc.family_a_id = e.family_id and fc.family_b_id = ef.family_id) or (fc.family_b_id = e.family_id and fc.family_a_id = ef.family_id)
+             where ef.event_id = e.id and ef.family_id = $2)
+         )`,
         [eventId, member.family_id, member.id],
       )
       if (!events[0]) {
@@ -320,23 +329,35 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
         return null
       }
       const { rows: people } = await pool.query<{ id: string }>(
-        `select m.id from members m
-         where m.family_id = $1
-           and ($2 or m.id = $3 or exists (select 1 from event_members em where em.event_id = $4 and em.member_id = m.id))`,
-        [member.family_id, events[0].allFamily, events[0].authorId, eventId],
+        `select distinct m.id from members m join events e on e.id = $1 and e.family_id = $2
+         where (m.family_id = e.family_id and (e.all_family or m.id = e.author_id or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = m.id)))
+           or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = m.id and (m.family_id = e.family_id or exists (
+             select 1 from family_connections fc where (fc.family_a_id = e.family_id and fc.family_b_id = m.family_id) or (fc.family_b_id = e.family_id and fc.family_a_id = m.family_id)
+           )))
+           or exists (select 1 from event_family_targets ef join family_connections fc on
+             (fc.family_a_id = e.family_id and fc.family_b_id = ef.family_id) or (fc.family_b_id = e.family_id and fc.family_a_id = ef.family_id)
+             where ef.event_id = e.id and ef.family_id = m.family_id)`,
+        [eventId, events[0].familyId],
       )
-      return { key: eventChatKey(eventId), participants: people.map((p) => p.id), otherId: null, eventTitle: events[0].title, view: () => chat }
+      return { familyId: events[0].familyId, key: eventChatKey(eventId), participants: people.map((p) => p.id), otherId: null, eventTitle: events[0].title, view: () => chat }
     }
     if (chat === member.id) {
       reply.code(400).send({ error: 'invalid_chat' })
       return null
     }
-    const { rows } = await pool.query('select id from members where id = $1 and family_id = $2', [chat, member.family_id])
+    const { rows } = await pool.query<{ id: string; family_id: string }>(
+      `select id, family_id from members where id = $1 and
+       (family_id = $2 or exists (
+         select 1 from family_connections c where
+           (c.family_a_id = $2 and c.family_b_id = members.family_id) or
+           (c.family_b_id = $2 and c.family_a_id = members.family_id)
+       ))`, [chat, member.family_id])
     if (!rows[0]) {
       reply.code(404).send({ error: 'chat_not_found' })
       return null
     }
-    return { key: directKey(member.id, chat), participants: [member.id, chat], otherId: chat, eventTitle: null, view: (participantId, actorId) => (participantId === actorId ? chat : actorId) }
+    const familyId = [member.family_id, rows[0].family_id].sort()[0]
+    return { familyId, key: directKey(member.id, chat), participants: [member.id, chat], otherId: chat, eventTitle: null, view: (participantId, actorId) => (participantId === actorId ? chat : actorId) }
   }
 
   // Список чатов: общий и по одному с каждым участником, свежая активность выше.
@@ -346,37 +367,54 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     if (!member) return
 
     const { rows: others } = await pool.query(
-      'select id, name, created_at as "createdAt" from members where family_id = $1 and id <> $2 order by lower(name)',
+      `select m.id, m.name, m.family_id as "familyId", m.created_at as "createdAt"
+       from members m where m.id <> $2 and (
+         m.family_id = $1 or exists (
+           select 1 from family_connections c where
+             (c.family_a_id = $1 and c.family_b_id = m.family_id) or (c.family_b_id = $1 and c.family_a_id = m.family_id)
+         )
+       ) order by lower(m.name)`,
       [member.family_id, member.id],
     )
     // чаты событий появляются в списке, когда в них написали первое сообщение (и только у тех, кому видно событие)
-    const { rows: eventChats } = await pool.query<{ id: string; title: string }>(
-      `select e.id, e.title from events e
-       where e.family_id = $1
-         and (e.all_family or e.author_id = $2 or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = $2))
+    const { rows: eventChats } = await pool.query<{ id: string; title: string; familyId: string }>(
+      `select e.id, e.title, e.family_id as "familyId" from events e
+       where (
+         (e.family_id = $1 and (e.all_family or e.author_id = $2 or exists (select 1 from event_members em where em.event_id = e.id and em.member_id = $2)))
+         or exists (select 1 from event_members em join members target on target.id = em.member_id
+           join family_connections fc on (fc.family_a_id = e.family_id and fc.family_b_id = target.family_id) or (fc.family_b_id = e.family_id and fc.family_a_id = target.family_id)
+           where em.event_id = e.id and em.member_id = $2)
+         or exists (select 1 from event_family_targets ef join family_connections fc on
+           (fc.family_a_id = e.family_id and fc.family_b_id = ef.family_id) or (fc.family_b_id = e.family_id and fc.family_a_id = ef.family_id)
+           where ef.event_id = e.id and ef.family_id = $1)
+       )
          and exists (select 1 from messages m where m.family_id = e.family_id and m.chat_key = 'event:' || e.id)`,
       [member.family_id, member.id],
     )
-    const chats: { id: string; key: string; event?: { id: string; title: string } }[] = [
-      { id: FAMILY_CHAT, key: FAMILY_CHAT },
-      ...others.map((o) => ({ id: o.id as string, key: directKey(member.id, o.id) })),
-      ...eventChats.map((e) => ({ id: eventChatId(e.id), key: eventChatKey(e.id), event: { id: e.id, title: e.title } })),
+    const chats: { id: string; key: string; familyId: string; event?: { id: string; title: string } }[] = [
+      { id: FAMILY_CHAT, key: FAMILY_CHAT, familyId: member.family_id },
+      ...others.map((o) => ({ id: o.id as string, key: directKey(member.id, o.id), familyId: [member.family_id, o.familyId as string].sort()[0] })),
+      ...eventChats.map((e) => ({ id: eventChatId(e.id), key: eventChatKey(e.id), familyId: e.familyId, event: { id: e.id, title: e.title } })),
     ]
     const keys = chats.map((c) => c.key)
+    const pairFamilies = chats.map((c) => c.familyId)
 
     const { rows: lasts } = await pool.query<MessageRow & { chatKey: string }>(
-      `select distinct on (chat_key) chat_key as "chatKey", id, sender_id as "senderId", text, created_at as "createdAt", photo_only as "photoOnly"
-       from messages where family_id = $1 and chat_key = any($2)
-       order by chat_key, created_at desc, id desc`,
-      [member.family_id, keys],
+      `select distinct on (m.chat_key) m.chat_key as "chatKey", m.id, m.sender_id as "senderId", m.text, m.created_at as "createdAt", m.photo_only as "photoOnly"
+       from messages m join unnest($1::uuid[], $2::text[]) as pair(family_id, chat_key)
+         on pair.family_id = m.family_id and pair.chat_key = m.chat_key
+       order by m.chat_key, m.created_at desc, m.id desc`,
+      [pairFamilies, keys],
     )
     const { rows: unreads } = await pool.query<{ chatKey: string; count: string }>(
       `select m.chat_key as "chatKey", count(*) as count
        from messages m left join chat_reads r on r.member_id = $2 and r.chat_key = m.chat_key
-       where m.family_id = $1 and m.chat_key = any($3) and m.sender_id <> $2
+       join unnest($1::uuid[], $3::text[]) as pair(family_id, chat_key)
+         on pair.family_id = m.family_id and pair.chat_key = m.chat_key
+       where m.sender_id <> $2
          and m.created_at > coalesce(r.last_read_at, $4)
        group by m.chat_key`,
-      [member.family_id, member.id, keys, member.created_at],
+      [pairFamilies, member.id, keys, member.created_at],
     )
     const { rows: mutes } = await pool.query<{ chatKey: string }>('select chat_key as "chatKey" from chat_mutes where member_id = $1 and chat_key = any($2)', [member.id, keys])
     const mutedKeys = new Set(mutes.map((m) => m.chatKey))
@@ -454,14 +492,14 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
              select ms2.created_at, ms2.id, -mm2.position from message_media mm2 join messages ms2 on ms2.id = mm2.message_id
              where mm2.media_id = $3 and ms2.chat_key = $2))
          order by ms.created_at desc, ms.id desc, mm.position asc limit $4`,
-        [member.family_id, chat.key, req.query.before ?? null, limit + 1],
+        [chat.familyId, chat.key, req.query.before ?? null, limit + 1],
       )
       const now = new Date()
       const items = rows.slice(0, limit).map((r) => ({
         id: r.id,
         width: r.width,
         height: r.height,
-        ...mediaUrls(secret, member.family_id, r.id, now),
+        ...mediaUrls(secret, chat.familyId, r.id, now),
         messageId: r.messageId,
         senderId: r.senderId,
         createdAt: r.createdAt,
@@ -488,7 +526,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
          where family_id = $1 and chat_key = $2
            and ($3::uuid is null or (created_at, id) < (select created_at, id from messages where id = $3 and chat_key = $2))
          order by created_at desc, id desc limit $4`,
-        [member.family_id, chat.key, req.query.before ?? null, limit + 1],
+        [chat.familyId, chat.key, req.query.before ?? null, limit + 1],
       )
       const hasMore = rows.length > limit
 
@@ -549,7 +587,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
          where family_id = $1 and chat_key = $2 and not photo_only and text ilike $3
            and ($4::uuid is null or (created_at, id) < (select created_at, id from messages where id = $4 and chat_key = $2))
          order by created_at desc, id desc limit $5`,
-        [member.family_id, chat.key, pattern, req.query.before ?? null, limit + 1],
+        [chat.familyId, chat.key, pattern, req.query.before ?? null, limit + 1],
       )
       return { messages: rows.slice(0, limit).map(({ id, senderId, text, createdAt }) => ({ id, senderId, text, createdAt })), hasMore: rows.length > limit }
     },
@@ -573,7 +611,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
          where family_id = $1 and chat_key = $2 and not photo_only and text ~* 'https?://'
            and ($3::uuid is null or (created_at, id) < (select created_at, id from messages where id = $3 and chat_key = $2))
          order by created_at desc, id desc limit $4`,
-        [member.family_id, chat.key, req.query.before ?? null, limit + 1],
+        [chat.familyId, chat.key, req.query.before ?? null, limit + 1],
       )
       const items = rows.slice(0, limit).flatMap((m) => extractLinks(m.text).map((url) => ({ url, messageId: m.id, senderId: m.senderId, createdAt: m.createdAt })))
       return { items, hasMore: rows.length > limit, lastMessageId: rows.length > 0 ? rows[Math.min(limit, rows.length) - 1].id : null }
@@ -595,13 +633,13 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       if (!req.headers['content-type']?.startsWith('image/jpeg')) return reply.code(415).send({ error: 'invalid_media' })
       if (!Buffer.isBuffer(req.body) || req.body.length === 0) return reply.code(400).send({ error: 'invalid_media' })
 
-      const { rows: used } = await pool.query<{ total: string }>('select coalesce(sum(size), 0) as total from media where family_id = $1', [member.family_id])
+      const { rows: used } = await pool.query<{ total: string }>('select coalesce(sum(size), 0) as total from media where family_id = $1', [chat.familyId])
       if (Number(used[0].total) + req.body.length > mediaQuotaBytes()) return reply.code(413).send({ error: 'media_quota' })
 
       const id = randomUUID()
       let result
       try {
-        result = await media.client.upload(member.family_id, id, req.body)
+        result = await media.client.upload(chat.familyId, id, req.body)
       } catch (err) {
         if (err instanceof MediaRejected) return reply.code(400).send({ error: 'invalid_media' })
         req.log.error(err)
@@ -609,7 +647,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       }
       await pool.query(
         'insert into media (id, family_id, uploader_id, width, height, size) values ($1, $2, $3, $4, $5, $6)',
-        [id, member.family_id, member.id, result.width, result.height, result.size],
+        [id, chat.familyId, member.id, result.width, result.height, result.size],
       )
       return reply.code(201).send({ mediaId: id, width: result.width, height: result.height })
     },
@@ -634,16 +672,16 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       if (length > maxVideoBytes()) return reply.code(413).send({ error: 'payload_too_large' })
       if (!isStream(req.body) || length === 0) return reply.code(400).send({ error: 'invalid_video' })
 
-      const { rows: used } = await pool.query<{ total: string }>('select coalesce(sum(size), 0) as total from media where family_id = $1', [member.family_id])
+      const { rows: used } = await pool.query<{ total: string }>('select coalesce(sum(size), 0) as total from media where family_id = $1', [chat.familyId])
       if (Number(used[0].total) + length > mediaQuotaBytes()) return reply.code(413).send({ error: 'media_quota' })
 
-      const release = videoGate.acquire(member.family_id)
+      const release = videoGate.acquire(chat.familyId)
       if (!release) return reply.code(503).header('Retry-After', '60').send({ error: 'media_busy' })
 
       const id = randomUUID()
       let result
       try {
-        result = await media.client.uploadVideo(member.family_id, id, limitedStream(req.body, length), length, type.split(';')[0])
+        result = await media.client.uploadVideo(chat.familyId, id, limitedStream(req.body, length), length, type.split(';')[0])
       } catch (err) {
         if (err instanceof MediaRejected) return reply.code(400).send({ error: err.code === 'video_too_long' || err.code === 'video_failed' ? err.code : 'invalid_video' })
         req.log.error(err)
@@ -653,7 +691,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       }
       await pool.query(
         "insert into media (id, family_id, uploader_id, kind, width, height, duration, size) values ($1, $2, $3, 'video', $4, $5, $6, $7)",
-        [id, member.family_id, member.id, result.width, result.height, result.duration, result.size],
+        [id, chat.familyId, member.id, result.width, result.height, result.duration, result.size],
       )
       return reply.code(201).send({ videoId: id, width: result.width, height: result.height, duration: result.duration })
     },
@@ -686,19 +724,19 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       if (!name) return reply.code(400).send({ error: 'invalid_file' })
       if (isBlockedFile(name)) return reply.code(415).send({ error: 'file_type_blocked' })
 
-      const { rows: used } = await pool.query<{ total: string }>('select coalesce(sum(size), 0) as total from media where family_id = $1', [member.family_id])
+      const { rows: used } = await pool.query<{ total: string }>('select coalesce(sum(size), 0) as total from media where family_id = $1', [chat.familyId])
       if (Number(used[0].total) + length > mediaQuotaBytes()) return reply.code(413).send({ error: 'media_quota' })
 
       const id = randomUUID()
       try {
-        await media.client.uploadFile(member.family_id, id, limitedStream(req.body, length), length)
+        await media.client.uploadFile(chat.familyId, id, limitedStream(req.body, length), length)
       } catch (err) {
         req.log.error(err)
         return reply.code(502).send({ error: 'media_unavailable' })
       }
       await pool.query(
         "insert into media (id, family_id, uploader_id, kind, file_name, size) values ($1, $2, $3, 'file', $4, $5)",
-        [id, member.family_id, member.id, name, length],
+        [id, chat.familyId, member.id, name, length],
       )
       return reply.code(201).send({ fileId: id, name, size: length })
     },
@@ -716,7 +754,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       // отвечать можно только на сообщение этого же чата
       const replyTo = req.body.replyTo ?? null
       if (replyTo) {
-        const { rows } = await pool.query('select 1 from messages where id = $1 and family_id = $2 and chat_key = $3', [replyTo, member.family_id, chat.key])
+        const { rows } = await pool.query('select 1 from messages where id = $1 and family_id = $2 and chat_key = $3', [replyTo, chat.familyId, chat.key])
         if (!rows[0]) return reply.code(400).send({ error: 'invalid_reply' })
       }
 
@@ -740,7 +778,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
           // фото должны быть загружены этим же участником в его семье и ещё не прикреплены; блокировка защищает от двух сообщений с одним файлом
           const { rows: owned } = await tx.query<{ id: string; kind: string; fileName: string | null }>(
             'select id, kind, file_name as "fileName" from media where id = any($1) and family_id = $2 and uploader_id = $3 and attached_at is null for update',
-            [mediaIds, member.family_id, member.id],
+            [mediaIds, chat.familyId, member.id],
           )
           // все на месте, и фото в mediaIds, а файлы в fileIds (виды не путаются)
           const kindOf = new Map(owned.map((o) => [o.id, o.kind]))
@@ -754,7 +792,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
         const { rows } = await tx.query<MessageRow>(
           `insert into messages (family_id, chat_key, sender_id, text, photo_only, reply_to) values ($1, $2, $3, $4, $5, $6)
            returning id, sender_id as "senderId", text, created_at as "createdAt", photo_only as "photoOnly", reply_to as "replyToId"`,
-          [member.family_id, chat.key, member.id, text, photoOnly, replyTo],
+          [chat.familyId, chat.key, member.id, text, photoOnly, replyTo],
         )
         message = toMessage(rows[0])
         for (const [position, mediaId] of mediaIds.entries()) {
@@ -849,10 +887,10 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
       await client.query('begin')
       const { rows } = await client.query<{ id: string }>(
         `select mm.media_id as id from message_media mm join messages m on m.id = mm.message_id where m.family_id = $1 and m.chat_key = $2`,
-        [member.family_id, chat.key],
+        [chat.familyId, chat.key],
       )
       files = rows
-      await client.query('delete from messages where family_id = $1 and chat_key = $2', [member.family_id, chat.key])
+      await client.query('delete from messages where family_id = $1 and chat_key = $2', [chat.familyId, chat.key])
       if (files.length > 0) await client.query('delete from media where id = any($1)', [files.map((f) => f.id)])
       await client.query('commit')
     } catch (err) {
@@ -866,7 +904,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     if (media) {
       for (const f of files) {
         try {
-          await media.client.delete(member.family_id, f.id)
+          await media.client.delete(chat.familyId, f.id)
         } catch (err) {
           req.log.warn(err)
         }
@@ -894,7 +932,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     const { rows } = await pool.query<MessageRow>(
       `select id, sender_id as "senderId", text, created_at as "createdAt", photo_only as "photoOnly", reply_to as "replyToId", edited_at as "editedAt"
        from messages where id = $1 and family_id = $2 and chat_key = $3`,
-      [req.params.messageId, member.family_id, chat.key],
+      [req.params.messageId, chat.familyId, chat.key],
     )
     if (!rows[0]) {
       reply.code(404).send({ error: 'message_not_found' })
@@ -955,7 +993,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     if (media) {
       for (const f of files) {
         try {
-          await media.client.delete(member.family_id, f.id)
+          await media.client.delete(chat.familyId, f.id)
         } catch (err) {
           req.log.warn(err)
         }
@@ -976,7 +1014,7 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
     const { rows } = await pool.query(
       `select 1 from messages m left join chat_reads r on r.member_id = $2 and r.chat_key = m.chat_key
        where m.family_id = $1 and m.chat_key = $3 and m.sender_id <> $2 and m.created_at > coalesce(r.last_read_at, $4) limit 1`,
-      [member.family_id, member.id, chat.key, member.created_at],
+      [chat.familyId, member.id, chat.key, member.created_at],
     )
     await pool.query(
       `insert into chat_reads (member_id, chat_key, last_read_at) values ($1, $2, now())
@@ -1008,17 +1046,18 @@ export async function chatRoutes(app: FastifyInstance, { media = null }: Partial
 
       const chat = await resolveChat(member, req.params.chat, reply)
       if (!chat) return
-      const { rows: found } = await pool.query<MessageRow & { senderRole: string }>(
+      const { rows: found } = await pool.query<MessageRow & { senderRole: string; senderFamilyId: string }>(
         `select m.id, m.sender_id as "senderId", m.text, m.created_at as "createdAt", m.photo_only as "photoOnly",
-                m.reply_to as "replyToId", m.edited_at as "editedAt", s.role as "senderRole"
+                m.reply_to as "replyToId", m.edited_at as "editedAt", s.role as "senderRole", s.family_id as "senderFamilyId"
          from messages m join members s on s.id = m.sender_id
          where m.id = $1 and m.family_id = $2 and m.chat_key = $3`,
-        [req.params.messageId, member.family_id, chat.key],
+        [req.params.messageId, chat.familyId, chat.key],
       )
       const row = found[0]
       if (!row) return reply.code(404).send({ error: 'message_not_found' })
       // монеты только на сообщения детей
       if (coins !== undefined && row.senderRole !== 'child') return reply.code(400).send({ error: 'not_a_child_message' })
+      if (coins !== undefined && row.senderFamilyId !== member.family_id) return reply.code(403).send({ error: 'same_family_only' })
 
       const db = await pool.connect()
       try {

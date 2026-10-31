@@ -14,6 +14,7 @@ import { ageFromBirthDate, formatAge, formatBirthDate } from '@/lib/date'
 import { ROLE_LABELS } from '@/lib/roles'
 import { useProfile } from '@/profile/context'
 import { useGetCoinBalanceQuery } from '@/store/coins'
+import { useGetFamilyConnectionsQuery } from '@/store/familyConnections'
 
 // Баланс монет ребёнка на его странице, для взрослых; нажатие открывает историю начислений
 function ChildCoins({ memberId }: { memberId: string }) {
@@ -28,15 +29,17 @@ function ChildCoins({ memberId }: { memberId: string }) {
 export function MemberScreen({ memberId }: { memberId: string }) {
   const { identity } = useIdentity()
   const { data, failed } = useProfile()
+  const { data: linked } = useGetFamilyConnectionsQuery()
   const router = useRouter()
   const { colors } = useTheme()
 
   // свой профиль открывается на странице профиля
   if (memberId === identity?.memberId) return <Redirect href="/profile" />
 
-  const member = data?.members.find((m) => m.id === memberId)
+  const member = data?.members.find((m) => m.id === memberId) ?? linked?.connections.flatMap((family) => family.members).find((m) => m.id === memberId)
+  const isLinkedMember = !!member && !data?.members.some((m) => m.id === member.id)
   // участника нет в семье (например, неверная ссылка)
-  if (data && !member) return <Redirect href="/family" />
+  if (linked && !member) return <Redirect href="/family" />
 
   return (
     <Screen header={<PageHeader fallback="/family">Профиль</PageHeader>}>
@@ -77,7 +80,7 @@ export function MemberScreen({ memberId }: { memberId: string }) {
         </View>
       )}
       {/* монеты, цели и расписания ребёнка видят взрослые (расписания правят только родители) */}
-      {member?.role === 'child' && identity?.role !== 'child' && (
+      {member?.role === 'child' && !isLinkedMember && identity?.role !== 'child' && (
         <>
           <ChildCoins memberId={member.id} />
           <MenuLink to={{ pathname: '/family/[memberId]/goals', params: { memberId: member.id } }}>Цели</MenuLink>

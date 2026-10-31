@@ -16,6 +16,7 @@ import { ProfileForm } from '@/pages/ProfileEdit/components/ProfileForm'
 import TaskView from '@/pages/TaskView'
 import { TaskEditor } from '@/pages/TaskForm/components/TaskEditor'
 import { emptyForm } from '@/pages/TaskForm/utils'
+import Family from '@/pages/Family'
 import { ProfileContext } from '@/profile/context'
 import { RealtimeContext } from '@/realtime/context'
 import { occ, task } from '../helpers'
@@ -27,6 +28,8 @@ vi.mock('@/api', async (importOriginal) => ({
   uncompleteTask: vi.fn(),
   confirmTask: vi.fn(),
   createGoal: vi.fn(),
+  getFamilyConnections: vi.fn(),
+  sendFamilyConnectionRequest: vi.fn(),
 }))
 
 // Два нажатия подряд в одном «тике»: React не успевает перерисовать кнопку между ними,
@@ -55,6 +58,8 @@ beforeEach(() => {
   vi.mocked(api.confirmTask).mockReset()
   vi.mocked(api.uncompleteTask).mockReset()
   vi.mocked(api.createGoal).mockReset()
+  vi.mocked(api.getFamilyConnections).mockReset()
+  vi.mocked(api.sendFamilyConnectionRequest).mockReset()
 })
 
 describe('TaskView: отметка и отправка на проверку', () => {
@@ -114,6 +119,31 @@ describe('useReview: подтвердить и вернуть в списках'
 })
 
 describe('создание и сохранение', () => {
+  it('Family: двойное нажатие «Отправить запрос» создаёт только один запрос', async () => {
+    let finish!: () => void
+    const request = new Promise<{ id: string }>((resolve) => { finish = () => resolve({ id: 'request' }) })
+    vi.mocked(api.getFamilyConnections).mockResolvedValue({ surname: null, connections: [], requests: [] })
+    vi.mocked(api.sendFamilyConnectionRequest).mockReturnValue(request)
+    const me = { id: 'm1', name: 'Лена', role: 'mama' as const, avatar: null, isOwner: true }
+    render(
+      <Provider store={makeStore({ hydrate: false })}>
+        <ConfirmProvider>
+          <IdentityContext.Provider value={{ identity: { familyCode: 'family', memberId: 'm1', name: 'Лена', role: 'mama', token: 'tok' }, save: async () => {}, clear: async () => {} }}>
+            <ProfileContext.Provider value={{ data: { me: { ...me, email: 'x@y.z' }, members: [me] }, failed: false }}>
+              <MemoryRouter><Family /></MemoryRouter>
+            </ProfileContext.Provider>
+          </IdentityContext.Provider>
+        </ConfirmProvider>
+      </Provider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Связи' }))
+    fireEvent.change(screen.getByLabelText('Код семьи'), { target: { value: 'family-2' } })
+    fireEvent.change(screen.getByLabelText('Фамилия вашей семьи'), { target: { value: 'Ивановы' } })
+    twice(screen.getByRole('button', { name: 'Отправить запрос' }))
+    expect(api.sendFamilyConnectionRequest).toHaveBeenCalledTimes(1)
+    finish()
+  })
+
   it('TaskEditor: «Создать» дважды подряд вызывает onSubmit один раз', async () => {
     const request = slow()
     const onSubmit = vi.fn().mockReturnValue(request.promise)

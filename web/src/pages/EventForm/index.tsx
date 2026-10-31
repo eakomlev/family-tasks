@@ -19,6 +19,7 @@ import { useInFlight } from '@/lib/useInFlight'
 import { useProfile } from '@/profile/context'
 import { toApiError } from '@/store/api'
 import { useCreateEventMutation, useDeleteEventMutation, useGetEventQuery, useUpdateEventMutation } from '@/store/events'
+import { useGetFamilyConnectionsQuery } from '@/store/familyConnections'
 import { DateRow, Mode, Participants, People, PersonChip } from './styles'
 import { emptyEventForm, fromEvent, toInput, validateEvent, withEnd, withStart, type EventFormState } from './utils'
 import { describeEventError } from './errors'
@@ -34,6 +35,7 @@ export default function EventForm() {
   const confirm = useConfirm()
   const { identity } = useIdentity()
   const { data: profile } = useProfile()
+  const linkedFamilies = useGetFamilyConnectionsQuery()
 
   const event = useGetEventQuery(id ?? '', { skip: !identity || !id })
   const [createEvent] = useCreateEventMutation()
@@ -66,6 +68,9 @@ export default function EventForm() {
   }
   const toggle = (memberId: string) =>
     patch({ memberIds: form.memberIds.includes(memberId) ? form.memberIds.filter((x) => x !== memberId) : [...form.memberIds, memberId] })
+  const toggleFamily = (familyId: string) =>
+    patch({ familyIds: form.familyIds.includes(familyId) ? form.familyIds.filter((x) => x !== familyId) : [...form.familyIds, familyId] })
+  const linkedMemberIds = linkedFamilies.data?.connections.flatMap((family) => family.members.map((member) => member.id)) ?? []
 
   const save = guard(async (e?: FormEvent) => {
     e?.preventDefault()
@@ -73,8 +78,8 @@ export default function EventForm() {
     if (problem) return setError(problem)
     setBusy(true)
     try {
-      if (id) await updateEvent({ id, input: toInput(form) }).unwrap().catch(toApiError)
-      else await createEvent(toInput(form)).unwrap().catch(toApiError)
+      if (id) await updateEvent({ id, input: toInput(form, linkedMemberIds) }).unwrap().catch(toApiError)
+      else await createEvent(toInput(form, linkedMemberIds)).unwrap().catch(toApiError)
       navigate(`/calendar?${new URLSearchParams({ ...(view ? { view } : {}), date: form.startDate })}`, { replace: true })
     } catch (err) {
       setError(describeEventError(err))
@@ -150,10 +155,29 @@ export default function EventForm() {
                   ))}
                 </People>
                 <Notice $tone="muted">
-                  {form.memberIds.length === 0 ? 'Событие увидите только вы.' : 'Событие увидят только выбранные участники и вы.'}
+                  {form.memberIds.length === 0 && form.familyIds.length === 0 ? 'Событие увидите только вы.' : 'Событие увидят выбранные участники и семьи.'}
                 </Notice>
               </>
             )}
+            {!!linkedFamilies.data?.connections.length && <>
+              <h3>Связанные семьи</h3>
+              <People>
+                {linkedFamilies.data.connections.map((family) => (
+                  <PersonChip key={family.familyId} type="button" $active={form.familyIds.includes(family.familyId)} aria-pressed={form.familyIds.includes(family.familyId)} onClick={() => toggleFamily(family.familyId)}>
+                    Вся семья {family.surname ?? family.code}
+                  </PersonChip>
+                ))}
+              </People>
+              <Notice $tone="muted">Можно пригласить связанную семью целиком или выбрать отдельных участников.</Notice>
+              <People>
+                {linkedFamilies.data.connections.flatMap((family) => family.members).map((member) => (
+                  <PersonChip key={member.id} type="button" $active={form.memberIds.includes(member.id)} aria-pressed={form.memberIds.includes(member.id)} onClick={() => toggle(member.id)}>
+                    <Avatar name={memberLabel(member, identity.role)} seed={member.id} src={member.avatar} size="1.7rem" />
+                    {memberLabel(member, identity.role)}
+                  </PersonChip>
+                ))}
+              </People>
+            </>}
           </Participants>
 
           {error && <Notice $tone="error">{error}</Notice>}
