@@ -36,7 +36,7 @@ export function PillTabs({ tabs, index, position, onPress }: { tabs: PillTab[]; 
         flexDirection: 'row',
         gap: GAP,
         // как у нижней панели табов: полупрозрачная подложка с лёгким размытием
-        backgroundColor: withAlpha(colors.tabbarBg, 0.55),
+        backgroundColor: withAlpha(colors.tabbarBg, 0.4),
         borderWidth: 1,
         borderColor: colors.tabbarBorder,
         shadowColor: '#000',

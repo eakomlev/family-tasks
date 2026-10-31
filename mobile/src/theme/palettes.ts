@@ -124,7 +124,7 @@ export const lightPalette: Palette = {
 }
 
 export const darkPalette: Palette = {
-  bg: '#0b0e1f',
+  bg: '#000000',
   surface: '#161a33',
   text: '#eef0ff',
   muted: '#9aa0c7',
@@ -177,6 +177,6 @@ export const darkPalette: Palette = {
   calHoliday: '#f87171',
   authA: '#1d1a5e',
   authB: '#161a33',
-  authC: '#0b0e1f',
+  authC: '#000000',
   authCard: 'rgba(22, 26, 51, 0.78)',
 }
