@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Animated, Pressable, RefreshControl, ScrollView, View, type ScrollViewInstance } from 'react-native'
+import { Animated, Pressable, RefreshControl, ScrollView, View } from 'react-native'
 import PagerView from 'react-native-pager-view'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -67,20 +67,12 @@ export function CalendarScreen() {
   const weekEnd = endOfWeek(anchor)
   const weekDays = useMemo(() => eachDay(weekStart, weekEnd), [weekStart, weekEnd])
   const [selectedWeekDay, setSelectedWeekDay] = useState(() => (weekDays.includes(today) ? today : anchor))
-  const weekScroll = useRef<ScrollViewInstance>(null)
-  const weekDayOffsets = useRef(new Map<string, number>())
 
   // При входе в недельный вид выбираем сегодня, если он в этой неделе; иначе сохраняем выбор или берём её первый день.
   useEffect(() => {
     if (view !== 'week') return
     setSelectedWeekDay((current) => (today >= weekStart && today <= weekEnd ? today : current >= weekStart && current <= weekEnd ? current : weekStart))
   }, [view, today, weekStart, weekEnd])
-
-  useEffect(() => {
-    if (view !== 'week') return
-    const y = weekDayOffsets.current.get(selectedWeekDay)
-    if (y !== undefined) weekScroll.current?.scrollTo({ y: Math.max(0, y - 8), animated: false })
-  }, [view, selectedWeekDay, weekStart])
 
   // одни данные на все три страницы: период месяца (целые недели) вмещает и неделю, и день
   const range = rangeFor('month', anchor)
@@ -113,8 +105,6 @@ export function CalendarScreen() {
   const selectWeekDay = (day: string) => {
     setSelectedWeekDay(day)
     go('week', day)
-    const y = weekDayOffsets.current.get(day)
-    if (y !== undefined) weekScroll.current?.scrollTo({ y: Math.max(0, y - 8), animated: true })
   }
   const loading = (!eventData && events.isFetching) || (!taskData && tasks.isFetching)
   const refresh = () => void dispatch(api.util.invalidateTags(['Events', 'Tasks', 'Trainings']))
@@ -254,24 +244,12 @@ export function CalendarScreen() {
               )
             })}
           </View>
-          <ScrollView ref={weekScroll} style={{ flex: 1 }} contentContainerStyle={{ gap: 14, paddingBottom: 8 }} refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} />}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 14, paddingBottom: 8 }} refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} />}>
             {loading && <Text $tone="muted">Загрузка…</Text>}
-            {weekDays.map((day) => (
-              <View
-                key={day}
-                style={{ gap: 6 }}
-                onLayout={(event) => {
-                  const y = event.nativeEvent.layout.y
-                  weekDayOffsets.current.set(day, y)
-                  if (day === selectedWeekDay) weekScroll.current?.scrollTo({ y: Math.max(0, y - 8), animated: false })
-                }}
-              >
-                <Pressable onPress={() => go('day', day)} accessibilityRole="button">
-                  <Heading style={day === today || day === selectedWeekDay ? { color: colors.accent } : undefined}>{formatDayHeading(day)}</Heading>
-                </Pressable>
-                <AgendaList items={byDay.get(day) ?? []} emptyText="—" />
-              </View>
-            ))}
+            <Pressable onPress={() => go('day', selectedWeekDay)} accessibilityRole="button">
+              <Heading style={{ color: colors.accent }}>{formatDayHeading(selectedWeekDay)}</Heading>
+            </Pressable>
+            <AgendaList items={byDay.get(selectedWeekDay) ?? []} emptyText="В этот день записей нет" />
             {legend}
           </ScrollView>
         </View>

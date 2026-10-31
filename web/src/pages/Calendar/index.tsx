@@ -62,17 +62,10 @@ export default function Calendar() {
   const range = rangeFor(view, anchor)
   const weekDays = useMemo(() => eachDay(range.from, range.to), [range.from, range.to])
   const [selectedWeekDay, setSelectedWeekDay] = useState(() => (weekDays.includes(today) ? today : anchor))
-  const weekDayNodes = useRef(new Map<string, HTMLElement>())
-
   useEffect(() => {
     if (view !== 'week') return
     setSelectedWeekDay((current) => (today >= range.from && today <= range.to ? today : current >= range.from && current <= range.to ? current : range.from))
-  }, [view, today, range.from, range.to])
-
-  useEffect(() => {
-    if (view !== 'week') return
-    weekDayNodes.current.get(selectedWeekDay)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-  }, [view, selectedWeekDay, range.from])
+  }, [view, range.from, range.to, today])
 
   const members = profile?.members ?? []
   const viewerRole = identity?.role ?? 'child'
@@ -192,23 +185,12 @@ export default function Calendar() {
                 )
               })}
             </WeekDayStrip>
-            {weekDays.map((day) => (
-              <DaySection
-                key={day}
-                ref={(node) => {
-                  if (node) weekDayNodes.current.set(day, node)
-                  else weekDayNodes.current.delete(day)
-                }}
-                $today={day === today}
-                $selected={day === selectedWeekDay}
-                aria-label={formatDayHeading(day)}
-              >
-                <DayHeading type="button" onClick={() => go('day', day)} style={{ color: day === selectedWeekDay ? 'var(--accent)' : undefined }}>
-                  {formatDayHeading(day)}
-                </DayHeading>
-                <AgendaList items={byDay.get(day) ?? []} emptyText="—" />
-              </DaySection>
-            ))}
+            <DaySection $today={selectedWeekDay === today} $selected aria-label={formatDayHeading(selectedWeekDay)}>
+              <DayHeading type="button" onClick={() => go('day', selectedWeekDay)} style={{ color: 'var(--accent)' }}>
+                {formatDayHeading(selectedWeekDay)}
+              </DayHeading>
+              <AgendaList items={byDay.get(selectedWeekDay) ?? []} emptyText="В этот день записей нет" />
+            </DaySection>
           </>
         )}
 
