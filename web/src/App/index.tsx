@@ -27,6 +27,7 @@ import FamilyEdit from '@/pages/FamilyEdit'
 import EventView from '@/pages/EventView'
 import CreateFamily from '@/pages/CreateFamily'
 import Family from '@/pages/Family'
+import FamilyRequests from '@/pages/FamilyRequests'
 import FamilyCreated from '@/pages/FamilyCreated'
 import GoalForm from '@/pages/GoalForm'
 import Goals from '@/pages/Goals'
@@ -100,6 +101,7 @@ export default function App() {
               <Route path="/calendar/events/:id/edit" element={<EventForm />} />
               <Route path="/my-day" element={<MyDay />} />
               <Route path="/family" element={<Family />} />
+              <Route path="/family/requests" element={<FamilyRequests />} />
               <Route path="/family/invite" element={<Invite />} />
               <Route path="/family/delete" element={<FamilyDelete />} />
               <Route path="/family/edit" element={<FamilyEdit />} />
