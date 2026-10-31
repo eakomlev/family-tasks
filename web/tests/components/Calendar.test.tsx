@@ -107,15 +107,24 @@ describe('календарь: виды', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('date=2026-11-12')
   })
 
-  it('неделя: семь дней, записи по дням; нажатие на день открывает его', async () => {
-    vi.mocked(api.listEvents).mockResolvedValue({ events: [event()] })
+  it('неделя: семь дат, список фильтруется по выбранному дню; заголовок открывает дневной вид', async () => {
+    vi.mocked(api.listEvents).mockResolvedValue({ events: [event(), event({ id: 'e2', title: 'Стоматолог', startDate: '2026-11-03', endDate: '2026-11-03' })] })
     renderAt('/calendar?view=week&date=2026-11-07')
     expect(screen.getByRole('heading', { level: 2, name: '2–8 ноября' })).toBeInTheDocument()
+    for (const day of ['Понедельник, 2', 'Вторник, 3', 'Среда, 4', 'Четверг, 5', 'Пятница, 6', 'Суббота, 7', 'Воскресенье, 8']) {
+      expect(screen.getByRole('button', { name: day })).toBeInTheDocument()
+    }
+    expect(screen.getByRole('button', { name: 'Суббота, 7' })).toHaveAttribute('aria-pressed', 'true')
     const sat = await screen.findByRole('region', { name: 'Сб, 7 ноября' })
     expect(await within(sat).findByText('Поход в театр')).toBeInTheDocument()
     expect(within(sat).getByText('18:00–20:30')).toBeInTheDocument()
-    expect(screen.getAllByRole('region')).toHaveLength(7)
-    await userEvent.click(screen.getByRole('button', { name: 'Вт, 3 ноября' }))
+    expect(screen.queryByText('Стоматолог')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Вторник, 3' }))
+    const tue = await screen.findByRole('region', { name: 'Вт, 3 ноября' })
+    expect(within(tue).getByText('Стоматолог')).toBeInTheDocument()
+    expect(screen.queryByText('Поход в театр')).not.toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent('view=week&date=2026-11-03')
+    await userEvent.click(within(tue).getByRole('button', { name: 'Вт, 3 ноября' }))
     expect(screen.getByTestId('where')).toHaveTextContent('view=day&date=2026-11-03')
   })
 
