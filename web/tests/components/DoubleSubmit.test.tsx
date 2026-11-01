@@ -137,8 +137,9 @@ describe('создание и сохранение', () => {
       </Provider>,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Связи' }))
-    fireEvent.change(screen.getByLabelText('Код семьи'), { target: { value: 'family-2' } })
-    fireEvent.change(screen.getByLabelText('Фамилия вашей семьи'), { target: { value: 'Ивановы' } })
+    fireEvent.click(screen.getByRole('button', { name: /Подключить семью/ }))
+    fireEvent.change(screen.getByLabelText('Код другой семьи'), { target: { value: 'family-2' } })
+    fireEvent.change(screen.getByLabelText(/^Фамилия вашей семьи/), { target: { value: 'Ивановы' } })
     twice(screen.getByRole('button', { name: 'Отправить запрос' }))
     expect(api.sendFamilyConnectionRequest).toHaveBeenCalledTimes(1)
     finish()
