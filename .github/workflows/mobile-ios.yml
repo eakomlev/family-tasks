@@ -3,7 +3,7 @@ name: "Мобильное приложение: сборка iOS и TestFlight"
 # Собирает приложение для iPhone и отправляет сборку в TestFlight. Запускается вручную (Actions → эта сборка → Run workflow):
 # минуты macOS-раннеров в частных репозиториях считаются с множителем 10, поэтому на каждый пуш в main сборка не запускается.
 # Один раз нужны аккаунт Apple Developer, запись приложения в App Store Connect и секреты репозитория (инструкция: mobile/README.md,
-# раздел «Сборка для iPhone и TestFlight»). Подпись автоматическая: Xcode сам выпускает сертификат и профиль по ключу App Store Connect API.
+# раздел «Сборка для iPhone и TestFlight»). Архив создаётся без подписи; при экспорте Xcode автоматически подписывает его для App Store Connect по ключу API.
 on:
   workflow_dispatch:
 
@@ -84,12 +84,10 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/app.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$APPSTORE_KEY_ID.p8" \
-            -authenticationKeyID "$APPSTORE_KEY_ID" \
-            -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY='' \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
             | tail -n 60
 
       # destination upload: Xcode сам отправляет собранный ipa в App Store Connect, он появляется в TestFlight после обработки (10–30 минут)

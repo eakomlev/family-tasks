@@ -82,7 +82,7 @@ powershell -ExecutionPolicy Bypass -File scriptsuild-apk-windows.ps1 -ApiUrl ht
 ### Как устроено
 
 - **Нативный проект** (`ios/`, в репозитории его нет) создаёт `expo prebuild` на раннере; название приложения кириллицей, поэтому workflow сам находит `*.xcworkspace` и схему.
-- **Подпись автоматическая:** `xcodebuild -allowProvisioningUpdates` с ключом App Store Connect API выпускает облачный сертификат распространения и профиль, ничего хранить не нужно. `-exportArchive` с `destination upload` сразу загружает сборку в App Store Connect.
+- **Подпись автоматическая:** архив создаётся без подписи (`CODE_SIGNING_ALLOWED=NO`), а `-exportArchive` с `destination upload` и ключом App Store Connect API выпускает/обновляет профиль распространения, подписывает приложение и загружает его в App Store Connect. Для профиля App Store не нужны зарегистрированные устройства.
 - **Номер сборки** (`CFBundleVersion`) равен номеру запуска workflow, версия (`CFBundleShortVersionString`) берётся из `version` в `app.json`. Описание шифрования заранее задано (`usesNonExemptEncryption: false`), вопросов про экспорт в TestFlight не будет.
 - **Расширение «Поделиться»** на iPhone выключено (`expo-sharing`, `ios.enabled: false`): ему нужна отдельная подпись и группа приложений. Включите после первой успешной сборки и зарегистрируйте группу `group.com.familytasks.mobile`.
 - **Prebuild iOS на Windows не работает**, проверять сборку можно только на macOS или в этом workflow.
