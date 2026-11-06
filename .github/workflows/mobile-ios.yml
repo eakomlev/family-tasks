@@ -67,33 +67,6 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $IOS_BUILD_NUMBER" "$plist"
           echo "Info.plist: $plist, сборка $IOS_BUILD_NUMBER"
 
-      # Явную distribution-подпись задаём только приложению: глобальный CODE_SIGN_IDENTITY конфликтует с автоматической подписью Pods.
-      - name: Настройки подписи приложения
-        run: |
-          project=$(find ios -maxdepth 1 -name '*.xcodeproj' -print -quit)
-          target=$(basename "$project" .xcodeproj)
-          ruby - "$project" "$target" "$APPLE_TEAM_ID" <<'RUBY'
-          require 'xcodeproj'
-
-          project_path, target_name, team_id = ARGV
-          project = Xcodeproj::Project.open(project_path)
-          target = project.targets.find { |candidate| candidate.name == target_name }
-          abort "Не найден iOS target приложения: #{target_name}" unless target
-
-          release = target.build_configurations.find { |configuration| configuration.name == 'Release' }
-          abort "Не найдена Release-конфигурация target: #{target_name}" unless release
-
-          settings = release.build_settings
-          settings['DEVELOPMENT_TEAM'] = team_id
-          settings['CODE_SIGN_STYLE'] = 'Automatic'
-          settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
-          settings['CODE_SIGN_IDENTITY[sdk=iphoneos*]'] = 'Apple Distribution'
-          settings['CODE_SIGNING_REQUIRED'] = 'YES'
-          settings['CODE_SIGNING_ALLOWED'] = 'YES'
-          project.save
-          puts "Настроена автоматическая подпись Apple Distribution только для #{target_name} Release"
-          RUBY
-
       - name: Ключ App Store Connect
         run: |
           mkdir -p "$RUNNER_TEMP/keys"
@@ -118,6 +91,10 @@ jobs:
             -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$APPSTORE_KEY_ID.p8" \
             -authenticationKeyID "$APPSTORE_KEY_ID" \
             -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID" \
+            CODE_SIGN_IDENTITY=- \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             > "$archive_log" 2>&1; then
             tail -n 60 "$archive_log"
           else
