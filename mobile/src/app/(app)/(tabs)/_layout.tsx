@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useState } from 'react'
+import { useCallback, useContext, useRef, useState } from 'react'
 import { Animated, Pressable, Text, View } from 'react-native'
 import { TopTabs, type MaterialTopTabBarProps } from 'expo-router/js-top-tabs'
 import { Ionicons } from '@expo/vector-icons'
@@ -46,15 +46,8 @@ function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
   const { colors, dark, fontScale } = useTheme()
   const blurContext = useContext(TabBarBlurContext)
   const insets = useSafeAreaInsets()
-  // Подсветка идёт за самой страницей, а не за состоянием навигации: оно обновляется, когда пролистывание закончилось, и подсветка отставала.
-  // «Ближайший» таб считаем по положению страниц (меняется на полпути между соседями), по нажатию подсвечиваем сразу.
-  const [near, setNear] = useState(state.index)
   const [barWidth, setBarWidth] = useState(0)
-  useEffect(() => setNear(state.index), [state.index])
-  useEffect(() => {
-    const id = position.addListener(({ value }) => setNear(Math.round(value)))
-    return () => position.removeListener(id)
-  }, [position])
+  const lastTabChangeAt = useRef(0)
   const count = state.routes.length
   const GAP = 4
   const PAD = 5
@@ -110,15 +103,20 @@ function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
         {state.routes.map((route, index) => {
           const tab = TABS.find((t) => t.name === route.name)
           if (!tab) return null
-          const focused = near === index
+          const focused = state.index === index
           const color = focused ? colors.tabbarActiveText : colors.tabbarIcon
           const badge = badges[tab.name]
           return (
             <Pressable
               key={route.key}
               onPress={() => {
-                if (state.index === index) emitTabReselect()
-                setNear(index)
+                if (state.index === index) {
+                  emitTabReselect()
+                  return
+                }
+                const now = Date.now()
+                if (now - lastTabChangeAt.current < 250) return
+                lastTabChangeAt.current = now
                 navigateToTab(route.key)
               }}
               accessibilityRole="tab"
@@ -176,7 +174,8 @@ export default function TabsLayout() {
 
   return (
     <TabBarBlurContext.Provider value={{ target: blurTarget, setTarget }}>
-      <TopTabs tabBarPosition="bottom" tabBar={(props) => <FloatingTabBar {...props} badges={badges} />} screenOptions={{ swipeEnabled: true, lazy: true, lazyPreloadDistance: 1 }}>
+      {/* Позднее добавление вкладки пересоздаёт SwiftUI TabView внутри PagerView и может уронить iOS; быстрые повторные нажатия тоже пропускаем на 250 мс. */}
+      <TopTabs tabBarPosition="bottom" tabBar={(props) => <FloatingTabBar {...props} badges={badges} />} screenOptions={{ swipeEnabled: true, lazy: false, animationEnabled: false }}>
         {/* у ребёнка вкладки «Задачи» нет: его задания на «Моём дне» */}
         {TABS.map((tab) =>
           tab.name === 'tasks' ? (
