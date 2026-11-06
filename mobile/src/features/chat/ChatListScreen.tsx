@@ -77,7 +77,7 @@ export function ChatRow({ chat, member, members, me, viewerRole, now }: { chat: 
         )}
         <View style={{ flex: 1, gap: 2 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text $weight={unread ? 'black' : 'extraBold'} $size={16} style={{ flexShrink: 1 }} numberOfLines={1}>
+            <Text $weight={unread ? 'black' : 'extraBold'} $size={17} style={{ flexShrink: 1 }} numberOfLines={1}>
               {chatTitle(chat.id, members, viewerRole, chat.event?.title)}
             </Text>
             {muted && <Ionicons name="notifications-off-outline" size={14} color={colors.muted} />}
@@ -85,14 +85,14 @@ export function ChatRow({ chat, member, members, me, viewerRole, now }: { chat: 
             <View style={{ flex: 1 }} />
             {status && <ReadTicks status={status} color={status === 'read' ? colors.accent : colors.muted} />}
             {chat.last && (
-              <Text $size={12} $weight={unread ? 'bold' : 'regular'} $tone={unread ? 'accent' : 'muted'}>
+              <Text $size={13} $weight={unread ? 'bold' : 'regular'} $tone={unread ? 'accent' : 'muted'}>
                 {formatChatTime(chat.last.createdAt, now)}
               </Text>
             )}
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text $size={14} $tone="muted" numberOfLines={1} style={{ flex: 1 }}>
-              {preview.prefix ? <Text $size={14} $weight="bold" $tone={preview.mine ? 'muted' : 'accent'}>{`${preview.prefix} `}</Text> : null}
+            <Text $size={16} $tone="muted" numberOfLines={1} style={{ flex: 1 }}>
+              {preview.prefix ? <Text $size={16} $weight="bold" $tone={preview.mine ? 'muted' : 'accent'}>{`${preview.prefix} `}</Text> : null}
               {preview.text}
             </Text>
             {unread && (

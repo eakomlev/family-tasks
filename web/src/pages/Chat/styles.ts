@@ -139,7 +139,7 @@ export const Preview = styled.span<{ $unread: boolean }>`
   text-overflow: ellipsis;
   white-space: nowrap;
   color: ${({ $unread }) => ($unread ? 'var(--text)' : 'var(--muted)')};
-  font-size: 0.95rem;
+  font-size: 1.05rem;
 `
 
 // «Вы:» и имя автора в общем чате выделены, дальше текст сообщения

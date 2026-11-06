@@ -30,9 +30,9 @@ export const AuthCard = styled.div`
   -webkit-backdrop-filter: blur(14px);
 `
 
-// Монета-логотип приложения
-export const AuthLogo = styled.svg`
+// Иконка приложения на экранах входа и знакомства
+export const AuthLogo = styled.img`
   width: var(--logo-size, 5.5rem);
   height: var(--logo-size, 5.5rem);
-  filter: drop-shadow(0 10px 18px rgb(217 119 6 / 0.35));
+  filter: drop-shadow(0 8px 14px rgb(19 65 111 / 0.2));
 `

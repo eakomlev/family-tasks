@@ -37,7 +37,7 @@ export default defineConfig({
         description: 'Задания, расписание, чат и дела всей семьи',
         lang: 'ru',
         theme_color: '#4b3bff',
-        background_color: '#0b0e1f',
+        background_color: '#ffffff',
         display: 'standalone',
         // «Поделиться» из других приложений на Android: текст и ссылки открывают выбор чата
         share_target: { action: '/share', method: 'GET', params: { title: 'title', text: 'text', url: 'url' } },

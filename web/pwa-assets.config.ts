@@ -1,7 +1,7 @@
 import { defineConfig, minimal2023Preset } from '@vite-pwa/assets-generator/config'
 
-// цвет фона значка: тёмный индиго из icon.svg (при смене рисунка меняйте вместе с mobile/app.json)
-const BACKGROUND = '#10133a'
+// Белый фон значка синхронизирован с мобильным приложением в mobile/app.json
+const BACKGROUND = '#ffffff'
 
 export default defineConfig({
   preset: {
@@ -20,5 +20,5 @@ export default defineConfig({
       resizeOptions: { fit: 'contain', background: BACKGROUND },
     },
   },
-  images: ['public/icon.svg'],
+  images: ['public/icon.png'],
 })

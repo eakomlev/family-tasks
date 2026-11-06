@@ -221,7 +221,7 @@ export function MessageBubble({ message, mine, senderName, senderMood, showSende
             </Text>
           )}
           {text ? (
-            <Text selectable={false} style={{ color: fg }}>
+            <Text $size={18} selectable={false} style={{ color: fg }}>
               {text}
             </Text>
           ) : null}
