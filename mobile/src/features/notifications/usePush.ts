@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Platform } from 'react-native'
 import * as Notifications from 'expo-notifications'
-import { registerDevice, unsubscribePush } from '@/api'
+import { ApiError, registerDevice, unsubscribePush } from '@/api'
 import { useIdentity } from '@/identity/context'
 import { getKv } from '@/lib/kv'
 
@@ -30,11 +30,46 @@ async function ensureChannel() {
 // Токен устройства и регистрация на сервере: повтор безопасен (обновляет часовой пояс и привязку к участнику)
 export async function registerThisDevice(sessionToken: string): Promise<void> {
   await ensureChannel()
-  const device = await Notifications.getDevicePushTokenAsync()
+  let device: Notifications.DevicePushToken
+  try {
+    device = await Notifications.getDevicePushTokenAsync()
+  } catch (error) {
+    const details = error instanceof Error ? error.message : String(error)
+    throw new Error(`apns_token:${details}`)
+  }
   const token = String(device.data)
   // на Android токен Firebase, на iPhone токен APNs: сервер отправляет каждому своим способом
-  await registerDevice(sessionToken, { token, timeZone: timeZone(), platform: Platform.OS === 'ios' ? 'ios' : 'android' })
+  try {
+    await registerDevice(sessionToken, { token, timeZone: timeZone(), platform: Platform.OS === 'ios' ? 'ios' : 'android' })
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    const details = error instanceof Error ? error.message : String(error)
+    throw new Error(`device_registration:${details}`)
+  }
   getKv().setItem(TOKEN_KEY, token)
+}
+
+function pushErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === 'push_not_configured') return 'На сервере не включена регистрация APNs. Проверьте APNS_ENABLED=true в настройках сервера.'
+    if (error.code === 'invalid_token') return 'Сервер получил некорректный токен APNs. Проверьте capability Push Notifications у App ID и установите свежую сборку.'
+    if (error.status === 401) return 'Сессия устарела. Выйдите из приложения, войдите снова и повторите попытку.'
+    if (error.code === 'network') return 'Не удалось связаться с сервером. Проверьте соединение и попробуйте ещё раз.'
+    return `Сервер отклонил регистрацию уведомлений (${error.code}, HTTP ${error.status}).`
+  }
+
+  const details = error instanceof Error ? error.message : String(error)
+  if (details.startsWith('apns_token:')) {
+    const cause = details.slice('apns_token:'.length).trim()
+    if (/aps-environment|entitlement|remote notification/i.test(cause)) {
+      return `iPhone не выдал токен APNs: у сборки нет нужного разрешения. Включите Push Notifications у App ID com.familytasks.mobile и установите новую сборку. (${cause})`
+    }
+    return `iPhone не выдал токен APNs. Проверьте Push Notifications у App ID com.familytasks.mobile и попробуйте ещё раз. (${cause})`
+  }
+  if (details.startsWith('device_registration:')) {
+    return `Не удалось зарегистрировать устройство на сервере. Проверьте соединение и настройки APNs на сервере. (${details.slice('device_registration:'.length).trim()})`
+  }
+  return 'Не удалось включить уведомления. Проверьте настройки APNs и соединение, затем попробуйте ещё раз.'
 }
 
 // Включение по нажатию: запрос разрешения (Android 13 и новее, iPhone), затем регистрация
@@ -93,8 +128,8 @@ export function usePush() {
     setError(undefined)
     try {
       setState(await enablePush(sessionToken))
-    } catch {
-      setError('Не удалось включить уведомления. Проверьте соединение и попробуйте ещё раз.')
+    } catch (cause) {
+      setError(pushErrorMessage(cause))
     } finally {
       setBusy(false)
     }

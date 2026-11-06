@@ -94,7 +94,8 @@
         "expo-notifications",
         {
           "color": "#10133a",
-          "mode": "production"
+          "mode": "production",
+          "enableRemoteNotifications": true
         }
       ],
       [
