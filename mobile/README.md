@@ -65,7 +65,7 @@ powershell -ExecutionPolicy Bypass -File scriptsuild-apk-windows.ps1 -ApiUrl ht
 
 ## Сборка для iPhone и TestFlight
 
-Сборку запускает вручную workflow `.github/workflows/mobile-ios.yml` (Actions → «Мобильное приложение: сборка iOS и TestFlight» → Run workflow), на каждый пуш он не запускается: минуты macOS в частных репозиториях считаются с множителем 10. Он собирает приложение на macOS-раннере, подписывает его автоматически и отправляет в TestFlight. После обработки Apple (10–30 минут) сборка появится в App Store Connect → TestFlight.
+Сборку запускает вручную workflow `.github/workflows/mobile-ios.yml` (Actions → «Мобильное приложение: сборка iOS и TestFlight» → Run workflow), на каждый пуш он не запускается: минуты macOS в частных репозиториях считаются с множителем 10. Он собирает приложение на `macos-26` (для Swift package `apple` требуется Swift 6.2), подписывает его автоматически и отправляет в TestFlight. После обработки Apple (10–30 минут) сборка появится в App Store Connect → TestFlight.
 
 ### Настройка (один раз)
 
