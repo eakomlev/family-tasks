@@ -57,6 +57,23 @@ export async function buildApp({ logger = true, rateLimit: limit = true, onRoute
     trustProxy: true,
   })
 
+  // Веб-превью Expo работает на отдельном порту. Разрешаем только его локальные адреса и только вне production;
+  // в production веб и API идут через nginx с одного origin.
+  const devBrowserOrigins = new Set(['http://localhost:8090', 'http://127.0.0.1:8090'])
+  app.addHook('onRequest', async (req, reply) => {
+    const origin = req.headers.origin
+    if (process.env.NODE_ENV === 'production' || !origin || !devBrowserOrigins.has(origin)) return
+
+    reply
+      .header('Access-Control-Allow-Origin', origin)
+      .header('Vary', 'Origin')
+      .header('Access-Control-Allow-Methods', 'GET, HEAD, POST, PATCH, DELETE, OPTIONS')
+      .header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+      .header('Access-Control-Expose-Headers', 'Retry-After')
+      .header('Access-Control-Max-Age', '600')
+    if (req.method === 'OPTIONS') return reply.code(204).send()
+  })
+
   if (onRoute) app.addHook('onRoute', onRoute)
 
   // фото приходит сырым JPEG (загрузка в чат); предел размера задан у самого маршрута

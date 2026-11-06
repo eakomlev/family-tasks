@@ -27,7 +27,7 @@ export function NotificationsScreen() {
       </Switch>
 
       {!state && <Text $tone="muted">Загрузка…</Text>}
-      {state === 'unsupported' && <Notice>Уведомления в приложении пока работают только на Android.</Notice>}
+      {state === 'unsupported' && <Notice>Push-уведомления доступны в мобильном приложении на Android и iOS.</Notice>}
       {state === 'denied' && <Notice tone="warning">Уведомления запрещены в настройках телефона. Разрешите их для приложения «Моя Семья» и вернитесь сюда.</Notice>}
       {error && <Notice tone="error">{error}</Notice>}
 

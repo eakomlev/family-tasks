@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "ru.familytasks.mobile",
+      "bundleIdentifier": "com.familytasks.mobile",
       "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false

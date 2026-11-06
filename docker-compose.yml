@@ -83,7 +83,7 @@ services:
       APNS_KEY_BASE64: ${APNS_KEY_BASE64:-}
       APNS_KEY_ID: ${APNS_KEY_ID:-}
       APNS_TEAM_ID: ${APNS_TEAM_ID:-}
-      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-ru.familytasks.mobile}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-com.familytasks.mobile}
       APNS_PRODUCTION: ${APNS_PRODUCTION:-true}
       # лимиты провайдеров (подробности в .env.example)
       MAIL_DAILY_LIMIT: ${MAIL_DAILY_LIMIT:-2800}

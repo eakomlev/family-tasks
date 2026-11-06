@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type TouchEvent } from 'react'
+import { useMemo, useRef, type TouchEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
@@ -61,11 +61,6 @@ export default function Calendar() {
   const view: CalendarView = VIEWS.some((v) => v.view === queryView) ? (queryView as CalendarView) : settings.view
   const range = rangeFor(view, anchor)
   const weekDays = useMemo(() => eachDay(range.from, range.to), [range.from, range.to])
-  const [selectedWeekDay, setSelectedWeekDay] = useState(() => (weekDays.includes(today) ? today : anchor))
-  useEffect(() => {
-    if (view !== 'week') return
-    setSelectedWeekDay((current) => (today >= range.from && today <= range.to ? today : current >= range.from && current <= range.to ? current : range.from))
-  }, [view, range.from, range.to, today])
 
   const members = profile?.members ?? []
   const viewerRole = identity?.role ?? 'child'
@@ -108,10 +103,6 @@ export default function Calendar() {
     },
   }
   const go = (nextView: CalendarView, date: string) => setParams({ view: nextView, date }, { replace: true })
-  const selectWeekDay = (day: string) => {
-    setSelectedWeekDay(day)
-    go('week', day)
-  }
   const loading = (!eventData && events.isFetching) || (!taskData && tasks.isFetching)
 
   if (!identity) return null
@@ -172,12 +163,12 @@ export default function Calendar() {
                   <WeekDayButton
                     key={day}
                     type="button"
-                    $selected={day === selectedWeekDay}
+                    $selected={day === anchor}
                     $today={day === today}
                     $weekend={weekday.value >= 6}
                     aria-label={`${weekday.full}, ${Number(day.slice(-2))}`}
-                    aria-pressed={day === selectedWeekDay}
-                    onClick={() => selectWeekDay(day)}
+                    aria-pressed={day === anchor}
+                    onClick={() => go('week', day)}
                   >
                     <span>{weekday.short}</span>
                     <span>{Number(day.slice(-2))}</span>
@@ -185,11 +176,11 @@ export default function Calendar() {
                 )
               })}
             </WeekDayStrip>
-            <DaySection $today={selectedWeekDay === today} $selected aria-label={formatDayHeading(selectedWeekDay)}>
-              <DayHeading type="button" onClick={() => go('day', selectedWeekDay)} style={{ color: 'var(--accent)' }}>
-                {formatDayHeading(selectedWeekDay)}
+            <DaySection $today={anchor === today} $selected aria-label={formatDayHeading(anchor)}>
+              <DayHeading type="button" onClick={() => go('day', anchor)} style={{ color: 'var(--accent)' }}>
+                {formatDayHeading(anchor)}
               </DayHeading>
-              <AgendaList items={byDay.get(selectedWeekDay) ?? []} emptyText="В этот день записей нет" />
+              <AgendaList items={byDay.get(anchor) ?? []} emptyText="В этот день записей нет" />
             </DaySection>
           </>
         )}

@@ -15,7 +15,7 @@ describe('входящие ссылки', () => {
   })
 
   it('«Поделиться» ведёт на выбор чата', () => {
-    expect(open('ru.familytasks.mobile://expo-sharing')).toBe('/share')
+    expect(open('com.familytasks.mobile://expo-sharing')).toBe('/share')
   })
 
   it('ссылка по схеме приложения и обычный путь остаются как есть', () => {

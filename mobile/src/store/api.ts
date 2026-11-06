@@ -47,7 +47,9 @@ export function fromApi<A, R>(call: (token: string, arg: A) => Promise<R>) {
     if (!session) return { error: { status: 0, code: 'no_session' } }
     try {
       const run = () => call(session.token, arg)
-      return { data: (queryApi?.type === 'query' ? await retryRead(run, queryApi.signal) : await run()) as R }
+      const result = queryApi?.type === 'query' ? await retryRead(run, queryApi.signal) : await run()
+      // RTK Query не принимает `{ data: undefined }` от успешной мутации без тела ответа.
+      return { data: (result ?? null) as R }
     } catch (err) {
       if (err instanceof ApiError) return { error: { status: err.status, code: err.code, body: err.body } }
       throw err

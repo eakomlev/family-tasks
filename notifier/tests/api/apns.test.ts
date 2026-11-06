@@ -24,7 +24,7 @@ const { privateKey, publicKey } = generateKeyPairSync('ec', {
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
   publicKeyEncoding: { type: 'spki', format: 'pem' },
 })
-const config: ApnsConfig = { keyPem: privateKey, keyId: 'ABC123DEFG', teamId: 'TEAM123456', topic: 'ru.familytasks.mobile', production: true }
+const config: ApnsConfig = { keyPem: privateKey, keyId: 'ABC123DEFG', teamId: 'TEAM123456', topic: 'com.familytasks.mobile', production: true }
 
 let familyId: string
 let memberId: string
@@ -106,7 +106,7 @@ describe('отправка в APNs', () => {
     expect(calls).toHaveLength(2)
     expect(calls[0].deviceToken).toBe(DEVICE)
     expect(calls[0].headers).toMatchObject({
-      'apns-topic': 'ru.familytasks.mobile',
+      'apns-topic': 'com.familytasks.mobile',
       'apns-push-type': 'alert',
       'apns-priority': '10',
       'apns-collapse-id': 'chat-family',

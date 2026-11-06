@@ -103,7 +103,7 @@ export default function AppLayout() {
         {/* уведомления: в веб-просмотре у expo-notifications нет части методов */}
         {Platform.OS !== 'web' && <NotificationsBridge />}
         {/* «Поделиться» работает только в приложении: в веб-просмотре у expo-sharing нет приёма и он падал при открытии */}
-        {Platform.OS !== 'web' && <ShareReceiver />}
+        {Platform.OS === 'android' && <ShareReceiver />}
         <ChatsProvider>
           <Content />
         </ChatsProvider>
