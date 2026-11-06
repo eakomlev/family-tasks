@@ -55,6 +55,21 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+      # Xcode 27 ошибочно валит вложенный xcodebuild в ExpoModulesJSI из-за -quiet,
+      # даже когда вложенная сборка завершилась успешно; убираем только этот флаг.
+      - name: Исправить сборку ExpoModulesJSI на Xcode 27
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const script = 'node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh';
+          const source = fs.readFileSync(script, 'utf8');
+          const updated = source.replace(/^([\t ]*)-quiet[\t ]*\\\r?\n/m, '');
+          if (updated === source) {
+            throw new Error('Не найдена ожидаемая строка -quiet в скрипте ExpoModulesJSI');
+          }
+          fs.writeFileSync(script, updated);
+          NODE
+
       # нативный проект создаётся на лету (в репозитории его нет); название приложения кириллицей, поэтому имя проекта находим сами
       - name: Нативный проект iOS
         run: |
