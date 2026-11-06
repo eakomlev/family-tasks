@@ -3,7 +3,7 @@ name: "Мобильное приложение: сборка iOS и TestFlight"
 # Собирает приложение для iPhone и отправляет сборку в TestFlight. Запускается вручную (Actions → эта сборка → Run workflow):
 # минуты macOS-раннеров в частных репозиториях считаются с множителем 10, поэтому на каждый пуш в main сборка не запускается.
 # Один раз нужны аккаунт Apple Developer, запись приложения в App Store Connect и секреты репозитория (инструкция: mobile/README.md,
-# раздел «Сборка для iPhone и TestFlight»). Архив создаётся без подписи; при экспорте Xcode автоматически подписывает его для App Store Connect по ключу API.
+# раздел «Сборка для iPhone и TestFlight»). Xcode автоматически подписывает архив профилем App Store и отправляет его по ключу API.
 on:
   workflow_dispatch:
 
@@ -87,10 +87,15 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/app.xcarchive" \
             -resultBundlePath "$result_bundle" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$APPSTORE_KEY_ID.p8" \
+            -authenticationKeyID "$APPSTORE_KEY_ID" \
+            -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_IDENTITY='' \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY='Apple Distribution' \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES \
             > "$archive_log" 2>&1; then
             tail -n 60 "$archive_log"
           else
@@ -100,6 +105,25 @@ jobs:
               tail -n 120 "$archive_log"
             fi
             exit "$status"
+          fi
+
+      - name: Проверить APNs entitlement в архиве
+        run: |
+          app=$(find "$RUNNER_TEMP/app.xcarchive/Products/Applications" -maxdepth 1 -name '*.app' -print -quit)
+          if [ -z "$app" ]; then
+            echo "::error::В архиве не найдено приложение для проверки APNs entitlement"
+            exit 1
+          fi
+          entitlements="$RUNNER_TEMP/archive-entitlements.plist"
+          codesign -d --entitlements :- "$app" > "$entitlements" 2>/dev/null
+          if ! environment=$(/usr/libexec/PlistBuddy -c 'Print :aps-environment' "$entitlements"); then
+            echo "::error::В подписанном архиве отсутствует aps-environment. Проверьте Push Notifications у App ID com.familytasks.mobile и профиль App Store."
+            exit 1
+          fi
+          echo "aps-environment=$environment"
+          if [ "$environment" != "production" ]; then
+            echo "::error::Для TestFlight нужен aps-environment=production, получено: $environment"
+            exit 1
           fi
 
       - name: Приложить результат Xcode при ошибке
