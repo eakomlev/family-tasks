@@ -89,21 +89,44 @@ jobs:
 
       - name: Архив
         run: |
+          set -o pipefail
           workspace=$(ls -d ios/*.xcworkspace | head -1)
           scheme=$(basename "$workspace" .xcworkspace)
+          archive_log="$RUNNER_TEMP/archive.log"
+          result_bundle="$RUNNER_TEMP/app.xcresult"
           echo "workspace=$workspace scheme=$scheme"
-          set -o pipefail
-          xcodebuild archive \
+          if xcodebuild archive \
             -workspace "$workspace" \
             -scheme "$scheme" \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -resultBundlePath "$result_bundle" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_IDENTITY='' \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            | tail -n 60
+            > "$archive_log" 2>&1; then
+            tail -n 60 "$archive_log"
+          else
+            status=$?
+            echo "Архивация завершилась с кодом $status. Строки ошибок Xcode:"
+            if ! grep -n -C 4 -E '(^|[[:space:]])(error:|fatal error:)|failed|ARCHIVE FAILED' "$archive_log" | tail -n 120; then
+              tail -n 120 "$archive_log"
+            fi
+            exit "$status"
+          fi
+
+      - name: Приложить результат Xcode при ошибке
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-archive-diagnostics-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/archive.log
+            ${{ runner.temp }}/app.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
 
       # destination upload: Xcode сам отправляет собранный ipa в App Store Connect, он появляется в TestFlight после обработки (10–30 минут)
       - name: Экспорт и отправка в TestFlight
