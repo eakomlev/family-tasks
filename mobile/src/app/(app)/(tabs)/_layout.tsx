@@ -164,6 +164,7 @@ function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
 // Четыре главных раздела (у ребёнка три, без «Задач»): страницы листаются пальцем влево и вправо (как страницы), панель табов плавающая. Остальные экраны (задание,
 // переписка, профиль, календарь…) лежат рядом, в `(app)`, общим стеком поверх табов: скрытые вкладки в Expo Router не открываются.
 export default function TabsLayout() {
+  const { colors } = useTheme()
   const { identity } = useIdentity()
   const taskBadge = useTaskBadge()
   const { unread } = useChats()
@@ -175,7 +176,7 @@ export default function TabsLayout() {
   return (
     <TabBarBlurContext.Provider value={{ target: blurTarget, setTarget }}>
       {/* Позднее добавление вкладки пересоздаёт SwiftUI TabView внутри PagerView и может уронить iOS; быстрые повторные нажатия тоже пропускаем на 250 мс. */}
-      <TopTabs tabBarPosition="bottom" tabBar={(props) => <FloatingTabBar {...props} badges={badges} />} screenOptions={{ swipeEnabled: true, lazy: false, animationEnabled: false }}>
+      <TopTabs tabBarPosition="bottom" tabBar={(props) => <FloatingTabBar {...props} badges={badges} />} screenOptions={{ swipeEnabled: true, lazy: false, animationEnabled: false, sceneStyle: { backgroundColor: colors.bg } }}>
         {/* у ребёнка вкладки «Задачи» нет: его задания на «Моём дне» */}
         {TABS.map((tab) =>
           tab.name === 'tasks' ? (

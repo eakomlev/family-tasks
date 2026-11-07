@@ -6,6 +6,7 @@ export interface Palette {
   text: string
   muted: string
   border: string
+  chatDivider: string
   accent: string
   accentText: string
   accentSoft: string
@@ -71,6 +72,7 @@ export const lightPalette: Palette = {
   text: '#14162b',
   muted: '#6b7090',
   border: '#e6e8f2',
+  chatDivider: '#cdd1e2',
   accent: '#4b3bff',
   accentText: '#ffffff',
   accentSoft: '#e9e6ff',
@@ -129,6 +131,7 @@ export const darkPalette: Palette = {
   text: '#eef0ff',
   muted: '#9aa0c7',
   border: '#2a2f55',
+  chatDivider: '#41486f',
   accent: '#7b6cff',
   accentText: '#ffffff',
   accentSoft: '#24206b',

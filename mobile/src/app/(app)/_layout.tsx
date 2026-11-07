@@ -1,5 +1,5 @@
 import { Platform, Pressable, View } from 'react-native'
-import { Redirect, Stack, usePathname, useRouter } from 'expo-router'
+import { Redirect, usePathname, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from 'styled-components/native'
@@ -17,6 +17,7 @@ import { ShareReceiver } from '@/features/share/ShareReceiver'
 import { useProfile } from '@/profile/context'
 import { RealtimeProvider } from '@/realtime'
 import { RealtimeBridge } from '@/store/RealtimeBridge'
+import { ThemedStack } from '@/components/ThemedStack'
 
 // переписка (/chat/<чат>) занимает весь экран
 const inChatRoom = (pathname: string) => pathname.startsWith('/chat/') && pathname.length > '/chat/'.length
@@ -86,7 +87,7 @@ function Content() {
   if (data?.me.detached) return <NoFamilyScreen />
   return (
     <>
-      <Stack screenOptions={{ headerShown: false }} />
+      <ThemedStack />
       <TopRight />
     </>
   )

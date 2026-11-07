@@ -1,6 +1,6 @@
-import { Stack } from 'expo-router'
+import { ThemedStack } from '@/components/ThemedStack'
 
 // Семейный календарь: период, настройки и события друг над другом
 export default function CalendarLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />
+  return <ThemedStack />
 }

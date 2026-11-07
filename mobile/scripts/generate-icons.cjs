@@ -6,6 +6,7 @@ const sharp = require(path.join(__dirname, '..', '..', 'media', 'node_modules', 
 
 const SOURCE = path.join(__dirname, '..', '..', 'web', 'public', 'icon.png')
 const OUT = path.join(__dirname, '..', 'assets', 'images')
+const ANDROID_FOREGROUND_SIZE = 700
 
 async function main() {
   const master = await sharp(SOURCE).resize(1024, 1024, { fit: 'cover' }).png().toBuffer()
@@ -17,7 +18,7 @@ async function main() {
   for (let i = 0; i < mono.length; i += info.channels) {
     const [red, green, blue] = [mono[i], mono[i + 1], mono[i + 2]]
     const distance = Math.max(255 - red, 255 - green, 255 - blue)
-    const alpha = distance < 10 ? 0 : Math.round((distance - 10) * (255 / 245))
+    const alpha = distance < 36 ? 0 : Math.round((distance - 36) * (255 / 219))
     foreground[i + 3] = alpha
     mono[i] = 255
     mono[i + 1] = 255
@@ -29,14 +30,16 @@ async function main() {
   await sharp({ create: { width: 1024, height: 1024, channels: 4, background: '#ffffff' } })
     .png()
     .toFile(path.join(OUT, 'android-icon-background.png'))
-  const center = { top: 102, right: 102, bottom: 102, left: 102, background: { r: 0, g: 0, b: 0, alpha: 0 } }
+  // В Android-слое знак меньше, чем в iOS: так он не занимает всю форму иконки на лаунчере.
+  const padding = (1024 - ANDROID_FOREGROUND_SIZE) / 2
+  const center = { top: padding, right: padding, bottom: padding, left: padding, background: { r: 0, g: 0, b: 0, alpha: 0 } }
   await sharp(Buffer.from(foreground), { raw: info })
-    .resize(820, 820)
+    .resize(ANDROID_FOREGROUND_SIZE, ANDROID_FOREGROUND_SIZE)
     .extend(center)
     .png()
     .toFile(path.join(OUT, 'android-icon-foreground.png'))
   await sharp(Buffer.from(mono), { raw: info })
-    .resize(820, 820)
+    .resize(ANDROID_FOREGROUND_SIZE, ANDROID_FOREGROUND_SIZE)
     .extend(center)
     .png()
     .toFile(path.join(OUT, 'android-icon-monochrome.png'))

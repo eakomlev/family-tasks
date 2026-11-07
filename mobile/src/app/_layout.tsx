@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Stack } from 'expo-router'
+import { View } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts } from 'expo-font'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -14,8 +14,21 @@ import { store } from '@/store'
 import { SessionSync } from '@/store/SessionSync'
 import { FONT_ASSETS } from '@/theme/fonts'
 import { ThemeProvider } from '@/theme'
+import { useTheme } from 'styled-components/native'
+import { ThemedStack } from '@/components/ThemedStack'
 
 SplashScreen.preventAutoHideAsync()
+
+function RootNavigation() {
+  const { colors } = useTheme()
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <ThemedStack />
+      {/* проверка «я не робот» перед отправкой кода на почту (если включена на сервере) */}
+      <CaptchaHost />
+    </View>
+  )
+}
 
 // Корень приложения: шрифт, хранилище данных, вход (токен из защищённого хранилища) и тема. Экраны делятся на группы
 // `(auth)` для тех, кто не вошёл, и `(app)` для вошедших; группы сами перенаправляют друг на друга.
@@ -39,9 +52,7 @@ export default function RootLayout() {
             <IdentityProvider>
               <SessionSync />
               <ConfirmProvider>
-                <Stack screenOptions={{ headerShown: false }} />
-                {/* проверка «я не робот» перед отправкой кода на почту (если включена на сервере) */}
-                <CaptchaHost />
+                <RootNavigation />
               </ConfirmProvider>
             </IdentityProvider>
           </ThemeProvider>

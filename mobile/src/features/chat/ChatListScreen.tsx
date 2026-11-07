@@ -66,7 +66,7 @@ export function ChatRow({ chat, member, members, me, viewerRole, now }: { chat: 
         }}
         delayLongPress={450}
         accessibilityRole="button"
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.chatDivider }}
       >
         {member ? (
           <Avatar name={memberLabel(member, viewerRole)} seed={member.id} src={member.avatar} size={54} />

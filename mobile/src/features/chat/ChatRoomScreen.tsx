@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Pressable, View } from 'react-native'
+import { AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, LayoutAnimation, Platform, Pressable, View } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
 import { Redirect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -43,6 +43,12 @@ const Header = styled.View`
   gap: 10px;
   padding: 8px 12px;
 `
+
+function ChatKeyboardContainer({ children, embedded, keyboardHeight, backgroundColor }: { children: React.ReactNode; embedded: boolean; keyboardHeight: number; backgroundColor: string }) {
+  const style = { flex: 1, backgroundColor, paddingBottom: Platform.OS === 'ios' ? keyboardHeight : embedded ? keyboardHeight : 0 }
+  if (Platform.OS === 'ios') return <View style={style}>{children}</View>
+  return <KeyboardAvoidingView style={style} behavior={undefined}>{children}</KeyboardAvoidingView>
+}
 
 // Выдержка из сообщения для ответа: текст или, у сообщения только с вложениями, заглушка
 const replyPreview = (message: ChatMessage) => (message.caption || message.text).replace(/s+/g, ' ').trim().slice(0, 140)
@@ -122,6 +128,18 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   const [topHeight, setTopHeight] = useState(0)
   const [bottomHeight, setBottomHeight] = useState(0)
   useEffect(() => {
+    if (Platform.OS === 'ios') {
+      const updateHeight = (height: number) => {
+        LayoutAnimation.configureNext({ duration: 180, update: { type: LayoutAnimation.Types.easeInEaseOut } })
+        setKeyboardHeight(height)
+      }
+      const show = Keyboard.addListener('keyboardWillShow', (e) => updateHeight(Math.max(e.endCoordinates.height, Dimensions.get('screen').height - e.endCoordinates.screenY)))
+      const hide = Keyboard.addListener('keyboardWillHide', () => updateHeight(0))
+      return () => {
+        show.remove()
+        hide.remove()
+      }
+    }
     if (!embedded) return
     const show = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardHeight(Math.max(e.endCoordinates.height, Dimensions.get('screen').height - e.endCoordinates.screenY)))
     const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0))
@@ -306,7 +324,7 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   const otherMood = other ? currentMood(other.mood, now)?.emoji : undefined
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg, paddingBottom: keyboardHeight }} behavior={embedded ? undefined : 'padding'}>
+    <ChatKeyboardContainer embedded={embedded} keyboardHeight={keyboardHeight} backgroundColor={colors.bg}>
       <View style={{ flex: 1 }}>
       {!embedded && (
       <View pointerEvents="box-none" onLayout={(e) => setTopHeight(Math.round(e.nativeEvent.layout.height))} style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 6 }}>
@@ -448,6 +466,6 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
           onClose={() => setFeedbackFor(undefined)}
         />
       )}
-    </KeyboardAvoidingView>
+    </ChatKeyboardContainer>
   )
 }
