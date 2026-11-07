@@ -211,9 +211,9 @@ export async function adminRoutes(app: FastifyInstance, { media = null }: Partia
              select 1 from members b where b.blocked_at is not null
                and ((members.email is not null and b.email = members.email) or (members.phone is not null and b.phone = members.phone))
            )) as "accessBlocked"
-         from members left join families f on f.id = members.family_id where members.id <> $1 and (
-           ($2 is not null and members.email = $2) or ($3 is not null and members.phone = $3)
-         ) order by members.created_at desc`,
+         from members left join families f on f.id = members.family_id where members.id <> $1
+           and (members.email = $2 or members.phone = $3)
+         order by members.created_at desc`,
         [req.params.id, account.email, account.phone],
       )
       const familyMembers = account.familyId ? await pool.query(

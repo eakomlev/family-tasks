@@ -45,6 +45,44 @@ describe('isAdminEmail', () => {
   })
 })
 
+describe('GET /api/admin/accounts', () => {
+  it('администратору выдаёт поиск и постраничный список аккаунтов', async () => {
+    const query = new URLSearchParams({ search: 'boss@test.local', page: '1', pageSize: '10' })
+    const res = await api(app, fam.mom.token, 'GET', `/api/admin/accounts?${query}`)
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ page: 1, pageSize: 10, total: 1 })
+    expect(res.body.items).toHaveLength(1)
+    expect(res.body.items[0]).toMatchObject({ id: fam.mom.id, email: 'boss@test.local', family: { id: fam.id } })
+  })
+
+  it('не администратору раздела нет (404), без токена 401', async () => {
+    expect((await api(app, fam.dad.token, 'GET', '/api/admin/accounts')).status).toBe(404)
+    expect((await api(app, null, 'GET', '/api/admin/accounts')).status).toBe(401)
+  })
+})
+
+describe('GET /api/admin/accounts/:id', () => {
+  it('возвращает карточку, участников семьи и связанные аккаунты с пустым телефоном', async () => {
+    // Важная регрессия: PostgreSQL должен вывести типы параметров даже при NULL в телефоне.
+    const res = await api(app, fam.mom.token, 'GET', `/api/admin/accounts/${fam.mom.id}`)
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({
+      id: fam.mom.id,
+      email: 'boss@test.local',
+      familyId: fam.id,
+      sessionCount: expect.any(Number),
+      relatedAccounts: [],
+    })
+    expect(res.body.familyMembers).toHaveLength(4)
+    expect(res.body.familyMembers.map((member: { id: string }) => member.id)).toContain(fam.mom.id)
+  })
+
+  it('не раскрывает карточку не администратору и отвечает 404 для неизвестного id', async () => {
+    expect((await api(app, fam.dad.token, 'GET', `/api/admin/accounts/${fam.mom.id}`)).status).toBe(404)
+    expect((await api(app, fam.mom.token, 'GET', '/api/admin/accounts/00000000-0000-4000-8000-000000000000')).status).toBe(404)
+  })
+})
+
 describe('GET /api/admin/stats', () => {
   it('администратору отдаёт сводку: аккаунты, семьи, сообщения, всего и за сегодня', async () => {
     const res = await stats(fam.mom.token)
