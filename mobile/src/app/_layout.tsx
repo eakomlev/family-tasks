@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen'
 import { useFonts } from 'expo-font'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { KeyboardProvider } from 'react-native-keyboard-controller'
 import { Provider } from 'react-redux'
 import NetInfo from '@react-native-community/netinfo'
 import { CaptchaHost } from '@/components/CaptchaHost'
@@ -46,18 +47,20 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <Provider store={store}>
-          <ThemeProvider>
-            <IdentityProvider>
-              <SessionSync />
-              <ConfirmProvider>
-                <RootNavigation />
-              </ConfirmProvider>
-            </IdentityProvider>
-          </ThemeProvider>
-        </Provider>
-      </SafeAreaProvider>
+      <KeyboardProvider>
+        <SafeAreaProvider>
+          <Provider store={store}>
+            <ThemeProvider>
+              <IdentityProvider>
+                <SessionSync />
+                <ConfirmProvider>
+                  <RootNavigation />
+                </ConfirmProvider>
+              </IdentityProvider>
+            </ThemeProvider>
+          </Provider>
+        </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   )
 }

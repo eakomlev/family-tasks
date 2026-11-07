@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Image, Keyboard, Platform, Pressable, ScrollView, TextInput, View } from 'react-native'
+import { Image, Keyboard, Pressable, ScrollView, TextInput, View } from 'react-native'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -126,11 +126,10 @@ export function Composer({ onSend, onUpload, onUploadFile, onUploadVideo, flushB
   const guard = useInFlight()
   const insets = useSafeAreaInsets()
   const { colors, fontScale } = useTheme()
+  const [fieldFadeLayout, setFieldFadeLayout] = useState({ rowTop: 0, fieldTop: 10, fieldHeight: singleLine(fontScale) })
   const [text, setText] = useState('')
   const [items, setItems] = useState<Attachment[]>([])
   const [menu, setMenu] = useState(false)
-  // пока клавиатура открыта, нижний отступ безопасной зоны не нужен: поле стоит прямо над ней
-  const [keyboard, setKeyboard] = useState(false)
   const [notice, setNotice] = useState<string>()
   // панель эмодзи вместо клавиатуры, недавние и положение курсора (по нему вставляем и стираем)
   const [emojiOpen, setEmojiOpen] = useState(false)
@@ -144,15 +143,6 @@ export function Composer({ onSend, onUpload, onUploadFile, onUploadVideo, flushB
   // фото готовятся и грузятся по одному
   const queue = useRef<Promise<void>>(Promise.resolve())
   const alive = useRef(true)
-
-  useEffect(() => {
-    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboard(true))
-    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboard(false))
-    return () => {
-      show.remove()
-      hide.remove()
-    }
-  }, [])
 
   useEffect(() => {
     alive.current = true
@@ -391,14 +381,14 @@ export function Composer({ onSend, onUpload, onUploadFile, onUploadVideo, flushB
   return (
     <View
       onLayout={(e) => onHeight?.(Math.round(e.nativeEvent.layout.height))}
-      style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingBottom: keyboard || emojiOpen || flushBottom ? 0 : insets.bottom }}
+      style={{ position: 'relative', paddingBottom: emojiOpen || flushBottom ? 0 : insets.bottom }}
     >
-      {/* затемнение ленты под панелью: от прозрачного к фону, начинается чуть выше первой кнопки */}
+      {/* затемнение ленты начинается на середине поля ввода */}
       <LinearGradient
         pointerEvents="none"
         colors={[withAlpha(colors.bg, 0), withAlpha(colors.bg, 0.94), withAlpha(colors.bg, 0.94)]}
-        locations={[0, 0.2, 1]}
-        style={{ position: 'absolute', top: -28, left: 0, right: 0, bottom: 0 }}
+        locations={[0, 0.62, 1]}
+        style={{ position: 'absolute', top: fieldFadeLayout.rowTop + fieldFadeLayout.fieldTop + fieldFadeLayout.fieldHeight / 2, left: 0, right: 0, bottom: 0 }}
       />
       {(photos.length > 0 || files.length > 0 || videos.length > 0) && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, padding: 10 }} keyboardShouldPersistTaps="handled">
@@ -486,13 +476,19 @@ export function Composer({ onSend, onUpload, onUploadFile, onUploadVideo, flushB
           <Notice tone="warning">{notice}</Notice>
         </View>
       )}
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 10 }}>
+      <View
+        onLayout={(e) => setFieldFadeLayout((current) => ({ ...current, rowTop: e.nativeEvent.layout.y }))}
+        style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 10 }}
+      >
         {!editing && (
           <RoundButton onPress={() => setMenu(true)} accessibilityRole="button" accessibilityLabel="Прикрепить">
             <Ionicons name="attach" size={24} color={colors.text} />
           </RoundButton>
         )}
-        <View style={{ flex: 1 }}>
+        <View
+          onLayout={(e) => setFieldFadeLayout((current) => ({ ...current, fieldTop: e.nativeEvent.layout.y, fieldHeight: e.nativeEvent.layout.height }))}
+          style={{ flex: 1 }}
+        >
         <Field
           ref={input as never}
           value={text}

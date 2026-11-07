@@ -1,15 +1,16 @@
 # Моя Семья (Family Tasks)
 
-PWA для семьи: задания, расписание уроков и тренировок детей, дни рождения, уведомления. Монорепозиторий без workspaces: у `web/`, `mobile/`, `server/`, `notifier/`, `scheduler/` и `media/` свои `package.json` и `node_modules`. Язык интерфейса и сообщений об ошибках для пользователя — русский, комментарии в коде тоже на русском.
+PWA для семьи: задания, расписание уроков и тренировок детей, дни рождения, уведомления. Монорепозиторий без workspaces: у `web/`, `admin/`, `mobile/`, `server/`, `notifier/`, `scheduler/` и `media/` свои `package.json` и `node_modules`. Язык интерфейса и сообщений об ошибках для пользователя — русский, комментарии в коде тоже на русском.
 
 - `web/` — React 19 + Vite 8 + TypeScript, стили на `styled-components`, PWA через `vite-plugin-pwa`, роутинг `react-router-dom`, данные на устройстве в IndexedDB (`idb-keyval`). Алиас `@/` → `web/src` (vite + `paths` в tsconfig).
+- `admin/` — отдельная React + TypeScript админка, использует защищённые `/api/admin/*` и доступна на `console.familytasks.ru`; локальный запуск через `npm run dev:admin`, контейнер `admin` раздаёт SPA и проксирует API.
 - `mobile/` — будущее нативное приложение (Expo + React Native, Android и iPhone), заменит веб-версию; пока в разработке, см. `docs/mobile.md` и `docs/mobile-app-plan.md`.
 - `server/` — Node 22 + Fastify 5 + `pg`, TypeScript (ESM, `NodeNext`, импорты с суффиксом `.js`).
 - `notifier/` — сервис отправки писем и push из очереди `outbox` (Node 22 + `pg`, `nodemailer`, `web-push`, TypeScript как у `server/`), см. `docs/notifier.md`.
 - `realtime/` — живые обновления: держит WebSocket-соединения (`/api/ws`) и рассылает клиентам сигналы из канала Postgres (Node 22 + `pg` + `ws`), см. `docs/realtime.md`.
 - `scheduler/` — планировщик плановых push (дни рождения, уроки, тренировки), ставит их в `outbox` (Node 22 + `pg`), см. `docs/scheduler.md`.
 - `media/` — обработка и выдача фото из чатов (Node 22 + Fastify + `sharp`), хранит файлы во внешнем S3-совместимом хранилище (рег.ру, контейнера `s3` в compose нет), см. `docs/media.md`.
-- PostgreSQL 17, всё упаковано в Docker: nginx (раздаёт `web/dist`, проксирует `/api/` на `server:3000` и `/media/` на `media`) + server + notifier + scheduler + realtime + media + s3 + db. В проде перед ними Caddy с HTTPS. Письма: `nodemailer` по SMTP, в dev Mailpit (профиль compose `dev-mail`, UI на :8025).
+- PostgreSQL 17, всё упаковано в Docker: nginx (раздаёт `web/dist`, проксирует `/api/` на `server:3000` и `/media/` на `media`) + отдельный nginx админки + server + notifier + scheduler + realtime + media + s3 + db. В проде перед ними Caddy с HTTPS. Письма: `nodemailer` по SMTP, в dev Mailpit (профиль compose `dev-mail`, UI на :8025).
 
 
 ## Куда смотреть
@@ -21,6 +22,7 @@ PWA для семьи: задания, расписание уроков и тр
 | [docs/commands-and-tests.md](docs/commands-and-tests.md) | запуск, демо-данные, проверки типов, тесты сервера и веба, CI |
 | [docs/server.md](docs/server.md) | `server/`: миграции, вход, роли, задания, чат, игры, монеты, цели, календарь, администратор, безопасность |
 | [docs/web.md](docs/web.md) | `web/`: маршруты, экраны, RTK Query, нет связи, PWA, кэш, тема, структура `web/src` |
+| [docs/admin.md](docs/admin.md) | `admin/`: отдельный клиент, вход и развёртывание на `console.familytasks.ru` |
 | [docs/mobile.md](docs/mobile.md) | `mobile/`: Expo, навигация, сборки APK и iOS, чат, уведомления |
 | [docs/notifier.md](docs/notifier.md) | `notifier/`: очередь `outbox`, письма, push, лимиты, число на значке |
 | [docs/scheduler.md](docs/scheduler.md) | `scheduler/`: плановые уведомления, удаление семей |

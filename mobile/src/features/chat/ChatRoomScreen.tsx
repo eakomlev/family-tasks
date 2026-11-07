@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AppState, FlatList, KeyboardAvoidingView, Pressable, View } from 'react-native'
+import { AppState, FlatList, Pressable, type ScrollViewProps, View } from 'react-native'
+import { KeyboardChatScrollView, KeyboardStickyView } from 'react-native-keyboard-controller'
 import * as Clipboard from 'expo-clipboard'
 import { Redirect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -43,13 +44,6 @@ const Header = styled.View`
   gap: 10px;
   padding: 8px 12px;
 `
-
-function ChatKeyboardContainer({ children, backgroundColor }: { children: React.ReactNode; backgroundColor: string }) {
-  const style = { flex: 1, backgroundColor }
-  // Одна точка управления клавиатурой для обоих вариантов чата. В чате события
-  // KAV находится только вокруг переписки, поэтому шапка события остаётся на месте.
-  return <KeyboardAvoidingView style={style} behavior="padding">{children}</KeyboardAvoidingView>
-}
 
 // Выдержка из сообщения для ответа: текст или, у сообщения только с вложениями, заглушка
 const replyPreview = (message: ChatMessage) => (message.caption || message.text).replace(/s+/g, ' ').trim().slice(0, 140)
@@ -124,6 +118,15 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   // высота парящей шапки и панели ввода: лента идёт под них и оставляет место на их высоту
   const [topHeight, setTopHeight] = useState(0)
   const [bottomHeight, setBottomHeight] = useState(0)
+  const renderChatScroll = useCallback((props: ScrollViewProps) => (
+    <KeyboardChatScrollView
+      {...props}
+      inverted
+      keyboardLiftBehavior="always"
+      automaticallyAdjustContentInsets={false}
+      contentInsetAdjustmentBehavior="never"
+    />
+  ), [])
 
   const queryError = query.error
   const missing = !!queryError && 'status' in queryError && (queryError.status === 404 || queryError.status === 400)
@@ -298,9 +301,10 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   const subtitle = chat === FAMILY_CHAT ? participantsLabel(members.length) : isEvent ? 'Чат события' : visitLabel(peer, now)
   const muted = summary?.muted
   const otherMood = other ? currentMood(other.mood, now)?.emoji : undefined
+  const headerFadeStart = Math.max(0.01, Math.min(0.98, (insets.top + 30) / (topHeight + 28)))
 
   return (
-    <ChatKeyboardContainer backgroundColor={colors.bg}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ flex: 1 }}>
       {!embedded && (
       <View pointerEvents="box-none" onLayout={(e) => setTopHeight(Math.round(e.nativeEvent.layout.height))} style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 6 }}>
@@ -308,7 +312,7 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
       <LinearGradient
         pointerEvents="none"
         colors={[withAlpha(colors.bg, 0.96), withAlpha(colors.bg, 0.96), withAlpha(colors.bg, 0)]}
-        locations={[0, 0.81, 1]}
+        locations={[0, headerFadeStart, 1]}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: -28 }}
       />
       <Header style={{ paddingTop: insets.top + 8 }}>
@@ -354,6 +358,7 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
         keyboardShouldPersistTaps="handled"
         onEndReached={() => void loadOlder()}
         onEndReachedThreshold={0.4}
+        renderScrollComponent={renderChatScroll}
         renderItem={({ item: row, index }) =>
           row.kind === 'day' ? (
             <Text $size={12} $weight="bold" $tone="muted" style={{ alignSelf: 'center', marginVertical: 8 }}>
@@ -394,14 +399,19 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
         style={{ flex: 1 }}
       />
 
-      <Composer
-        incoming={incoming}
-        reply={replyingTo && { name: sender(replyingTo.senderId) ?? 'Участник', text: replyPreview(replyingTo) }}
-        onCancelReply={() => setReplyingTo(undefined)}
-        editing={editing && { id: editing.id, text: editing.caption }}
-        onCancelEdit={() => setEditing(undefined)}
-        onEditSubmit={handleEdit}
-        onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} onUploadVideo={handleUploadVideo} flushBottom={embedded} onHeight={setBottomHeight} />
+      <KeyboardStickyView
+        offset={{ closed: 0, opened: embedded ? 0 : -insets.bottom }}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 5 }}
+      >
+        <Composer
+          incoming={incoming}
+          reply={replyingTo && { name: sender(replyingTo.senderId) ?? 'Участник', text: replyPreview(replyingTo) }}
+          onCancelReply={() => setReplyingTo(undefined)}
+          editing={editing && { id: editing.id, text: editing.caption }}
+          onCancelEdit={() => setEditing(undefined)}
+          onEditSubmit={handleEdit}
+          onSend={handleSend} onUpload={handleUpload} onUploadFile={handleUploadFile} onUploadVideo={handleUploadVideo} flushBottom={embedded} onHeight={setBottomHeight} />
+      </KeyboardStickyView>
       </View>
 
       {watching && <VideoPlayer video={watching} onClose={() => setWatching(undefined)} />}
@@ -442,6 +452,6 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
           onClose={() => setFeedbackFor(undefined)}
         />
       )}
-    </ChatKeyboardContainer>
+    </View>
   )
 }

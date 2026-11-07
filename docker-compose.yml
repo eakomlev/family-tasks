@@ -207,5 +207,13 @@ services:
     depends_on:
       - server
 
+  admin:
+    logging: *logging
+    build: ./admin
+    restart: unless-stopped
+    mem_limit: 128m
+    depends_on:
+      - server
+
 volumes:
   pgdata:

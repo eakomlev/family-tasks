@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import { Keyboard, Platform, ScrollView, StyleSheet, View } from 'react-native'
+import { useState } from 'react'
+import { ScrollView, StyleSheet, View } from 'react-native'
 import { Redirect, useRouter } from 'expo-router'
+import { useKeyboardState } from 'react-native-keyboard-controller'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from 'styled-components/native'
 import { Avatar } from '@/components/Avatar'
@@ -57,15 +58,7 @@ export function EventViewScreen({ id, tab }: { id: string; tab?: string }) {
   const startIndex = tab === 'chat' ? 1 : 0
   const [index, setIndex] = useState(startIndex)
   // пока клавиатура открыта, нижняя панель вкладок прячется: поле ввода стоит прямо над клавиатурой
-  const [keyboard, setKeyboard] = useState(false)
-  useEffect(() => {
-    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboard(true))
-    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboard(false))
-    return () => {
-      show.remove()
-      hide.remove()
-    }
-  }, [])
+  const keyboard = useKeyboardState((state) => state.isVisible)
 
   const event = query.data?.event
   const missing = !!query.error && 'status' in query.error && query.error.status === 404

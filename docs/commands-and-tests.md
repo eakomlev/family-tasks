@@ -11,7 +11,7 @@ docker compose up --build -d
 docker compose down
 ```
 
-Локальная разработка одной командой (БД и Mailpit в Docker, сервер и сервис отправки через tsx watch, Vite с HMR; скрипты в корневом `package.json`, зависимость только `concurrently`):
+Локальная разработка одной командой (БД и Mailpit в Docker, сервер и сервисы через tsx watch, пользовательский веб и админка с HMR; скрипты в корневом `package.json`, зависимость только `concurrently`):
 
 ```bash
 npm run setup   # один раз
@@ -34,6 +34,7 @@ Service worker в dev выключен (в `vite.config.ts` нет `devOptions`)
 
 ```bash
 cd web && npx tsc -b && npm run lint && npm test && npm run build
+cd admin && npm run build
 cd server && npx tsc --noEmit
 ```
 

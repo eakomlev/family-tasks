@@ -28,6 +28,7 @@ services:
       - caddy_config:/config
     depends_on:
       - web
+      - admin
 
   # снаружи приложение доступно только через Caddy (HTTPS), прямой порт веб-сервера закрываем
   web:
