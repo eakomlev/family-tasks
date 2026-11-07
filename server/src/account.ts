@@ -3,7 +3,7 @@ import { authenticate } from './auth.js'
 import { pool } from './db.js'
 import { eventChatKey } from './chatKey.js'
 import type { MediaClient } from './media/client.js'
-import { publish, publishTo } from './realtime.js'
+import { closeSessionHash, publish, publishTo } from './realtime.js'
 import { isAdult, type Role } from './roles.js'
 
 interface Options {
@@ -15,14 +15,17 @@ const direct = (column: string) => `(split_part(${column}, ':', 1) = $1::text or
 
 interface Target {
   id: string
-  family_id: string
+  family_id: string | null
   role?: string
 }
+type FamilyTarget = Target & { family_id: string }
+
+interface ErasedMember { fileIds: string[]; others: string[]; sessionHashes: string[] }
 
 // Стирает участника вместе с тем, что с ним связано: его сообщения, личные чаты целиком (в том числе чужие сообщения в них),
 // чаты созданных им событий, задания, цели, игры, подписки и сессии. Создателя семьи не трогает (null). Файлы чатов убираются из хранилища
 // отдельно, после фиксации (finishErase).
-async function eraseMember(target: Target, detach = false): Promise<{ fileIds: string[]; others: string[] } | null> {
+async function eraseMember(target: FamilyTarget, detach = false): Promise<ErasedMember | null> {
   const db = await pool.connect()
   try {
     await db.query('begin')
@@ -34,6 +37,7 @@ async function eraseMember(target: Target, detach = false): Promise<{ fileIds: s
     }
     const events = await db.query<{ id: string }>('select id from events where author_id = $1', [target.id])
     const eventKeys = events.rows.map((e) => eventChatKey(e.id))
+    const sessions = await db.query<{ token_hash: string }>('select token_hash from sessions where member_id = $1', [target.id])
 
     // файлы: загруженные участником и вложения в чужих сообщениях личных чатов и чатов его событий
     const files = await db.query<{ id: string }>(
@@ -72,7 +76,7 @@ async function eraseMember(target: Target, detach = false): Promise<{ fileIds: s
     // остальное связано с участником каскадом (задания, цели, монеты, игры, события, сессии, подписки)
     await db.query('delete from members where id = $1', [target.id])
     await db.query('commit')
-    return { fileIds, others: people.rows.map((p) => p.id) }
+    return { fileIds, others: people.rows.map((p) => p.id), sessionHashes: detach ? [] : sessions.rows.map((s) => s.token_hash) }
   } catch (err) {
     await db.query('rollback').catch(() => {})
     throw err
@@ -83,7 +87,8 @@ async function eraseMember(target: Target, detach = false): Promise<{ fileIds: s
 
 // После фиксации: файлы убираем из хранилища (недоступное хранилище оставляет файл без записи, это лишь занятое место),
 // остальным участникам уходят сигналы обновиться
-async function finishErase(req: FastifyRequest, media: Options['media'], target: Target, erased: { fileIds: string[]; others: string[] }) {
+async function finishErase(req: FastifyRequest, media: Options['media'], target: FamilyTarget, erased: ErasedMember) {
+  for (const sessionHash of erased.sessionHashes) closeSessionHash(sessionHash)
   if (media) {
     for (const id of erased.fileIds) {
       try {
@@ -97,6 +102,42 @@ async function finishErase(req: FastifyRequest, media: Options['media'], target:
     publish(target.family_id, { type: event })
   }
   for (const id of erased.others) publishTo(id, { type: 'chat', chat: target.id })
+}
+
+// Административное удаление отдельного участника; создатель удаляется вместе со всей семьёй через family_deletions.
+export async function deleteAdminMember(req: FastifyRequest, media: Options['media'], memberId: string): Promise<'deleted' | 'not_found' | 'owner'> {
+  const { rows } = await pool.query<Target & { is_owner: boolean; family_id: string | null }>(
+    'select id, family_id, role, is_owner from members where id = $1', [memberId],
+  )
+  const target = rows[0]
+  if (!target) return 'not_found'
+  if (target.is_owner) return 'owner'
+
+  if (target.family_id === null) {
+    const db = await pool.connect()
+    let sessionHashes: string[] = []
+    try {
+      await db.query('begin')
+      const locked = await db.query('select 1 from members where id = $1 and family_id is null and is_owner = false for update', [memberId])
+      if (!locked.rows[0]) { await db.query('rollback'); return 'not_found' }
+      const sessions = await db.query<{ token_hash: string }>('select token_hash from sessions where member_id = $1', [memberId])
+      sessionHashes = sessions.rows.map((session) => session.token_hash)
+      await db.query('delete from members where id = $1', [memberId])
+      await db.query('commit')
+    } catch (error) {
+      await db.query('rollback').catch(() => {})
+      throw error
+    } finally {
+      db.release()
+    }
+    for (const sessionHash of sessionHashes) closeSessionHash(sessionHash)
+    return 'deleted'
+  }
+
+  const erased = await eraseMember({ ...target, family_id: target.family_id })
+  if (!erased) return 'not_found'
+  await finishErase(req, media, { ...target, family_id: target.family_id }, erased)
+  return 'deleted'
 }
 
 // Удаление аккаунта. Свой: ребёнок и создатель семьи не могут (у создателя есть только удаление всей семьи).
@@ -114,7 +155,7 @@ export async function accountRoutes(app: FastifyInstance, { media }: Options) {
       return reply.code(204).send()
     }
 
-    const erased = await eraseMember(member)
+    const erased = await eraseMember({ ...member, family_id: member.family_id })
     if (!erased) return reply.code(404).send({ error: 'not_found' })
     await finishErase(req, media, member, erased)
     return reply.code(204).send()
@@ -128,12 +169,12 @@ export async function accountRoutes(app: FastifyInstance, { media }: Options) {
 
     const found = await pool.query<Target>('select id, family_id, role from members where id::text = $1 and family_id = $2', [req.params.id, member.family_id])
     const target = found.rows[0]
-    if (!target) return reply.code(404).send({ error: 'member_not_found' })
+    if (!target || target.family_id === null) return reply.code(404).send({ error: 'member_not_found' })
 
     // взрослого убираем из семьи с сохранением аккаунта, ребёнка удаляем полностью
-    const erased = await eraseMember(target, isAdult(target.role as Role))
+    const erased = await eraseMember({ ...target, family_id: target.family_id }, isAdult(target.role as Role))
     if (!erased) return reply.code(404).send({ error: 'member_not_found' })
-    await finishErase(req, media, target, erased)
+    await finishErase(req, media, { ...target, family_id: target.family_id }, erased)
     return reply.code(204).send()
   })
 }

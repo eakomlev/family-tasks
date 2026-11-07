@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
+import { BrowserRouter, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError, get, post, revokeSession, type AdminStats, type LoginOption, type Session, type ServiceStats } from './api'
+import AccountDetailPage from './AccountDetailPage'
+import AccountsPage from './AccountsPage'
 import { getCaptchaToken, isCaptchaEnabled } from './captcha'
 
 const number = (value: number) => value.toLocaleString('ru-RU')
@@ -30,7 +33,9 @@ function Alert({ children, tone = 'warn' }: { children: React.ReactNode; tone?: 
   return <div className={`alert ${tone}`}>{children}</div>
 }
 
-export default function App() {
+function AppRoot() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [session, setSession] = useState<Session | null>(() => {
     try { return JSON.parse(localStorage.getItem('admin-session') || 'null') as Session | null } catch { return null }
   })
@@ -40,7 +45,7 @@ export default function App() {
   const [options, setOptions] = useState<LoginOption[]>([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [me, setMe] = useState<{ name: string; isAdmin: boolean } | null>(null)
+  const [me, setMe] = useState<{ id: string; name: string; email: string | null; phone: string | null; isAdmin: boolean } | null>(null)
   const [stats, setStats] = useState<ServiceStats | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [failure, setFailure] = useState('')
@@ -60,9 +65,9 @@ export default function App() {
     let alive = true
     const refresh = async () => {
       try {
-        const profile = await get<{ member: { name: string; isAdmin?: boolean } }>('/me', session.member.token)
+        const profile = await get<{ member: { id: string; name: string; email: string | null; phone: string | null; isAdmin?: boolean } }>('/me', session.member.token)
         if (!alive) return
-        setMe({ name: profile.member.name, isAdmin: !!profile.member.isAdmin })
+        setMe({ id: profile.member.id, name: profile.member.name, email: profile.member.email, phone: profile.member.phone ?? null, isAdmin: !!profile.member.isAdmin })
         if (!profile.member.isAdmin) { setFailure('У этой учётной записи нет доступа к администрированию.'); return }
         const since = new Date(); since.setHours(0, 0, 0, 0)
         const [data] = await Promise.all([get<ServiceStats>(`/admin/stats?since=${encodeURIComponent(since.toISOString())}`, session.member.token)])
@@ -107,8 +112,9 @@ export default function App() {
   }
 
   const admin = session && me?.isAdmin
+  const accountPath = /^\/accounts\/([0-9a-f-]{36})$/i.exec(location.pathname)
   return <main className="shell">
-    <header className="top"><a className="brand" href="/" aria-label="Моя Семья"><span className="brand-icon">⌂</span><span>Моя Семья <i>console</i></span></a>{admin && <div className="account"><span>{me.name}</span><button onClick={() => void signOut()}>Выйти</button></div>}</header>
+    <header className="top"><a className="brand" href="/" aria-label="Моя Семья"><span className="brand-icon">⌂</span><span>Моя Семья <i>console</i></span></a>{admin && <div className="top-right"><nav className="top-nav" aria-label="Навигация админки"><button className={location.pathname === '/' ? 'selected' : ''} onClick={() => navigate('/')}>Сервис</button><button className={location.pathname.startsWith('/accounts') ? 'selected' : ''} onClick={() => navigate('/accounts')}>Аккаунты</button></nav><div className="account"><span>{me.name}</span><button onClick={() => void signOut()}>Выйти</button></div></div>}</header>
     {!session ? <section className="login panel"><div className="eyebrow">КОНСОЛЬ АДМИНИСТРАТОРА</div><h1>{step === 'email' ? 'Вход в админку' : 'Введите код'}</h1><p>{step === 'email' ? 'Войдите по email, указанному в списке ADMIN_EMAILS.' : `Мы отправили одноразовый код на ${email}.`}</p>
       {options.length ? <div className="option-list"><p>Выберите участника:</p>{options.map(option => <button className="option" key={option.id} disabled={busy} onClick={() => signIn(code, option.id)}><span>{option.name}</span><small>{option.role === 'adult' ? 'Взрослый' : 'Ребёнок'} · семья {option.familyCode}</small></button>)}</div> : <form onSubmit={step === 'email' ? requestCode : e => { e.preventDefault(); void signIn(code) }}>
         {step === 'email' ? <label>Email<input autoComplete="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus /></label> : <label>Код из письма<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required autoFocus /></label>}
@@ -118,15 +124,22 @@ export default function App() {
       </form>}
       <div className="login-foot">Доступ разрешён только администраторам сервиса</div>
     </section> : !admin ? <section className="login panel"><h1>Проверка доступа</h1>{failure ? <Alert tone="bad">{failure}</Alert> : <p>Проверяем учётную запись…</p>}<button className="text-button" onClick={() => void signOut()}>Выйти</button></section> : <>
-      <div className="hero"><div><div className="eyebrow">СОСТОЯНИЕ ПЛАТФОРМЫ</div><h1>Сводка сервиса</h1><p>Основные показатели и здоровье фоновых сервисов</p></div><div className="updated"><span className="live-dot"/>Обновление каждые 30 секунд <b>{new Date(tick).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</b></div></div>
-      {failure && <Alert tone="bad">{failure}</Alert>}
-      {!stats && !loaded && <div className="loading">Загружаем показатели…</div>}
-      {stats && <div className="stats-grid"><Panel title="Аккаунты"><div className="metrics"><Metric label="Всего аккаунтов" value={number(stats.accounts.total)} /><Metric label="Новых сегодня" value={number(stats.accounts.today)} /><Metric label="Семей всего" value={number(stats.families.total)} /><Metric label="Новых семей сегодня" value={number(stats.families.today)} /></div></Panel><Panel title="Сообщения"><div className="metrics"><Metric label="Отправлено всего" value={number(stats.messages.total)} /><Metric label="Сегодня" value={number(stats.messages.today)} /></div></Panel></div>}
-      <Dashboard token={session.member.token} now={new Date(tick)} />
+      {location.pathname.startsWith('/accounts') ? accountPath
+        ? <AccountDetailPage id={accountPath[1]} token={session.member.token} current={{ id: me.id, email: me.email, phone: me.phone }} />
+        : <AccountsPage token={session.member.token} />
+        : <>
+          <div className="hero"><div><div className="eyebrow">СОСТОЯНИЕ ПЛАТФОРМЫ</div><h1>Сводка сервиса</h1><p>Основные показатели и здоровье фоновых сервисов</p></div><div className="updated"><span className="live-dot"/>Обновление каждые 30 секунд <b>{new Date(tick).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</b></div></div>
+          {failure && <Alert tone="bad">{failure}</Alert>}
+          {!stats && !loaded && <div className="loading">Загружаем показатели…</div>}
+          {stats && <div className="stats-grid"><Panel title="Аккаунты"><div className="metrics"><Metric label="Всего аккаунтов" value={number(stats.accounts.total)} /><Metric label="Новых сегодня" value={number(stats.accounts.today)} /><Metric label="Семей всего" value={number(stats.families.total)} /><Metric label="Новых семей сегодня" value={number(stats.families.today)} /></div></Panel><Panel title="Сообщения"><div className="metrics"><Metric label="Отправлено всего" value={number(stats.messages.total)} /><Metric label="Сегодня" value={number(stats.messages.today)} /></div></Panel></div>}
+          <Dashboard token={session.member.token} now={new Date(tick)} />
+        </>}
     </>}
     <footer>МОЯ СЕМЬЯ <span>·</span> КОНСОЛЬ УПРАВЛЕНИЯ</footer>
   </main>
 }
+
+export default function App() { return <BrowserRouter><AppRoot /></BrowserRouter> }
 
 function Dashboard({ token, now }: { token: string; now: Date }) {
   const [data, setData] = useState<AdminStats>({})

@@ -15,6 +15,13 @@ export interface NotificationTarget {
   tab: boolean
 }
 
+// Для переписок явно указываем динамический маршрут Expo Router. Строковый URL `/chat/<id>` иногда
+// разрешается относительно стека вкладки «Чат» и оставляет пользователя на списке переписок.
+export function notificationHref(target: NotificationTarget): string | { pathname: '/chat/[chat]'; params: { chat: string } } {
+  const chat = /^\/chat\/(family|[0-9a-f-]{36})$/i.exec(target.href)
+  return chat ? { pathname: '/chat/[chat]', params: { chat: chat[1] } } : target.href
+}
+
 const SECTIONS = ['tasks', 'chat', 'family', 'profile', 'coins', 'goals', 'calendar', 'games']
 const TAB_ROOTS = new Set(['/', '/tasks', '/chat', '/family'])
 const EVENT_CHAT = /^\/chat\/event-([0-9a-f-]{36})\/?$/i

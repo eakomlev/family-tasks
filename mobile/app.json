@@ -80,7 +80,7 @@
             ]
           },
           "ios": {
-            "enabled": false,
+            "enabled": true,
             "activationRule": {
               "supportsText": true,
               "supportsWebUrlWithMaxCount": 1,

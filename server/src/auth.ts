@@ -112,7 +112,13 @@ export async function authenticateToken(token: string) {
      from sessions s
      join members m on m.id = s.member_id
      left join families f on f.id = m.family_id
-     where s.token_hash = $1 and s.last_used_at > now() - make_interval(days => $2)`,
+     where s.token_hash = $1 and s.last_used_at > now() - make_interval(days => $2)
+       and m.blocked_at is null
+       and not exists (
+         select 1 from members b where b.blocked_at is not null
+           and ((m.email is not null and b.email = m.email) or (m.phone is not null and b.phone = m.phone))
+       )
+       and not exists (select 1 from family_deletions d where d.family_id = m.family_id)`,
     [hashToken(token), SESSION_TTL_DAYS],
   )
   if (!rows[0]) return null

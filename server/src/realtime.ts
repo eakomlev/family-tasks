@@ -63,7 +63,12 @@ export async function publishForMember(memberId: string, event: RealtimeEvent) {
 
 // После выхода с устройства его соединение закрывается.
 export function closeSession(token: string) {
-  notify({ v: 1, to: 'session', id: hashToken(token) })
+  closeSessionHash(hashToken(token))
+}
+
+// Закрывает уже открытый сокет по сохранённому в БД хэшу сессии.
+export function closeSessionHash(tokenHash: string) {
+  notify({ v: 1, to: 'session', id: tokenHash })
 }
 
 // Открыт ли у участника на каком-либо устройстве этот чат (и вкладка на виду): тогда пуш о сообщении не нужен.

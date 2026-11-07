@@ -36,6 +36,22 @@ export interface AdminStats {
     days: { day: string; sent: number; failed: number; spend: number }[]; waiting: number; retrying: number; limit: number; usedToday: number
   }
 }
+export interface AccountSummary {
+  id: string; name: string; email: string | null; phone: string | null; role: string; isOwner: boolean
+  createdAt: string; blockedAt: string | null; accessBlocked: boolean
+  family: { id: string; code: string; surname: string | null } | null
+  familyDeletionRequestedAt: string | null
+}
+export interface AccountPage { items: AccountSummary[]; total: number; page: number; pageSize: number }
+export interface AccountDetail extends Omit<AccountSummary, 'family'> {
+  avatar: string | null; birthDate: string | null; mood: { value: number; at: string } | null
+  consentVersion: string | null; consentAt: string | null; familyId: string | null; familyCode: string | null; familySurname: string | null
+  sessionCount: number; lastSeenAt: string | null; pushCount: number
+  tasksCreated: number; tasksAssigned: number; tasksCompleted: number; messagesSent: number
+  eventsCreated: number; goals: number; games: number; coinTransactions: number
+  relatedAccounts: { id: string; name: string; role: string; isOwner: boolean; email: string | null; phone: string | null; createdAt: string; accessBlocked: boolean; familyCode: string | null; familySurname: string | null }[]
+  familyMembers: { id: string; name: string; role: string; isOwner: boolean; email: string | null; phone: string | null; createdAt: string; accessBlocked: boolean }[]
+}
 
 async function request<T>(path: string, method: string, body?: unknown, token?: string): Promise<T> {
   const headers = new Headers()
@@ -53,3 +69,5 @@ async function request<T>(path: string, method: string, body?: unknown, token?: 
 export const get = <T>(path: string, token: string) => request<T>(path, 'GET', undefined, token)
 export const post = <T = void>(path: string, body: unknown) => request<T>(path, 'POST', body)
 export const revokeSession = (token: string) => request<void>('/session', 'DELETE', undefined, token)
+export const patch = <T = void>(path: string, body: unknown, token: string) => request<T>(path, 'PATCH', body, token)
+export const del = <T = void>(path: string, token: string) => request<T>(path, 'DELETE', undefined, token)

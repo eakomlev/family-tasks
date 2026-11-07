@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import * as Notifications from 'expo-notifications'
 import { useRouter, type Href } from 'expo-router'
 import { isChatOpenFor } from '@/realtime/viewing'
-import { notificationTarget } from './deepLink'
+import { notificationHref, notificationTarget } from './deepLink'
 import { routeFromNotificationData } from './route'
 import { usePush } from './usePush'
 
@@ -27,7 +27,7 @@ export function NotificationsBridge() {
       const target = notificationTarget(response?.notification.request.content.data)
       if (!target) return
       if (target.tab) router.navigate(target.href as Href)
-      else router.push(target.href as Href)
+      else router.push(notificationHref(target) as Href)
     }
     // приложение запущено нажатием на уведомление
     void Notifications.getLastNotificationResponseAsync().then((last) => {

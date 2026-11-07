@@ -244,8 +244,15 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
         }
 
         // при входе письмо уходит только известному адресу, а ответ одинаков для любого
-        const send =
-          purpose === 'signup' || (await tx.query(`select 1 from members where ${contact.column} = $1 limit 1`, [contact.value])).rows.length > 0
+        const contactIsBlocked = (await tx.query(
+          `select 1 from members where ${contact.column} = $1 and blocked_at is not null limit 1`,
+          [contact.value],
+        )).rows.length > 0
+        const send = !contactIsBlocked && (purpose === 'signup' || (await tx.query(
+          `select 1 from members m where m.${contact.column} = $1 and m.blocked_at is null
+             and not exists (select 1 from family_deletions d where d.family_id = m.family_id) limit 1`,
+          [contact.value],
+        )).rows.length > 0)
         if (send) {
           try {
             await enqueue(
@@ -284,6 +291,9 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
       if (req.body.consent !== true) return reply.code(400).send({ error: 'consent_required' })
       if (!(await checkEmailCode(contact.key, 'signup', req.body.code))) {
         return reply.code(400).send({ error: 'invalid_code' })
+      }
+      if ((await pool.query(`select 1 from members where ${contact.column} = $1 and blocked_at is not null limit 1`, [contact.value])).rows.length) {
+        return reply.code(403).send({ error: 'account_blocked' })
       }
 
       const db = await pool.connect()
@@ -341,6 +351,9 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
       if (!(await checkEmailCode(contact.key, 'signup', req.body.code))) {
         return reply.code(400).send({ error: 'invalid_code' })
       }
+      if ((await pool.query(`select 1 from members where ${contact.column} = $1 and blocked_at is not null limit 1`, [contact.value])).rows.length) {
+        return reply.code(403).send({ error: 'account_blocked' })
+      }
 
       const db = await pool.connect()
       try {
@@ -387,7 +400,13 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
                 (select array_agg(o.name order by o.created_at) from members o
                  where o.family_id = m.family_id) as "familyMembers"
          from members m left join families f on f.id = m.family_id
-         where m.${contact.column} = $1 order by m.created_at`,
+         where m.${contact.column} = $1 and m.blocked_at is null
+           and not exists (
+             select 1 from members b where b.blocked_at is not null
+               and ((m.email is not null and b.email = m.email) or (m.phone is not null and b.phone = m.phone))
+           )
+           and not exists (select 1 from family_deletions d where d.family_id = m.family_id)
+         order by m.created_at`,
         [contact.value],
       )
       if (candidates.length === 0) return reply.code(401).send({ error: 'invalid_code' })
@@ -413,6 +432,16 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
       const db = await pool.connect()
       try {
         await db.query('begin')
+        const { rows: locked } = await db.query<{ blocked_at: string | null; family_id: string | null }>(
+          `select blocked_at, family_id from members where id = $1 for update`, [chosen.id],
+        )
+        const contactBlocked = (await db.query(
+          `select 1 from members where blocked_at is not null and ${contact.column} = $1 limit 1`, [contact.value],
+        )).rows.length > 0
+        if (!locked[0] || locked[0].blocked_at || contactBlocked || locked[0].family_id && (await db.query('select 1 from family_deletions where family_id = $1', [locked[0].family_id])).rows.length) {
+          await db.query('rollback')
+          return reply.code(401).send({ error: 'invalid_code' })
+        }
         const token = await createSession(db, chosen.id)
         await discardEmailCode(db, contact.key, 'login')
         await db.query('commit')
