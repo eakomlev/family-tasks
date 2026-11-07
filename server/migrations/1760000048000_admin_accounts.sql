@@ -1,3 +1,4 @@
+-- Up Migration
 -- Администратор может временно закрыть участнику доступ к входу и приложению.
 alter table members add column blocked_at timestamptz;
 
