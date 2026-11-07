@@ -20,11 +20,12 @@ const Base = styled(Pressable)<{ $variant: Variant; $disabled: boolean }>`
 
 interface ButtonProps extends Omit<PressableProps, 'children'> {
   variant?: Variant
+  labelColor?: string
   children: ReactNode
 }
 
 // Кнопки-«таблетки»: основная (акцент), лаймовая (выполнить, подтвердить), опасная (удалить), вторичная и текстовая
-export function Button({ variant = 'secondary', disabled, children, ...rest }: ButtonProps) {
+export function Button({ variant = 'secondary', disabled, children, labelColor, ...rest }: ButtonProps) {
   const { colors } = useTheme()
   const color =
     variant === 'primary' ? colors.accentText : variant === 'lime' ? colors.onLime : variant === 'danger' ? colors.onError : variant === 'text' ? colors.accent : colors.text
@@ -37,7 +38,7 @@ export function Button({ variant = 'secondary', disabled, children, ...rest }: B
       accessibilityState={{ disabled: !!disabled }}
       {...rest}
     >
-      <Text $weight="extraBold" $size={16} style={{ color }}>
+      <Text $weight="extraBold" $size={16} style={{ color: labelColor ?? color }}>
         {children}
       </Text>
     </Base>

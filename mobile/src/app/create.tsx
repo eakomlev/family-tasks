@@ -1,9 +1,8 @@
 import { useRouter } from 'expo-router'
 import { createFamily, type SignupData } from '@/api'
 import { AuthScreen } from '@/components/AuthScreen'
-import { Button } from '@/components/Button'
+import { PageHeader } from '@/components/PageHeader'
 import { ReplaceGuard } from '@/components/ReplaceGuard'
-import { Title } from '@/components/Text'
 import { RoleForm } from '@/features/auth/RoleForm'
 import { useIdentity } from '@/identity/context'
 import { toIdentity } from '@/identity/utils'
@@ -23,11 +22,8 @@ export default function CreateFamily() {
   }
 
   return (
-    <AuthScreen>
-      <Button variant="text" onPress={() => router.back()}>
-        ← Назад
-      </Button>
-      <Title>Создаём семью</Title>
+    <AuthScreen showLogo={false}>
+      <PageHeader fallback="/(auth)/welcome" reserveRight={false}>Создаём семью</PageHeader>
       <ReplaceGuard>
         <RoleForm roles={CREATOR_ROLES} submitLabel="Создать семью" onSubmit={handleSubmit} />
       </ReplaceGuard>

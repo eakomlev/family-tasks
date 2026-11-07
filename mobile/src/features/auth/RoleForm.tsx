@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pressable } from 'react-native'
+import { Pressable, View } from 'react-native'
 import styled from 'styled-components/native'
 import { requestCode, type SignupData } from '@/api'
 import { Button } from '@/components/Button'
@@ -100,11 +100,13 @@ export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
         <Text $weight="extraBold" $size={14} $tone="muted">
           Кто вы в семье?
         </Text>
-        {roles.map((r) => (
-          <RoleCard key={r} $selected={role === r} onPress={() => setRole(r)} accessibilityRole="radio" accessibilityState={{ selected: role === r }}>
-            <Text $weight="extraBold">{ROLE_LABELS[r]}</Text>
-          </RoleCard>
-        ))}
+        <View style={{ flexDirection: roles.length === 2 ? 'row' : 'column', gap: 10 }}>
+          {roles.map((r) => (
+            <RoleCard key={r} $selected={role === r} onPress={() => setRole(r)} accessibilityRole="radio" accessibilityState={{ selected: role === r }} style={roles.length === 2 ? { flex: 1 } : undefined}>
+              <Text $weight="extraBold">{ROLE_LABELS[r]}</Text>
+            </RoleCard>
+          ))}
+        </View>
       </Stack>
 
       <Field label="Ваше имя">
@@ -118,7 +120,7 @@ export function RoleForm({ roles, submitLabel, onSubmit }: RoleFormProps) {
       {error && <Notice tone="error">{error}</Notice>}
 
       <Button variant="primary" disabled={!ready} onPress={handleDetails}>
-        {busy ? 'Подождите…' : 'Получить код'}
+        {busy ? 'Подождите…' : 'Продолжить'}
       </Button>
     </Stack>
   )

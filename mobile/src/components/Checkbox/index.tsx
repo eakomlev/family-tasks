@@ -32,7 +32,7 @@ export function Checkbox({ checked, onChange, children }: { checked: boolean; on
           </View>
         )}
       </Box>
-      <Text $weight="bold">{children}</Text>
+      <Text $weight="bold" style={{ flex: 1, flexShrink: 1 }}>{children}</Text>
     </Pressable>
   )
 }

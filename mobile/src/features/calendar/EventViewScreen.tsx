@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native'
+import { Keyboard, Platform, ScrollView, StyleSheet, View } from 'react-native'
 import { Redirect, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from 'styled-components/native'
@@ -84,7 +84,6 @@ export function EventViewScreen({ id, tab }: { id: string; tab?: string }) {
   const isAuthor = !!event && event.authorId === identity.memberId
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior="padding">
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top + TOP_CORNER }}>
       <View style={{ paddingHorizontal: 20, paddingBottom: 6 }}>
         <PageHeader
@@ -153,6 +152,5 @@ export function EventViewScreen({ id, tab }: { id: string; tab?: string }) {
         </View>
       )}
     </View>
-    </KeyboardAvoidingView>
   )
 }

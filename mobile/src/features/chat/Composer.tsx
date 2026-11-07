@@ -397,7 +397,7 @@ export function Composer({ onSend, onUpload, onUploadFile, onUploadVideo, flushB
       <LinearGradient
         pointerEvents="none"
         colors={[withAlpha(colors.bg, 0), withAlpha(colors.bg, 0.94), withAlpha(colors.bg, 0.94)]}
-        locations={[0, 0.4, 1]}
+        locations={[0, 0.2, 1]}
         style={{ position: 'absolute', top: -28, left: 0, right: 0, bottom: 0 }}
       />
       {(photos.length > 0 || files.length > 0 || videos.length > 0) && (

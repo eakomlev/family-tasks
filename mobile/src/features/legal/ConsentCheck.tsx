@@ -9,7 +9,7 @@ export function ConsentCheck({ checked, onChange }: { checked: boolean; onChange
   return (
     <Stack $gap={4}>
       <Checkbox checked={checked} onChange={onChange}>
-        {`Я даю согласие оператору (${OPERATOR_NAME}) на обработку моих персональных данных и данных моих несовершеннолетних детей на условиях `}
+        {`Даю согласие оператору (${OPERATOR_NAME}) на обработку моих данных и данных моих несовершеннолетних детей согласно `}
         <Text $tone="accent" $weight="bold" onPress={() => openLegal(CONSENT_PATH)} accessibilityRole="link">
           Политики обработки персональных данных
         </Text>

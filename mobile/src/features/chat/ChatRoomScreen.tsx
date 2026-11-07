@@ -44,9 +44,10 @@ const Header = styled.View`
   padding: 8px 12px;
 `
 
-function ChatKeyboardContainer({ children, embedded, backgroundColor }: { children: React.ReactNode; embedded: boolean; backgroundColor: string }) {
+function ChatKeyboardContainer({ children, backgroundColor }: { children: React.ReactNode; backgroundColor: string }) {
   const style = { flex: 1, backgroundColor }
-  if (embedded) return <View style={style}>{children}</View>
+  // Одна точка управления клавиатурой для обоих вариантов чата. В чате события
+  // KAV находится только вокруг переписки, поэтому шапка события остаётся на месте.
   return <KeyboardAvoidingView style={style} behavior="padding">{children}</KeyboardAvoidingView>
 }
 
@@ -299,7 +300,7 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   const otherMood = other ? currentMood(other.mood, now)?.emoji : undefined
 
   return (
-    <ChatKeyboardContainer embedded={embedded} backgroundColor={colors.bg}>
+    <ChatKeyboardContainer backgroundColor={colors.bg}>
       <View style={{ flex: 1 }}>
       {!embedded && (
       <View pointerEvents="box-none" onLayout={(e) => setTopHeight(Math.round(e.nativeEvent.layout.height))} style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 6 }}>
@@ -307,7 +308,7 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
       <LinearGradient
         pointerEvents="none"
         colors={[withAlpha(colors.bg, 0.96), withAlpha(colors.bg, 0.96), withAlpha(colors.bg, 0)]}
-        locations={[0, 0.62, 1]}
+        locations={[0, 0.81, 1]}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: -28 }}
       />
       <Header style={{ paddingTop: insets.top + 8 }}>

@@ -6,9 +6,10 @@ import { Button } from '@/components/Button'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
 import { Notice } from '@/components/Notice'
+import { PageHeader } from '@/components/PageHeader'
 import { ReplaceGuard } from '@/components/ReplaceGuard'
 import { Stack } from '@/components/Stack'
-import { Text, Title } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { RoleForm } from '@/features/auth/RoleForm'
 import { extractCode } from '@/features/auth/inviteCode'
 import { useIdentity } from '@/identity/context'
@@ -89,17 +90,13 @@ function JoinWithCode({ code }: { code: string }) {
 
 // Присоединение по приглашению. Ссылка `/join?code=…` открывает приложение сразу на нужном шаге (универсальные ссылки подключим в фазе 6).
 export default function Join() {
-  const router = useRouter()
   const params = useLocalSearchParams<{ code?: string }>()
   const [entered, setEntered] = useState<string>()
   const code = params.code || entered
 
   return (
-    <AuthScreen>
-      <Button variant="text" onPress={() => router.back()}>
-        ← Назад
-      </Button>
-      <Title>Присоединиться к семье</Title>
+    <AuthScreen showLogo={false}>
+      <PageHeader fallback="/(auth)/welcome" reserveRight={false}>Присоединиться к семье</PageHeader>
       <ReplaceGuard>{code ? <JoinWithCode key={code} code={code} /> : <EnterCode onCode={setEntered} />}</ReplaceGuard>
     </AuthScreen>
   )

@@ -1,17 +1,11 @@
-import { useRouter } from 'expo-router'
 import { AuthScreen } from '@/components/AuthScreen'
-import { Button } from '@/components/Button'
-import { Title } from '@/components/Text'
+import { PageHeader } from '@/components/PageHeader'
 import { LoginFlow } from '@/features/auth/LoginFlow'
 
 export default function Login() {
-  const router = useRouter()
   return (
-    <AuthScreen>
-      <Button variant="text" onPress={() => router.back()}>
-        ← Назад
-      </Button>
-      <Title>С возвращением!</Title>
+    <AuthScreen showLogo={false}>
+      <PageHeader fallback="/(auth)/welcome" reserveRight={false}>С возвращением!</PageHeader>
       <LoginFlow />
     </AuthScreen>
   )

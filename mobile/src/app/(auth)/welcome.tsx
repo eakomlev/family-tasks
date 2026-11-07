@@ -1,45 +1,32 @@
 import { useState } from 'react'
-import { Pressable, View } from 'react-native'
+import { Image, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useTheme } from 'styled-components/native'
 import { AuthScreen } from '@/components/AuthScreen'
 import { Button } from '@/components/Button'
 import { Stack } from '@/components/Stack'
-import { Text, Title } from '@/components/Text'
+import { Text } from '@/components/Text'
 import { Onboarding } from '@/features/onboarding/Onboarding'
 import { openLegal, PRIVACY_PATH, TERMS_PATH } from '@/lib/legal'
 import { markOnboardingSeen, markOnboardingSkipped, shouldShowOnboarding } from '@/features/onboarding/state'
 
-// чип и номер слайда, который он открывает
-const FEATURES: [string, number][] = [
-  ['✅ Задания', 1],
-  ['🪙 Монеты', 2],
-  ['💬 Чат', 3],
-  ['📅 Расписание', 4],
-]
-
-// Приветствие для тех, кто ещё не вошёл: при первом запуске слайдер знакомства, затем кнопки «Создать семью», «У меня есть приглашение»,
-// «Войти». Чипы с возможностями открывают слайдер на нужном слайде.
+// Приветствие: слайдер знакомства при первом запуске, затем три действия без обзора функций.
 export default function Welcome() {
   const router = useRouter()
   const { colors } = useTheme()
   const [slides, setSlides] = useState(shouldShowOnboarding)
-  // слайдер открыт повторно по нажатию на чип: номер слайда, «Пропустить» возвращает к кнопкам
-  const [reopened, setReopened] = useState<number | null>(null)
 
   if (slides) {
     return (
       <LinearGradient colors={[colors.authA, colors.authB, colors.authC]} style={{ flex: 1 }}>
         <Onboarding
-          key={reopened ?? 'first'}
-          start={reopened ?? 0}
+          key="first"
+          start={0}
           onLast={markOnboardingSeen}
           onSkip={() => {
-            if (reopened === null) {
-              markOnboardingSkipped()
-              router.push('/login')
-            }
+            markOnboardingSkipped()
+            router.push('/login')
             setSlides(false)
           }}
           onDone={() => {
@@ -52,48 +39,40 @@ export default function Welcome() {
   }
 
   return (
-    <AuthScreen>
-      <Stack $gap={8}>
-        <Title>Моя Семья</Title>
-        <Text $tone="muted">Задания, награды, расписание и чат: всё, чтобы вся семья была на одной волне.</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
-          {FEATURES.map(([label, slide]) => (
-            <Pressable
-              key={label}
-              onPress={() => {
-                setReopened(slide)
-                setSlides(true)
-              }}
-              accessibilityRole="button"
-              style={{ paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, backgroundColor: colors.authCard }}
-            >
-              <Text $weight="bold" $size={14}>
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </Stack>
-      <Stack $gap={8}>
-        <Button variant="primary" onPress={() => router.push('/create')}>
-          Создать семью
-        </Button>
-        <Button variant="text" onPress={() => router.push('/join')}>
-          У меня есть приглашение
-        </Button>
-        <Button variant="text" onPress={() => router.push('/login')}>
-          Уже есть семья? Войти
-        </Button>
-        <Text $size={13} $tone="muted" style={{ textAlign: 'center' }}>
-          <Text $size={13} $tone="muted" onPress={() => openLegal(PRIVACY_PATH)} accessibilityRole="link" style={{ textDecorationLine: 'underline' }}>
-            Политика обработки данных
+    <AuthScreen welcome showLogo={false}>
+      <View style={{ flex: 1, justifyContent: 'space-between', paddingVertical: 20 }}>
+        <Stack style={{ alignItems: 'center' }}>
+          <Image source={require('../../../assets/images/logo-mark.png')} style={{ width: 56, height: 56 }} resizeMode="contain" accessibilityLabel="Логотип Моя Семья" />
+        </Stack>
+        <Stack $gap={10} style={{ alignItems: 'center', paddingHorizontal: 4 }}>
+          <Text $size={42} style={{ color: '#f7f5ff', textAlign: 'center', lineHeight: 50 }}>Моя Семья</Text>
+          <Text $size={19} style={{ color: '#c8c1ed', textAlign: 'center', lineHeight: 28 }}>
+            Быть ближе и заботиться{ '\n' }о важных вместе
           </Text>
-          {' · '}
-          <Text $size={13} $tone="muted" onPress={() => openLegal(TERMS_PATH)} accessibilityRole="link" style={{ textDecorationLine: 'underline' }}>
-            Пользовательское соглашение
+        </Stack>
+        <Stack $gap={12}>
+          <LinearGradient colors={['#a137ff', '#7d2cf2']} style={{ borderRadius: 999, overflow: 'hidden' }}>
+            <Button variant="primary" onPress={() => router.push('/create')} style={{ backgroundColor: 'transparent', minHeight: 56 }}>
+              Создать семью
+            </Button>
+          </LinearGradient>
+          <Button variant="secondary" labelColor="#f4f2ff" onPress={() => router.push('/join')} style={{ minHeight: 50, backgroundColor: 'rgba(33,25,91,0.45)', borderColor: 'rgba(224,212,255,0.72)' }}>
+            У меня есть приглашение
+          </Button>
+          <Button variant="text" labelColor="#dfd5ff" onPress={() => router.push('/login')}>
+            Уже есть семья? Войти
+          </Button>
+          <Text $size={12} style={{ textAlign: 'center', color: 'rgba(235,232,255,0.72)', marginTop: 18 }}>
+            <Text $size={12} onPress={() => openLegal(PRIVACY_PATH)} accessibilityRole="link" style={{ textDecorationLine: 'underline', color: 'rgba(235,232,255,0.72)' }}>
+              Политика обработки данных
+            </Text>
+            {'  ·  '}
+            <Text $size={12} onPress={() => openLegal(TERMS_PATH)} accessibilityRole="link" style={{ textDecorationLine: 'underline', color: 'rgba(235,232,255,0.72)' }}>
+              Пользовательское соглашение
+            </Text>
           </Text>
-        </Text>
-      </Stack>
+        </Stack>
+      </View>
     </AuthScreen>
   )
 }
