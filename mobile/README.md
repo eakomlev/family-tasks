@@ -10,13 +10,13 @@ npm run typecheck && npm test
 
 ## Сборка APK
 
-Каждый пуш в `main`, затрагивающий `mobile/`, запускает workflow `.github/workflows/mobile-apk.yml`: он собирает подписанный APK и кладёт его в релиз `mobile-latest`. Постоянная ссылка (открыть на телефоне и установить):
+Сборка запускается вручную: GitHub → Actions → «Мобильное приложение: сборка APK» → Run workflow. Workflow `.github/workflows/mobile-apk.yml` собирает подписанный APK и кладёт его в релиз `mobile-latest`. Постоянная ссылка (открыть на телефоне и установить):
 
 ```
 https://github.com/<владелец>/<репозиторий>/releases/download/mobile-latest/moya-semya.apk
 ```
 
-Для приватного репозитория скачивать нужно, будучи залогиненным в GitHub. Вручную собрать можно на вкладке Actions («Run workflow»). Установка вне магазина: Android попросит разрешить установку из браузера.
+Для приватного репозитория скачивать нужно, будучи залогиненным в GitHub. Установка вне магазина: Android попросит разрешить установку из браузера.
 
 ### Настройка (один раз)
 
@@ -65,7 +65,7 @@ powershell -ExecutionPolicy Bypass -File scriptsuild-apk-windows.ps1 -ApiUrl ht
 
 ## Сборка для iPhone и TestFlight
 
-Workflow `.github/workflows/mobile-ios.yml` автоматически запускается после push в `main`; локальный коммит запуска не создаёт, его нужно отправить в GitHub. Сборку также можно запустить вручную (Actions → «Мобильное приложение: сборка iOS и TestFlight» → Run workflow). Workflow собирает приложение на `macos-26` (для Swift package `apple` требуется Swift 6.2), подписывает его автоматически и отправляет в TestFlight. После обработки Apple (10–30 минут) сборка появится в App Store Connect → TestFlight. В частных репозиториях минуты macOS-раннеров считаются с множителем 10.
+Сборка запускается вручную (GitHub → Actions → «Мобильное приложение: сборка iOS и TestFlight» → Run workflow). Workflow `.github/workflows/mobile-ios.yml` собирает приложение на `macos-26` (для Swift package `apple` требуется Swift 6.2), подписывает его автоматически и отправляет в TestFlight. После обработки Apple (10–30 минут) сборка появится в App Store Connect → TestFlight. В частных репозиториях минуты macOS-раннеров считаются с множителем 10.
 
 ### Настройка (один раз)
 

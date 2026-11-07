@@ -1,14 +1,9 @@
 name: "Мобильное приложение: сборка APK"
 
-# Каждый пуш в main, затрагивающий mobile/, собирает подписанный APK и кладёт его в релиз `mobile-latest`.
+# Ручной запуск собирает подписанный APK и кладёт его в релиз `mobile-latest`.
 # Постоянная ссылка на скачивание: https://github.com/<владелец>/<репозиторий>/releases/download/mobile-latest/moya-semya.apk
 # Один раз нужно создать ключ подписи и секреты репозитория (инструкция: mobile/README.md, раздел «Сборка APK»).
 on:
-  push:
-    branches: [main]
-    paths:
-      - "mobile/**"
-      - ".github/workflows/mobile-apk.yml"
   workflow_dispatch:
 
 # новая сборка отменяет ещё идущую: нужен только свежий APK
