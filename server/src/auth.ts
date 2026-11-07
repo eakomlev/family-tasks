@@ -118,7 +118,7 @@ export async function authenticateToken(token: string) {
          select 1 from members b where b.blocked_at is not null
            and ((m.email is not null and b.email = m.email) or (m.phone is not null and b.phone = m.phone))
        )
-       and not exists (select 1 from family_deletions d where d.family_id = m.family_id)`,
+       and not exists (select 1 from family_deletions d where d.family_id = m.family_id and d.requested_by is null)`,
     [hashToken(token), SESSION_TTL_DAYS],
   )
   if (!rows[0]) return null

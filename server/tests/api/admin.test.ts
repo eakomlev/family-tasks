@@ -83,6 +83,20 @@ describe('GET /api/admin/accounts/:id', () => {
   })
 })
 
+describe('DELETE /api/admin/accounts/:id', () => {
+  it('административная заявка на удаление семьи немедленно закрывает доступ участникам', async () => {
+    const other = await createFamily()
+    try {
+      const result = await api(app, fam.mom.token, 'DELETE', `/api/admin/accounts/${other.mom.id}`)
+      expect(result.status).toBe(202)
+      expect(result.body.familyDeletion).toBe(true)
+      expect((await api(app, other.dad.token, 'GET', '/api/me')).status).toBe(401)
+    } finally {
+      await removeFamilies(other.id)
+    }
+  })
+})
+
 describe('GET /api/admin/stats', () => {
   it('администратору отдаёт сводку: аккаунты, семьи, сообщения, всего и за сегодня', async () => {
     const res = await stats(fam.mom.token)

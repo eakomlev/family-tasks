@@ -250,7 +250,7 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
         )).rows.length > 0
         const send = !contactIsBlocked && (purpose === 'signup' || (await tx.query(
           `select 1 from members m where m.${contact.column} = $1 and m.blocked_at is null
-             and not exists (select 1 from family_deletions d where d.family_id = m.family_id) limit 1`,
+             and not exists (select 1 from family_deletions d where d.family_id = m.family_id and d.requested_by is null) limit 1`,
           [contact.value],
         )).rows.length > 0)
         if (send) {
@@ -405,7 +405,7 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
              select 1 from members b where b.blocked_at is not null
                and ((m.email is not null and b.email = m.email) or (m.phone is not null and b.phone = m.phone))
            )
-           and not exists (select 1 from family_deletions d where d.family_id = m.family_id)
+           and not exists (select 1 from family_deletions d where d.family_id = m.family_id and d.requested_by is null)
          order by m.created_at`,
         [contact.value],
       )
@@ -438,7 +438,7 @@ export async function routes(app: FastifyInstance, { captcha }: { captcha: Captc
         const contactBlocked = (await db.query(
           `select 1 from members where blocked_at is not null and ${contact.column} = $1 limit 1`, [contact.value],
         )).rows.length > 0
-        if (!locked[0] || locked[0].blocked_at || contactBlocked || locked[0].family_id && (await db.query('select 1 from family_deletions where family_id = $1', [locked[0].family_id])).rows.length) {
+        if (!locked[0] || locked[0].blocked_at || contactBlocked || locked[0].family_id && (await db.query('select 1 from family_deletions where family_id = $1 and requested_by is null', [locked[0].family_id])).rows.length) {
           await db.query('rollback')
           return reply.code(401).send({ error: 'invalid_code' })
         }
