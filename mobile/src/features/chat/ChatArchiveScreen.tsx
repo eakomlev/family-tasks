@@ -25,8 +25,8 @@ export function ChatArchiveScreen() {
       {chats && archived.length === 0 && <Notice>В архиве пока ничего нет. Чат можно убрать сюда долгим нажатием на него в списке.</Notice>}
       {archived.length > 0 && identity && (
         <View>
-          {archived.map((chat) => (
-            <ChatRow key={chat.id} chat={chat} member={members.find((m) => m.id === chat.id)} members={members} me={identity.memberId} viewerRole={identity.role} now={now} />
+          {archived.map((chat, index) => (
+            <ChatRow key={chat.id} chat={chat} member={members.find((m) => m.id === chat.id)} members={members} me={identity.memberId} viewerRole={identity.role} now={now} showDivider={index < archived.length - 1} />
           ))}
         </View>
       )}

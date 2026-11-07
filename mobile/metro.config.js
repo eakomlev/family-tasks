@@ -3,11 +3,9 @@ const path = require('node:path')
 
 const config = getDefaultConfig(__dirname)
 
-// Веб-просмотр (`npm run web:preview`): у некоторых нативных пакетов нет веб-версии, подставляем заглушки (см. scripts/web-shims):
-// react-native-pager-view (листание страниц) и expo-secure-store (хранение токена входа в localStorage).
+// Веб-просмотр (`npm run web:preview`): у SecureStore нет веб-версии, для хранения токена входа используем localStorage (см. scripts/web-shims).
 // Нативные сборки (Android, iPhone) используют настоящие пакеты.
 const shims = {
-  'react-native-pager-view': path.resolve(__dirname, 'scripts/web-shims/react-native-pager-view.tsx'),
   'expo-secure-store': path.resolve(__dirname, 'scripts/web-shims/expo-secure-store.ts'),
 }
 const upstream = config.resolver.resolveRequest

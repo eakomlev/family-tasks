@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pressable, View } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import styled, { useTheme } from 'styled-components/native'
@@ -46,7 +46,7 @@ function RowMenu({ chat, onClose }: { chat: string; onClose: () => void }) {
 }
 
 // строка списка чатов: кто, последнее сообщение, время и число непрочитанных
-export function ChatRow({ chat, member, members, me, viewerRole, now }: { chat: ChatSummary; member?: Member; members: Member[]; me: string; viewerRole: Role; now: Date }) {
+export function ChatRow({ chat, member, members, me, viewerRole, now, showDivider = true }: { chat: ChatSummary; member?: Member; members: Member[]; me: string; viewerRole: Role; now: Date; showDivider?: boolean }) {
   const router = useRouter()
   const { colors } = useTheme()
   const unread = chat.unread > 0
@@ -66,7 +66,7 @@ export function ChatRow({ chat, member, members, me, viewerRole, now }: { chat: 
         }}
         delayLongPress={450}
         accessibilityRole="button"
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.chatDivider }}
+        style={{ minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 12 }}
       >
         {member ? (
           <Avatar name={memberLabel(member, viewerRole)} seed={member.id} src={member.avatar} size={54} />
@@ -75,29 +75,29 @@ export function ChatRow({ chat, member, members, me, viewerRole, now }: { chat: 
             <Ionicons name={chat.event ? 'calendar' : 'people'} size={26} color={colors.accent} />
           </FamilyIcon>
         )}
-        <View style={{ flex: 1, gap: 2 }}>
+        <View style={{ flex: 1, minHeight: 76, justifyContent: 'center', gap: 3, paddingVertical: 9, borderBottomWidth: showDivider ? StyleSheet.hairlineWidth : 0, borderBottomColor: colors.chatDivider }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text $weight={unread ? 'black' : 'extraBold'} $size={17} style={{ flexShrink: 1 }} numberOfLines={1}>
+            <Text $weight={unread ? 'black' : 'extraBold'} $size={16} style={{ flexShrink: 1 }} numberOfLines={1}>
               {chatTitle(chat.id, members, viewerRole, chat.event?.title)}
             </Text>
-            {muted && <Ionicons name="notifications-off-outline" size={14} color={colors.muted} />}
-            {mood && <Text $size={14}>{mood.emoji}</Text>}
+            {muted && <Ionicons name="notifications-off-outline" size={13} color={colors.muted} />}
+            {mood && <Text $size={13}>{mood.emoji}</Text>}
             <View style={{ flex: 1 }} />
             {status && <ReadTicks status={status} color={status === 'read' ? colors.accent : colors.muted} />}
             {chat.last && (
-              <Text $size={13} $weight={unread ? 'bold' : 'regular'} $tone={unread ? 'accent' : 'muted'}>
+              <Text $size={12} $weight={unread ? 'bold' : 'regular'} $tone={unread ? 'accent' : 'muted'}>
                 {formatChatTime(chat.last.createdAt, now)}
               </Text>
             )}
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text $size={16} $tone="muted" numberOfLines={1} style={{ flex: 1 }}>
-              {preview.prefix ? <Text $size={16} $weight="bold" $tone={preview.mine ? 'muted' : 'accent'}>{`${preview.prefix} `}</Text> : null}
+            <Text $size={14} $weight={unread ? 'bold' : 'regular'} $tone="muted" numberOfLines={1} style={{ flex: 1 }}>
+              {preview.prefix ? <Text $size={14} $weight="bold" $tone={preview.mine ? 'muted' : 'accent'}>{`${preview.prefix} `}</Text> : null}
               {preview.text}
             </Text>
             {unread && (
               <Count $muted={muted} accessibilityLabel={`Непрочитанных: ${chat.unread}`}>
-                <Text $weight="black" $size={12} style={{ color: '#ffffff' }}>
+                <Text $weight="black" $size={11} style={{ color: '#ffffff' }}>
                   {chat.unread > 99 ? '99+' : String(chat.unread)}
                 </Text>
               </Count>
@@ -117,6 +117,7 @@ export function ChatListScreen() {
   const { chats } = useChats()
   const now = useNow()
   const members = data?.members ?? []
+  const visible = chats?.filter((chat) => !chat.archived) ?? []
 
   return (
     <Screen>
@@ -126,8 +127,8 @@ export function ChatListScreen() {
       {chats && chats.length > 0 && chats.every((chat) => chat.archived) && <Notice>Все чаты в архиве. Откройте его из меню справа сверху.</Notice>}
       {chats && members.length > 0 && identity && (
         <View>
-          {chats.filter((chat) => !chat.archived).map((chat) => (
-            <ChatRow key={chat.id} chat={chat} member={members.find((m) => m.id === chat.id)} members={members} me={identity.memberId} viewerRole={identity.role} now={now} />
+          {visible.map((chat, index) => (
+            <ChatRow key={chat.id} chat={chat} member={members.find((m) => m.id === chat.id)} members={members} me={identity.memberId} viewerRole={identity.role} now={now} showDivider={index < visible.length - 1} />
           ))}
         </View>
       )}

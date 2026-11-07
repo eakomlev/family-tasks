@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { Animated, Keyboard, ScrollView, View } from 'react-native'
-import PagerView from 'react-native-pager-view'
+import { useEffect, useState } from 'react'
+import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native'
 import { Redirect, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from 'styled-components/native'
@@ -45,7 +44,7 @@ const TABS: PillTab[] = [
 ]
 
 // Страница события: две вкладки внизу. «Событие» (по умолчанию): все детали и участники, автору «Изменить» справа сверху и «Удалить».
-// «Чат»: переписка участников события; в списке чатов она появляется после первого сообщения. Вкладки листаются пальцем.
+// «Чат»: переписка участников события; в списке чатов она появляется после первого сообщения.
 export function EventViewScreen({ id, tab }: { id: string; tab?: string }) {
   const router = useRouter()
   const { colors } = useTheme()
@@ -55,16 +54,13 @@ export function EventViewScreen({ id, tab }: { id: string; tab?: string }) {
   const { chats } = useChats()
   const query = useGetEventQuery(id, { skip: !identity })
 
-  // страницы: «Событие» и «Чат»; нижняя панель следует за листанием
-  const pager = useRef<PagerView>(null)
   const startIndex = tab === 'chat' ? 1 : 0
   const [index, setIndex] = useState(startIndex)
-  const position = useRef(new Animated.Value(startIndex)).current
   // пока клавиатура открыта, нижняя панель вкладок прячется: поле ввода стоит прямо над клавиатурой
   const [keyboard, setKeyboard] = useState(false)
   useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboard(true))
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboard(false))
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboard(true))
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboard(false))
     return () => {
       show.remove()
       hide.remove()
@@ -88,6 +84,7 @@ export function EventViewScreen({ id, tab }: { id: string; tab?: string }) {
   const isAuthor = !!event && event.authorId === identity.memberId
 
   return (
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior="padding">
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top + TOP_CORNER }}>
       <View style={{ paddingHorizontal: 20, paddingBottom: 6 }}>
         <PageHeader
@@ -104,14 +101,13 @@ export function EventViewScreen({ id, tab }: { id: string; tab?: string }) {
         </PageHeader>
       </View>
 
-      <PagerView
-        ref={pager}
-        style={{ flex: 1 }}
-        initialPage={startIndex}
-        onPageScroll={(e) => position.setValue(e.nativeEvent.position + e.nativeEvent.offset)}
-        onPageSelected={(e) => setIndex(e.nativeEvent.position)}
-      >
-        <View key="event" style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
+        <View
+          pointerEvents={index === 0 ? 'auto' : 'none'}
+          accessibilityElementsHidden={index !== 0}
+          importantForAccessibility={index === 0 ? 'auto' : 'no-hide-descendants'}
+          style={[StyleSheet.absoluteFill, { opacity: index === 0 ? 1 : 0, zIndex: index === 0 ? 1 : 0 }]}
+        >
           <ScrollView contentContainerStyle={{ gap: 16, padding: 20, paddingTop: 8 }} keyboardShouldPersistTaps="handled">
             {!event && <Text $tone="muted">Загрузка…</Text>}
             {event && (
@@ -141,16 +137,22 @@ export function EventViewScreen({ id, tab }: { id: string; tab?: string }) {
           </ScrollView>
         </View>
 
-        <View key="chat" style={{ flex: 1 }}>
+        <View
+          pointerEvents={index === 1 ? 'auto' : 'none'}
+          accessibilityElementsHidden={index !== 1}
+          importantForAccessibility={index === 1 ? 'auto' : 'no-hide-descendants'}
+          style={[StyleSheet.absoluteFill, { opacity: index === 1 ? 1 : 0, zIndex: index === 1 ? 1 : 0 }]}
+        >
           {event && <ChatRoomScreen chat={chatId} embedded active={index === 1} eventTitle={event.title} />}
         </View>
-      </PagerView>
+      </View>
 
       {!keyboard && (
         <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: insets.bottom + 12 }}>
-          <PillTabs tabs={TABS.map((t) => (t.key === 'chat' && index !== 1 ? { ...t, badge: unread } : t))} index={index} position={position} onPress={(i) => pager.current?.setPage(i)} />
+          <PillTabs tabs={TABS.map((t) => (t.key === 'chat' && index !== 1 ? { ...t, badge: unread } : t))} index={index} onPress={setIndex} />
         </View>
       )}
     </View>
+    </KeyboardAvoidingView>
   )
 }

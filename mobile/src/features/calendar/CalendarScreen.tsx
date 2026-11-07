@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Animated, Pressable, RefreshControl, ScrollView, View } from 'react-native'
-import PagerView from 'react-native-pager-view'
+import { useEffect, useMemo, useState } from 'react'
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useDispatch } from 'react-redux'
@@ -109,17 +108,7 @@ export function CalendarScreen() {
   const loading = (!eventData && events.isFetching) || (!taskData && tasks.isFetching)
   const refresh = () => void dispatch(api.util.invalidateTags(['Events', 'Tasks', 'Trainings']))
 
-  // страницы День / Неделя / Месяц листаются пальцем (как главные табы), нижняя панель следует за листанием
-  const pager = useRef<PagerView>(null)
   const index = VIEWS.findIndex((v) => v.view === view)
-  const page = useRef(index)
-  const position = useRef(new Animated.Value(index)).current
-  // вид сменился снаружи (адрес, «Сегодня»): страница переходит следом
-  useEffect(() => {
-    if (page.current === index) return
-    page.current = index
-    pager.current?.setPageWithoutAnimation(index)
-  }, [index])
 
   if (!identity) return null
 
@@ -185,19 +174,13 @@ export function CalendarScreen() {
         </PageHeader>
       }
     >
-      <PagerView
-        ref={pager}
-        style={{ flex: 1 }}
-        initialPage={index}
-        onPageScroll={(e) => position.setValue(e.nativeEvent.position + e.nativeEvent.offset)}
-        onPageSelected={(e) => {
-          const next = e.nativeEvent.position
-          if (page.current === next) return
-          page.current = next
-          go(VIEWS[next].view, anchor)
-        }}
-      >
-        <View key="day" style={{ flex: 1, gap: 12 }}>
+      <View style={{ flex: 1 }}>
+        <View
+          pointerEvents={index === 0 ? 'auto' : 'none'}
+          accessibilityElementsHidden={index !== 0}
+          importantForAccessibility={index === 0 ? 'auto' : 'no-hide-descendants'}
+          style={[StyleSheet.absoluteFill, { gap: 12, opacity: index === 0 ? 1 : 0, zIndex: index === 0 ? 1 : 0 }]}
+        >
           {selector('day')}
           {legend}
           {loading && <Text $tone="muted">Загрузка…</Text>}
@@ -205,7 +188,12 @@ export function CalendarScreen() {
           <DayTimeline day={anchor} items={dayItems} now={now} isToday={anchor === today} />
         </View>
 
-        <View key="week" style={{ flex: 1, gap: 12 }}>
+        <View
+          pointerEvents={index === 1 ? 'auto' : 'none'}
+          accessibilityElementsHidden={index !== 1}
+          importantForAccessibility={index === 1 ? 'auto' : 'no-hide-descendants'}
+          style={[StyleSheet.absoluteFill, { gap: 12, opacity: index === 1 ? 1 : 0, zIndex: index === 1 ? 1 : 0 }]}
+        >
           {selector('week')}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 4 }} accessibilityLabel="Дни недели">
             {weekDays.map((day) => {
@@ -254,7 +242,12 @@ export function CalendarScreen() {
           </ScrollView>
         </View>
 
-        <View key="month" style={{ flex: 1, gap: 12 }}>
+        <View
+          pointerEvents={index === 2 ? 'auto' : 'none'}
+          accessibilityElementsHidden={index !== 2}
+          importantForAccessibility={index === 2 ? 'auto' : 'no-hide-descendants'}
+          style={[StyleSheet.absoluteFill, { gap: 12, opacity: index === 2 ? 1 : 0, zIndex: index === 2 ? 1 : 0 }]}
+        >
           {selector('month')}
           {/* сетка месяца закреплена, под ней прокручиваются записи выбранного дня */}
           <MonthView anchor={anchor} today={today} byDay={byDay} onSelect={(day) => go('month', day)} />
@@ -265,9 +258,9 @@ export function CalendarScreen() {
             {legend}
           </ScrollView>
         </View>
-      </PagerView>
+      </View>
 
-      <PillTabs tabs={VIEWS} index={index} position={position} onPress={(i) => pager.current?.setPage(i)} />
+      <PillTabs tabs={VIEWS} index={index} onPress={(i) => go(VIEWS[i].view, anchor)} />
     </Screen>
   )
 }

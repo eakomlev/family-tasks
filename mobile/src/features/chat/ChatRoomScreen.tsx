@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, LayoutAnimation, Platform, Pressable, View } from 'react-native'
+import { AppState, FlatList, KeyboardAvoidingView, Pressable, View } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
 import { Redirect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -44,10 +44,10 @@ const Header = styled.View`
   padding: 8px 12px;
 `
 
-function ChatKeyboardContainer({ children, embedded, keyboardHeight, backgroundColor }: { children: React.ReactNode; embedded: boolean; keyboardHeight: number; backgroundColor: string }) {
-  const style = { flex: 1, backgroundColor, paddingBottom: Platform.OS === 'ios' ? keyboardHeight : embedded ? keyboardHeight : 0 }
-  if (Platform.OS === 'ios') return <View style={style}>{children}</View>
-  return <KeyboardAvoidingView style={style} behavior={undefined}>{children}</KeyboardAvoidingView>
+function ChatKeyboardContainer({ children, embedded, backgroundColor }: { children: React.ReactNode; embedded: boolean; backgroundColor: string }) {
+  const style = { flex: 1, backgroundColor }
+  if (embedded) return <View style={style}>{children}</View>
+  return <KeyboardAvoidingView style={style} behavior="padding">{children}</KeyboardAvoidingView>
 }
 
 // Выдержка из сообщения для ответа: текст или, у сообщения только с вложениями, заглушка
@@ -120,34 +120,9 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   const markedRef = useRef<string | undefined>(undefined)
   // поделились из другого приложения и выбрали этот чат: полученное ложится в поле ввода (читается один раз при открытии)
   const [incoming] = useState(() => (embedded ? null : takePendingShare()))
-  // Внутри страницы события экран стоит внутри пейджера, а KeyboardAvoidingView не знает своего смещения от верха экрана и поднимает поле
-  // ввода не до конца: там отступ снизу равен части экрана под верхним краем клавиатуры (вместе с системной панелью внизу;
-  // нижняя панель вкладок на это время прячется)
-  const [keyboardHeight, setKeyboardHeight] = useState(0)
   // высота парящей шапки и панели ввода: лента идёт под них и оставляет место на их высоту
   const [topHeight, setTopHeight] = useState(0)
   const [bottomHeight, setBottomHeight] = useState(0)
-  useEffect(() => {
-    if (Platform.OS === 'ios') {
-      const updateHeight = (height: number) => {
-        LayoutAnimation.configureNext({ duration: 180, update: { type: LayoutAnimation.Types.easeInEaseOut } })
-        setKeyboardHeight(height)
-      }
-      const show = Keyboard.addListener('keyboardWillShow', (e) => updateHeight(Math.max(e.endCoordinates.height, Dimensions.get('screen').height - e.endCoordinates.screenY)))
-      const hide = Keyboard.addListener('keyboardWillHide', () => updateHeight(0))
-      return () => {
-        show.remove()
-        hide.remove()
-      }
-    }
-    if (!embedded) return
-    const show = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardHeight(Math.max(e.endCoordinates.height, Dimensions.get('screen').height - e.endCoordinates.screenY)))
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0))
-    return () => {
-      show.remove()
-      hide.remove()
-    }
-  }, [embedded])
 
   const queryError = query.error
   const missing = !!queryError && 'status' in queryError && (queryError.status === 404 || queryError.status === 400)
@@ -324,7 +299,7 @@ export function ChatRoomScreen({ chat, embedded = false, active = true, eventTit
   const otherMood = other ? currentMood(other.mood, now)?.emoji : undefined
 
   return (
-    <ChatKeyboardContainer embedded={embedded} keyboardHeight={keyboardHeight} backgroundColor={colors.bg}>
+    <ChatKeyboardContainer embedded={embedded} backgroundColor={colors.bg}>
       <View style={{ flex: 1 }}>
       {!embedded && (
       <View pointerEvents="box-none" onLayout={(e) => setTopHeight(Math.round(e.nativeEvent.layout.height))} style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 6 }}>

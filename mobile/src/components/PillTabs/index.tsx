@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Animated, Pressable, View } from 'react-native'
+import { Pressable, View } from 'react-native'
 import { BlurView } from 'expo-blur'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from 'styled-components/native'
@@ -19,9 +19,8 @@ export interface PillTab {
 const GAP = 4
 const PAD = 5
 
-// Нижняя панель-«таблетка» с несколькими вкладками (как на главных табах): золотая подложка плывёт за листанием страниц.
-// `position` это Animated.Value с дробным номером страницы (из onPageScroll пейджера), `index` выбранная вкладка.
-export function PillTabs({ tabs, index, position, onPress }: { tabs: PillTab[]; index: number; position: Animated.Value; onPress: (index: number) => void }) {
+// Компактная панель-«таблетка» для переключения представления; активная подложка стоит под выбранным пунктом.
+export function PillTabs({ tabs, index, onPress }: { tabs: PillTab[]; index: number; onPress: (index: number) => void }) {
   const { colors, fontScale, dark } = useTheme()
   const [width, setWidth] = useState(0)
   const tabWidth = width > 0 ? (width - 2 * PAD - 2 - GAP * (tabs.length - 1)) / tabs.length : 0
@@ -49,17 +48,16 @@ export function PillTabs({ tabs, index, position, onPress }: { tabs: PillTab[]; 
         <BlurView intensity={30} tint={dark ? 'dark' : 'light'} experimentalBlurMethod="dimezisBlurView" style={{ flex: 1 }} />
       </View>
       {tabWidth > 0 && (
-        <Animated.View
+        <View
           pointerEvents="none"
           style={{
             position: 'absolute',
-            left: PAD,
+            left: PAD + index * (tabWidth + GAP),
             top: PAD,
             bottom: PAD,
             width: tabWidth,
             borderRadius: 23,
             backgroundColor: colors.tabbarActiveBg,
-            transform: [{ translateX: position.interpolate({ inputRange: [0, Math.max(1, tabs.length - 1)], outputRange: [0, Math.max(1, tabs.length - 1) * (tabWidth + GAP)], extrapolate: 'clamp' }) }],
           }}
         />
       )}

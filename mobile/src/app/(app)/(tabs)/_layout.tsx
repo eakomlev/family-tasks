@@ -1,6 +1,6 @@
 import { useCallback, useContext, useRef, useState } from 'react'
-import { Animated, Pressable, Text, View } from 'react-native'
-import { TopTabs, type MaterialTopTabBarProps } from 'expo-router/js-top-tabs'
+import { Pressable, Text, View } from 'react-native'
+import { Tabs } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { BlurView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -36,13 +36,15 @@ function useTaskBadge(): number | undefined {
   return count > 0 ? count : undefined
 }
 
-type BarProps = MaterialTopTabBarProps & {
+type BarProps = {
+  state: { routes: { key: string; name: string }[]; index: number }
+  navigateToTab: (routeKey: string) => void
   badges: Record<string, number | undefined>
 }
 
 // Плавающая тёмная панель табов («Квест»): значки и подписи; выбранный таб лежит на золотой капсуле (цвет домика на значке) с тёмным значком, остальные приглушены.
 // Лежит поверх листаемых страниц.
-function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
+function FloatingTabBar({ state, navigateToTab, badges }: BarProps) {
   const { colors, dark, fontScale } = useTheme()
   const blurContext = useContext(TabBarBlurContext)
   const insets = useSafeAreaInsets()
@@ -86,17 +88,16 @@ function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
           />
         </View>
         {tabWidth > 0 && (
-          <Animated.View
+          <View
             pointerEvents="none"
             style={{
               position: 'absolute',
-              left: PAD,
+              left: PAD + state.index * (tabWidth + GAP),
               top: PAD,
               bottom: PAD,
               width: tabWidth,
               borderRadius: 27,
               backgroundColor: colors.tabbarActiveBg,
-              transform: [{ translateX: position.interpolate({ inputRange: [0, count - 1], outputRange: [0, (count - 1) * (tabWidth + GAP)], extrapolate: 'clamp' }) }],
             }}
           />
         )}
@@ -161,7 +162,7 @@ function FloatingTabBar({ state, navigateToTab, badges, position }: BarProps) {
   )
 }
 
-// Четыре главных раздела (у ребёнка три, без «Задач»): страницы листаются пальцем влево и вправо (как страницы), панель табов плавающая. Остальные экраны (задание,
+// Четыре главных раздела (у ребёнка три, без «Задач») используют стандартный bottom-tab navigator Expo Router и нашу плавающую панель. Остальные экраны (задание,
 // переписка, профиль, календарь…) лежат рядом, в `(app)`, общим стеком поверх табов: скрытые вкладки в Expo Router не открываются.
 export default function TabsLayout() {
   const { colors } = useTheme()
@@ -175,19 +176,24 @@ export default function TabsLayout() {
 
   return (
     <TabBarBlurContext.Provider value={{ target: blurTarget, setTarget }}>
-      {/* Позднее добавление вкладки пересоздаёт SwiftUI TabView внутри PagerView и может уронить iOS; быстрые повторные нажатия тоже пропускаем на 250 мс. */}
-      <TopTabs tabBarPosition="bottom" tabBar={(props) => <FloatingTabBar {...props} badges={badges} />} screenOptions={{ swipeEnabled: true, lazy: false, animationEnabled: false, sceneStyle: { backgroundColor: colors.bg } }}>
+      <Tabs
+        tabBar={(props) => <FloatingTabBar {...props} badges={badges} />}
+        screenOptions={{
+          headerShown: false,
+          sceneStyle: { backgroundColor: colors.bg },
+        }}
+      >
         {/* у ребёнка вкладки «Задачи» нет: его задания на «Моём дне» */}
         {TABS.map((tab) =>
           tab.name === 'tasks' ? (
-            <TopTabs.Protected key={tab.name} guard={!isChild}>
-              <TopTabs.Screen name={tab.name} options={{ title: tab.title }} />
-            </TopTabs.Protected>
+            <Tabs.Protected key={tab.name} guard={!isChild}>
+              <Tabs.Screen name={tab.name} options={{ title: tab.title }} />
+            </Tabs.Protected>
           ) : (
-            <TopTabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />
+            <Tabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />
           ),
         )}
-      </TopTabs>
+      </Tabs>
     </TabBarBlurContext.Provider>
   )
 }

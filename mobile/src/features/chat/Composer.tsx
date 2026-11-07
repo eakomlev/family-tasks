@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Image, Keyboard, Pressable, ScrollView, TextInput, View } from 'react-native'
+import { Image, Keyboard, Platform, Pressable, ScrollView, TextInput, View } from 'react-native'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -146,8 +146,8 @@ export function Composer({ onSend, onUpload, onUploadFile, onUploadVideo, flushB
   const alive = useRef(true)
 
   useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboard(true))
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboard(false))
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboard(true))
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboard(false))
     return () => {
       show.remove()
       hide.remove()

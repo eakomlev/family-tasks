@@ -38,7 +38,7 @@ export function Screen({ children, bottomReserve, refreshControl, scroll = true,
   const blurTargetRef = useRef<ComponentRef<typeof View>>(null)
   const focusedRef = useRef(focused)
   focusedRef.current = focused
-  // повторное нажатие на таб прокручивает открытый экран в начало (соседние страницы пейджера не трогаем)
+  // повторное нажатие на таб прокручивает активный экран в начало
   useEffect(() => onTabReselect(() => focusedRef.current && scrollRef.current?.scrollTo({ y: 0, animated: true })), [])
   useEffect(() => {
     if (!tabBarVisible(pathname) || !focused || !setBlurTarget) return
